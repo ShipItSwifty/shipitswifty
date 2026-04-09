@@ -1,0 +1,202 @@
+import OSLog
+import SwiftyShell
+
+/// Performs Git operations via SwiftyShell.
+///
+/// Supports status checks, committing version bumps, tagging releases,
+/// and pushing to remote.
+///
+/// ## Usage
+/// ```swift
+/// let result = try await GitAction().run(
+///     with: .init(operation: .ensureClean),
+///     context: context
+/// )
+/// ```
+public struct GitAction: Action {
+    public static let name = "git"
+    public static let description = "Git operations — status checks, tagging, committing"
+
+    private let logger = Logger.forType(subsystem: "ShipItSwifty", GitAction.self)
+
+    /// Creates a `GitAction`.
+    public init() {}
+
+    /// Git operations.
+    public enum GitOperation: String, Codable, Sendable {
+        /// Fail if the working tree is not clean.
+        case ensureClean
+        /// Create an annotated git tag.
+        case tag
+        /// Commit all staged changes.
+        case commit
+        /// Push commits and tags to remote.
+        case push
+        /// Get the latest git log.
+        case log
+        /// Get the current commit hash.
+        case hash
+    }
+
+    /// Configuration for the git action.
+    public struct Options: Codable, Sendable {
+        /// Operation to perform.
+        public var operation: GitOperation
+
+        /// Tag name (for `tag` operation).
+        public var tagName: String?
+
+        /// Tag message (for annotated tags).
+        public var tagMessage: String?
+
+        /// Commit message (for `commit` operation).
+        public var commitMessage: String?
+
+        /// Remote name (for `push` operation, default: `origin`).
+        public var remote: String?
+
+        /// Whether to push tags when pushing.
+        public var pushTags: Bool?
+
+        /// Creates `Options` for the git action.
+        ///
+        /// - Parameter operation: The git operation to perform.
+        public init(
+            operation: GitOperation = .ensureClean,
+            tagName: String? = nil,
+            tagMessage: String? = nil,
+            commitMessage: String? = nil,
+            remote: String? = nil,
+            pushTags: Bool? = nil
+        ) {
+            self.operation = operation
+            self.tagName = tagName
+            self.tagMessage = tagMessage
+            self.commitMessage = commitMessage
+            self.remote = remote
+            self.pushTags = pushTags
+        }
+    }
+
+    /// Result of a git operation.
+    public struct Result: Codable, Sendable {
+        /// Output from the git command.
+        public let output: String
+
+        /// Whether the working tree is clean (for `ensureClean`).
+        public let isClean: Bool?
+
+        /// Creates a `Result`.
+        public init(output: String, isClean: Bool? = nil) {
+            self.output = output
+            self.isClean = isClean
+        }
+    }
+
+    public func run(with options: Options, context: ActionContext) async throws -> Result {
+        logger.info("Git operation: \(options.operation.rawValue)")
+
+        switch options.operation {
+        case .ensureClean:
+            return try await ensureClean(context: context)
+        case .tag:
+            return try await createTag(options: options, context: context)
+        case .commit:
+            return try await createCommit(options: options, context: context)
+        case .push:
+            return try await push(options: options, context: context)
+        case .log:
+            return try await getLog(context: context)
+        case .hash:
+            return try await getHash(context: context)
+        }
+    }
+
+    // MARK: - Operations
+
+    private func ensureClean(context: ActionContext) async throws -> Result {
+        // TODO: verify SwiftyShell API
+        let output = try await Command("git", "status", "--porcelain").run(in: context.shell)
+        let isClean = output.stdout.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+
+        if !isClean {
+            throw ShipItError.invalidConfiguration(
+                reason: "Working tree is not clean. Commit or stash changes before proceeding.\n\(output.stdout)"
+            )
+        }
+
+        logger.info("Git working tree is clean")
+        return Result(output: output.stdout, isClean: true)
+    }
+
+    private func createTag(options: Options, context: ActionContext) async throws -> Result {
+        guard let tagName = options.tagName else {
+            throw ShipItError.invalidConfiguration(reason: "git tag requires a tag name. Set tag_name in the workflow step options.")
+        }
+
+        let message = options.tagMessage ?? tagName
+        logger.info("Creating git tag: \(tagName)")
+
+        // TODO: verify SwiftyShell API
+        let output = try await Command("git", "tag", "-a", tagName, "-m", message).run(in: context.shell)
+
+        if output.exitCode != 0 {
+            throw ShipItError.invalidConfiguration(reason: "git tag failed: \(output.stderr)")
+        }
+
+        return Result(output: output.stdout)
+    }
+
+    private func createCommit(options: Options, context: ActionContext) async throws -> Result {
+        guard let message = options.commitMessage else {
+            throw ShipItError.invalidConfiguration(reason: "git commit requires a commit message. Set commit_message in the workflow step options.")
+        }
+
+        logger.info("Creating git commit: \(message)")
+
+        // TODO: verify SwiftyShell API
+        let addOutput = try await Command("git", "add", "-A").run(in: context.shell)
+        if addOutput.exitCode != 0 {
+            throw ShipItError.invalidConfiguration(reason: "git add failed: \(addOutput.stderr)")
+        }
+
+        let commitOutput = try await Command("git", "commit", "-m", message).run(in: context.shell)
+        if commitOutput.exitCode != 0 {
+            throw ShipItError.invalidConfiguration(reason: "git commit failed: \(commitOutput.stderr)")
+        }
+
+        return Result(output: commitOutput.stdout)
+    }
+
+    private func push(options: Options, context: ActionContext) async throws -> Result {
+        let remote = options.remote ?? "origin"
+        logger.info("Pushing to \(remote)")
+
+        // TODO: verify SwiftyShell API
+        let pushOutput = try await Command("git", "push", remote).run(in: context.shell)
+        if pushOutput.exitCode != 0 {
+            throw ShipItError.invalidConfiguration(reason: "git push failed: \(pushOutput.stderr)")
+        }
+
+        if options.pushTags == true {
+            let tagsOutput = try await Command("git", "push", remote, "--tags").run(in: context.shell)
+            if tagsOutput.exitCode != 0 {
+                throw ShipItError.invalidConfiguration(reason: "git push --tags failed: \(tagsOutput.stderr)")
+            }
+        }
+
+        return Result(output: pushOutput.stdout)
+    }
+
+    private func getLog(context: ActionContext) async throws -> Result {
+        // TODO: verify SwiftyShell API
+        let output = try await Command("git", "log", "--oneline", "-20").run(in: context.shell)
+        return Result(output: output.stdout)
+    }
+
+    private func getHash(context: ActionContext) async throws -> Result {
+        // TODO: verify SwiftyShell API
+        let output = try await Command("git", "rev-parse", "HEAD").run(in: context.shell)
+        return Result(output: output.stdout.trimmingCharacters(in: .whitespacesAndNewlines))
+    }
+}
