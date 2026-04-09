@@ -1,0 +1,233 @@
+import Foundation
+import Testing
+import SwiftyShell
+@testable import ShipItKit
+
+@Suite("ConfigResolver")
+struct ConfigResolverTests {
+
+    @Test("Environment overrides shipfile values")
+    func environmentOverridesShipfile() async throws {
+        let tempDirectory = try makeTempDirectory()
+        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+
+        let shipfileURL = tempDirectory.appendingPathComponent("Shipfile.yml")
+        try """
+        app:
+          workspace: Example.xcworkspace
+          scheme: ShipfileScheme
+          bundle_id: com.example.shipfile
+        build:
+          configuration: Debug
+        versioning:
+          strategy: sequential
+        """.write(to: shipfileURL, atomically: true, encoding: .utf8)
+
+        let environment = Environment(env: [
+            "SHIPIT_APP__WORKSPACE": "Env.xcworkspace",
+            "SHIPIT_APP__SCHEME": "EnvScheme",
+            "SHIPIT_APP__BUNDLE_ID": "com.example.env",
+            "SHIPIT_APP__TEAM_ID": "ENVTEAM123",
+            "SHIPIT_BUILD__CONFIGURATION": "Release",
+            "ASC_KEY_ID": "ENVKEY",
+            "ASC_ISSUER_ID": "ENVISSUER",
+        ])
+        let resolver = ConfigResolver(environment: environment)
+
+        let config = try await resolver.resolve(shipfilePath: shipfileURL.path)
+
+        #expect(config.appScheme == "EnvScheme")
+        #expect(config.appWorkspace == "Env.xcworkspace")
+        #expect(config.bundleID == "com.example.env")
+        #expect(config.teamID == "ENVTEAM123")
+        #expect(config.buildConfiguration == "Release")
+        #expect(config.ascKeyID == "ENVKEY")
+        #expect(config.ascIssuerID == "ENVISSUER")
+    }
+
+    @Test("CLI overrides environment and shipfile values")
+    func cliOverridesEnvironment() async throws {
+        let tempDirectory = try makeTempDirectory()
+        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+
+        let shipfileURL = tempDirectory.appendingPathComponent("Shipfile.yml")
+        try """
+        app:
+          scheme: ShipfileScheme
+        build:
+          configuration: Debug
+        """.write(to: shipfileURL, atomically: true, encoding: .utf8)
+
+        let environment = Environment(env: [
+            "SHIPIT_APP__SCHEME": "EnvScheme",
+            "SHIPIT_BUILD__CONFIGURATION": "Release",
+        ])
+        let resolver = ConfigResolver(environment: environment)
+
+        let config = try await resolver.resolve(
+            cliOptions: CLIOptions(scheme: "CLIScheme", configuration: "Profile"),
+            shipfilePath: shipfileURL.path
+        )
+
+        #expect(config.appScheme == "CLIScheme")
+        #expect(config.buildConfiguration == "Profile")
+    }
+
+    @Test("CLI scheme override preserves workspace resolution")
+    func cliSchemePreservesWorkspace() async throws {
+        let tempDirectory = try makeTempDirectory()
+        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+
+        let shipfileURL = tempDirectory.appendingPathComponent("Shipfile.yml")
+        try """
+        app:
+          workspace: Example.xcworkspace
+          scheme: ShipfileScheme
+        """.write(to: shipfileURL, atomically: true, encoding: .utf8)
+
+        let resolver = ConfigResolver(environment: Environment())
+
+        let config = try await resolver.resolve(
+            cliOptions: CLIOptions(scheme: "CLIScheme"),
+            shipfilePath: shipfileURL.path
+        )
+
+        #expect(config.appScheme == "CLIScheme")
+        #expect(config.appWorkspace == "Example.xcworkspace")
+    }
+
+    @Test("Raw ASC private key environment is loaded")
+    func privateKeyFromEnvironment() async throws {
+        let resolver = ConfigResolver(environment: Environment(env: [
+            "ASC_PRIVATE_KEY": "PRIVATE-KEY-DATA"
+        ]))
+
+        let config = try await resolver.resolve(shipfilePath: "/tmp/does-not-exist.yml")
+
+        #expect(config.ascPrivateKeyData == Data("PRIVATE-KEY-DATA".utf8))
+    }
+
+    @Test("Shipfile raw ASC private key is loaded")
+    func privateKeyFromShipfile() async throws {
+        let tempDirectory = try makeTempDirectory()
+        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+
+        let shipfileURL = tempDirectory.appendingPathComponent("Shipfile.yml")
+        try """
+        app:
+          project: Example.xcodeproj
+          scheme: Example
+        app_store_connect:
+          key_id: KEY
+          issuer_id: ISSUER
+          private_key: PRIVATE-KEY-DATA
+        """.write(to: shipfileURL, atomically: true, encoding: .utf8)
+
+        let resolver = ConfigResolver(environment: Environment())
+        let config = try await resolver.resolve(shipfilePath: shipfileURL.path)
+
+        #expect(config.ascPrivateKeyData == Data("PRIVATE-KEY-DATA".utf8))
+    }
+
+    @Test("Processed files include Shipfile and ASC key file")
+    func processedFilesIncludeLoadedConfigFiles() async throws {
+        let tempDirectory = try makeTempDirectory()
+        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+
+        let privateKeyURL = tempDirectory.appendingPathComponent("AuthKey_TEST.p8")
+        try "PRIVATE-KEY-DATA".write(to: privateKeyURL, atomically: true, encoding: .utf8)
+
+        let shipfileURL = tempDirectory.appendingPathComponent("Shipfile.yml")
+        try """
+        app:
+          project: Example.xcodeproj
+          scheme: Example
+        app_store_connect:
+          key_id: KEY
+          issuer_id: ISSUER
+          key_path: \(privateKeyURL.path)
+        """.write(to: shipfileURL, atomically: true, encoding: .utf8)
+
+        let resolver = ConfigResolver(environment: Environment())
+        let config = try await resolver.resolve(shipfilePath: shipfileURL.path)
+
+        #expect(config.processedFiles == [shipfileURL.path, privateKeyURL.path])
+    }
+
+    @Test("Processed files stay empty when no files are loaded")
+    func processedFilesEmptyWhenNoFilesLoaded() async throws {
+        let resolver = ConfigResolver(environment: Environment(env: [
+            "ASC_PRIVATE_KEY": "PRIVATE-KEY-DATA"
+        ]))
+
+        let config = try await resolver.resolve(shipfilePath: "/tmp/does-not-exist.yml")
+
+        #expect(config.processedFiles.isEmpty)
+    }
+
+    @Test("Bundle ID and team ID are inferred from Xcode build settings")
+    func infersBundleIDAndTeamIDFromBuildSettings() async throws {
+        let executor = MockExecutor { command, _ in
+            #expect(command.executableName == "xcodebuild")
+            #expect(command.arguments.contains("-showBuildSettings"))
+            return ShellOutput(
+                stdout: """
+                Build settings for action build and target Example:\n
+                    PRODUCT_BUNDLE_IDENTIFIER = com.example.detected\n
+                    DEVELOPMENT_TEAM = DETECTTEAM\n
+                """,
+                stderr: "",
+                exitCode: 0
+            )
+        }
+
+        let resolver = ConfigResolver(
+            environment: Environment(),
+            shell: ShellContext(executor: executor)
+        )
+
+        let tempDirectory = try makeTempDirectory()
+        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+
+        let shipfileURL = tempDirectory.appendingPathComponent("Shipfile.yml")
+        try """
+        app:
+          project: Example.xcodeproj
+          scheme: Example
+        """.write(to: shipfileURL, atomically: true, encoding: .utf8)
+
+        let config = try await resolver.resolve(shipfilePath: shipfileURL.path)
+
+        #expect(config.bundleID == "com.example.detected")
+        #expect(config.bundleIDFromTargetBuildSettings)
+        #expect(config.teamID == "DETECTTEAM")
+        #expect(config.teamIDFromTargetBuildSettings)
+    }
+
+    @Test("Automatic code signing flag resolves from Shipfile")
+    func automaticCodeSigningFromShipfile() async throws {
+        let tempDirectory = try makeTempDirectory()
+        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+
+        let shipfileURL = tempDirectory.appendingPathComponent("Shipfile.yml")
+        try """
+        app:
+          project: Example.xcodeproj
+          scheme: Example
+        code_signing:
+          type: automatic
+        """.write(to: shipfileURL, atomically: true, encoding: .utf8)
+
+        let resolver = ConfigResolver(environment: Environment())
+        let config = try await resolver.resolve(shipfilePath: shipfileURL.path)
+
+        #expect(config.codeSigningType == "automatic")
+        #expect(config.automaticCodeSigning)
+    }
+
+    private func makeTempDirectory() throws -> URL {
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+        return url
+    }
+}
