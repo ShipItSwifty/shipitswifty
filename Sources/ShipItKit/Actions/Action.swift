@@ -1,0 +1,130 @@
+import Foundation
+
+/// A discrete, composable unit of work in the release pipeline.
+///
+/// Actions are the fundamental building block of ShipItSwifty.
+/// Each action performs a single well-defined task (build, sign, upload, etc.)
+/// and can be composed into workflows for release automation.
+///
+/// ## Conformance
+/// Provide a human-readable `name`, declare `Options` for configuration,
+/// and implement `run(with:context:)` to perform the work.
+///
+/// ## Example
+/// ```swift
+/// struct MyAction: Action {
+///     static let name = "my-action"
+///     static let description = "Does something useful"
+///     struct Options: Codable, Sendable { var verbose: Bool = false }
+///     struct Result: Codable, Sendable { var message: String }
+///     func run(with options: Options, context: ActionContext) async throws -> Result {
+///         return Result(message: "Done!")
+///     }
+/// }
+/// ```
+public protocol Action: Sendable {
+    /// The typed configuration for this action, decoded from Shipfile YAML or CLI flags.
+    associatedtype Options: Codable & Sendable
+
+    /// The typed result returned after this action completes.
+    associatedtype Result: Codable & Sendable
+
+    /// Human-readable identifier, e.g. `"build"`, `"upload"`.
+    static var name: String { get }
+
+    /// Long-form description for `--help` output and documentation.
+    static var description: String { get }
+
+    /// Execute the action with the given options.
+    ///
+    /// - Parameters:
+    ///   - options: Decoded from Shipfile, CLI flags, or environment.
+    ///   - context: Shared execution context (shell, logger, config).
+    /// - Returns: A typed, `Codable` result.
+    /// - Throws: `ShipItError` variants appropriate to the action type.
+    func run(with options: Options, context: ActionContext) async throws -> Result
+}
+
+extension Action {
+    /// Creates a type-erased `ActionDescriptor` for registering this action in `ActionRegistry`.
+    ///
+    /// The descriptor captures the action's `run(with:context:)` implementation,
+    /// decoding JSON options at runtime and wrapping results in `ActionResultEnvelope`.
+    public static func descriptor(for instance: Self) -> ActionDescriptor {
+        ActionDescriptor(
+            name: Self.name,
+            description: Self.description,
+            runJSON: { optionsJSON, context in
+                let options: Options
+                let decoder = JSONDecoder()
+                decoder.keyDecodingStrategy = .convertFromSnakeCase
+                if let json = optionsJSON {
+                    let data = try JSONEncoder().encode(json)
+                    options = try decoder.decode(Options.self, from: data)
+                } else {
+                    let data = try JSONEncoder().encode(JSONValue.object([:]))
+                    options = try decoder.decode(Options.self, from: data)
+                }
+                let result = try await instance.run(with: options, context: context)
+                let resultData = try JSONEncoder().encode(result)
+                let resultJSON = try JSONDecoder().decode(JSONValue.self, from: resultData)
+                return ActionResultEnvelope(action: Self.name, status: "success", payload: resultJSON)
+            }
+        )
+    }
+}
+
+/// Type-erased registration metadata used by CLI commands, Shipfile workflows,
+/// and plugins to resolve actions by name at runtime.
+public struct ActionDescriptor: Sendable {
+    /// The unique action name (matches `Action.name`).
+    public let name: String
+
+    /// Human-readable description of the action.
+    public let description: String
+
+    /// Type-erased execution closure. Accepts optional JSON options and returns a result envelope.
+    public let runJSON: @Sendable (_ options: JSONValue?, _ context: ActionContext) async throws -> ActionResultEnvelope
+
+    /// Creates an `ActionDescriptor`.
+    ///
+    /// - Parameters:
+    ///   - name: The unique identifier for this action.
+    ///   - description: Human-readable description.
+    ///   - runJSON: Type-erased execution closure.
+    public init(
+        name: String,
+        description: String,
+        runJSON: @Sendable @escaping (_ options: JSONValue?, _ context: ActionContext) async throws -> ActionResultEnvelope
+    ) {
+        self.name = name
+        self.description = description
+        self.runJSON = runJSON
+    }
+}
+
+/// Standardized result wrapper emitted by the CLI and workflow runner.
+///
+/// Encodes action outcomes as a JSON-serializable envelope for `--output json` mode.
+public struct ActionResultEnvelope: Codable, Sendable {
+    /// The name of the action that produced this result.
+    public let action: String
+
+    /// Outcome status: `"success"` or `"failure"`.
+    public let status: String
+
+    /// The typed result payload, or `nil` for void-result actions.
+    public let payload: JSONValue?
+
+    /// Creates an `ActionResultEnvelope`.
+    ///
+    /// - Parameters:
+    ///   - action: The name of the action that produced this result.
+    ///   - status: Outcome string — `"success"` or `"failure"`.
+    ///   - payload: Optional typed result payload.
+    public init(action: String, status: String, payload: JSONValue?) {
+        self.action = action
+        self.status = status
+        self.payload = payload
+    }
+}
