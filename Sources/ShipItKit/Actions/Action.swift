@@ -50,10 +50,11 @@ extension Action {
     ///
     /// The descriptor captures the action's `run(with:context:)` implementation,
     /// decoding JSON options at runtime and wrapping results in `ActionResultEnvelope`.
-    public static func descriptor(for instance: Self) -> ActionDescriptor {
+    public static func descriptor(for instance: Self, optionSchema: [SchemaField] = []) -> ActionDescriptor {
         ActionDescriptor(
             name: Self.name,
             description: Self.description,
+            optionSchema: optionSchema,
             runJSON: { optionsJSON, context in
                 let options: Options
                 let decoder = JSONDecoder()
@@ -83,6 +84,9 @@ public struct ActionDescriptor: Sendable {
     /// Human-readable description of the action.
     public let description: String
 
+    /// Machine-readable workflow option schema for this action.
+    public let optionSchema: [SchemaField]
+
     /// Type-erased execution closure. Accepts optional JSON options and returns a result envelope.
     public let runJSON: @Sendable (_ options: JSONValue?, _ context: ActionContext) async throws -> ActionResultEnvelope
 
@@ -95,10 +99,12 @@ public struct ActionDescriptor: Sendable {
     public init(
         name: String,
         description: String,
+        optionSchema: [SchemaField] = [],
         runJSON: @Sendable @escaping (_ options: JSONValue?, _ context: ActionContext) async throws -> ActionResultEnvelope
     ) {
         self.name = name
         self.description = description
+        self.optionSchema = optionSchema
         self.runJSON = runJSON
     }
 }

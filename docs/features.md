@@ -6,7 +6,7 @@ This document covers the planned feature surface, current v1 scope, the long-ter
 
 | Area | Included in v1.0 | Deferred |
 |---|---|---|
-| **CLI** | `init`, `build`, `test`, `archive`, `export`, `sign sync`, `testflight`, `metadata`, `version`, `run`, `env`, `doctor` | Advanced git automation, PR creation, sales/finance reporting |
+| **CLI** | `init`, `schema`, `inspect project`, `suggest-config`, `validate`, `build`, `test`, `archive`, `export`, `sign sync`, `testflight`, `metadata`, `version`, `run`, `env`, `doctor` | Advanced git automation, PR creation, sales/finance reporting |
 | **Code signing** | Vault-style sync from Git-backed encrypted storage | S3/GCS backends, certificate lifecycle beyond core sync |
 | **Distribution** | TestFlight upload, metadata push/pull, App Store submission primitives | Full review automation coverage |
 | **Screenshots** | Capture + upload basics | Framing, visual diffing, preview video processing |
@@ -15,6 +15,16 @@ This document covers the planned feature surface, current v1 scope, the long-ter
 ---
 
 ## Feature catalog
+
+### AI-assisted configuration
+
+| Feature | Description |
+|---|---|
+| **Schema export** | `shipit schema --output json` exposes the full Shipfile and workflow action contract for automation tools |
+| **Project inspection** | `shipit inspect project --output json` discovers workspaces, projects, schemes, bundle IDs, team IDs, and related release files |
+| **Config suggestion** | `shipit suggest-config --goal <local|beta|release>` produces a YAML draft plus missing-value hints |
+| **Bootstrap response** | `shipit ai-bootstrap --goal <local|beta|release>` bundles inspection, schema, suggestion, and validation in one machine-readable response |
+| **Validation** | `shipit validate` checks YAML parsing, top-level schema, workflow action options, and common semantic mistakes |
 
 ### Building
 

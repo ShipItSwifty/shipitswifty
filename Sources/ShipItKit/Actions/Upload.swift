@@ -68,7 +68,7 @@ public struct UploadAction: Action {
     }
 
     public func run(with options: Options, context: ActionContext) async throws -> Result {
-        guard let ipaPath = options.ipaPath else {
+        guard let ipaPath = options.ipaPath ?? locateExportedIPA(context: context) else {
             throw ShipItError.invalidConfiguration(reason: "Upload requires an IPA path. Pass --ipa /path/to/App.ipa.")
         }
         guard let bundleID = context.config.bundleID else {
@@ -101,5 +101,16 @@ public struct UploadAction: Action {
                 ? "Successfully uploaded IPA to App Store Connect"
                 : "Successfully uploaded IPA and created App Review submission"
         )
+    }
+
+    private func locateExportedIPA(context: ActionContext) -> String? {
+        let outputDirectory = context.config.exportOutputDirectory ?? "./build/export"
+        guard let contents = try? FileManager.default.contentsOfDirectory(atPath: outputDirectory) else {
+            return nil
+        }
+        guard let ipaName = contents.sorted().first(where: { $0.hasSuffix(".ipa") }) else {
+            return nil
+        }
+        return (outputDirectory as NSString).appendingPathComponent(ipaName)
     }
 }

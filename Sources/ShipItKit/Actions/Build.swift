@@ -150,7 +150,18 @@ public struct BuildAction: Action {
         }
         xcodeBuild = xcodeBuild.trailingArgument("build")
 
-        let output = try await xcodeBuild.run()
+        let output: ShellOutput
+        do {
+            output = try await xcodeBuild.run()
+        } catch let ShellError.exitFailure(_, output) {
+            logger.error("Build failed with exit code \(output.exitCode)")
+            throw ShipItError.buildFailed(
+                exitCode: Int(output.exitCode),
+                log: [output.stdout, output.stderr]
+                    .filter { !$0.isEmpty }
+                    .joined(separator: "\n")
+            )
+        }
 
         if output.exitCode != 0 {
             logger.error("Build failed with exit code \(output.exitCode)")

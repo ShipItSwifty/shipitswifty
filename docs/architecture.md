@@ -5,7 +5,7 @@ ShipItSwifty is a pure-Swift CLI toolkit for automating iOS app release workflow
 | Principle | Detail |
 |---|---|
 | **Swift-native** | Swift 6, `async/await`, actors, `Sendable` throughout. No Ruby. |
-| **Shell-powered** | [SwiftyShell](../../SwiftyShell) for type-safe, testable shell operations. |
+| **Shell-powered** | `SwiftyShell` for type-safe, testable shell operations. |
 | **CI-first** | Non-interactive by default, machine-readable JSON output, meaningful exit codes. |
 | **Local-first** | Same commands on dev Mac and CI. Future server is a separate package on top of `ShipItKit`. |
 | **Extensible** | Static-link plugin architecture — add custom actions without forking the core. |
@@ -83,7 +83,7 @@ Shipfile.yml / CLI flags / env vars
 // swiftLanguageModes: [.v6]
 
 dependencies: [
-    .package(path: "../SwiftyShell"),                                        // shell execution
+    .package(url: "https://github.com/maniramezan/swiftyshell", branch: "main"), // shell execution
     .package(url: "https://github.com/apple/swift-argument-parser", from: "1.5.0"),
     .package(url: "https://github.com/vapor/jwt-kit", from: "5.0.0"),       // ES256 JWT
     .package(url: "https://github.com/jpsim/Yams", from: "5.0.0"),          // YAML config
@@ -239,6 +239,11 @@ shipit <command> [global options]
 
 COMMANDS:
   init          Interactive project setup — generates Shipfile.yml
+  schema        Print machine-readable Shipfile and workflow schema
+  inspect       Inspect project facts for AI-assisted config generation
+  suggest-config Generate a suggested Shipfile for local, beta, or release goals
+  ai-bootstrap  Bundle inspect, schema, suggestion, and validation in one response
+  validate      Validate Shipfile syntax, schema, and workflow semantics
   build         Compile the app (xcodebuild build)
   test          Run tests (xcodebuild test)
   archive       Archive the app (xcodebuild archive)
@@ -295,6 +300,25 @@ GLOBAL OPTIONS:
     "warnings": 3
   }
 }
+```
+
+### AI-friendly config workflow
+
+```bash
+# 0. One-shot AI bootstrap response
+swift run shipit ai-bootstrap --goal beta --output json
+
+# 1. Inspect the repo for real Xcode facts
+swift run shipit inspect project --output json
+
+# 2. Fetch the full config and workflow schema
+swift run shipit schema --output json
+
+# 3. Generate a suggested Shipfile for a goal
+swift run shipit suggest-config --goal beta --output json
+
+# 4. Validate the generated Shipfile before execution
+swift run shipit validate --shipfile ./Shipfile.yml --output json
 ```
 
 ---
