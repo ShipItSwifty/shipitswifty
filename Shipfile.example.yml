@@ -1,0 +1,88 @@
+# Shipfile.yml — ShipItSwifty example configuration
+# This file mirrors the currently implemented configuration surface.
+
+app:
+  workspace: MyApp.xcworkspace
+  scheme: MyApp
+  # bundle_id: com.example.myapp  # Optional; auto-detected from Xcode if omitted
+  # team_id: ABCDE12345           # Optional; auto-detected from Xcode if omitted
+
+app_store_connect:
+  key_id: ${ASC_KEY_ID}
+  issuer_id: ${ASC_ISSUER_ID}
+  key_path: ./.secrets/AuthKey_XXXXXXXXXX.p8
+
+code_signing:
+  type: automatic
+  # For ShipIt-managed signing instead, switch to `vault` or `manual`.
+  # storage: git
+  # git_url: git@github.com:yourteam/certs.git
+  # app_identifier: com.example.myapp
+  # profile_type: appstore
+
+build:
+  configuration: Release
+  derived_data_path: ./DerivedData
+  xcargs:
+    SWIFT_TREAT_WARNINGS_AS_ERRORS: "YES"
+
+archive:
+  export_method: app-store
+  include_symbols: true
+  output_path: ./build/MyApp.xcarchive
+
+export:
+  archive_path: ./build/MyApp.xcarchive
+  output_directory: ./build/export
+
+testflight:
+  skip_waiting_for_build_processing: false
+  distribute_external: true
+  groups:
+    - Internal QA
+  changelog: Bug fixes and improvements
+
+screenshots:
+  devices:
+    - iPhone 16
+  locales:
+    - en-US
+  scheme: MyAppScreenshots
+  output_directory: ./screenshots
+
+metadata:
+  directory: ./metadata
+  submit_for_review: false
+  automatic_release: false
+  phased_release: false
+
+versioning:
+  strategy: sequential
+  source: xcodeproj
+
+notifications:
+  slack:
+    webhook_url: ${SLACK_WEBHOOK_URL}
+    channel: "#releases"
+    on_success: true
+    on_failure: true
+
+workflows:
+  beta:
+    - action: version
+      options: { bump: build }
+    - action: archive
+      options: { configuration: Release, export_method: app-store }
+    - action: export
+      options: { output_directory: ./build/export }
+    - action: testflight
+      options: { groups: ["Internal QA"] }
+  release:
+    - action: version
+      options: { bump: build }
+    - action: archive
+      options: { configuration: Release, export_method: app-store }
+    - action: export
+      options: { output_directory: ./build/export }
+    - action: upload
+      options: { submit_for_review: true, phased_release: true }

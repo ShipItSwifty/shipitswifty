@@ -1,0 +1,58 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-test:
+    name: Build & Test
+    runs-on: macos-15
+
+    steps:
+      - name: Checkout ShipItSwifty
+        uses: actions/checkout@v4
+        with:
+          path: ShipItSwifty
+
+      # SwiftyShell is a local path: dependency required at ../SwiftyShell
+      # Set SWIFTYSHELL_REPO in your repository secrets or variables to point
+      # at the SwiftyShell repository (e.g. https://github.com/your-org/SwiftyShell).
+      - name: Checkout SwiftyShell
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ vars.SWIFTYSHELL_REPO || 'maniramezan/SwiftyShell' }}
+          path: SwiftyShell
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_16.3.app
+
+      - name: Swift version
+        run: swift --version
+
+      - name: Build
+        working-directory: ShipItSwifty
+        run: swift build
+
+      - name: Test
+        working-directory: ShipItSwifty
+        run: swift test --enable-code-coverage
+
+      - name: Generate coverage report
+        working-directory: ShipItSwifty
+        run: |
+          xcrun llvm-cov export \
+            .build/debug/ShipItSwiftyPackageTests.xctest/Contents/MacOS/ShipItSwiftyPackageTests \
+            -instr-profile .build/debug/codecov/default.profdata \
+            -format lcov \
+            > coverage.lcov
+        continue-on-error: true
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v4
+        with:
+          files: ShipItSwifty/coverage.lcov
+          working-directory: ShipItSwifty
+        continue-on-error: true
