@@ -1,0 +1,401 @@
+# ShipItSwifty — Architecture
+
+ShipItSwifty is a pure-Swift CLI toolkit for automating iOS app release workflows, built entirely in Swift 6.
+
+| Principle | Detail |
+|---|---|
+| **Swift-native** | Swift 6, `async/await`, actors, `Sendable` throughout. No Ruby. |
+| **Shell-powered** | [SwiftyShell](../../SwiftyShell) for type-safe, testable shell operations. |
+| **CI-first** | Non-interactive by default, machine-readable JSON output, meaningful exit codes. |
+| **Local-first** | Same commands on dev Mac and CI. Future server is a separate package on top of `ShipItKit`. |
+| **Extensible** | Static-link plugin architecture — add custom actions without forking the core. |
+
+---
+
+## Layer diagram
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                         User / CI Runner                            │
+│   $ shipit archive --scheme MyApp --export-method app-store         │
+└──────────────┬──────────────────────────────────────────────────────┘
+               ▼
+┌──────────────────────────┐
+│        CLI (shipit)       │   Swift Argument Parser
+│   Parses args, loads      │   Reads Shipfile.yml
+│   config, orchestrates    │   Outputs JSON / human
+└──────────┬───────────────┘
+           ▼
+┌──────────────────────────────────────────────────────────┐
+│                      ShipItKit                            │
+│  ┌──────────┐ ┌──────────┐ ┌────────────┐ ┌───────────┐  │
+│  │ Builder  │ │ Signer   │ │ Uploader   │ │Snapshotter│  │
+│  └────┬─────┘ └────┬─────┘ └─────┬──────┘ └─────┬─────┘  │
+│  ┌────▼─────────────▼─────────────▼───────────────▼────┐  │
+│  │              SwiftyShell                             │  │
+│  │  Command · Pipeline · Git · XcodeBuild · Xcrun      │  │
+│  └─────────────────────────────────────────────────────┘  │
+│  ┌─────────────────────────────────────────────────────┐  │
+│  │         AppStoreConnectClient                       │  │
+│  │  JWT Auth · REST · Upload · TestFlight · Metadata   │  │
+│  └──────────────────────┬──────────────────────────────┘  │
+└─────────────────────────┼─────────────────────────────────┘
+                          ▼
+            ┌─────────────────────────────┐
+            │  App Store Connect API      │
+            │  api.appstoreconnect.apple  │
+            │  .com/v1/...               │
+            └─────────────────────────────┘
+```
+
+| Layer | Responsibility |
+|---|---|
+| **CLI (`shipit`)** | Argument parsing, config loading, human/JSON output, exit codes |
+| **ShipItKit** | All business logic: build, sign, upload, screenshots, versioning, API calls |
+| **SwiftyShell** | Type-safe shell execution, pipelines, `MockExecutor` for tests |
+| **AppStoreConnectClient** | JWT generation, REST client for ASC API, upload protocol |
+
+---
+
+## Core execution model
+
+```
+Shipfile.yml / CLI flags / env vars
+        ↓
+  ConfigResolver  →  ResolvedConfig
+        ↓
+  ActionContext (shell, logger, config, AppStoreConnectClient, platform)
+        ↓
+  ActionRegistry (actor) — maps action names → ActionDescriptors
+        ↓
+  Workflow.run(context:registry:)  →  executes WorkflowStep[] sequentially
+        ↓
+  Action.run(with:context:)  →  ActionResultEnvelope (JSON-serializable)
+```
+
+---
+
+## Package dependencies
+
+```swift
+// swift-tools-version: 6.0
+// platforms: [.macOS(.v15)]
+// swiftLanguageModes: [.v6]
+
+dependencies: [
+    .package(path: "../SwiftyShell"),                                        // shell execution
+    .package(url: "https://github.com/apple/swift-argument-parser", from: "1.5.0"),
+    .package(url: "https://github.com/vapor/jwt-kit", from: "5.0.0"),       // ES256 JWT
+    .package(url: "https://github.com/jpsim/Yams", from: "5.0.0"),          // YAML config
+    .package(url: "https://github.com/apple/swift-crypto", from: "3.0.0"),  // code signing
+]
+```
+
+**Products:**
+- `.executable("shipit", targets: ["CLI"])`
+- `.library("ShipItKit", targets: ["ShipItKit"])`
+
+---
+
+## Core type definitions
+
+### `Action` protocol
+
+```swift
+public protocol Action: Sendable {
+    associatedtype Options: Codable & Sendable
+    associatedtype Result: Codable & Sendable
+
+    static var name: String { get }
+    static var description: String { get }
+
+    func run(with options: Options, context: ActionContext) async throws -> Result
+}
+```
+
+### `ActionDescriptor` (type-erased wrapper)
+
+```swift
+public struct ActionDescriptor: Sendable {
+    public let name: String
+    public let description: String
+    public let runJSON: @Sendable (_ options: JSONValue?, _ context: ActionContext) async throws -> ActionResultEnvelope
+}
+```
+
+### `ActionResultEnvelope`
+
+```swift
+public struct ActionResultEnvelope: Codable, Sendable {
+    public let action: String
+    public let status: String
+    public let payload: JSONValue?
+}
+```
+
+### `JSONValue`
+
+Lossless JSON/YAML-compatible value type used for dynamically-typed action options:
+
+```swift
+@frozen
+public enum JSONValue: Codable, Sendable, Hashable {
+    case null
+    case bool(Bool)
+    case int(Int)
+    case double(Double)
+    case string(String)
+    case array([JSONValue])
+    case object([String: JSONValue])
+}
+```
+
+### `ActionRegistry`
+
+```swift
+public actor ActionRegistry {
+    public func register(_ descriptor: ActionDescriptor) async throws   // throws .duplicateAction
+    public func descriptor(named name: String) async -> ActionDescriptor?
+    public func allDescriptors() async -> [ActionDescriptor]
+}
+```
+
+### `ActionContext`
+
+```swift
+public struct ActionContext: Sendable {
+    public let shell: ShellContext          // SwiftyShell context
+    public let logger: ShipItLogger         // structured logger
+    public let config: ResolvedConfig       // merged config
+    public let appStoreConnect: AppStoreConnectClient
+    public let platform: Platform           // .ios (default), .android (v2)
+}
+```
+
+### `Workflow` and `WorkflowStep`
+
+```swift
+public struct WorkflowStep: Codable, Sendable {
+    public let action: String       // registered action name
+    public let options: JSONValue?  // forwarded to the action's Options
+}
+
+public struct Workflow: Sendable {
+    public let name: String
+    public let steps: [WorkflowStep]
+
+    public init(_ name: String, steps: [WorkflowStep])
+    public init(_ name: String, @WorkflowBuilder _ builder: () -> [WorkflowStep])
+    public func run(context: ActionContext, registry: ActionRegistry) async throws -> WorkflowResult
+}
+
+@resultBuilder
+public enum WorkflowBuilder {
+    public static func buildBlock(_ steps: WorkflowStep...) -> [WorkflowStep]
+    public static func buildArray(_ components: [[WorkflowStep]]) -> [WorkflowStep]
+    public static func buildOptional(_ component: [WorkflowStep]?) -> [WorkflowStep]
+    public static func buildEither(first: [WorkflowStep]) -> [WorkflowStep]
+    public static func buildEither(second: [WorkflowStep]) -> [WorkflowStep]
+}
+```
+
+### `ShipItError`
+
+```swift
+public enum ShipItError: Error, Sendable {
+    // Build/Archive/Export — exit 10–12
+    case buildFailed(exitCode: Int, log: String)
+    case testFailed(exitCode: Int, failureCount: Int, log: String)
+    case archiveFailed(exitCode: Int, log: String)
+
+    // Code Signing — exit 20
+    case signingResourceNotFound(description: String)
+    case keychainError(underlying: Error)
+
+    // API/Upload — exit 30
+    case apiError(statusCode: Int, body: String)
+    case jwtGenerationFailed(underlying: Error)
+    case uploadFailed(asset: String, reason: String)
+
+    // Screenshots — exit 40
+    case screenshotCaptureFailed(device: String, locale: String, reason: String)
+
+    // Metadata/Precheck — exit 50
+    case precheckFailed(violations: [String])
+
+    // Config/General — exit 2
+    case invalidConfiguration(reason: String)
+    case duplicateAction(name: String)
+    case missingTool(name: String)
+}
+```
+
+---
+
+## CLI commands and exit codes
+
+```
+shipit <command> [global options]
+
+COMMANDS:
+  init          Interactive project setup — generates Shipfile.yml
+  build         Compile the app (xcodebuild build)
+  test          Run tests (xcodebuild test)
+  archive       Archive the app (xcodebuild archive)
+  export        Export IPA from archive
+  sign          Code signing subcommands: init | sync | import | cleanup
+  upload        Upload IPA to App Store Connect
+  testflight    Upload to TestFlight & distribute to groups
+  snapshot      Capture localized screenshots on simulators
+  frame         Add device frames to screenshots
+  version       Bump version / build number
+  metadata      Pull / push App Store metadata
+  precheck      Validate metadata before submission
+  provision     Manage App IDs, devices, capabilities
+  notify        Send build notifications
+  run <workflow>    Execute a named workflow from Shipfile.yml
+  env           Print resolved config, env vars, and processed files
+  doctor        Diagnose common setup issues for the selected Shipfile
+
+GLOBAL OPTIONS:
+  --shipfile <path>     Path to Shipfile.yml (default: ./Shipfile.yml, required for config-backed commands)
+  --output <format>     human | json (default: human)
+  --color <mode>        auto | always | never (default: auto, human output only)
+  --no-color            Disable color in human output
+  --verbose             Debug logging
+  --ci                  CI mode: non-interactive, stricter error handling
+  --dry-run             Preview without executing
+```
+
+### Exit codes
+
+| Code | Meaning |
+|---|---|
+| `0` | Success |
+| `1` | General error |
+| `2` | Invalid arguments / config, including missing Shipfile.yml |
+| `10` | Build failed |
+| `11` | Test failed |
+| `12` | Archive/export failed |
+| `20` | Code signing error |
+| `30` | Upload / API error |
+| `40` | Screenshot capture failed |
+| `50` | Precheck validation failed |
+
+### JSON output format
+
+```json
+{
+  "action": "build",
+  "status": "success",
+  "payload": {
+    "appPath": "/path/to/MyApp.app",
+    "dsymPath": "/path/to/MyApp.app.dSYM",
+    "exitCode": 0,
+    "warnings": 3
+  }
+}
+```
+
+---
+
+## App Store Connect client
+
+### `AppStoreConnectClient`
+
+```swift
+public actor AppStoreConnectClient: Sendable {
+    public init(keyID: String, issuerID: String, privateKeyData: Data, serverURL: URL? = nil)
+
+    public func get<T: Decodable & Sendable>(_ path: String, query: [String: String] = [:]) async throws -> T
+    public func post<B: Encodable & Sendable, R: Decodable & Sendable>(_ path: String, body: B) async throws -> R
+    public func patch<B: Encodable & Sendable, R: Decodable & Sendable>(_ path: String, body: B) async throws -> R
+    public func uploadAsset(at fileURL: URL, reservation: UploadReservation) async throws -> UploadCommit
+
+    public var jwtGenerator: JWTGenerator { get }
+    public var rateLimiter: RateLimiter { get }
+}
+```
+
+### JWT authentication (ES256)
+
+| JWT field | Value |
+|---|---|
+| Algorithm | ES256 (ECDSA with P-256 and SHA-256) |
+| `kid` | Key ID from ASC → Users and Access → Integrations |
+| `iss` | Issuer ID (team keys) |
+| `exp` | ≤ 20 min for unscoped; up to 6 months for scoped GET-only |
+| `aud` | `"appstoreconnect-v1"` |
+
+```swift
+public actor JWTGenerator {
+    public static let defaultLifetime: Duration = .seconds(15 * 60)
+    public func generateToken(scope: [String]? = nil, lifetime: Duration = .defaultLifetime) async throws -> String
+    public func cachedOrNewToken() async throws -> String
+}
+```
+
+### Asset upload protocol (multi-step)
+
+1. **Reserve** — `POST` to create a resource record → returns upload operations
+2. **Upload parts** — `PUT` each chunk to presigned S3 URLs
+3. **Commit** — `PATCH` the resource with `uploaded: true` and MD5 checksum
+
+Files are streamed in chunks — never fully loaded into memory (safe for 200 MB+ IPAs).
+
+### Rate limiting
+
+Apple returns `X-Rate-Limit: user-hour-lim:3500;user-hour-rem:2998` headers. `RateLimiter` parses these and pauses at 90% usage:
+
+```swift
+public actor RateLimiter: Sendable {
+    public func throttleIfNeeded() async
+    public func update(from headers: HTTPHeaders)
+}
+```
+
+### ASC API resources used
+
+| Resource Area | Key Endpoints | Feature |
+|---|---|---|
+| Apps | `GET /v1/apps` | List & identify apps |
+| Builds | `GET /v1/builds` | Build listing, processing state |
+| App Store Versions | `POST/PATCH /v1/appStoreVersions` | Create/manage versions |
+| Version Localizations | `POST/PATCH /v1/appStoreVersionLocalizations` | Description, keywords, release notes |
+| Screenshots | `POST /v1/appScreenshots` | Upload screenshots |
+| Beta Groups | `GET/POST /v1/betaGroups` | TestFlight group management |
+| Beta Build Localizations | `POST /v1/betaBuildLocalizations` | "What to Test" per locale |
+| Review Submissions | `POST /v1/reviewSubmissions` | Submit for review |
+| Certificates | `GET/POST /v1/certificates` | Create & download signing certs |
+| Devices | `GET/POST /v1/devices` | Register devices |
+| Bundle IDs | `GET/POST /v1/bundleIds` | Create/manage App IDs |
+| Profiles | `GET/POST /v1/profiles` | Create provisioning profiles |
+
+---
+
+## Built-in actions
+
+| Action | Description |
+|---|---|
+| `BuildAction` | `xcodebuild build` → compiled products only |
+| `TestAction` | `xcodebuild test` with optional coverage + result bundle |
+| `ArchiveAction` | `xcodebuild archive` → `.xcarchive` |
+| `ExportAction` | `xcodebuild -exportArchive` → `.ipa` |
+| `SignAction` | Cert & profile sync via Git/S3 encrypted vault |
+| `UploadAction` | Upload IPA to ASC, optional review submission |
+| `TestFlightAction` | Upload to TestFlight, wait for processing, distribute |
+| `SnapshotAction` | Simulator screenshot capture per locale/device |
+| `FrameAction` | Device frame overlay on screenshots |
+| `VersionAction` | Bump `CFBundleVersion` / `CFBundleShortVersionString` |
+| `MetadataAction` | Pull/push localized metadata; optional review submit |
+| `PrecheckAction` | Validate metadata before submission |
+| `ProvisionAction` | Create App IDs, register devices |
+| `NotifyAction` | Post to Slack or custom webhook |
+| `GitAction` | Git status, tagging, changelog |
+| `DsymAction` | Download/upload dSYM files |
+
+---
+
+## Future: service package
+
+ShipItSwifty does not ship with a built-in server. If a hosted service becomes necessary (central credential management, webhooks, dashboards), it should be a separate package/repo built on top of `ShipItKit` — not part of this package.
