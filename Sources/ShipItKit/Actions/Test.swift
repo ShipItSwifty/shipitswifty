@@ -124,7 +124,21 @@ public struct TestAction: Action {
             xcodeBuild = xcodeBuild.option(.testPlan(testPlan))
         }
 
-        let output = try await xcodeBuild.run()
+        let output: ShellOutput
+        do {
+            output = try await xcodeBuild.run()
+        } catch let ShellError.exitFailure(_, output) {
+            let combinedLog = [output.stdout, output.stderr]
+                .filter { !$0.isEmpty }
+                .joined(separator: "\n")
+            let failCount = parseFailureCount(from: combinedLog)
+            logger.error("Tests failed with \(failCount) failure(s)")
+            throw ShipItError.testFailed(
+                exitCode: Int(output.exitCode),
+                failureCount: failCount,
+                log: combinedLog
+            )
+        }
 
         if output.exitCode != 0 {
             let failCount = parseFailureCount(from: output.stdout)

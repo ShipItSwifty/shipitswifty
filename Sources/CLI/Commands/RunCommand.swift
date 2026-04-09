@@ -75,20 +75,28 @@ struct RunCommand: AsyncParsableCommand {
 
 /// Registers all built-in actions into the given registry.
 func registerBuiltInActions(into registry: ActionRegistry) async throws {
-    try await registry.register(BuildAction.descriptor(for: BuildAction()))
-    try await registry.register(TestAction.descriptor(for: TestAction()))
-    try await registry.register(ArchiveAction.descriptor(for: ArchiveAction()))
-    try await registry.register(ExportAction.descriptor(for: ExportAction()))
-    try await registry.register(SignAction.descriptor(for: SignAction()))
-    try await registry.register(UploadAction.descriptor(for: UploadAction()))
-    try await registry.register(TestFlightAction.descriptor(for: TestFlightAction()))
-    try await registry.register(SnapshotAction.descriptor(for: SnapshotAction()))
-    try await registry.register(FrameAction.descriptor(for: FrameAction()))
-    try await registry.register(VersionAction.descriptor(for: VersionAction()))
-    try await registry.register(MetadataAction.descriptor(for: MetadataAction()))
-    try await registry.register(PrecheckAction.descriptor(for: PrecheckAction()))
-    try await registry.register(ProvisionAction.descriptor(for: ProvisionAction()))
-    try await registry.register(NotifyAction.descriptor(for: NotifyAction()))
-    try await registry.register(GitAction.descriptor(for: GitAction()))
-    try await registry.register(DsymAction.descriptor(for: DsymAction()))
+    for descriptor in builtInActionDescriptors() {
+        try await registry.register(descriptor)
+    }
+}
+
+func builtInActionDescriptors() -> [ActionDescriptor] {
+    [
+        BuildAction.descriptor(for: BuildAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: BuildAction.name)),
+        TestAction.descriptor(for: TestAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: TestAction.name)),
+        ArchiveAction.descriptor(for: ArchiveAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: ArchiveAction.name)),
+        ExportAction.descriptor(for: ExportAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: ExportAction.name)),
+        SignAction.descriptor(for: SignAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: SignAction.name)),
+        UploadAction.descriptor(for: UploadAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: UploadAction.name)),
+        TestFlightAction.descriptor(for: TestFlightAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: TestFlightAction.name)),
+        SnapshotAction.descriptor(for: SnapshotAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: SnapshotAction.name)),
+        FrameAction.descriptor(for: FrameAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: FrameAction.name)),
+        VersionAction.descriptor(for: VersionAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: VersionAction.name)),
+        MetadataAction.descriptor(for: MetadataAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: MetadataAction.name)),
+        PrecheckAction.descriptor(for: PrecheckAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: PrecheckAction.name)),
+        ProvisionAction.descriptor(for: ProvisionAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: ProvisionAction.name)),
+        NotifyAction.descriptor(for: NotifyAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: NotifyAction.name)),
+        GitAction.descriptor(for: GitAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: GitAction.name)),
+        DsymAction.descriptor(for: DsymAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: DsymAction.name)),
+    ]
 }

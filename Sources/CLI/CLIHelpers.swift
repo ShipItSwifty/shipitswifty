@@ -93,6 +93,114 @@ func makeHumanFormatter(global: GlobalOptions) -> HumanFormatter {
     HumanFormatter(colorMode: global.effectiveColorMode)
 }
 
+func schemaFieldJSON(_ field: SchemaField) -> JSONValue {
+    var object: [String: JSONValue] = [
+        "name": .string(field.name),
+        "type": .string(field.type.rawValue),
+        "required": .bool(field.required),
+        "description": .string(field.description),
+        "isSecret": .bool(field.isSecret),
+        "allowsAdditionalProperties": .bool(field.allowsAdditionalProperties),
+        "notes": .array(field.notes.map(JSONValue.string)),
+        "properties": .array(field.propertyValues.map(schemaFieldJSON)),
+    ]
+
+    object["default"] = field.defaultValue ?? .null
+    object["example"] = field.example ?? .null
+    object["envVar"] = field.envVar.map(JSONValue.string) ?? .null
+    object["allowedValues"] = .array(field.allowedValues)
+    object["items"] = field.itemValue.map(schemaFieldJSON) ?? .null
+    object["additionalProperties"] = field.additionalPropertyValue.map(schemaFieldJSON) ?? .null
+    return .object(object)
+}
+
+func actionSchemaJSON(_ schema: ActionSchema) -> JSONValue {
+    .object([
+        "name": .string(schema.name),
+        "description": .string(schema.description),
+        "options": .array(schema.options.map(schemaFieldJSON)),
+        "example": schema.example ?? .null,
+    ])
+}
+
+func schemaSectionsJSON(_ sections: [SchemaSection]) -> JSONValue {
+    .array(sections.map { section in
+        .object([
+            "name": .string(section.name),
+            "description": .string(section.description),
+            "fields": .array(section.fields.map(schemaFieldJSON)),
+        ])
+    })
+}
+
+func projectInspectionJSON(_ inspection: ProjectInspection) -> JSONValue {
+    .object([
+        "rootPath": .string(inspection.rootPath),
+        "xcodeContainers": .array(inspection.xcodeContainers.map { container in
+            .object([
+                "kind": .string(container.kind),
+                "path": .string(container.path),
+            ])
+        }),
+        "preferredContainer": inspection.preferredContainer.map { preferred in
+            .object([
+                "kind": .string(preferred.kind),
+                "path": .string(preferred.path),
+            ])
+        } ?? .null,
+        "schemes": .array(inspection.schemes.map { scheme in
+            .object([
+                "name": .string(scheme.name),
+                "containerPath": .string(scheme.containerPath),
+                "bundleId": scheme.bundleID.map(JSONValue.string) ?? .null,
+                "teamId": scheme.teamID.map(JSONValue.string) ?? .null,
+                "likelyRunnable": .bool(scheme.likelyRunnable),
+            ])
+        }),
+        "suggestedAppConfig": .object([
+            "workspace": inspection.suggestedAppConfig.workspace.map(JSONValue.string) ?? .null,
+            "project": inspection.suggestedAppConfig.project.map(JSONValue.string) ?? .null,
+            "scheme": inspection.suggestedAppConfig.scheme.map(JSONValue.string) ?? .null,
+            "bundleId": inspection.suggestedAppConfig.bundleID.map(JSONValue.string) ?? .null,
+            "teamId": inspection.suggestedAppConfig.teamID.map(JSONValue.string) ?? .null,
+        ]),
+        "existingShipfiles": .array(inspection.existingShipfiles.map(JSONValue.string)),
+        "fastlaneFiles": .array(inspection.fastlaneFiles.map(JSONValue.string)),
+        "ciFiles": .array(inspection.ciFiles.map(JSONValue.string)),
+        "warnings": .array(inspection.warnings.map(JSONValue.string)),
+    ])
+}
+
+func suggestedShipfileJSON(_ suggestion: SuggestedShipfile) -> JSONValue {
+    .object([
+        "goal": .string(suggestion.goal.rawValue),
+        "inspection": projectInspectionJSON(suggestion.inspection),
+        "missingValues": .array(suggestion.missingValues.map { missing in
+            .object([
+                "keyPath": .string(missing.keyPath),
+                "reason": .string(missing.reason),
+                "envVar": missing.envVar.map(JSONValue.string) ?? .null,
+            ])
+        }),
+        "warnings": .array(suggestion.warnings.map(JSONValue.string)),
+        "yaml": .string(suggestion.yaml),
+    ])
+}
+
+func validationReportJSON(_ report: ValidationReport) -> JSONValue {
+    .object([
+        "shipfilePath": .string(report.shipfilePath),
+        "isValid": .bool(report.isValid),
+        "issues": .array(report.issues.map { issue in
+            .object([
+                "severity": .string(issue.severity.rawValue),
+                "path": .string(issue.path),
+                "message": .string(issue.message),
+            ])
+        }),
+    ])
+}
+
 func errorSuggestions(for error: ShipItError) -> [String] {
     switch error {
     case .invalidConfiguration(let reason):

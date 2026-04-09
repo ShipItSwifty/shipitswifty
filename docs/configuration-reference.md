@@ -177,6 +177,22 @@ Each step:
 | `action` | Registered action name |
 | `options` | Optional key-value map passed to the action |
 
+Use these AI-oriented commands to inspect the supported workflow surface:
+
+```bash
+swift run shipit ai-bootstrap --goal beta --output json
+swift run shipit schema --output json
+swift run shipit inspect project --output json
+swift run shipit suggest-config --goal beta --output json
+swift run shipit validate --shipfile ./Shipfile.yml --output json
+```
+
+Workflow notes:
+
+- `export` can write an IPA into `export.output_directory`.
+- `testflight` and `upload` can reuse that exported IPA automatically when they run after `export` in the same workflow and no explicit `ipa` / `ipa_path` is set.
+- `validate` reports an error when `testflight` or `upload` has no explicit IPA and no prior export context.
+
 ## Environment Variables Summary
 
 | Variable | Maps To |
