@@ -79,6 +79,18 @@ struct GlobalOptions: ParsableArguments {
     }
 }
 
+/// Narrow option set for JSON-only AI bootstrap flows.
+struct AIBootstrapOptions: ParsableArguments {
+    @Option(name: .long, help: "Path to config file. Defaults to ./Shipfile.yml when checking for an existing Shipfile")
+    var shipfile: String = "./Shipfile.yml"
+
+    @Flag(name: .long, help: "Enable debug logging")
+    var verbose: Bool = false
+
+    @Flag(name: .long, help: "Enable CI mode (non-interactive, strict errors)")
+    var ci: Bool = false
+}
+
 /// Output format selection.
 enum OutputFormat: String, ExpressibleByArgument, Sendable {
     case human

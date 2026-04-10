@@ -8,8 +8,11 @@ public struct ShipfileSuggester: Sendable {
         var missingValues: [SuggestedShipfile.MissingValue] = []
         var warnings = inspection.warnings
 
+        if app.workspace == nil, app.project == nil {
+            missingValues.append(.init(keyPath: "app.workspace or app.project", reason: "No Xcode workspace or project was detected. Provide one if xcodebuild cannot resolve the app from the working directory.", envVar: "SHIPIT_APP__WORKSPACE or SHIPIT_APP__PROJECT"))
+        }
         if app.scheme == nil {
-            missingValues.append(.init(keyPath: "app.scheme", reason: "No shared runnable scheme was detected."))
+            missingValues.append(.init(keyPath: "app.scheme", reason: "No shared runnable scheme was detected.", envVar: "SHIPIT_APP__SCHEME"))
         }
         if app.bundleID == nil {
             missingValues.append(.init(keyPath: "app.bundle_id", reason: "Bundle identifier could not be inferred from Xcode build settings.", envVar: "SHIPIT_APP__BUNDLE_ID"))
@@ -52,24 +55,25 @@ public struct ShipfileSuggester: Sendable {
             lines.append("  project: \(project)")
         } else {
             lines.append("  # workspace: MyApp.xcworkspace")
+            lines.append("  # project: MyApp.xcodeproj")
         }
 
         if let scheme = app.scheme {
             lines.append("  scheme: \(scheme)")
         } else {
-            lines.append("  # scheme: MyApp")
+            lines.append("  scheme: ${SHIPIT_APP__SCHEME}")
         }
 
         if let bundleID = app.bundleID {
             lines.append("  bundle_id: \(bundleID)")
         } else {
-            lines.append("  # bundle_id: com.example.myapp")
+            lines.append("  bundle_id: ${SHIPIT_APP__BUNDLE_ID}")
         }
 
         if let teamID = app.teamID {
             lines.append("  team_id: \(teamID)")
         } else {
-            lines.append("  # team_id: ABCDE12345")
+            lines.append("  team_id: ${SHIPIT_APP__TEAM_ID}")
         }
 
         if goal == .beta || goal == .release {
@@ -78,7 +82,7 @@ public struct ShipfileSuggester: Sendable {
                 "app_store_connect:",
                 "  key_id: ${ASC_KEY_ID}",
                 "  issuer_id: ${ASC_ISSUER_ID}",
-                "  # key_path: ./.secrets/AuthKey_XXXXXXXXXX.p8",
+                "  key_path: ${ASC_PRIVATE_KEY_PATH}",
             ])
         }
 

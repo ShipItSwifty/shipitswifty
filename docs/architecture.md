@@ -242,7 +242,7 @@ COMMANDS:
   schema        Print machine-readable Shipfile and workflow schema
   inspect       Inspect project facts for AI-assisted config generation
   suggest-config Generate a suggested Shipfile for local, beta, or release goals
-  ai-bootstrap  Bundle inspect, schema, suggestion, and validation in one response
+  ai-bootstrap  Always-JSON bootstrap payload for AI agents
   validate      Validate Shipfile syntax, schema, and workflow semantics
   build         Compile the app (xcodebuild build)
   test          Run tests (xcodebuild test)
@@ -306,7 +306,7 @@ GLOBAL OPTIONS:
 
 ```bash
 # 0. One-shot AI bootstrap response
-swift run shipit ai-bootstrap --goal beta --output json
+swift run shipit ai-bootstrap --goal beta
 
 # 1. Inspect the repo for real Xcode facts
 swift run shipit inspect project --output json
