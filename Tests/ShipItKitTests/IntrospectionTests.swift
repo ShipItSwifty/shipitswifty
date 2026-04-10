@@ -154,6 +154,28 @@ struct IntrospectionTests {
         #expect(report.isValid)
     }
 
+    @Test("Shipfile suggester uses env placeholders when app detection is missing")
+    func shipfileSuggesterUsesEnvPlaceholdersForMissingDetection() {
+        let inspection = ProjectInspection(
+            rootPath: "/tmp/project",
+            xcodeContainers: [],
+            preferredContainer: nil,
+            schemes: [],
+            suggestedAppConfig: .init(),
+            existingShipfiles: [],
+            fastlaneFiles: [],
+            ciFiles: [],
+            warnings: []
+        )
+
+        let suggestion = ShipfileSuggester().suggest(goal: .beta, from: inspection)
+
+        #expect(suggestion.yaml.contains("scheme: ${SHIPIT_APP__SCHEME}"))
+        #expect(suggestion.yaml.contains("bundle_id: ${SHIPIT_APP__BUNDLE_ID}"))
+        #expect(suggestion.yaml.contains("team_id: ${SHIPIT_APP__TEAM_ID}"))
+        #expect(suggestion.yaml.contains("key_path: ${ASC_PRIVATE_KEY_PATH}"))
+    }
+
     private func makeTempDirectory() throws -> URL {
         let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)

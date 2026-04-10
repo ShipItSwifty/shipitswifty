@@ -23,7 +23,7 @@ This document covers the planned feature surface, current v1 scope, the long-ter
 | **Schema export** | `shipit schema --output json` exposes the full Shipfile and workflow action contract for automation tools |
 | **Project inspection** | `shipit inspect project --output json` discovers workspaces, projects, schemes, bundle IDs, team IDs, and related release files |
 | **Config suggestion** | `shipit suggest-config --goal <local|beta|release>` produces a YAML draft plus missing-value hints |
-| **Bootstrap response** | `shipit ai-bootstrap --goal <local|beta|release>` bundles inspection, schema, suggestion, and validation in one machine-readable response |
+| **Bootstrap response** | `shipit ai-bootstrap --goal <local|beta|release>` always returns JSON with inspection, schema, suggestion, and validation for AI agents |
 | **Validation** | `shipit validate` checks YAML parsing, top-level schema, workflow action options, and common semantic mistakes |
 
 ### Building
