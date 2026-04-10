@@ -26,6 +26,7 @@ struct ShipItCLI: AsyncParsableCommand {
             InspectCommand.self,
             SuggestConfigCommand.self,
             AIBootstrapCommand.self,
+            AISessionCommand.self,
             ValidateCommand.self,
             BuildCommand.self,
             TestCommand.self,

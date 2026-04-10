@@ -70,10 +70,17 @@ public struct FrameAction: Action {
 
         logger.info("Framing screenshots from '\(screenshotsDir)' -> '\(outputDir)'")
 
-        // Check if frameit or similar tool is available
-        // TODO: verify SwiftyShell API - integrate with frameit or custom framing tool
-        let output = try await Command("which", "frameit").run(in: context.shell)
-        if output.exitCode != 0 {
+        // Check if frameit is available. `which` exits 1 when the tool is not
+        // found, causing Command.run() to throw — catch to handle the fallback.
+        let frameitAvailable: Bool
+        do {
+            _ = try await Command("which", "frameit").run(in: context.shell)
+            frameitAvailable = true
+        } catch {
+            frameitAvailable = false
+        }
+
+        if !frameitAvailable {
             logger.warning("frameit not found; installing via gem is required for device framing.")
             // Fallback: just copy screenshots without framing
             try copyScreenshots(from: screenshotsDir, to: outputDir)
@@ -87,16 +94,18 @@ public struct FrameAction: Action {
             attributes: nil
         )
 
-        // Run frameit in the screenshots directory
-        let frameitOutput = try await Command("frameit", "--path", screenshotsDir, "--output", outputDir)
-            .run(in: context.shell)
-
-        if frameitOutput.exitCode != 0 {
-            logger.error("frameit failed: \(frameitOutput.stderr)")
+        // Run frameit in the screenshots directory.
+        // Command.run() throws ShellError.exitFailure on non-zero exit; convert
+        // to a typed ShipItError for callers.
+        do {
+            _ = try await Command("frameit", "--path", screenshotsDir, "--output", outputDir)
+                .run(in: context.shell)
+        } catch {
+            logger.error("frameit failed: \(error.localizedDescription)")
             throw ShipItError.screenshotCaptureFailed(
                 device: "all",
                 locale: "all",
-                reason: "frameit exited with code \(frameitOutput.exitCode): \(frameitOutput.stderr)"
+                reason: "frameit failed: \(error.localizedDescription)"
             )
         }
 

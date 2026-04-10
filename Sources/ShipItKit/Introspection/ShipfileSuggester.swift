@@ -21,7 +21,10 @@ public struct ShipfileSuggester: Sendable {
             missingValues.append(.init(keyPath: "app.team_id", reason: "Development team could not be inferred from Xcode build settings.", envVar: "SHIPIT_APP__TEAM_ID"))
         }
 
-        if goal == .beta || goal == .release {
+        // ASC credentials are only required for release, or for beta when a testflight/upload
+        // step is present. The beta template generates a local-only workflow by default so
+        // the user is not blocked before they confirm they want to upload.
+        if goal == .release {
             missingValues.append(.init(keyPath: "app_store_connect.key_id", reason: "App Store Connect automation needs an API key.", envVar: "ASC_KEY_ID"))
             missingValues.append(.init(keyPath: "app_store_connect.issuer_id", reason: "App Store Connect automation needs an issuer ID.", envVar: "ASC_ISSUER_ID"))
             missingValues.append(.init(keyPath: "app_store_connect.private_key or app_store_connect.key_path", reason: "Provide exactly one private key source for App Store Connect.", envVar: "ASC_PRIVATE_KEY or ASC_PRIVATE_KEY_PATH"))
@@ -76,7 +79,17 @@ public struct ShipfileSuggester: Sendable {
             lines.append("  team_id: ${SHIPIT_APP__TEAM_ID}")
         }
 
-        if goal == .beta || goal == .release {
+        if goal == .beta {
+            lines.append(contentsOf: [
+                "",
+                "# App Store Connect credentials are only needed when you want to upload to TestFlight.",
+                "# Uncomment this section and add a `testflight` step to the beta workflow when ready.",
+                "# app_store_connect:",
+                "#   key_id: ${ASC_KEY_ID}",
+                "#   issuer_id: ${ASC_ISSUER_ID}",
+                "#   key_path: ${ASC_PRIVATE_KEY_PATH}",
+            ])
+        } else if goal == .release {
             lines.append(contentsOf: [
                 "",
                 "app_store_connect:",
@@ -104,18 +117,6 @@ public struct ShipfileSuggester: Sendable {
             "  archive_path: \(archivePath)",
             "  output_directory: ./build/export",
         ])
-
-        if goal == .beta || goal == .release {
-            lines.append(contentsOf: [
-                "",
-                "testflight:",
-                "  skip_waiting_for_build_processing: false",
-                goal == .beta ? "  distribute_external: true" : "  distribute_external: false",
-                "  groups:",
-                "    - Internal QA",
-                "  changelog: \"Bug fixes and improvements\"",
-            ])
-        }
 
         if goal == .release {
             lines.append(contentsOf: [
@@ -149,13 +150,16 @@ public struct ShipfileSuggester: Sendable {
         case .beta:
             lines.append(contentsOf: [
                 "  beta:",
+                "    # 1. Bump CFBundleVersion (integer build number) only — marketing version unchanged.",
                 "    - action: version",
                 "      options: { bump: build }",
                 "    - action: archive",
+                "    # 2. Export .ipa locally. No App Store Connect credentials required.",
                 "    - action: export",
-                "    - action: testflight",
-                "      options:",
-                "        groups: [\"Internal QA\"]",
+                "    # To upload to TestFlight, uncomment the app_store_connect section above and add:",
+                "    # - action: testflight",
+                "    #   options:",
+                "    #     groups: [\"Internal QA\"]",
             ])
         case .release:
             lines.append(contentsOf: [

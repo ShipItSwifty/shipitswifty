@@ -37,33 +37,35 @@ public struct KeychainHelper: Sendable {
         let keychainPassword = password ?? generatePassword()
         logger.info("Creating temporary keychain: \(name)")
 
-        // TODO: verify SwiftyShell API
-        let createOutput = try await Command(
-            "security", "create-keychain", "-p", keychainPassword, name
-        ).run(in: context.shell)
-
-        if createOutput.exitCode != 0 {
+        // Throws ShipItError.keychainError on failure via do-catch below.
+        do {
+            _ = try await Command(
+                "security", "create-keychain", "-p", keychainPassword, name
+            ).run(in: context.shell)
+        } catch {
             throw ShipItError.keychainError(
-                underlying: ShipItError.invalidConfiguration(reason: "Failed to create keychain: \(createOutput.stderr)")
+                underlying: ShipItError.invalidConfiguration(reason: "Failed to create keychain: \(error.localizedDescription)")
             )
         }
 
-        // Set keychain settings: no auto-lock, no timeout
-        let settingsOutput = try await Command(
-            "security", "set-keychain-settings", "-lut", "21600", name
-        ).run(in: context.shell)
-
-        if settingsOutput.exitCode != 0 {
-            logger.warning("Failed to set keychain settings: \(settingsOutput.stderr)")
+        // Set keychain settings: no auto-lock, no timeout.
+        // Non-fatal — log a warning if this fails.
+        do {
+            _ = try await Command(
+                "security", "set-keychain-settings", "-lut", "21600", name
+            ).run(in: context.shell)
+        } catch {
+            logger.warning("Failed to set keychain settings: \(error.localizedDescription)")
         }
 
-        // Add to keychain search list
-        let addOutput = try await Command(
-            "security", "list-keychains", "-d", "user", "-s", name, "login.keychain-db"
-        ).run(in: context.shell)
-
-        if addOutput.exitCode != 0 {
-            logger.warning("Failed to add keychain to search list: \(addOutput.stderr)")
+        // Add to keychain search list.
+        // Non-fatal — log a warning if this fails.
+        do {
+            _ = try await Command(
+                "security", "list-keychains", "-d", "user", "-s", name, "login.keychain-db"
+            ).run(in: context.shell)
+        } catch {
+            logger.warning("Failed to add keychain to search list: \(error.localizedDescription)")
         }
 
         // Unlock the keychain
@@ -87,30 +89,30 @@ public struct KeychainHelper: Sendable {
     ) async throws {
         logger.info("Installing certificate from: \(p12Path)")
 
-        // TODO: verify SwiftyShell API
-        let output = try await Command(
-            "security", "import", p12Path,
-            "-k", keychainName,
-            "-P", password,
-            "-T", "/usr/bin/codesign",
-            "-T", "/usr/bin/security"
-        ).run(in: context.shell)
-
-        if output.exitCode != 0 {
+        do {
+            _ = try await Command(
+                "security", "import", p12Path,
+                "-k", keychainName,
+                "-P", password,
+                "-T", "/usr/bin/codesign",
+                "-T", "/usr/bin/security"
+            ).run(in: context.shell)
+        } catch {
             throw ShipItError.keychainError(
-                underlying: ShipItError.invalidConfiguration(reason: "Certificate import failed: \(output.stderr)")
+                underlying: ShipItError.invalidConfiguration(reason: "Certificate import failed: \(error.localizedDescription)")
             )
         }
 
-        // Allow codesign to access the key without prompting
-        let allowOutput = try await Command(
-            "security", "set-key-partition-list",
-            "-S", "apple-tool:,apple:",
-            "-s", "-k", password, keychainName
-        ).run(in: context.shell)
-
-        if allowOutput.exitCode != 0 {
-            logger.warning("Failed to set key partition list: \(allowOutput.stderr)")
+        // Allow codesign to access the key without prompting.
+        // Non-fatal — log a warning if this fails.
+        do {
+            _ = try await Command(
+                "security", "set-key-partition-list",
+                "-S", "apple-tool:,apple:",
+                "-s", "-k", password, keychainName
+            ).run(in: context.shell)
+        } catch {
+            logger.warning("Failed to set key partition list: \(error.localizedDescription)")
         }
 
         logger.info("Certificate installed successfully")
@@ -148,14 +150,13 @@ public struct KeychainHelper: Sendable {
     ///   - password: Keychain password.
     ///   - context: Shell execution context.
     public func unlockKeychain(name: String, password: String, context: ActionContext) async throws {
-        // TODO: verify SwiftyShell API
-        let output = try await Command(
-            "security", "unlock-keychain", "-p", password, name
-        ).run(in: context.shell)
-
-        if output.exitCode != 0 {
+        do {
+            _ = try await Command(
+                "security", "unlock-keychain", "-p", password, name
+            ).run(in: context.shell)
+        } catch {
             throw ShipItError.keychainError(
-                underlying: ShipItError.invalidConfiguration(reason: "Failed to unlock keychain: \(output.stderr)")
+                underlying: ShipItError.invalidConfiguration(reason: "Failed to unlock keychain: \(error.localizedDescription)")
             )
         }
     }
@@ -169,23 +170,23 @@ public struct KeychainHelper: Sendable {
         let name = Self.temporaryKeychainName
         logger.info("Cleaning up temporary keychain: \(name)")
 
-        // TODO: verify SwiftyShell API
-        let deleteOutput = try await Command(
-            "security", "delete-keychain", name
-        ).run(in: context.shell)
-
-        if deleteOutput.exitCode != 0 {
-            // Not fatal — keychain may not exist
-            logger.debug("delete-keychain returned non-zero (may not exist): \(deleteOutput.stderr)")
+        // Non-fatal — keychain may not exist when cleanup runs.
+        do {
+            _ = try await Command(
+                "security", "delete-keychain", name
+            ).run(in: context.shell)
+        } catch {
+            logger.debug("delete-keychain returned non-zero (may not exist): \(error.localizedDescription)")
         }
 
-        // Restore default keychain list
-        let restoreOutput = try await Command(
-            "security", "list-keychains", "-d", "user", "-s", "login.keychain-db"
-        ).run(in: context.shell)
-
-        if restoreOutput.exitCode != 0 {
-            logger.warning("Failed to restore keychain search list: \(restoreOutput.stderr)")
+        // Restore default keychain list.
+        // Non-fatal — log a warning if this fails.
+        do {
+            _ = try await Command(
+                "security", "list-keychains", "-d", "user", "-s", "login.keychain-db"
+            ).run(in: context.shell)
+        } catch {
+            logger.warning("Failed to restore keychain search list: \(error.localizedDescription)")
         }
 
         logger.info("Temporary keychain cleanup complete")

@@ -28,9 +28,22 @@ swift test --filter CLITests
 swift run shipit --help
 swift run shipit build --scheme MyApp
 swift run shipit run beta --ci --output json
+
+# AI-first entrypoint (canonical machine-oriented command)
+swift run shipit ai-session --goal beta
+swift run shipit ai-session --goal release --path /path/to/project
+
+# Non-interactive init (agents/CI)
+swift run shipit init --goal beta --non-interactive --output json
+
+# Goal-scoped schema slice
+swift run shipit schema --workflow beta --output json
+
+# Structured dry-run (returns JSON step list)
+swift run shipit run beta --dry-run --output json
 ```
 
-> **Prerequisite:** Requires a local `../SwiftyShell` checkout alongside this repo (sibling directory). This is a `path:` dependency in `Package.swift`.
+> **Prerequisite:** Requires access to the remote `SwiftyShell` Swift package dependency during `swift build` and `swift test`.
 
 ## App Store Connect credentials (for ASC-backed features)
 
@@ -87,6 +100,9 @@ Sources/
     AppStoreConnect/  # ASC client, JWT, upload service, models
     CodeSigning/      # Keychain, cert/profile management, cert vault
     Config/           # Shipfile model, ConfigResolver, ResolvedConfig, Environment
+    Introspection/    # ProjectInspector, ShipfileSuggester, BuiltInSchemaCatalog,
+                      # SchemaTypes, SchemaValidator, ShipfileValidator,
+                      # AISessionTypes, AISessionBuilder
     Plugin/           # ShipItPlugin protocol, ActionRegistry, PluginRegistry
     Utilities/        # JSONValue, Logger, ShipItError, RetryPolicy, JSONReporter
     Versioning/       # VersionBumper, BuildNumberSource

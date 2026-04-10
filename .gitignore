@@ -9,6 +9,7 @@
 # Xcode
 *.xcworkspace/xcuserdata/
 *.xcodeproj/xcuserdata/
+.swiftpm/
 DerivedData/
 *.ipa
 *.dSYM.zip

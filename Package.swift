@@ -11,18 +11,18 @@ let package = Package(
         .library(name: "ShipItKit", targets: ["ShipItKit"]),
     ],
     dependencies: [
-        // Shell execution — local path while SwiftyShell is co-developed (swap to remote when published)
-        .package(path: "../SwiftyShell"),
+        // Shell execution
+        .package(url: "https://github.com/maniramezan/swiftyshell", branch: "main"),
         // CLI argument parsing
-        .package(url: "https://github.com/apple/swift-argument-parser", from: "1.5.0"),
+        .package(url: "https://github.com/apple/swift-argument-parser", from: "1.7.1"),
         // JWT for App Store Connect auth
-        .package(url: "https://github.com/vapor/jwt-kit", from: "5.0.0"),
+        .package(url: "https://github.com/vapor/jwt-kit", from: "5.4.0"),
         // YAML config parsing
-        .package(url: "https://github.com/jpsim/Yams", from: "5.0.0"),
+        .package(url: "https://github.com/jpsim/Yams", from: "6.2.0"),
         // Crypto for code signing operations
-        .package(url: "https://github.com/apple/swift-crypto", from: "3.0.0"),
+        .package(url: "https://github.com/apple/swift-crypto", from: "4.3.1"),
         // Structured logging
-        .package(url: "https://github.com/apple/swift-log", from: "1.5.0"),
+        .package(url: "https://github.com/apple/swift-log", from: "1.11.0"),
     ],
     targets: [
         .target(

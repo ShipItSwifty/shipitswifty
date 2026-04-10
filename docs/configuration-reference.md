@@ -146,10 +146,50 @@ With `type: automatic`, ShipIt passes `-allowProvisioningUpdates` to Xcode build
 
 ## `versioning`
 
+ShipItSwifty follows Apple's two-version model:
+
+| Plist key | Format | Meaning |
+|---|---|---|
+| `CFBundleShortVersionString` | `MAJOR.MINOR.PATCH` | User-facing marketing version (e.g. `2.4.1`). Bumped manually for releases. |
+| `CFBundleVersion` | plain integer | Internal build number (e.g. `317`). Auto-incremented on every beta run. |
+
+The `versioning` section controls how `CFBundleVersion` is incremented. `CFBundleShortVersionString` is only changed when the `version` action is called with `bump: major`, `bump: minor`, or `bump: patch`.
+
 | Key | Type | Default | Description |
 |---|---|---|---|
-| `strategy` | string | `sequential` | `sequential` or `timestamp` |
-| `source` | string | `xcodeproj` | `xcodeproj` or `asc` |
+| `strategy` | string | `sequential` | `sequential` — adds 1 each run (guarantees a plain integer). `timestamp` — uses `YYYYMMDDHHmm` format. |
+| `source` | string | `xcodeproj` | `xcodeproj` — reads and writes build settings directly in the `.xcodeproj` file. `asc` — reads the current build number from App Store Connect. |
+
+### `version` action options
+
+The `version` action accepts a `bump` option that selects which counter to change:
+
+| `bump` value | Changes | Leaves untouched |
+|---|---|---|
+| `build` | `CFBundleVersion` (integer) | `CFBundleShortVersionString` |
+| `patch` | Patch segment of `CFBundleShortVersionString`; resets `CFBundleVersion` to `1` | Major and minor segments |
+| `minor` | Minor segment; resets patch and `CFBundleVersion` to `1` | Major segment |
+| `major` | Major segment; resets minor, patch, and `CFBundleVersion` to `1` | — |
+
+### Beta workflow pattern (local-only, Apple semantics)
+
+For a local beta that only increments the build number:
+
+```yaml
+versioning:
+  strategy: sequential   # CFBundleVersion stays a plain integer
+  source: xcodeproj      # write directly into .xcodeproj
+
+workflows:
+  beta:
+    - action: version
+      options:
+        bump: build      # increments CFBundleVersion only
+    - action: archive
+    - action: export     # exports IPA locally; no upload to App Store Connect
+```
+
+To add a TestFlight upload later, append a `testflight` step and uncomment the `app_store_connect` section.
 
 ## `notifications.slack`
 

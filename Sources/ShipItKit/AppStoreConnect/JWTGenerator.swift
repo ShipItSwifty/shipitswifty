@@ -68,7 +68,6 @@ public actor JWTGenerator {
 
         do {
             let pemString = String(decoding: privateKeyData, as: UTF8.self)
-            // TODO: verify SwiftyShell API — JWTKit 5 API for EC key loading
             let ecKey = try ES256PrivateKey(pem: pemString)
             let keyCollection = await JWTKeyCollection()
                 .add(ecdsa: ecKey, kid: JWKIdentifier(string: keyID))

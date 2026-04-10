@@ -55,12 +55,16 @@ public struct VersionBumper: Sendable {
 
     /// Read the current marketing version (`CFBundleShortVersionString`).
     public func readVersion() async throws -> String {
-        // Try agvtool first (most reliable for Xcode projects)
-        // TODO: verify SwiftyShell API
-        let output = try await Command("xcrun", "agvtool", "what-marketing-version", "-terse").run(in: context.shell)
-        if output.exitCode == 0 {
+        // Try agvtool first (most reliable for Xcode projects).
+        // Command.run() throws ShellError.exitFailure on non-zero exit, so wrap
+        // in do-catch to fall through to the plutil fallback when agvtool is
+        // unavailable or fails.
+        do {
+            let output = try await Command("xcrun", "agvtool", "what-marketing-version", "-terse").run(in: context.shell)
             let version = output.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
             if !version.isEmpty { return version }
+        } catch {
+            logger.debug("agvtool what-marketing-version failed, falling back to plutil: \(error.localizedDescription)")
         }
 
         // Fall back to plutil on Info.plist
@@ -69,11 +73,12 @@ public struct VersionBumper: Sendable {
 
     /// Read the current build number (`CFBundleVersion`).
     public func readBuildNumber() async throws -> String {
-        // TODO: verify SwiftyShell API
-        let output = try await Command("xcrun", "agvtool", "what-version", "-terse").run(in: context.shell)
-        if output.exitCode == 0 {
+        do {
+            let output = try await Command("xcrun", "agvtool", "what-version", "-terse").run(in: context.shell)
             let build = output.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
             if !build.isEmpty { return build }
+        } catch {
+            logger.debug("agvtool what-version failed, falling back to plutil: \(error.localizedDescription)")
         }
 
         return try await readPlistValue(key: "CFBundleVersion")
@@ -82,20 +87,20 @@ public struct VersionBumper: Sendable {
     // MARK: - Write
 
     private func writeVersion(_ version: String) async throws {
-        // TODO: verify SwiftyShell API
-        let output = try await Command("xcrun", "agvtool", "new-marketing-version", version).run(in: context.shell)
-        if output.exitCode != 0 {
-            logger.warning("agvtool failed, falling back to plutil: \(output.stderr)")
+        do {
+            _ = try await Command("xcrun", "agvtool", "new-marketing-version", version).run(in: context.shell)
+        } catch {
+            logger.warning("agvtool failed, falling back to plutil: \(error.localizedDescription)")
             try await writePlistValue(key: "CFBundleShortVersionString", value: version)
         }
         logger.info("Set marketing version to: \(version)")
     }
 
     private func writeBuildNumber(_ build: String) async throws {
-        // TODO: verify SwiftyShell API
-        let output = try await Command("xcrun", "agvtool", "new-version", "-all", build).run(in: context.shell)
-        if output.exitCode != 0 {
-            logger.warning("agvtool failed, falling back to plutil: \(output.stderr)")
+        do {
+            _ = try await Command("xcrun", "agvtool", "new-version", "-all", build).run(in: context.shell)
+        } catch {
+            logger.warning("agvtool failed, falling back to plutil: \(error.localizedDescription)")
             try await writePlistValue(key: "CFBundleVersion", value: build)
         }
         logger.info("Set build number to: \(build)")
@@ -145,12 +150,13 @@ public struct VersionBumper: Sendable {
             return formatter.string(from: Date())
 
         case .commitCount:
-            // TODO: verify SwiftyShell API
-            let output = try await Command("git", "rev-list", "--count", "HEAD").run(in: context.shell)
-            if output.exitCode == 0 {
+            do {
+                let output = try await Command("git", "rev-list", "--count", "HEAD").run(in: context.shell)
                 return output.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
+            } catch {
+                logger.warning("git rev-list failed, keeping current build number: \(error.localizedDescription)")
+                return current
             }
-            return current
         }
     }
 
@@ -187,10 +193,12 @@ public struct VersionBumper: Sendable {
             throw ShipItError.invalidConfiguration(reason: "Could not find Info.plist")
         }
 
-        // TODO: verify SwiftyShell API
-        let output = try await Command("plutil", "-extract", key, "raw", plistPath).run(in: context.shell)
-        if output.exitCode == 0 {
+        // plutil exits 0 on success; fall through to NSDictionary on failure.
+        do {
+            let output = try await Command("plutil", "-extract", key, "raw", plistPath).run(in: context.shell)
             return output.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
+        } catch {
+            logger.debug("plutil -extract failed, falling back to NSDictionary: \(error.localizedDescription)")
         }
 
         // Fall back to NSDictionary parsing
@@ -207,11 +215,8 @@ public struct VersionBumper: Sendable {
             throw ShipItError.invalidConfiguration(reason: "Could not find Info.plist")
         }
 
-        // TODO: verify SwiftyShell API
-        let output = try await Command("plutil", "-replace", key, "-string", value, plistPath).run(in: context.shell)
-        if output.exitCode != 0 {
-            throw ShipItError.invalidConfiguration(reason: "plutil failed to write \(key): \(output.stderr)")
-        }
+        // Command.run() throws on non-zero exit; propagate plutil failures directly.
+        _ = try await Command("plutil", "-replace", key, "-string", value, plistPath).run(in: context.shell)
     }
 
     private func findInfoPlist() -> String? {

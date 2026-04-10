@@ -100,10 +100,10 @@ public enum BuiltInSchemaCatalog {
             ),
             .object(
                 "versioning",
-                description: "Version bump defaults.",
+                description: "Version bump defaults. ShipItSwifty follows Apple's two-version model: CFBundleShortVersionString is the user-facing MAJOR.MINOR.PATCH marketing version; CFBundleVersion is the plain-integer internal build counter incremented on every beta run.",
                 properties: [
-                    .string("strategy", description: "Build number strategy.", defaultValue: .string("sequential"), allowedValues: ["sequential", "timestamp", "commitCount"], example: .string("sequential")),
-                    .string("source", description: "Version source.", defaultValue: .string("xcodeproj"), allowedValues: ["xcodeproj", "asc"], example: .string("xcodeproj")),
+                    .string("strategy", description: "How CFBundleVersion is incremented. `sequential` adds 1 each run (guarantees a plain integer, required by Apple). `timestamp` uses YYYYMMDDHHmm format.", defaultValue: .string("sequential"), allowedValues: ["sequential", "timestamp", "commitCount"], example: .string("sequential")),
+                    .string("source", description: "Where CFBundleVersion and CFBundleShortVersionString are read and written. `xcodeproj` reads/writes Xcode build settings directly in the .xcodeproj file. `asc` reads the current build number from App Store Connect.", defaultValue: .string("xcodeproj"), allowedValues: ["xcodeproj", "asc"], example: .string("xcodeproj")),
                 ]
             ),
             .object(
@@ -284,10 +284,10 @@ public enum BuiltInSchemaCatalog {
 
     private static func versionOptions() -> [SchemaField] {
         [
-            .string("bump", required: true, description: "Version component to bump.", allowedValues: ["build", "patch", "minor", "major", "set"], example: .string("build")),
+            .string("bump", required: true, description: "Which version component to increment. `build` increments CFBundleVersion (integer build counter) only — CFBundleShortVersionString is left untouched. `patch`, `minor`, `major` increment the corresponding segment of CFBundleShortVersionString (MAJOR.MINOR.PATCH) and reset CFBundleVersion to 1. `set` writes an explicit marketing version.", allowedValues: ["build", "patch", "minor", "major", "set"], example: .string("build")),
             .string("version", description: "Explicit marketing version when `bump` is `set`.", example: .string("2.4.0")),
             .string("build_number", description: "Explicit build number override.", example: .string("240")),
-            .string("strategy", description: "Build number strategy override.", allowedValues: ["sequential", "timestamp", "commitCount"], example: .string("sequential")),
+            .string("strategy", description: "Build number strategy override for this step. Overrides the top-level versioning.strategy setting.", allowedValues: ["sequential", "timestamp", "commitCount"], example: .string("sequential")),
         ]
     }
 

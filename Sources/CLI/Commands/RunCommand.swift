@@ -39,9 +39,32 @@ struct RunCommand: AsyncParsableCommand {
             let workflowObj = Workflow(workflow, steps: steps)
 
             if global.dryRun {
-                formatter.print("DRY RUN: Would execute workflow '\(workflow)' with \(steps.count) step(s):")
-                for (i, step) in steps.enumerated() {
-                    formatter.print("  \(i + 1). \(step.action)")
+                switch global.output {
+                case .json:
+                    let stepValues: [JSONValue] = steps.enumerated().map { index, step in
+                        .object([
+                            "index": .int(index + 1),
+                            "action": .string(step.action),
+                            "options": step.options ?? .null,
+                        ])
+                    }
+                    let reporter = JSONReporter()
+                    let envelope = ActionResultEnvelope(
+                        action: "run",
+                        status: "dry_run",
+                        payload: .object([
+                            "workflow": .string(workflow),
+                            "mode": .string("dry_run"),
+                            "stepCount": .int(steps.count),
+                            "steps": .array(stepValues),
+                        ])
+                    )
+                    print(try reporter.encode(envelope))
+                case .human:
+                    formatter.print("DRY RUN: Would execute workflow '\(workflow)' with \(steps.count) step(s):")
+                    for (i, step) in steps.enumerated() {
+                        formatter.print("  \(i + 1). \(step.action)")
+                    }
                 }
                 return
             }

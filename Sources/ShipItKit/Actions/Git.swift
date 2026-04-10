@@ -115,7 +115,8 @@ public struct GitAction: Action {
     // MARK: - Operations
 
     private func ensureClean(context: ActionContext) async throws -> Result {
-        // TODO: verify SwiftyShell API
+        // `git status --porcelain` exits 0 on both clean and dirty trees;
+        // stdout is empty only when the tree is clean.
         let output = try await Command("git", "status", "--porcelain").run(in: context.shell)
         let isClean = output.stdout.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
 
@@ -137,13 +138,8 @@ public struct GitAction: Action {
         let message = options.tagMessage ?? tagName
         logger.info("Creating git tag: \(tagName)")
 
-        // TODO: verify SwiftyShell API
+        // Command.run() throws ShellError.exitFailure on non-zero exit.
         let output = try await Command("git", "tag", "-a", tagName, "-m", message).run(in: context.shell)
-
-        if output.exitCode != 0 {
-            throw ShipItError.invalidConfiguration(reason: "git tag failed: \(output.stderr)")
-        }
-
         return Result(output: output.stdout)
     }
 
@@ -154,17 +150,8 @@ public struct GitAction: Action {
 
         logger.info("Creating git commit: \(message)")
 
-        // TODO: verify SwiftyShell API
-        let addOutput = try await Command("git", "add", "-A").run(in: context.shell)
-        if addOutput.exitCode != 0 {
-            throw ShipItError.invalidConfiguration(reason: "git add failed: \(addOutput.stderr)")
-        }
-
+        _ = try await Command("git", "add", "-A").run(in: context.shell)
         let commitOutput = try await Command("git", "commit", "-m", message).run(in: context.shell)
-        if commitOutput.exitCode != 0 {
-            throw ShipItError.invalidConfiguration(reason: "git commit failed: \(commitOutput.stderr)")
-        }
-
         return Result(output: commitOutput.stdout)
     }
 
@@ -172,30 +159,21 @@ public struct GitAction: Action {
         let remote = options.remote ?? "origin"
         logger.info("Pushing to \(remote)")
 
-        // TODO: verify SwiftyShell API
         let pushOutput = try await Command("git", "push", remote).run(in: context.shell)
-        if pushOutput.exitCode != 0 {
-            throw ShipItError.invalidConfiguration(reason: "git push failed: \(pushOutput.stderr)")
-        }
 
         if options.pushTags == true {
-            let tagsOutput = try await Command("git", "push", remote, "--tags").run(in: context.shell)
-            if tagsOutput.exitCode != 0 {
-                throw ShipItError.invalidConfiguration(reason: "git push --tags failed: \(tagsOutput.stderr)")
-            }
+            _ = try await Command("git", "push", remote, "--tags").run(in: context.shell)
         }
 
         return Result(output: pushOutput.stdout)
     }
 
     private func getLog(context: ActionContext) async throws -> Result {
-        // TODO: verify SwiftyShell API
         let output = try await Command("git", "log", "--oneline", "-20").run(in: context.shell)
         return Result(output: output.stdout)
     }
 
     private func getHash(context: ActionContext) async throws -> Result {
-        // TODO: verify SwiftyShell API
         let output = try await Command("git", "rev-parse", "HEAD").run(in: context.shell)
         return Result(output: output.stdout.trimmingCharacters(in: .whitespacesAndNewlines))
     }

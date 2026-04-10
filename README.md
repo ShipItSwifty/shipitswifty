@@ -49,6 +49,19 @@ swift run shipit run beta
 
 ## Installation
 
+### Homebrew
+
+Once the repository and release tags are public, you can install `shipit` from a tap:
+
+```bash
+brew tap arjang/tap
+brew install shipit
+```
+
+The formula in this repository builds `shipit` from source with SwiftPM. Copy `Formula/shipit.rb` into the `arjang/homebrew-tap` repository as `Formula/shipit.rb`, then replace the release URL and SHA256 placeholders before publishing the tap update.
+
+### Build from source
+
 ```bash
 git clone https://github.com/maniramezan/ShipItSwifty
 cd ShipItSwifty
