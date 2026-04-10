@@ -17,15 +17,6 @@ jobs:
         with:
           path: ShipItSwifty
 
-      # SwiftyShell is a local path: dependency required at ../SwiftyShell
-      # Set SWIFTYSHELL_REPO in your repository secrets or variables to point
-      # at the SwiftyShell repository (e.g. https://github.com/your-org/SwiftyShell).
-      - name: Checkout SwiftyShell
-        uses: actions/checkout@v4
-        with:
-          repository: ${{ vars.SWIFTYSHELL_REPO || 'maniramezan/SwiftyShell' }}
-          path: SwiftyShell
-
       - name: Select Xcode
         run: sudo xcode-select -s /Applications/Xcode_16.3.app
 

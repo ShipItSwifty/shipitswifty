@@ -5,20 +5,47 @@ A step-by-step guide to setting up and running your first release.
 ## Prerequisites
 
 - macOS 15+, Swift 6 / Xcode 16+
-- SwiftyShell checked out at `../SwiftyShell` (sibling directory)
 - An Apple Developer account
 - (For ASC features) An App Store Connect API key
 
 ## Step 1 — Clone and build
 
 ```bash
-git clone https://github.com/maniramezan/SwiftyShell ../SwiftyShell
 git clone https://github.com/maniramezan/ShipItSwifty
 cd ShipItSwifty
 swift build
 ```
 
 ## Step 2 — Create your config file
+
+**Option A — Let an AI agent set it up for you**
+
+Run the AI session command first. It inspects the project, returns a versioned JSON payload with all detected values, identifies what's missing, and tells you the exact next step:
+
+```bash
+swift run shipit ai-session --goal beta
+```
+
+The response includes:
+- `appConfig` — every inferred value with `source`, `confidence`, and `why`
+- `missing` — required fields that couldn't be resolved, with env var names
+- `ambiguities` — fields where multiple candidates exist and confirmation is needed
+- `readiness` — blockers, missing secrets, and signing risk level
+- `nextAction.command` — the exact command to run next
+- `agentPrompt` — a system prompt for your AI agent
+- `nextQuestion` — the single best follow-up question to ask the user
+
+If your project is ambiguous (e.g., multiple runnable schemes), resolve those first, then re-run to get the `create_shipfile` action.
+
+For non-interactive use (CI/agent flows):
+
+```bash
+swift run shipit init --goal beta --non-interactive --output json
+```
+
+This uses `ProjectInspector` for accurate scheme/bundle/team detection, writes `Shipfile.yml`, and returns a JSON result listing any unresolved fields.
+
+**Option B — Manual setup**
 
 ```bash
 cp Shipfile.example.yml Shipfile.yml
@@ -109,7 +136,31 @@ swift run shipit testflight
 
 ## Step 6 — Define workflows for repeatable releases
 
-Add workflows to `Shipfile.yml`:
+ShipItSwifty uses Apple's two-version model:
+
+| Plist key | Format | Role |
+|---|---|---|
+| `CFBundleShortVersionString` | `MAJOR.MINOR.PATCH` | User-facing marketing version. Bump manually for releases. |
+| `CFBundleVersion` | plain integer | Internal build counter. Auto-incremented on every beta run. |
+
+Add workflows to `Shipfile.yml`. The `version` step with `bump: build` increments only `CFBundleVersion` and leaves `CFBundleShortVersionString` untouched — the correct behavior for beta runs.
+
+**Local-only beta** (no upload to App Store Connect):
+
+```yaml
+versioning:
+  strategy: sequential   # keeps CFBundleVersion as a plain integer
+  source: xcodeproj
+
+workflows:
+  beta:
+    - action: version
+      options: { bump: build }   # bumps CFBundleVersion only
+    - action: archive
+    - action: export             # exports .ipa locally; no ASC credentials needed
+```
+
+**Beta with TestFlight upload** (requires `app_store_connect` credentials):
 
 ```yaml
 workflows:
@@ -123,10 +174,15 @@ workflows:
       options:
         groups: ["Internal QA"]
         changelog: "Bug fixes and improvements"
+```
 
+**Release** (bumps marketing version, submits for review):
+
+```yaml
+workflows:
   release:
     - action: version
-      options: { bump: build }
+      options: { bump: patch }   # bumps CFBundleShortVersionString patch segment
     - action: archive
     - action: export
     - action: upload
@@ -185,7 +241,7 @@ lane :beta do
 end
 ```
 
-becomes:
+becomes (with TestFlight upload):
 
 ```yaml
 workflows:
@@ -198,6 +254,21 @@ workflows:
     - action: testflight
       options:
         groups: ["Internal QA"]
+```
+
+Or, for a local-only beta that skips the App Store Connect upload:
+
+```yaml
+versioning:
+  strategy: sequential   # ensures CFBundleVersion stays a plain integer
+  source: xcodeproj      # reads/writes directly in .xcodeproj
+
+workflows:
+  beta:
+    - action: version
+      options: { bump: build }   # bumps CFBundleVersion only; marketing version unchanged
+    - action: archive
+    - action: export             # exports .ipa locally; no ASC credentials needed
 ```
 
 3. Move secrets out of Ruby config and into environment variables:
@@ -225,8 +296,13 @@ swift run shipit upload
 5. Validate the migration before using it in CI:
 
 ```bash
+# Human-readable check
 swift run shipit env
 swift run shipit run beta --dry-run
+
+# Machine-readable check (agents/CI)
+swift run shipit ai-session --goal beta
+swift run shipit run beta --dry-run --output json
 ```
 
 If you renamed the file, include `--shipfile ./path/to/your-config.yml` on both commands.
@@ -244,6 +320,32 @@ Preview what a command or workflow would do without executing anything:
 
 ```bash
 swift run shipit run release --dry-run
+```
+
+For structured output that agents and CI scripts can parse, combine with `--output json`:
+
+```bash
+swift run shipit run release --dry-run --output json
+```
+
+This returns the full step list with options, not mixed human text:
+
+```json
+{
+  "action": "run",
+  "status": "dry_run",
+  "payload": {
+    "workflow": "release",
+    "mode": "dry_run",
+    "stepCount": 4,
+    "steps": [
+      { "index": 1, "action": "version", "options": { "bump": "build" } },
+      { "index": 2, "action": "archive", "options": null },
+      { "index": 3, "action": "export", "options": null },
+      { "index": 4, "action": "upload", "options": { "submit_for_review": true } }
+    ]
+  }
+}
 ```
 
 If you want colored human output in screenshots, demos, or piped logs, force it explicitly:
@@ -285,6 +387,6 @@ swift run shipit doctor --shipfile ./path/to/your-config.yml
 
 ## Common Caveats
 
-- The package depends on a local `../SwiftyShell` checkout — CI must provide this (see [CI Setup](ci-setup.md)).
+- The package depends on the remote `SwiftyShell` Swift package, so your environment must be able to fetch Swift package dependencies.
 - Full code-signing (`sign`, `provision`) flows require proper vault configuration (`VAULT_PASSWORD` and a cert repo).
 - Some advanced ASC features are still under active development.

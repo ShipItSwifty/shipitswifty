@@ -15,7 +15,7 @@ This guide covers both paths.
 
 - macOS 15+
 - Swift 6 / Xcode 16+
-- A local checkout of [SwiftyShell](https://github.com/maniramezan/SwiftyShell) at `../SwiftyShell` (sibling of this repo)
+- Access to the `SwiftyShell` Swift package dependency when building the package
 
 ## Using the CLI
 

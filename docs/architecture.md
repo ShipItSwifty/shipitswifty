@@ -239,10 +239,17 @@ shipit <command> [global options]
 
 COMMANDS:
   init          Interactive project setup — generates Shipfile.yml
+                  --goal <local|beta|release>  Template to generate (default: beta)
+                  --non-interactive            Use ProjectInspector + ShipfileSuggester; no prompts
+                  --output json                Emit structured JSON on success
   schema        Print machine-readable Shipfile and workflow schema
+                  --workflow <local|beta|release>  Emit only sections/actions relevant to that goal
   inspect       Inspect project facts for AI-assisted config generation
   suggest-config Generate a suggested Shipfile for local, beta, or release goals
-  ai-bootstrap  Always-JSON bootstrap payload for AI agents
+  ai-bootstrap  Always-JSON bootstrap payload for AI agents (inspection + schema + suggestion + validation)
+  ai-session    Stable, versioned JSON contract for AI agents (v1)
+                  Returns: inferred config with confidence + provenance, secret descriptors,
+                  ambiguity flags, readiness diagnosis, next action, agent prompt, next question
   validate      Validate Shipfile syntax, schema, and workflow semantics
   build         Compile the app (xcodebuild build)
   test          Run tests (xcodebuild test)
@@ -304,21 +311,107 @@ GLOBAL OPTIONS:
 
 ### AI-friendly config workflow
 
-```bash
-# 0. One-shot AI bootstrap response
-swift run shipit ai-bootstrap --goal beta
+`shipit ai-session` is the canonical machine-oriented entrypoint. It returns a single, stable JSON envelope with everything an agent needs.
 
-# 1. Inspect the repo for real Xcode facts
+```bash
+# Canonical AI entrypoint — versioned, stable JSON contract
+swift run shipit ai-session --goal beta
+
+# Refresh after the user provides missing values
+swift run shipit ai-session --goal beta --path /path/to/project
+
+# Inspect raw project facts
 swift run shipit inspect project --output json
 
-# 2. Fetch the full config and workflow schema
-swift run shipit schema --output json
+# Goal-scoped schema slice (beta only)
+swift run shipit schema --workflow beta --output json
 
-# 3. Generate a suggested Shipfile for a goal
+# Generate a starter Shipfile
 swift run shipit suggest-config --goal beta --output json
 
-# 4. Validate the generated Shipfile before execution
+# Validate the generated Shipfile before execution
 swift run shipit validate --shipfile ./Shipfile.yml --output json
+
+# Non-interactive init (agents/CI)
+swift run shipit init --goal beta --non-interactive --output json
+
+# Simulate a workflow without executing it (returns structured JSON)
+swift run shipit run beta --dry-run --output json
+```
+
+#### `ai-session` JSON contract (v1)
+
+```json
+{
+  "action": "ai-session",
+  "status": "success | failure",
+  "payload": {
+    "version": "1",
+    "goal": "beta",
+    "appConfig": [
+      {
+        "keyPath": "app.scheme",
+        "value": "MyApp",
+        "source": "detected | inferred | assumed | unresolved",
+        "confidence": "high | medium | low | null",
+        "why": "Scheme 'MyApp' matches the container name and is the only runnable scheme"
+      }
+    ],
+    "missing": [
+      { "keyPath": "app_store_connect.key_id", "reason": "...", "envVar": "ASC_KEY_ID" }
+    ],
+    "ambiguities": [
+      { "field": "app.scheme", "options": ["App", "AppExtension"], "message": "2 runnable schemes found." }
+    ],
+    "suggestedShipfile": "# Shipfile.yml ...",
+    "readiness": {
+      "goal": "beta",
+      "isReady": false,
+      "blockers": ["App Store Connect API credentials are not verified"],
+      "missingSecrets": [
+        {
+          "keyPath": "app_store_connect.key_id",
+          "envVar": "ASC_KEY_ID",
+          "acceptedFormats": ["Alphanumeric string (e.g. ABCD1234EF)"],
+          "exampleSource": "App Store Connect → Users and Access → Integrations → App Store Connect API",
+          "preferFile": false,
+          "description": "The Key ID of your App Store Connect API key"
+        }
+      ],
+      "signingRisk": "low | medium | high",
+      "unblockSteps": ["Set ASC_KEY_ID, ASC_ISSUER_ID, and ASC_PRIVATE_KEY_PATH..."]
+    },
+    "nextAction": {
+      "action": "resolve_blocker | resolve_ambiguity | create_shipfile | complete_config | run_workflow",
+      "command": "shipit suggest-config --goal beta --output json",
+      "reason": "No Shipfile.yml exists. Generate a starter config..."
+    },
+    "agentPrompt": "You are helping an iOS developer automate their app release...",
+    "nextQuestion": "Do you have your App Store Connect API credentials ready?"
+  }
+}
+```
+
+Exit code `2` when `isReady: false`. Check this to gate further steps.
+
+#### `run --dry-run --output json` contract
+
+```json
+{
+  "action": "run",
+  "status": "dry_run",
+  "payload": {
+    "workflow": "beta",
+    "mode": "dry_run",
+    "stepCount": 4,
+    "steps": [
+      { "index": 1, "action": "version", "options": { "bump": "build" } },
+      { "index": 2, "action": "archive", "options": null },
+      { "index": 3, "action": "export", "options": null },
+      { "index": 4, "action": "testflight", "options": { "groups": ["Internal QA"] } }
+    ]
+  }
+}
 ```
 
 ---
@@ -417,6 +510,34 @@ public actor RateLimiter: Sendable {
 | `NotifyAction` | Post to Slack or custom webhook |
 | `GitAction` | Git status, tagging, changelog |
 | `DsymAction` | Download/upload dSYM files |
+
+---
+
+## Introspection types
+
+These types live in `Sources/ShipItKit/Introspection/` and power `ai-session`, `ai-bootstrap`, `suggest-config`, `inspect`, and `schema`.
+
+| Type | Role |
+|---|---|
+| `ProjectInspector` | Discovers `.xcworkspace`/`.xcodeproj`, runs `xcodebuild -list` + `-showBuildSettings` to extract schemes, bundle IDs, team IDs |
+| `ShipfileSuggester` | Generates goal-appropriate `Shipfile.yml` YAML from a `ProjectInspection` |
+| `BuiltInSchemaCatalog` | Static catalog of `SchemaField`/`SchemaSection`/`ActionSchema` descriptors for every Shipfile key and action option |
+| `SchemaValidator` | Validates a `JSONValue` tree against `SchemaField` rules |
+| `ShipfileValidator` | Full YAML parse + schema + semantic workflow rule validation |
+| `AISessionBuilder` | Builds a versioned `AISessionPayload` from a `ProjectInspection` + goal |
+
+### AI session model types (`AISessionTypes.swift`)
+
+| Type | Description |
+|---|---|
+| `InferenceSource` | How a value was determined: `detected`, `inferred`, `assumed`, `unresolved` |
+| `InferenceConfidence` | Confidence level: `high`, `medium`, `low` |
+| `InferredConfigEntry` | A config value with `source`, `confidence`, and `why` |
+| `SecretDescriptor` | A required secret with `envVar`, `acceptedFormats`, `exampleSource`, `preferFile` |
+| `AmbiguityFlag` | A field with multiple candidates that requires user confirmation |
+| `NextAction` | The single next step: `action` (stable key), `command` (exact CLI), `reason` |
+| `AIReadiness` | Readiness summary: `isReady`, `blockers`, `missingSecrets`, `signingRisk`, `unblockSteps` |
+| `AISessionPayload` | The full versioned contract returned by `shipit ai-session` |
 
 ---
 

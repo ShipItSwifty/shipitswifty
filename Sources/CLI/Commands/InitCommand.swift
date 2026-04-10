@@ -4,13 +4,18 @@ import Foundation
 
 /// Interactive project setup — generates a Shipfile.yml.
 ///
-/// Detects the Xcode workspace/scheme, bundle ID, and team, then writes a starter
-/// Shipfile.yml in the current directory.
+/// In interactive mode, detects the Xcode workspace/scheme, bundle ID, and team,
+/// then writes a comprehensive starter Shipfile.yml.
+///
+/// In `--non-interactive` mode (intended for agents and CI), uses `ProjectInspector`
+/// to detect all values and writes the file without any prompts. Pass `--goal` to
+/// control which workflow template is generated.
 ///
 /// ## Usage
 /// ```
 /// shipit init
-/// shipit init --non-interactive --scheme MyApp --bundle-id com.example.myapp
+/// shipit init --goal beta --non-interactive
+/// shipit init --goal release --non-interactive --output json
 /// ```
 struct InitCommand: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
@@ -29,10 +34,88 @@ struct InitCommand: AsyncParsableCommand {
     @Option(name: .long, help: "Apple Developer Team ID")
     var teamId: String?
 
-    @Flag(name: .long, help: "Skip prompts and use provided/detected values")
+    @Option(name: .long, help: "Goal to optimize for: local, beta, or release. Used in --non-interactive mode.")
+    var goal: SuggestionGoal = .beta
+
+    @Option(name: .long, help: "Root path to inspect. Used in --non-interactive mode.")
+    var path: String = FileManager.default.currentDirectoryPath
+
+    @Flag(name: .long, help: "Skip prompts and use provided/detected values. Integrates with ProjectInspector for accurate detection.")
     var nonInteractive: Bool = false
 
     func run() async throws {
+        if nonInteractive {
+            try await runNonInteractive()
+        } else {
+            try runInteractive()
+        }
+    }
+
+    // MARK: - Non-interactive (agent/CI path)
+
+    private func runNonInteractive() async throws {
+        let inspection = try await ProjectInspector(rootPath: path).inspect()
+        let suggestion = ShipfileSuggester().suggest(goal: goal, from: inspection)
+
+        let outputPath = URL(fileURLWithPath: path)
+            .appendingPathComponent("Shipfile.yml").path
+
+        // CLI overrides take priority over detected values
+        let yaml = applyOverrides(to: suggestion.yaml)
+
+        try yaml.write(toFile: outputPath, atomically: true, encoding: .utf8)
+
+        switch global.output {
+        case .json:
+            let reporter = JSONReporter()
+            let payload: JSONValue = .object([
+                "path": .string(outputPath),
+                "goal": .string(goal.rawValue),
+                "missing": .array(suggestion.missingValues.map { mv in
+                    .object([
+                        "keyPath": .string(mv.keyPath),
+                        "reason": .string(mv.reason),
+                        "envVar": mv.envVar.map(JSONValue.string) ?? .null,
+                    ])
+                }),
+                "warnings": .array(suggestion.warnings.map(JSONValue.string)),
+            ])
+            let envelope = ActionResultEnvelope(action: "init", status: "success", payload: payload)
+            print(try reporter.encode(envelope))
+        case .human:
+            let formatter = makeHumanFormatter(global: global)
+            formatter.printSuccess("Created Shipfile.yml at \(outputPath)")
+            if !suggestion.missingValues.isEmpty {
+                formatter.printWarning("Unresolved fields — edit Shipfile.yml before running:")
+                for mv in suggestion.missingValues {
+                    let envHint = mv.envVar.map { " (or set \($0))" } ?? ""
+                    formatter.print("  \(mv.keyPath): \(mv.reason)\(envHint)")
+                }
+            }
+            printNextSteps(formatter: formatter)
+        }
+    }
+
+    /// Apply CLI flag overrides to generated YAML by injecting them as comments/substitutions.
+    /// This is a lightweight string pass; a full YAML round-trip is not needed here.
+    private func applyOverrides(to yaml: String) -> String {
+        var result = yaml
+        if let scheme {
+            // Replace env-placeholder or detected scheme with CLI-supplied value
+            result = result.replacingOccurrences(of: "scheme: ${SHIPIT_APP__SCHEME}", with: "scheme: \(scheme)")
+        }
+        if let bundleId {
+            result = result.replacingOccurrences(of: "bundle_id: ${SHIPIT_APP__BUNDLE_ID}", with: "bundle_id: \(bundleId)")
+        }
+        if let teamId {
+            result = result.replacingOccurrences(of: "team_id: ${SHIPIT_APP__TEAM_ID}", with: "team_id: \(teamId)")
+        }
+        return result
+    }
+
+    // MARK: - Interactive path
+
+    private func runInteractive() throws {
         let formatter = makeHumanFormatter(global: global)
         formatter.printHeader("ShipItSwifty Init")
 
@@ -134,12 +217,17 @@ struct InitCommand: AsyncParsableCommand {
 
         let outputPath = "./Shipfile.yml"
 
-        if FileManager.default.fileExists(atPath: outputPath) && !nonInteractive {
+        if FileManager.default.fileExists(atPath: outputPath) {
             formatter.printWarning("Shipfile.yml already exists at \(outputPath). Use --non-interactive to overwrite without prompting.")
         }
 
         try shipfileContent.write(toFile: outputPath, atomically: true, encoding: .utf8)
         formatter.printSuccess("Created Shipfile.yml at \(outputPath)")
+        formatter.print("")
+        printNextSteps(formatter: formatter)
+    }
+
+    private func printNextSteps(formatter: HumanFormatter) {
         formatter.print("")
         formatter.print("Next steps:")
         formatter.print("  1. Edit Shipfile.yml to fit your project settings")
@@ -157,7 +245,7 @@ struct InitCommand: AsyncParsableCommand {
         formatter.print("     shipit run beta")
     }
 
-    // MARK: - Detection Helpers
+    // MARK: - Simple detection helpers (interactive path only)
 
     private func detectWorkspace() -> String? {
         let fm = FileManager.default

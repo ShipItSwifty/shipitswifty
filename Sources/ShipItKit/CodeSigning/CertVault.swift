@@ -39,16 +39,18 @@ public struct CertVault: Sendable {
 
         logger.info("Initializing certificate repository at: \(gitUrl)")
 
-        // Clone or init the repo
-        // TODO: verify SwiftyShell API
-        let cloneOutput = try await Command("git", "clone", gitUrl, tmpDir).run(in: context.shell)
-
-        if cloneOutput.exitCode != 0 {
+        // Clone if the repo exists; otherwise init a new one.
+        // Command.run() throws ShellError.exitFailure on non-zero exit, so
+        // catch to implement the "repo doesn't exist yet" fallback.
+        do {
+            _ = try await Command("git", "clone", gitUrl, tmpDir).run(in: context.shell)
+        } catch {
             // Repo doesn't exist yet — create a new one
             try FileManager.default.createDirectory(atPath: tmpDir, withIntermediateDirectories: true, attributes: nil)
-            let initOutput = try await Command("git", "init", tmpDir).run(in: context.shell)
-            if initOutput.exitCode != 0 {
-                throw ShipItError.invalidConfiguration(reason: "git init failed: \(initOutput.stderr)")
+            do {
+                _ = try await Command("git", "init", tmpDir).run(in: context.shell)
+            } catch let initError {
+                throw ShipItError.invalidConfiguration(reason: "git init failed: \(initError.localizedDescription)")
             }
         }
 
@@ -89,16 +91,19 @@ public struct CertVault: Sendable {
 
         try readme.write(toFile: "\(tmpDir)/README.md", atomically: true, encoding: .utf8)
 
-        let addOutput = try await Command("git", "-C", tmpDir, "add", "-A").run(in: context.shell)
-        let commitOutput = try await Command(
-            "git", "-C", tmpDir, "commit", "-m", "chore: initialize ShipItSwifty certificate repository"
-        ).run(in: context.shell)
-
-        if addOutput.exitCode == 0 && commitOutput.exitCode == 0 {
-            let pushOutput = try await Command("git", "-C", tmpDir, "push", "-u", "origin", "main").run(in: context.shell)
-            if pushOutput.exitCode != 0 {
-                logger.warning("Failed to push to remote: \(pushOutput.stderr)")
+        // Stage and commit; push is best-effort — the repo may have no remote yet.
+        do {
+            _ = try await Command("git", "-C", tmpDir, "add", "-A").run(in: context.shell)
+            _ = try await Command(
+                "git", "-C", tmpDir, "commit", "-m", "chore: initialize ShipItSwifty certificate repository"
+            ).run(in: context.shell)
+            do {
+                _ = try await Command("git", "-C", tmpDir, "push", "-u", "origin", "main").run(in: context.shell)
+            } catch {
+                logger.warning("Failed to push to remote: \(error.localizedDescription)")
             }
+        } catch {
+            logger.debug("Nothing to commit during cert repo initialization: \(error.localizedDescription)")
         }
 
         logger.info("Certificate repository initialized")
@@ -123,10 +128,11 @@ public struct CertVault: Sendable {
 
         logger.info("Syncing \(profileType) certs from \(url)")
 
-        // TODO: verify SwiftyShell API
-        let cloneOutput = try await Command("git", "clone", "--depth", "1", url, tmpDir).run(in: context.shell)
-        if cloneOutput.exitCode != 0 {
-            throw ShipItError.signingResourceNotFound(description: "Failed to clone certificate repository: \(cloneOutput.stderr)")
+        // Command.run() throws ShellError.exitFailure on non-zero exit.
+        do {
+            _ = try await Command("git", "clone", "--depth", "1", url, tmpDir).run(in: context.shell)
+        } catch {
+            throw ShipItError.signingResourceNotFound(description: "Failed to clone certificate repository: \(error.localizedDescription)")
         }
 
         let keychain = KeychainHelper()

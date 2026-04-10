@@ -187,6 +187,75 @@ func suggestedShipfileJSON(_ suggestion: SuggestedShipfile) -> JSONValue {
     ])
 }
 
+func inferredConfigEntryJSON(_ entry: InferredConfigEntry) -> JSONValue {
+    .object([
+        "keyPath": .string(entry.keyPath),
+        "value": entry.value ?? .null,
+        "source": .string(entry.source.rawValue),
+        "confidence": entry.confidence.map { .string($0.rawValue) } ?? .null,
+        "why": .string(entry.why),
+    ])
+}
+
+func secretDescriptorJSON(_ secret: SecretDescriptor) -> JSONValue {
+    .object([
+        "keyPath": .string(secret.keyPath),
+        "envVar": .string(secret.envVar),
+        "acceptedFormats": .array(secret.acceptedFormats.map(JSONValue.string)),
+        "exampleSource": .string(secret.exampleSource),
+        "preferFile": .bool(secret.preferFile),
+        "description": .string(secret.description),
+    ])
+}
+
+func ambiguityFlagJSON(_ flag: AmbiguityFlag) -> JSONValue {
+    .object([
+        "field": .string(flag.field),
+        "options": .array(flag.options),
+        "message": .string(flag.message),
+    ])
+}
+
+func nextActionJSON(_ action: NextAction) -> JSONValue {
+    .object([
+        "action": .string(action.action),
+        "command": action.command.map(JSONValue.string) ?? .null,
+        "reason": .string(action.reason),
+    ])
+}
+
+func aiReadinessJSON(_ readiness: AIReadiness) -> JSONValue {
+    .object([
+        "goal": .string(readiness.goal),
+        "isReady": .bool(readiness.isReady),
+        "blockers": .array(readiness.blockers.map(JSONValue.string)),
+        "missingSecrets": .array(readiness.missingSecrets.map(secretDescriptorJSON)),
+        "signingRisk": .string(readiness.signingRisk),
+        "unblockSteps": .array(readiness.unblockSteps.map(JSONValue.string)),
+    ])
+}
+
+func aiSessionPayloadJSON(_ payload: AISessionPayload) -> JSONValue {
+    .object([
+        "version": .string(payload.version),
+        "goal": .string(payload.goal),
+        "appConfig": .array(payload.appConfig.map(inferredConfigEntryJSON)),
+        "missing": .array(payload.missing.map { missing in
+            .object([
+                "keyPath": .string(missing.keyPath),
+                "reason": .string(missing.reason),
+                "envVar": missing.envVar.map(JSONValue.string) ?? .null,
+            ])
+        }),
+        "ambiguities": .array(payload.ambiguities.map(ambiguityFlagJSON)),
+        "suggestedShipfile": .string(payload.suggestedShipfile),
+        "readiness": aiReadinessJSON(payload.readiness),
+        "nextAction": nextActionJSON(payload.nextAction),
+        "agentPrompt": .string(payload.agentPrompt),
+        "nextQuestion": payload.nextQuestion.map(JSONValue.string) ?? .null,
+    ])
+}
+
 func validationReportJSON(_ report: ValidationReport) -> JSONValue {
     .object([
         "shipfilePath": .string(report.shipfilePath),

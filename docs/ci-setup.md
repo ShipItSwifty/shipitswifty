@@ -13,15 +13,7 @@ The repository includes two pre-built workflows:
 
 ### SwiftyShell dependency
 
-ShipItSwifty depends on a local `../SwiftyShell` path. CI must check out SwiftyShell as a sibling before building.
-
-Set the `SWIFTYSHELL_REPO` repository variable (under **Settings → Variables → Actions**) to the full `owner/repo` path of your SwiftyShell fork/mirror:
-
-```
-maniramezan/SwiftyShell
-```
-
-The CI workflow uses this variable to check out SwiftyShell automatically.
+ShipItSwifty depends on the remote `SwiftyShell` Swift package. CI runners must have network and authentication access to fetch Swift package dependencies during `swift build` and `swift test`.
 
 ### Required Secrets
 
@@ -61,11 +53,6 @@ jobs:
       - uses: actions/checkout@v4
         with:
           path: ShipItSwifty
-
-      - uses: actions/checkout@v4
-        with:
-          repository: ${{ vars.SWIFTYSHELL_REPO }}
-          path: SwiftyShell
 
       - name: Select Xcode
         run: sudo xcode-select -s /Applications/Xcode_16.3.app

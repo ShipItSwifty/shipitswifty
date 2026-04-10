@@ -6,7 +6,7 @@ This document covers the planned feature surface, current v1 scope, the long-ter
 
 | Area | Included in v1.0 | Deferred |
 |---|---|---|
-| **CLI** | `init`, `schema`, `inspect project`, `suggest-config`, `validate`, `build`, `test`, `archive`, `export`, `sign sync`, `testflight`, `metadata`, `version`, `run`, `env`, `doctor` | Advanced git automation, PR creation, sales/finance reporting |
+| **CLI** | `init`, `schema`, `inspect project`, `suggest-config`, `ai-bootstrap`, `ai-session`, `validate`, `build`, `test`, `archive`, `export`, `sign sync`, `testflight`, `metadata`, `version`, `run`, `env`, `doctor` | Advanced git automation, PR creation, sales/finance reporting |
 | **Code signing** | Vault-style sync from Git-backed encrypted storage | S3/GCS backends, certificate lifecycle beyond core sync |
 | **Distribution** | TestFlight upload, metadata push/pull, App Store submission primitives | Full review automation coverage |
 | **Screenshots** | Capture + upload basics | Framing, visual diffing, preview video processing |
@@ -20,10 +20,11 @@ This document covers the planned feature surface, current v1 scope, the long-ter
 
 | Feature | Description |
 |---|---|
-| **Schema export** | `shipit schema --output json` exposes the full Shipfile and workflow action contract for automation tools |
+| **Schema export** | `shipit schema --output json` exposes the full Shipfile and workflow action contract. Use `--workflow <local\|beta\|release>` for a goal-scoped subset |
 | **Project inspection** | `shipit inspect project --output json` discovers workspaces, projects, schemes, bundle IDs, team IDs, and related release files |
-| **Config suggestion** | `shipit suggest-config --goal <local|beta|release>` produces a YAML draft plus missing-value hints |
-| **Bootstrap response** | `shipit ai-bootstrap --goal <local|beta|release>` always returns JSON with inspection, schema, suggestion, and validation for AI agents |
+| **Config suggestion** | `shipit suggest-config --goal <local\|beta\|release>` produces a YAML draft plus missing-value hints |
+| **Bootstrap response** | `shipit ai-bootstrap --goal <local\|beta\|release>` always returns JSON with inspection, schema, suggestion, and validation for AI agents |
+| **AI session** | `shipit ai-session --goal <local\|beta\|release>` returns a **versioned, stable JSON contract** (v1) containing inferred config with confidence + provenance, secret descriptors, ambiguity flags, readiness diagnosis, next deterministic action, agent system prompt, and the single best follow-up question to ask the user |
 | **Validation** | `shipit validate` checks YAML parsing, top-level schema, workflow action options, and common semantic mistakes |
 
 ### Building
@@ -78,10 +79,18 @@ This document covers the planned feature surface, current v1 scope, the long-ter
 
 ### Versioning
 
+ShipItSwifty follows Apple's two-version model:
+
+| Plist key | Format | Role |
+|---|---|---|
+| `CFBundleShortVersionString` | `MAJOR.MINOR.PATCH` | User-facing marketing version. Changed only on explicit `bump: major/minor/patch`. |
+| `CFBundleVersion` | plain integer | Internal build counter. Incremented on every beta run via `bump: build`. |
+
 | Feature | Description |
 |---|---|
-| **Bump Build** | Increment `CFBundleVersion` (sequential / timestamp / commit-count strategies) |
-| **Bump Version** | Increment `CFBundleShortVersionString` (major/minor/patch) |
+| **Bump Build** | Increment `CFBundleVersion` only (`bump: build`). `CFBundleShortVersionString` is left untouched. Supports `sequential` (integer +1) and `timestamp` (`YYYYMMDDHHmm`) strategies. |
+| **Bump Version** | Increment a segment of `CFBundleShortVersionString` (`bump: major/minor/patch`). Resets `CFBundleVersion` to `1`. |
+| **Version Source** | `xcodeproj` — reads/writes build settings directly in `.xcodeproj`. `asc` — reads current build number from App Store Connect. |
 | **Git Tag** | Auto-tag releases with version |
 | **Changelog** | Generate from git commits between tags |
 
