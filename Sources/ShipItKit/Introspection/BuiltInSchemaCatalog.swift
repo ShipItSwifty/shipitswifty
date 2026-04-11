@@ -147,6 +147,9 @@ public enum BuiltInSchemaCatalog {
             actionSchema(name: BuildAction.name, description: BuildAction.description, options: buildOptions(), example: buildExample()),
             actionSchema(name: TestAction.name, description: TestAction.description, options: testOptions(), example: testExample()),
             actionSchema(name: ArchiveAction.name, description: ArchiveAction.description, options: archiveOptions(), example: archiveExample()),
+            actionSchema(name: LintAction.name, description: LintAction.description, options: lintOptions(), example: lintExample()),
+            actionSchema(name: PlayStoreAction.name, description: PlayStoreAction.description, options: playStoreOptions(), example: playStoreExample()),
+            actionSchema(name: ValidateBundleAction.name, description: ValidateBundleAction.description, options: validateBundleOptions(), example: validateBundleExample()),
             actionSchema(name: ExportAction.name, description: ExportAction.description, options: exportOptions(), example: exportExample()),
             actionSchema(name: SignAction.name, description: SignAction.description, options: signOptions(), example: signExample()),
             actionSchema(name: UploadAction.name, description: UploadAction.description, options: uploadOptions(), example: uploadExample()),
@@ -190,19 +193,29 @@ public enum BuiltInSchemaCatalog {
 
     private static func buildOptions() -> [SchemaField] {
         [
-            .string("scheme", description: "Xcode scheme to build.", example: .string("MyApp")),
-            .string("configuration", description: "Build configuration.", allowedValues: ["Debug", "Release"], example: .string("Release")),
-            .string("workspace", description: "Xcode workspace path.", example: .string("MyApp.xcworkspace")),
-            .string("project", description: "Xcode project path.", example: .string("MyApp.xcodeproj")),
-            .string("derived_data_path", description: "DerivedData path override.", example: .string("./DerivedData")),
+            // iOS (xcodebuild) fields
+            .string("scheme", description: "Xcode scheme to build (iOS). Ignored on Android.", example: .string("MyApp")),
+            .string("configuration", description: "Build configuration (iOS: Debug/Release; Android: maps to build variant).", allowedValues: ["Debug", "Release"], example: .string("Release")),
+            .string("workspace", description: "Xcode workspace path (iOS only).", example: .string("MyApp.xcworkspace")),
+            .string("project", description: "Xcode project path (iOS only).", example: .string("MyApp.xcodeproj")),
+            .string("derived_data_path", description: "DerivedData path override (iOS only).", example: .string("./DerivedData")),
             .object(
                 "xcargs",
-                description: "Additional xcodebuild settings.",
+                description: "Additional xcodebuild settings (iOS only).",
                 example: .object(["SWIFT_TREAT_WARNINGS_AS_ERRORS": .string("YES")]),
                 allowsAdditionalProperties: true,
                 additionalProperties: .string("<build-setting>", description: "String build setting value.")
             ),
-            .boolean("clean", description: "Run `xcodebuild clean` before build.", example: .bool(true)),
+            .boolean("clean", description: "Run `xcodebuild clean` before build (iOS only).", example: .bool(true)),
+            // Android (Gradle) fields
+            .string("android_module", description: "Gradle module to assemble (Android). Defaults to 'app'.", example: .string("app")),
+            .string("android_build_variant", description: "Gradle build variant to assemble (Android). Defaults to 'release'.", example: .string("release")),
+            .array(
+                "gradle_properties",
+                description: "Additional -P key=value properties passed to Gradle (Android).",
+                example: .array([.string("versionCode=42")]),
+                items: .string("property", description: "Gradle property as key=value string.")
+            ),
         ]
     }
 
@@ -243,12 +256,22 @@ public enum BuiltInSchemaCatalog {
 
     private static func archiveOptions() -> [SchemaField] {
         [
-            .string("scheme", description: "Xcode scheme to archive.", example: .string("MyApp")),
-            .string("configuration", description: "Archive build configuration.", example: .string("Release")),
-            .string("export_method", description: "Distribution method.", allowedValues: ["app-store", "ad-hoc", "development", "enterprise"], example: .string("app-store")),
-            .string("output_path", description: "Output .xcarchive path.", example: .string("./build/MyApp.xcarchive")),
-            .boolean("include_symbols", description: "Include dSYMs.", example: .bool(true)),
-            .boolean("include_bitcode", description: "Include bitcode when supported.", example: .bool(false)),
+            // iOS (xcodebuild) fields
+            .string("scheme", description: "Xcode scheme to archive (iOS). Ignored on Android.", example: .string("MyApp")),
+            .string("configuration", description: "Archive build configuration (iOS: Release; Android: maps to bundle variant).", example: .string("Release")),
+            .string("export_method", description: "Distribution method (iOS only).", allowedValues: ["app-store", "ad-hoc", "development", "enterprise"], example: .string("app-store")),
+            .string("output_path", description: "Output .xcarchive path (iOS) or .aab path (Android).", example: .string("./build/MyApp.xcarchive")),
+            .boolean("include_symbols", description: "Include dSYMs (iOS only).", example: .bool(true)),
+            .boolean("include_bitcode", description: "Include bitcode when supported (iOS only).", example: .bool(false)),
+            // Android (Gradle bundle) fields
+            .string("android_module", description: "Gradle module to bundle (Android). Defaults to 'app'.", example: .string("app")),
+            .string("android_bundle_variant", description: "Gradle bundle variant (Android). Defaults to 'release'.", example: .string("release")),
+            .array(
+                "gradle_properties",
+                description: "Additional -P key=value properties passed to Gradle bundle task (Android).",
+                example: .array([.string("versionCode=42")]),
+                items: .string("property", description: "Gradle property as key=value string.")
+            ),
         ]
     }
 
@@ -457,6 +480,59 @@ public enum BuiltInSchemaCatalog {
 
     private static func validateArchiveExample() -> JSONValue? {
         workflowExample(action: "validate_archive", options: ["archive_path": .string("./build/MyApp.xcarchive")])
+    }
+
+    // MARK: - Android action schemas
+
+    private static func lintOptions() -> [SchemaField] {
+        [
+            .string("scheme", description: "Xcode scheme to analyze. (iOS only)", example: .string("MyApp")),
+            .string("configuration", description: "Build configuration for iOS analysis. Default: Debug.", example: .string("Debug")),
+            .string("module", description: "Gradle module to lint. Default: app. (Android only)", example: .string("app")),
+            .string("build_variant", description: "Build variant to lint, e.g. release. (Android only)", example: .string("release")),
+            .string("report_path", description: "Path to write the lint HTML report. (Android only)", example: .string("./build/reports/lint-results.html")),
+            .boolean("fail_on_error", description: "Fail the build on lint errors. Default: true.", defaultValue: .bool(true), example: .bool(true)),
+        ]
+    }
+
+    private static func lintExample() -> JSONValue? {
+        workflowExample(action: "lint", options: ["module": .string("app"), "build_variant": .string("release")])
+    }
+
+    private static func playStoreOptions() -> [SchemaField] {
+        [
+            .string("aab_path", description: "Path to the .aab file to upload (preferred).", example: .string("./app/build/outputs/bundle/release/app-release.aab")),
+            .string("apk_path", description: "Path to the .apk file to upload.", example: .string("./app/build/outputs/apk/release/app-release.apk")),
+            .string("track", description: "Google Play distribution track.", defaultValue: .string("internal"), allowedValues: ["internal", "alpha", "beta", "production"], example: .string("beta")),
+            .object(
+                "release_notes",
+                description: "Per-language release notes. Keys are BCP-47 language tags.",
+                example: .object(["en-US": .string("Bug fixes and improvements")]),
+                allowsAdditionalProperties: true,
+                additionalProperties: .string("<lang>", description: "Release note text for the given language tag.")
+            ),
+            .any("rollout_fraction", description: "Staged rollout fraction (0.0–1.0). Omit for full rollout.", example: .double(0.1)),
+            .string("package_name", description: "Android package name. Overrides android.package_name in Shipfile.", example: .string("com.example.myapp")),
+        ]
+    }
+
+    private static func playStoreExample() -> JSONValue? {
+        workflowExample(action: "play-store", options: [
+            "aab_path": .string("./app/build/outputs/bundle/release/app-release.aab"),
+            "track": .string("beta"),
+        ])
+    }
+
+    private static func validateBundleOptions() -> [SchemaField] {
+        [
+            .string("aab_path", description: "Path to the .aab file to validate.", example: .string("./app/build/outputs/bundle/release/app-release.aab")),
+            .string("apk_path", description: "Path to the .apk file to validate.", example: .string("./app/build/outputs/apk/release/app-release.apk")),
+            .boolean("fail_on_warnings", description: "Treat warnings as failures.", example: .bool(false)),
+        ]
+    }
+
+    private static func validateBundleExample() -> JSONValue? {
+        workflowExample(action: "validate_bundle", options: ["aab_path": .string("./app/build/outputs/bundle/release/app-release.aab")])
     }
 
     private static func workflowExample(action: String, options: [String: JSONValue]) -> JSONValue {

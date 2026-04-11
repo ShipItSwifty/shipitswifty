@@ -108,34 +108,53 @@ public struct ConfigResolver: Sendable {
         let shipfileLoadResult = try await loadShipfile(from: resolvedPath)
         let shipfile = shipfileLoadResult.shipfile
 
+        // Resolve platform: CLI flag > SHIPIT_PLATFORM env var > auto-detect from project files
+        let platform = resolvePlatform(cliOptions: cliOptions, shipfile: shipfile)
+        logger.info("Resolved platform: \(platform.rawValue)")
+
+        // Apply per-platform overrides from Shipfile ios:/android: blocks
+        let effectiveApp = mergeAppConfig(base: shipfile?.app, platform: platform, shipfile: shipfile)
+        let effectiveBuild = mergeBuildConfig(base: shipfile?.build, platform: platform, shipfile: shipfile)
+
         let privateKeyResolution = try resolvePrivateKeyData(shipfile: shipfile)
         let processedFiles = [shipfileLoadResult.loadedPath, privateKeyResolution.loadedPath].compactMap { $0 }
-        let autoDetectedAppConfig = try await autoDetectAppConfig(shipfile: shipfile, cliOptions: cliOptions)
+        let autoDetectedAppConfig = try await autoDetectAppConfig(
+            shipfile: shipfile,
+            effectiveApp: effectiveApp,
+            cliOptions: cliOptions,
+            platform: platform
+        )
         let bundleIDFromTargetBuildSettings = environment.appBundleId == nil
-            && shipfile?.app?.bundleId == nil
+            && effectiveApp?.bundleId == nil
             && autoDetectedAppConfig.bundleID != nil
         let teamIDFromTargetBuildSettings = environment.appTeamId == nil
-            && shipfile?.app?.teamId == nil
+            && effectiveApp?.teamId == nil
             && autoDetectedAppConfig.teamID != nil
+
+        // Resolve Google Play service account data
+        let googlePlayData = try resolveGooglePlayServiceAccountData(shipfile: shipfile)
+
+        // Android config (from android: block merged with env vars)
+        let androidConfig = shipfile?.android
 
         return ResolvedConfig(
             processedFiles: processedFiles,
-            appWorkspace: environment.appWorkspace ?? shipfile?.app?.workspace ?? autoDetectedAppConfig.workspace,
-            appProject: environment.appProject ?? shipfile?.app?.project ?? autoDetectedAppConfig.project,
-            appScheme: cliOptions.scheme ?? environment.appScheme ?? shipfile?.app?.scheme ?? autoDetectedAppConfig.scheme,
-            bundleID: environment.appBundleId ?? shipfile?.app?.bundleId ?? autoDetectedAppConfig.bundleID,
+            appWorkspace: environment.appWorkspace ?? effectiveApp?.workspace ?? autoDetectedAppConfig.workspace,
+            appProject: environment.appProject ?? effectiveApp?.project ?? autoDetectedAppConfig.project,
+            appScheme: cliOptions.scheme ?? environment.appScheme ?? effectiveApp?.scheme ?? autoDetectedAppConfig.scheme,
+            bundleID: environment.appBundleId ?? effectiveApp?.bundleId ?? autoDetectedAppConfig.bundleID,
             bundleIDFromTargetBuildSettings: bundleIDFromTargetBuildSettings,
-            teamID: environment.appTeamId ?? shipfile?.app?.teamId ?? autoDetectedAppConfig.teamID,
+            teamID: environment.appTeamId ?? effectiveApp?.teamId ?? autoDetectedAppConfig.teamID,
             teamIDFromTargetBuildSettings: teamIDFromTargetBuildSettings,
             ascKeyID: environment.ascKeyId ?? shipfile?.appStoreConnect?.keyId,
             ascIssuerID: environment.ascIssuerId ?? shipfile?.appStoreConnect?.issuerId,
             ascPrivateKeyData: privateKeyResolution.data,
             buildConfiguration: cliOptions.configuration
                 ?? environment.buildConfiguration
-                ?? shipfile?.build?.configuration
+                ?? effectiveBuild?.configuration
                 ?? "Release",
-            derivedDataPath: environment.buildDerivedDataPath ?? shipfile?.build?.derivedDataPath,
-            xcargs: shipfile?.build?.xcargs ?? [:],
+            derivedDataPath: environment.buildDerivedDataPath ?? effectiveBuild?.derivedDataPath,
+            xcargs: effectiveBuild?.xcargs ?? [:],
             archiveExportMethod: environment.archiveExportMethod
                 ?? shipfile?.archive?.exportMethod
                 ?? "app-store",
@@ -164,11 +183,93 @@ public struct ConfigResolver: Sendable {
             versioningSource: shipfile?.versioning?.source ?? "xcodeproj",
             slackWebhookUrl: environment.slackWebhookUrl ?? shipfile?.notifications?.slack?.webhookUrl,
             slackChannel: shipfile?.notifications?.slack?.channel,
-            workflows: shipfile?.workflows ?? [:]
+            workflows: shipfile?.workflows ?? [:],
+            platform: platform,
+            androidModule: environment.androidModule ?? androidConfig?.module ?? "app",
+            androidBuildVariant: environment.androidBuildVariant ?? androidConfig?.buildVariant ?? "release",
+            androidBuildType: AndroidBuildType(rawValue: environment.androidBuildType ?? androidConfig?.buildType?.rawValue ?? "") ?? androidConfig?.buildType ?? .aab,
+            gradlewPath: environment.androidGradlewPath ?? androidConfig?.gradlewPath,
+            androidKeystorePath: environment.androidKeystorePath ?? androidConfig?.keystorePath,
+            androidKeystorePassword: environment.androidKeystorePassword,
+            androidKeyAlias: environment.androidKeyAlias ?? androidConfig?.keystoreAlias,
+            androidKeyPassword: environment.androidKeyPassword,
+            androidPackageName: environment.androidPackageName ?? androidConfig?.packageName,
+            androidPlayTrack: environment.androidPlayTrack ?? androidConfig?.playTrack ?? "qa",
+            androidRolloutFraction: androidConfig?.rolloutFraction,
+            androidGradleProperties: androidConfig?.gradleProperties ?? [:],
+            googlePlayServiceAccountData: googlePlayData
         )
     }
 
     // MARK: - Private Helpers
+
+    /// Resolves the target platform.
+    ///
+    /// Priority: CLI flag > `SHIPIT_PLATFORM` env var > auto-detect from project files.
+    private func resolvePlatform(cliOptions: CLIOptions, shipfile: Shipfile?) -> Platform {
+        // 1. CLI flag (highest priority)
+        if let platform = cliOptions.platform { return platform }
+
+        // 2. Environment variable
+        if let rawValue = environment.platform,
+           let platform = Platform(rawValue: rawValue.lowercased()) {
+            return platform
+        }
+
+        // 3. Auto-detect from file system
+        let fm = FileManager.default
+        if fm.fileExists(atPath: "./gradlew") || fm.fileExists(atPath: "./build.gradle.kts") || fm.fileExists(atPath: "./build.gradle") {
+            return .android
+        }
+
+        // Look for .xcworkspace or .xcodeproj in cwd
+        if let items = try? fm.contentsOfDirectory(atPath: ".") {
+            for item in items {
+                if item.hasSuffix(".xcworkspace") || item.hasSuffix(".xcodeproj") {
+                    return .ios
+                }
+            }
+        }
+
+        // 4. Default to iOS (existing behaviour)
+        return .ios
+    }
+
+    /// Returns the effective `AppConfig` after merging per-platform overrides.
+    private func mergeAppConfig(base: AppConfig?, platform: Platform, shipfile: Shipfile?) -> AppConfig? {
+        guard platform == .ios, let iosOverrides = shipfile?.ios else {
+            return base
+        }
+        var merged = base ?? AppConfig()
+        if let scheme = iosOverrides.scheme { merged.scheme = scheme }
+        if let workspace = iosOverrides.workspace { merged.workspace = workspace }
+        if let project = iosOverrides.project { merged.project = project }
+        return merged
+    }
+
+    /// Returns the effective `BuildConfig` after merging per-platform overrides.
+    private func mergeBuildConfig(base: BuildConfig?, platform: Platform, shipfile: Shipfile?) -> BuildConfig? {
+        // No build overrides in ios: block for now — return base as-is
+        return base
+    }
+
+    private func resolveGooglePlayServiceAccountData(shipfile: Shipfile?) throws -> Data? {
+        // Priority: GOOGLE_PLAY_SERVICE_ACCOUNT_JSON (raw JSON) > GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_PATH (file)
+        if let rawJSON = environment.googlePlayServiceAccountJson {
+            return Data(rawJSON.utf8)
+        }
+
+        if let path = environment.googlePlayServiceAccountJsonPath {
+            let url = URL(fileURLWithPath: path)
+            guard FileManager.default.fileExists(atPath: url.path) else {
+                logger.warning("Google Play service account JSON not found at: \(path)")
+                return nil
+            }
+            return try Data(contentsOf: url)
+        }
+
+        return nil
+    }
 
     private func loadShipfile(from path: String) async throws -> ShipfileLoadResult {
         let fileURL = URL(fileURLWithPath: path)
@@ -222,13 +323,23 @@ public struct ConfigResolver: Sendable {
         return PrivateKeyResolution(data: try Data(contentsOf: fileURL), loadedPath: fileURL.path)
     }
 
-    private func autoDetectAppConfig(shipfile: Shipfile?, cliOptions: CLIOptions) async throws -> AutoDetectedAppConfig {
-        let workspace = environment.appWorkspace ?? shipfile?.app?.workspace
-        let project = environment.appProject ?? shipfile?.app?.project
-        let scheme = cliOptions.scheme ?? environment.appScheme ?? shipfile?.app?.scheme
+    private func autoDetectAppConfig(
+        shipfile: Shipfile?,
+        effectiveApp: AppConfig?,
+        cliOptions: CLIOptions,
+        platform: Platform
+    ) async throws -> AutoDetectedAppConfig {
+        let workspace = environment.appWorkspace ?? effectiveApp?.workspace
+        let project = environment.appProject ?? effectiveApp?.project
+        let scheme = cliOptions.scheme ?? environment.appScheme ?? effectiveApp?.scheme
 
-        let needsBundleID = environment.appBundleId == nil && shipfile?.app?.bundleId == nil
-        let needsTeamID = environment.appTeamId == nil && shipfile?.app?.teamId == nil
+        // Skip xcodebuild auto-detection for Android
+        guard platform == .ios else {
+            return AutoDetectedAppConfig(workspace: workspace, project: project, scheme: scheme)
+        }
+
+        let needsBundleID = environment.appBundleId == nil && effectiveApp?.bundleId == nil
+        let needsTeamID = environment.appTeamId == nil && effectiveApp?.teamId == nil
 
         guard needsBundleID || needsTeamID else {
             return AutoDetectedAppConfig(workspace: workspace, project: project, scheme: scheme)

@@ -1,19 +1,24 @@
 import OSLog
 import SwiftyShell
 
-/// Runs unit and UI tests using `xcodebuild test`.
+/// Runs unit and UI tests.
 ///
-/// Supports running tests against one or more destinations in a single invocation.
-/// When multiple destinations are provided ShipIt runs a separate `xcodebuild test`
+/// - **iOS**: Uses `xcodebuild test`. Supports running against one or more destinations
+///   in a single invocation, aggregating pass/fail/skip counts.
+/// - **Android**: Uses `./gradlew test` (JVM unit tests) or `connectedAndroidTest`
+///   (instrumented on-device tests).
+///
+/// When multiple destinations are provided (iOS), ShipIt runs a separate `xcodebuild test`
 /// pass for each destination, aggregating pass/fail/skip counts across all runs.
 ///
-/// If `destinations` is empty or `nil` and no `destination` fallback is provided,
+/// If `destinations` is empty or `nil` and no `destination` fallback is provided (iOS),
 /// the action throws `ShipItError.invalidConfiguration` rather than inventing a
 /// simulator name that may not exist on the current machine. Use
 /// `DestinationDiscovery` to enumerate valid destinations before configuring this action.
 ///
 /// ## Usage
 /// ```swift
+/// // iOS
 /// let result = try await TestAction().run(
 ///     with: .init(
 ///         scheme: "MyApp",
@@ -23,13 +28,17 @@ import SwiftyShell
 ///     context: context
 /// )
 /// print("Passed: \(result.passCount), Failed: \(result.failCount), Skipped: \(result.skipCount)")
-/// if let bundle = result.resultBundlePath {
-///     print("Result bundle: \(bundle)")
-/// }
+///
+/// // Android
+/// let result = try await TestAction().run(
+///     with: .init(module: "app", instrumented: false),
+///     context: androidContext
+/// )
+/// print("Passed: \(result.passCount), Failed: \(result.failCount)")
 /// ```
 public struct TestAction: Action {
     public static let name = "test"
-    public static let description = "Run unit and UI tests using xcodebuild test"
+    public static let description = "Run unit and UI tests (iOS: xcodebuild test, Android: gradlew test)"
 
     private let logger = Logger.forType(subsystem: "ShipItSwifty", TestAction.self)
 
@@ -38,6 +47,8 @@ public struct TestAction: Action {
 
     /// Configuration for the test action.
     public struct Options: Codable, Sendable {
+        // MARK: iOS options
+
         /// Xcode scheme containing the test targets.
         public var scheme: String?
 
@@ -68,33 +79,44 @@ public struct TestAction: Action {
         /// Build configuration. Default: `Debug`.
         public var configuration: String?
 
-        /// Whether to enable code coverage collection.
+        /// Whether to enable code coverage collection. (iOS only)
         /// When `true` and `resultBundlePath` is not set, a default path of
         /// `./build/<scheme>-tests.xcresult` is used automatically.
         public var enableCodeCoverage: Bool?
 
         /// Path to write the `.xcresult` bundle. Auto-derived when
-        /// `enableCodeCoverage` is `true` and this is `nil`.
+        /// `enableCodeCoverage` is `true` and this is `nil`. (iOS only)
         ///
         /// If the bundle already exists at this path it is removed before
         /// `xcodebuild test` is invoked, making repeated runs safe without
         /// requiring manual cleanup between runs.
         public var resultBundlePath: String?
 
-        /// Test plan name to run (if multiple plans exist).
+        /// Test plan name to run (if multiple plans exist). (iOS only)
         public var testPlan: String?
 
-        /// Restrict the run to specific test targets or test cases.
+        /// Restrict the run to specific test targets or test cases. (iOS only)
         /// Each entry maps to a separate `-only-testing` argument.
         /// Example: `["MyAppTests/MyFeatureTests", "MyAppTests/MyFeatureTests/testSomething"]`
         public var onlyTesting: [String]?
 
-        /// Skip specific test targets or test cases.
+        /// Skip specific test targets or test cases. (iOS only)
         /// Each entry maps to a separate `-skip-testing` argument.
         public var skipTesting: [String]?
 
-        /// Automatically retry failing tests once before reporting failure.
+        /// Automatically retry failing tests once before reporting failure. (iOS only)
         public var retryOnFailure: Bool?
+
+        // MARK: Android options
+
+        /// Gradle module to test (e.g. `"app"`). Defaults to `config.androidModule`. (Android only)
+        public var module: String?
+
+        /// Build variant to test (e.g. `"debug"`, `"release"`). Default: `debug`. (Android only)
+        public var buildVariant: String?
+
+        /// When `true`, runs `connectedAndroidTest` (instrumented) instead of `test` (JVM). Default: `false`. (Android only)
+        public var instrumented: Bool?
 
         /// Creates `Options` for the test action.
         ///
@@ -109,7 +131,10 @@ public struct TestAction: Action {
             testPlan: String? = nil,
             onlyTesting: [String]? = nil,
             skipTesting: [String]? = nil,
-            retryOnFailure: Bool? = nil
+            retryOnFailure: Bool? = nil,
+            module: String? = nil,
+            buildVariant: String? = nil,
+            instrumented: Bool? = nil
         ) {
             self.scheme = scheme
             self.destinations = destinations
@@ -121,9 +146,12 @@ public struct TestAction: Action {
             self.onlyTesting = onlyTesting
             self.skipTesting = skipTesting
             self.retryOnFailure = retryOnFailure
+            self.module = module
+            self.buildVariant = buildVariant
+            self.instrumented = instrumented
         }
 
-        /// Returns the effective list of destination strings to use.
+        /// Returns the effective list of destination strings to use (iOS).
         ///
         /// Resolution order:
         /// 1. `destinations` when non-nil and non-empty
@@ -148,7 +176,7 @@ public struct TestAction: Action {
         public let skipCount: Int
 
         /// Path to the `.xcresult` bundle (present when `resultBundlePath` was set
-        /// or auto-derived because `enableCodeCoverage` was `true`).
+        /// or auto-derived because `enableCodeCoverage` was `true`). (iOS only)
         public let resultBundlePath: String?
 
         /// Whether all executed tests passed (no failures).
@@ -169,6 +197,17 @@ public struct TestAction: Action {
     }
 
     public func run(with options: Options, context: ActionContext) async throws -> Result {
+        switch context.platform {
+        case .ios:
+            return try await runIOS(options: options, context: context)
+        case .android:
+            return try await runAndroid(options: options, context: context)
+        }
+    }
+
+    // MARK: - iOS Test (xcodebuild test)
+
+    private func runIOS(options: Options, context: ActionContext) async throws -> Result {
         let scheme = options.scheme ?? context.config.appScheme
         guard let scheme else {
             throw ShipItError.invalidConfiguration(
@@ -246,7 +285,7 @@ public struct TestAction: Action {
         )
     }
 
-    // MARK: - Single destination run
+    // MARK: - Single destination run (iOS)
 
     private func runSingle(
         scheme: String,
@@ -324,6 +363,58 @@ public struct TestAction: Action {
         return (pass: pass, fail: 0, skip: skip)
     }
 
+    // MARK: - Android Test (gradlew test / connectedAndroidTest)
+
+    private func runAndroid(options: Options, context: ActionContext) async throws -> Result {
+        let module = options.module ?? context.config.androidModule
+        let variant = options.buildVariant ?? "debug"
+        let instrumented = options.instrumented ?? false
+
+        // Choose task: connectedDebugAndroidTest (instrumented) or testDebugUnitTest (JVM)
+        let task: GradleTask
+        if instrumented {
+            task = variant.lowercased() == "debug" ? .connectedDebugAndroidTest : .connectedAndroidTest
+        } else {
+            task = variant.lowercased() == "debug" ? .testDebugUnitTest : .testReleaseUnitTest
+        }
+
+        logger.info("Running Android test task '\(task.name)' for module '\(module)'")
+
+        let gradle = Gradle(context: context.shell)
+            .task(task)
+            .flag(.noDaemon)
+
+        let output: ShellOutput
+        do {
+            output = try await gradle.run()
+        } catch let ShellError.exitFailure(_, shellOutput) {
+            let combinedLog = [shellOutput.stdout, shellOutput.stderr]
+                .filter { !$0.isEmpty }
+                .joined(separator: "\n")
+            let failCount = parseGradleFailureCount(from: combinedLog)
+            logger.error("Android tests failed with \(failCount) failure(s)")
+            throw ShipItError.testFailed(
+                exitCode: Int(shellOutput.exitCode),
+                failureCount: failCount,
+                log: combinedLog
+            )
+        }
+
+        if output.exitCode != 0 {
+            let failCount = parseGradleFailureCount(from: output.stdout)
+            throw ShipItError.testFailed(
+                exitCode: Int(output.exitCode),
+                failureCount: failCount,
+                log: output.stderr
+            )
+        }
+
+        let (pass, fail, skip) = parseGradleCounts(from: output.stdout)
+        logger.info("Android tests complete — pass: \(pass), fail: \(fail), skip: \(skip)")
+
+        return Result(passCount: pass, failCount: fail, skipCount: skip)
+    }
+
     // MARK: - Private Helpers
 
     /// Parses `(pass, skip)` from xcodebuild summary output.
@@ -391,5 +482,43 @@ public struct TestAction: Action {
             $0.hasSuffix(": FAILED") || $0.hasSuffix("FAILED)")
         }.count
         return perTestFailures > 0 ? perTestFailures : 0
+    }
+
+    /// Parses Gradle test output for pass/fail/skip counts.
+    ///
+    /// Gradle prints a summary like:
+    /// ```
+    /// 12 tests completed, 2 failed, 1 skipped
+    /// ```
+    private func parseGradleCounts(from output: String) -> (pass: Int, fail: Int, skip: Int) {
+        for line in output.components(separatedBy: "\n") {
+            guard line.contains("tests completed") else { continue }
+
+            let words = line.components(separatedBy: " ")
+            var total = 0
+            var failed = 0
+            var skipped = 0
+
+            for (i, word) in words.enumerated() {
+                if word == "completed," && i > 0, let n = Int(words[i - 1]) { total = n }
+                if word == "failed," && i > 0, let n = Int(words[i - 1]) { failed = n }
+                if (word == "skipped" || word == "skipped,") && i > 0, let n = Int(words[i - 1]) { skipped = n }
+            }
+
+            return (pass: total - failed - skipped, fail: failed, skip: skipped)
+        }
+        return (pass: 0, fail: 0, skip: 0)
+    }
+
+    /// Parses failure count from Gradle test failure output.
+    private func parseGradleFailureCount(from output: String) -> Int {
+        for line in output.components(separatedBy: "\n") {
+            guard line.contains("tests completed") else { continue }
+            let words = line.components(separatedBy: " ")
+            for (i, word) in words.enumerated() {
+                if word == "failed," && i > 0, let n = Int(words[i - 1]) { return n }
+            }
+        }
+        return 0
     }
 }

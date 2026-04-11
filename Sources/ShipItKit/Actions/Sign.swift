@@ -95,6 +95,9 @@ public struct SignAction: Action {
     }
 
     public func run(with options: Options, context: ActionContext) async throws -> Result {
+        guard context.platform == .ios else {
+            throw ShipItError.invalidConfiguration(reason: "SignAction requires iOS platform")
+        }
         logger.info("Sign operation: \(options.operation.rawValue)")
 
         switch options.operation {

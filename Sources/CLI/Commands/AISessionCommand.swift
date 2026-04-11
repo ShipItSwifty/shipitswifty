@@ -18,6 +18,7 @@ import ShipItKit
 /// ```
 /// shipit ai-session
 /// shipit ai-session --goal release --path /path/to/project
+/// shipit ai-session --goal beta --platform android
 /// ```
 ///
 /// Always exits with code `2` when the project is not ready to run the requested workflow.
@@ -41,10 +42,13 @@ struct AISessionCommand: AsyncParsableCommand {
             .appendingPathComponent(options.shipfile).path
         let hasExistingShipfile = FileManager.default.fileExists(atPath: resolvedShipfilePath)
 
+        let platform = options.platform ?? autoDetectPlatform(at: path)
+
         let payload = AISessionBuilder().build(
             goal: goal,
             inspection: inspection,
-            hasExistingShipfile: hasExistingShipfile
+            hasExistingShipfile: hasExistingShipfile,
+            platform: platform
         )
 
         let reporter = JSONReporter()
@@ -59,4 +63,23 @@ struct AISessionCommand: AsyncParsableCommand {
             throw ExitCode(2)
         }
     }
+
+    /// Auto-detect platform from project files at `rootPath`.
+    ///
+    /// Rules (first match wins):
+    /// - `gradlew` or `build.gradle.kts` present → `.android`
+    /// - `*.xcworkspace` or `*.xcodeproj` present → `.ios`
+    /// - Default → `.ios`
+    private func autoDetectPlatform(at rootPath: String) -> Platform {
+        let fm = FileManager.default
+        guard let contents = try? fm.contentsOfDirectory(atPath: rootPath) else { return .ios }
+        if contents.contains("gradlew") || contents.contains("build.gradle.kts") {
+            return .android
+        }
+        if contents.contains(where: { $0.hasSuffix(".xcworkspace") || $0.hasSuffix(".xcodeproj") }) {
+            return .ios
+        }
+        return .ios
+    }
 }
+

@@ -68,6 +68,9 @@ public struct UploadAction: Action {
     }
 
     public func run(with options: Options, context: ActionContext) async throws -> Result {
+        guard context.platform == .ios else {
+            throw ShipItError.invalidConfiguration(reason: "UploadAction requires iOS platform")
+        }
         guard let ipaPath = options.ipaPath ?? locateExportedIPA(context: context) else {
             throw ShipItError.invalidConfiguration(reason: "Upload requires an IPA path. Pass --ipa /path/to/App.ipa.")
         }

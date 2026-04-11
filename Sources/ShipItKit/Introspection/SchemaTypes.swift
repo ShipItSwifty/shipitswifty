@@ -327,6 +327,11 @@ public struct ProjectInspection: Codable, Sendable, Hashable {
     public let fastlaneFiles: [String]
     public let ciFiles: [String]
     public let warnings: [String]
+    /// Auto-detected platform based on project file presence. `.android` when `gradlew` or
+    /// `build.gradle.kts` is found; `.ios` when `.xcworkspace`/`.xcodeproj` is found; defaults to `.ios`.
+    public let detectedPlatform: Platform
+    /// Gradle-related files found under the root path (e.g. `gradlew`, `build.gradle.kts`).
+    public let gradleFiles: [String]
 
     public init(
         rootPath: String,
@@ -337,7 +342,9 @@ public struct ProjectInspection: Codable, Sendable, Hashable {
         existingShipfiles: [String],
         fastlaneFiles: [String],
         ciFiles: [String],
-        warnings: [String]
+        warnings: [String],
+        detectedPlatform: Platform = .ios,
+        gradleFiles: [String] = []
     ) {
         self.rootPath = rootPath
         self.xcodeContainers = xcodeContainers
@@ -348,6 +355,8 @@ public struct ProjectInspection: Codable, Sendable, Hashable {
         self.fastlaneFiles = fastlaneFiles
         self.ciFiles = ciFiles
         self.warnings = warnings
+        self.detectedPlatform = detectedPlatform
+        self.gradleFiles = gradleFiles
     }
 }
 

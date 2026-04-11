@@ -54,6 +54,23 @@ public struct Shipfile: Codable, Sendable {
     /// Named release workflows.
     public var workflows: [String: WorkflowConfig]?
 
+    /// iOS-specific overrides merged on top of shared config when platform resolves to `.ios`.
+    ///
+    /// Useful for monorepo projects containing both iOS and Android targets.
+    public var ios: IOSConfig?
+
+    /// Android-specific configuration merged on top of shared config when platform resolves to `.android`.
+    ///
+    /// ## Example
+    /// ```yaml
+    /// android:
+    ///   module: app
+    ///   package_name: com.example.myapp
+    ///   build_type: aab
+    ///   play_track: qa
+    /// ```
+    public var android: AndroidConfig?
+
     /// Creates a `Shipfile` with all optional configuration sections.
     public init(
         app: AppConfig? = nil,
@@ -67,7 +84,9 @@ public struct Shipfile: Codable, Sendable {
         metadata: MetadataConfig? = nil,
         versioning: VersioningConfig? = nil,
         notifications: NotificationsConfig? = nil,
-        workflows: [String: WorkflowConfig]? = nil
+        workflows: [String: WorkflowConfig]? = nil,
+        ios: IOSConfig? = nil,
+        android: AndroidConfig? = nil
     ) {
         self.app = app
         self.appStoreConnect = appStoreConnect
@@ -81,6 +100,8 @@ public struct Shipfile: Codable, Sendable {
         self.versioning = versioning
         self.notifications = notifications
         self.workflows = workflows
+        self.ios = ios
+        self.android = android
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -96,6 +117,8 @@ public struct Shipfile: Codable, Sendable {
         case versioning
         case notifications
         case workflows
+        case ios
+        case android
     }
 }
 

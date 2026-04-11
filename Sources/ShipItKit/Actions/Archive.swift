@@ -1,22 +1,32 @@
 import OSLog
 import SwiftyShell
 
-/// Archives the app using `xcodebuild archive`, producing a `.xcarchive`.
+/// Archives the app for distribution.
 ///
-/// This is the canonical step for producing a distributable archive.
-/// The resulting archive is consumed by `ExportAction` to produce an IPA.
+/// - **iOS**: Uses `xcodebuild archive`, producing a `.xcarchive`.
+///   The resulting archive is consumed by `ExportAction` to produce an IPA.
+/// - **Android**: Uses `./gradlew bundle<Variant>`, producing a signed `.aab` (Android App Bundle).
+///   For APK-only builds use `BuildAction` instead.
 ///
 /// ## Usage
 /// ```swift
+/// // iOS
 /// let result = try await ArchiveAction().run(
 ///     with: .init(scheme: "MyApp", exportMethod: "app-store"),
 ///     context: context
 /// )
 /// print("Archive: \(result.archivePath)")
+///
+/// // Android
+/// let result = try await ArchiveAction().run(
+///     with: .init(buildVariant: "release"),
+///     context: androidContext
+/// )
+/// print("AAB: \(result.aabPath ?? "N/A")")
 /// ```
 public struct ArchiveAction: Action {
     public static let name = "archive"
-    public static let description = "Archive the app using xcodebuild archive"
+    public static let description = "Archive the app (iOS: xcodebuild archive, Android: gradlew bundle)"
 
     private let logger = Logger.forType(subsystem: "ShipItSwifty", ArchiveAction.self)
 
@@ -25,23 +35,39 @@ public struct ArchiveAction: Action {
 
     /// Configuration for the archive action.
     public struct Options: Codable, Sendable {
-        /// Xcode scheme to archive.
+        // MARK: iOS options
+
+        /// Xcode scheme to archive. (iOS only)
         public var scheme: String?
 
         /// Build configuration. Default: `Release`.
         public var configuration: String?
 
-        /// Export method: `app-store`, `ad-hoc`, `development`, or `enterprise`.
+        /// Export method: `app-store`, `ad-hoc`, `development`, or `enterprise`. (iOS only)
         public var exportMethod: String?
 
-        /// Output path for the `.xcarchive`. Default: `./build/<scheme>.xcarchive`.
+        /// Output path for the `.xcarchive`. Default: `./build/<scheme>.xcarchive`. (iOS only)
         public var outputPath: String?
 
-        /// Whether to include debug symbols.
+        /// Whether to include debug symbols. (iOS only)
         public var includeSymbols: Bool?
 
-        /// Whether to include bitcode.
+        /// Whether to include bitcode. (iOS only)
         public var includeBitcode: Bool?
+
+        // MARK: Android options
+
+        /// Gradle module name (e.g. `"app"`). Defaults to `config.androidModule`. (Android only)
+        public var module: String?
+
+        /// Build variant (e.g. `"release"`, `"debug"`). Defaults to `config.androidBuildVariant`. (Android only)
+        public var buildVariant: String?
+
+        /// Product flavor (e.g. `"free"`, `"paid"`). Combined with `buildVariant`. (Android only)
+        public var flavor: String?
+
+        /// Additional Gradle `-P` properties. (Android only)
+        public var gradleProperties: [String: String]?
 
         /// Creates `Options` for the archive action.
         ///
@@ -52,7 +78,11 @@ public struct ArchiveAction: Action {
             exportMethod: String? = nil,
             outputPath: String? = nil,
             includeSymbols: Bool? = nil,
-            includeBitcode: Bool? = nil
+            includeBitcode: Bool? = nil,
+            module: String? = nil,
+            buildVariant: String? = nil,
+            flavor: String? = nil,
+            gradleProperties: [String: String]? = nil
         ) {
             self.scheme = scheme
             self.configuration = configuration
@@ -60,25 +90,51 @@ public struct ArchiveAction: Action {
             self.outputPath = outputPath
             self.includeSymbols = includeSymbols
             self.includeBitcode = includeBitcode
+            self.module = module
+            self.buildVariant = buildVariant
+            self.flavor = flavor
+            self.gradleProperties = gradleProperties
         }
     }
 
     /// Result of a successful archive.
     public struct Result: Codable, Sendable {
-        /// Path to the created `.xcarchive`.
-        public let archivePath: String
+        /// Path to the created `.xcarchive`. (iOS)
+        public let archivePath: String?
 
-        /// Exit code from xcodebuild.
+        /// Path to the generated `.aab` file. (Android)
+        public let aabPath: String?
+
+        /// Exit code from the underlying tool.
         public let exitCode: Int
 
-        /// Creates a `Result`.
+        /// Creates an iOS `Result`.
         public init(archivePath: String, exitCode: Int = 0) {
             self.archivePath = archivePath
+            self.aabPath = nil
+            self.exitCode = exitCode
+        }
+
+        /// Creates an Android `Result`.
+        public init(aabPath: String?, exitCode: Int = 0) {
+            self.archivePath = nil
+            self.aabPath = aabPath
             self.exitCode = exitCode
         }
     }
 
     public func run(with options: Options, context: ActionContext) async throws -> Result {
+        switch context.platform {
+        case .ios:
+            return try await runIOS(options: options, context: context)
+        case .android:
+            return try await runAndroid(options: options, context: context)
+        }
+    }
+
+    // MARK: - iOS Archive
+
+    private func runIOS(options: Options, context: ActionContext) async throws -> Result {
         let scheme = options.scheme ?? context.config.appScheme
         guard let scheme else {
             throw ShipItError.invalidConfiguration(reason: "Archive requires a scheme. Set app.scheme in Shipfile.yml or pass --scheme.")
@@ -125,5 +181,71 @@ public struct ArchiveAction: Action {
 
         logger.info("Archive succeeded: \(archivePath)")
         return Result(archivePath: archivePath, exitCode: Int(output.exitCode))
+    }
+
+    // MARK: - Android Archive (gradlew bundle)
+
+    private func runAndroid(options: Options, context: ActionContext) async throws -> Result {
+        let module = options.module ?? context.config.androidModule
+        let variant = options.buildVariant ?? context.config.androidBuildVariant
+        let flavor = options.flavor ?? context.config.androidGradleProperties["flavor"]
+
+        // Determine task: bundleFreeRelease or bundleRelease
+        let task: GradleTask
+        if let flavor {
+            task = GradleTask.bundle(flavor: flavor, variant: variant)
+        } else {
+            task = variant.lowercased() == "debug" ? .bundleDebug : .bundleRelease
+        }
+
+        logger.info("Bundling Android module '\(module)' with task '\(task.name)'")
+
+        var gradle = Gradle(context: context.shell)
+            .task(task)
+            .flag(.noDaemon)
+
+        let allProps = context.config.androidGradleProperties.merging(options.gradleProperties ?? [:]) { _, new in new }
+        for (key, value) in allProps {
+            gradle = gradle.property(.custom(key: key, value: value))
+        }
+
+        let output: ShellOutput
+        do {
+            output = try await gradle.run()
+        } catch let ShellError.exitFailure(_, shellOutput) {
+            logger.error("Android bundle failed with exit code \(shellOutput.exitCode)")
+            throw ShipItError.archiveFailed(
+                exitCode: Int(shellOutput.exitCode),
+                log: [shellOutput.stdout, shellOutput.stderr]
+                    .filter { !$0.isEmpty }
+                    .joined(separator: "\n")
+            )
+        }
+
+        if output.exitCode != 0 {
+            logger.error("Android bundle failed with exit code \(output.exitCode)")
+            throw ShipItError.archiveFailed(exitCode: Int(output.exitCode), log: output.stderr)
+        }
+
+        logger.info("Android bundle succeeded for module '\(module)'")
+
+        let aabPath = parseAabPath(from: output.stdout, module: module, variant: variant)
+        return Result(aabPath: aabPath, exitCode: Int(output.exitCode))
+    }
+
+    // MARK: - Private Helpers
+
+    private func parseAabPath(from output: String, module: String, variant: String) -> String? {
+        // Gradle output: "module/build/outputs/bundle/release/module-release.aab"
+        let lines = output.components(separatedBy: "\n")
+        for line in lines {
+            if line.contains(".aab") && line.contains(variant) {
+                let components = line.components(separatedBy: " ")
+                if let aabComponent = components.first(where: { $0.hasSuffix(".aab") }) {
+                    return aabComponent
+                }
+            }
+        }
+        return "\(module)/build/outputs/bundle/\(variant)/\(module)-\(variant).aab"
     }
 }

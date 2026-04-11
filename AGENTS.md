@@ -34,18 +34,27 @@ swift run shipit --help
 swift run shipit build --scheme MyApp
 swift run shipit run beta --ci --output json
 
+# Android build / test / archive
+swift run shipit build --platform android
+swift run shipit test --platform android
+swift run shipit archive --platform android
+swift run shipit lint --platform android
+swift run shipit play-store --platform android
+
 # Validate subcommand family
 swift run shipit validate                          # default: validate yml
 swift run shipit validate yml                      # Shipfile structure and workflow semantics
 swift run shipit validate metadata                 # App Store metadata / precheck rules
 swift run shipit validate archive --archive-path ./build/MyApp.xcarchive
 swift run shipit validate archive --ipa ./build/export/MyApp.ipa
+swift run shipit validate bundle --bundle ./build/app-release.aab   # Android AAB / APK validation
 swift run shipit validate all                      # yml + metadata + archive in sequence
 swift run shipit precheck                          # backwards-compat alias: validate metadata
 
 # AI-first entrypoint (canonical machine-oriented command)
 swift run shipit ai-session --goal beta
 swift run shipit ai-session --goal release --path /path/to/project
+swift run shipit ai-session --goal beta --platform android   # Android-specific agent prompt
 
 # Non-interactive init (agents/CI)
 swift run shipit init --goal beta --non-interactive --output json
@@ -65,6 +74,12 @@ Set these environment variables:
 - `ASC_KEY_ID`
 - `ASC_ISSUER_ID`
 - `ASC_PRIVATE_KEY` (raw PEM) or `ASC_PRIVATE_KEY_PATH` (file path)
+
+## Google Play credentials (for Android-backed features)
+
+Set one of these environment variables:
+- `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` (raw JSON content)
+- `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_PATH` (file path)
 
 ## Architecture
 

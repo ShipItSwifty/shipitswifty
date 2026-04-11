@@ -161,6 +161,52 @@ public struct ResolvedConfig: Sendable {
     /// Named release workflows from the Shipfile.
     public let workflows: [String: WorkflowConfig]
 
+    // MARK: - Platform
+
+    /// Resolved target platform.
+    public let platform: Platform
+
+    // MARK: - Android
+
+    /// Gradle module name (e.g. `app`).
+    public let androidModule: String
+
+    /// Gradle build variant (e.g. `release`).
+    public let androidBuildVariant: String
+
+    /// Android artifact type (`.aab` or `.apk`).
+    public let androidBuildType: AndroidBuildType
+
+    /// Path to `gradlew` wrapper. Auto-detected from project root when nil.
+    public let gradlewPath: String?
+
+    /// Path to the Android keystore file.
+    public let androidKeystorePath: String?
+
+    /// Keystore password (from environment — never stored in Shipfile).
+    public let androidKeystorePassword: String?
+
+    /// Signing key alias within the keystore.
+    public let androidKeyAlias: String?
+
+    /// Key password (from environment — never stored in Shipfile).
+    public let androidKeyPassword: String?
+
+    /// Android application package name (e.g. `com.example.myapp`).
+    public let androidPackageName: String?
+
+    /// Google Play distribution track.
+    public let androidPlayTrack: String
+
+    /// Staged rollout fraction (0.0–1.0). `nil` means full rollout.
+    public let androidRolloutFraction: Double?
+
+    /// Additional Gradle `-P` project properties.
+    public let androidGradleProperties: [String: String]
+
+    /// Raw service account JSON data for Google Play authentication.
+    public let googlePlayServiceAccountData: Data?
+
     // MARK: - Init
 
     /// Creates a `ResolvedConfig` with all configuration values.
@@ -205,7 +251,21 @@ public struct ResolvedConfig: Sendable {
         versioningSource: String = "xcodeproj",
         slackWebhookUrl: String? = nil,
         slackChannel: String? = nil,
-        workflows: [String: WorkflowConfig] = [:]
+        workflows: [String: WorkflowConfig] = [:],
+        platform: Platform = .ios,
+        androidModule: String = "app",
+        androidBuildVariant: String = "release",
+        androidBuildType: AndroidBuildType = .aab,
+        gradlewPath: String? = nil,
+        androidKeystorePath: String? = nil,
+        androidKeystorePassword: String? = nil,
+        androidKeyAlias: String? = nil,
+        androidKeyPassword: String? = nil,
+        androidPackageName: String? = nil,
+        androidPlayTrack: String = "qa",
+        androidRolloutFraction: Double? = nil,
+        androidGradleProperties: [String: String] = [:],
+        googlePlayServiceAccountData: Data? = nil
     ) {
         self.processedFiles = processedFiles
         self.appWorkspace = appWorkspace
@@ -248,5 +308,19 @@ public struct ResolvedConfig: Sendable {
         self.slackWebhookUrl = slackWebhookUrl
         self.slackChannel = slackChannel
         self.workflows = workflows
+        self.platform = platform
+        self.androidModule = androidModule
+        self.androidBuildVariant = androidBuildVariant
+        self.androidBuildType = androidBuildType
+        self.gradlewPath = gradlewPath
+        self.androidKeystorePath = androidKeystorePath
+        self.androidKeystorePassword = androidKeystorePassword
+        self.androidKeyAlias = androidKeyAlias
+        self.androidKeyPassword = androidKeyPassword
+        self.androidPackageName = androidPackageName
+        self.androidPlayTrack = androidPlayTrack
+        self.androidRolloutFraction = androidRolloutFraction
+        self.androidGradleProperties = androidGradleProperties
+        self.googlePlayServiceAccountData = googlePlayServiceAccountData
     }
 }
