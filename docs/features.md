@@ -40,12 +40,17 @@ This document covers the planned feature surface, current v1 scope, the long-ter
 
 ### Testing
 
-| Feature | Description |
-|---|---|
-| **Unit Tests** | `xcodebuild test` with parallel testing support |
-| **UI Tests** | Run on specified simulators/devices |
-| **Code Coverage** | Pass through xcodebuild coverage flags, expose result bundle paths |
-| **Test Result Parsing** | Structured pass/fail/skip counts from `xcodebuild` output |
+| Feature | Status | Description |
+|---|---|---|
+| **Unit Tests** | Implemented | `xcodebuild test` with scheme, one or more destinations, and configuration |
+| **UI Tests** | Implemented | `--only-testing` / `--skip-testing` target filtering; run on any simulator or device destination |
+| **Multi-destination runs** | Implemented | `destinations` array — each entry triggers a separate `xcodebuild test` pass; pass/fail/skip counts are aggregated across all destinations. Supports simulators, physical devices, and mixed matrices in one step. |
+| **Destination discovery** | Implemented | `DestinationDiscovery` calls `xcodebuild -showdestinations` for the selected scheme and returns typed `XcodebuildDestination` values sorted simulators-first. Used by `ai-session` and `suggest-config` to avoid inventing simulator names. |
+| **No-destination guard** | Implemented | When `destinations` (and the legacy `destination`) are both absent the action throws `ShipItError.invalidConfiguration` with an actionable message rather than guessing a name that may not be installed. |
+| **Code Coverage** | Implemented | `-enableCodeCoverage YES`; auto-derives `./build/<scheme>-tests.xcresult` when coverage enabled and no explicit path given; any existing bundle at the resolved path is removed before xcodebuild runs, making repeated local and CI runs safe without manual cleanup |
+| **Test Result Parsing** | Implemented | Structured pass/fail/skip counts from xcodebuild summary line; per-test `FAILED` line fallback for parallelized output |
+| **Test Plans** | Implemented | `--test-plan` selects a named `.xctestplan` |
+| **Retry on Failure** | Implemented | `retry_on_failure: true` passes `-retry-tests-on-failure` to xcodebuild |
 
 ### Code signing
 
@@ -90,7 +95,8 @@ ShipItSwifty follows Apple's two-version model:
 |---|---|
 | **Bump Build** | Increment `CFBundleVersion` only (`bump: build`). `CFBundleShortVersionString` is left untouched. Supports `sequential` (integer +1) and `timestamp` (`YYYYMMDDHHmm`) strategies. |
 | **Bump Version** | Increment a segment of `CFBundleShortVersionString` (`bump: major/minor/patch`). Resets `CFBundleVersion` to `1`. |
-| **Version Source** | `xcodeproj` — reads/writes build settings directly in `.xcodeproj`. `asc` — reads current build number from App Store Connect. |
+| **Version Source — xcodeproj** | Reads `MARKETING_VERSION` and `CURRENT_PROJECT_VERSION` directly from Xcode build settings via `xcodebuild -showBuildSettings`. Writes via `agvtool new-marketing-version` / `agvtool new-version -all`. Falls back to agvtool read and then `plutil` on Info.plist for legacy projects without those build settings. |
+| **Version Source — asc** | Reads the current build number from App Store Connect. Falls through to agvtool / plutil for the read phase. |
 | **Git Tag** | Auto-tag releases with version |
 | **Changelog** | Generate from git commits between tags |
 

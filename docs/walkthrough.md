@@ -121,7 +121,10 @@ If you used a custom filename, run `swift run shipit env --shipfile ./path/to/yo
 # Compile
 swift run shipit build
 
-# Run tests
+# Discover available test destinations (simulators and devices)
+xcodebuild -showdestinations -scheme MyApp -workspace MyApp.xcworkspace
+
+# Run tests on a specific destination
 swift run shipit test
 
 # Archive for App Store
@@ -133,6 +136,8 @@ swift run shipit export
 # Push to TestFlight
 swift run shipit testflight
 ```
+
+> **Test destinations:** `shipit test` requires a `destinations` list in `Shipfile.yml` (or `--destination` flag). It never falls back to a hardcoded simulator name. Use `xcodebuild -showdestinations` to find valid destination strings for your scheme.
 
 ## Step 6 — Define workflows for repeatable releases
 
@@ -158,6 +163,25 @@ workflows:
       options: { bump: build }   # bumps CFBundleVersion only
     - action: archive
     - action: export             # exports .ipa locally; no ASC credentials needed
+```
+
+**Local workflow with tests** (run before archive):
+
+```yaml
+versioning:
+  strategy: sequential
+  source: xcodeproj
+
+workflows:
+  local:
+    - action: test
+      options:
+        destinations:
+          - "platform=iOS Simulator,id=<simulator-udid>"
+          # Run `xcodebuild -showdestinations -scheme MyApp` to get valid destination strings.
+          # Multiple destinations are supported — one xcodebuild test pass per destination.
+    - action: archive
+    - action: export
 ```
 
 **Beta with TestFlight upload** (requires `app_store_connect` credentials):

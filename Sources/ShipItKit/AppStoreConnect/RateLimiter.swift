@@ -19,7 +19,7 @@ import OSLog
 /// // After each response:
 /// await limiter.update(from: responseHeaders)
 /// ```
-public actor RateLimiter: Sendable {
+public actor RateLimiter {
     /// The fraction of the limit at which throttling begins (0.9 = 90% used).
     public let throttleThreshold: Double
 

@@ -168,6 +168,16 @@ public struct AISessionBuilder: Sendable {
             ))
         }
 
+        // Test destinations (local goal only)
+        if goal == .local {
+            entries.append(.init(
+                keyPath: "workflows.local[test].options.destinations",
+                value: nil,
+                source: .unresolved,
+                why: "Test destinations must be discovered via `xcodebuild -showdestinations` — ShipItSwifty never invents simulator names. Run the discovery command and ask the user to choose."
+            ))
+        }
+
         // Assumed defaults
         entries.append(.init(
             keyPath: "build.configuration",
@@ -229,11 +239,9 @@ public struct AISessionBuilder: Sendable {
     // MARK: - Secrets
 
     private func buildSecretDescriptors(for goal: SuggestionGoal) -> [SecretDescriptor] {
-        // ASC credentials are only a hard requirement for release.
-        // For beta the default workflow is local-only (version → archive → export).
-        // Secrets are shown as informational only so the agent can ask once the user
-        // confirms they want to upload to TestFlight.
-        guard goal == .release else { return [] }
+        // ASC credentials are required for beta (TestFlight upload) and release (App Store).
+        // Local-only workflows have no ASC dependency.
+        guard goal == .beta || goal == .release else { return [] }
         return [
             SecretDescriptor(
                 keyPath: "app_store_connect.key_id",
@@ -388,6 +396,19 @@ public struct AISessionBuilder: Sendable {
         } else {
             lines.append("Current status: READY — all required config values are present.")
         }
+        if goal == .local {
+            lines += [
+                "",
+                "Test destination discovery:",
+                "  The local workflow includes a test step. Destinations are NOT auto-invented.",
+                "  Before generating config, ask the user if they want to run tests.",
+                "  If yes, discover valid destinations with:",
+                "    xcodebuild -showdestinations -scheme <scheme> [-workspace <ws> | -project <proj>]",
+                "  Present simulators and physical devices separately. Allow multi-select.",
+                "  Save the chosen destinations into workflows.local[test].options.destinations[].",
+                "  If the user skips tests, remove the test step from the generated workflow.",
+            ]
+        }
         if goal == .beta {
             lines += [
                 "",
@@ -445,8 +466,19 @@ public struct AISessionBuilder: Sendable {
         if goal == .release && !readiness.missingSecrets.isEmpty {
             return "Do you have your App Store Connect API credentials ready? You'll need: ASC_KEY_ID, ASC_ISSUER_ID, and either ASC_PRIVATE_KEY or ASC_PRIVATE_KEY_PATH."
         }
-        // Unresolved required config values
-        if let first = missingValues.first {
+        // For local goal, the test step requires destinations — ask about it first.
+        if goal == .local,
+           let testDestMissing = missingValues.first(where: { $0.keyPath.contains("destinations") }) {
+            _ = testDestMissing
+            return """
+            This workflow includes a test step. Do you want to run tests? \
+            If yes, I can discover available simulators and devices for your scheme using \
+            `xcodebuild -showdestinations`. Would you like me to list them so you can choose \
+            which ones to run tests on? (simulators, physical devices, or a mix)
+            """
+        }
+        // Unresolved required config values (skip the test destinations one — already asked above)
+        if let first = missingValues.first(where: { !$0.keyPath.contains("destinations") }) {
             let envSuffix = first.envVar.map { " (or set \($0))" } ?? ""
             return "What is the value for \(first.keyPath)? Reason: \(first.reason)\(envSuffix)"
         }

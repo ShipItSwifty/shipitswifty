@@ -45,7 +45,13 @@ workflows:
     - action: version
       options:
         bump: build
-    # 2. Archive the app.
+    # 2. Run the full test suite before archiving.
+    #    only_testing / skip_testing can be added here to narrow the run.
+    #    retry_on_failure retries each failing test once before surfacing a failure.
+    - action: test
+      options:
+        retry_on_failure: true
+    # 3. Archive the app.
     - action: archive
-    # 3. Export the .ipa locally (no upload to App Store Connect).
+    # 4. Export the .ipa locally (no upload to App Store Connect).
     - action: export
