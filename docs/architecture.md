@@ -347,7 +347,7 @@ swift run shipit run beta --dry-run --output json
   "status": "success | failure",
   "payload": {
     "version": "1",
-    "goal": "beta",
+    "goal": "local",
     "appConfig": [
       {
         "keyPath": "app.scheme",
@@ -355,42 +355,42 @@ swift run shipit run beta --dry-run --output json
         "source": "detected | inferred | assumed | unresolved",
         "confidence": "high | medium | low | null",
         "why": "Scheme 'MyApp' matches the container name and is the only runnable scheme"
+      },
+      {
+        "keyPath": "workflows.local[test].options.destinations",
+        "value": null,
+        "source": "unresolved",
+        "confidence": null,
+        "why": "Test destinations must be discovered via `xcodebuild -showdestinations` — ShipItSwifty never invents simulator names."
       }
     ],
     "missing": [
-      { "keyPath": "app_store_connect.key_id", "reason": "...", "envVar": "ASC_KEY_ID" }
+      { "keyPath": "workflows.local[test].options.destinations", "reason": "Destinations required for the test step.", "envVar": null }
     ],
     "ambiguities": [
       { "field": "app.scheme", "options": ["App", "AppExtension"], "message": "2 runnable schemes found." }
     ],
     "suggestedShipfile": "# Shipfile.yml ...",
     "readiness": {
-      "goal": "beta",
+      "goal": "local",
       "isReady": false,
-      "blockers": ["App Store Connect API credentials are not verified"],
-      "missingSecrets": [
-        {
-          "keyPath": "app_store_connect.key_id",
-          "envVar": "ASC_KEY_ID",
-          "acceptedFormats": ["Alphanumeric string (e.g. ABCD1234EF)"],
-          "exampleSource": "App Store Connect → Users and Access → Integrations → App Store Connect API",
-          "preferFile": false,
-          "description": "The Key ID of your App Store Connect API key"
-        }
-      ],
+      "blockers": [],
+      "missingSecrets": [],
       "signingRisk": "low | medium | high",
-      "unblockSteps": ["Set ASC_KEY_ID, ASC_ISSUER_ID, and ASC_PRIVATE_KEY_PATH..."]
+      "unblockSteps": []
     },
     "nextAction": {
       "action": "resolve_blocker | resolve_ambiguity | create_shipfile | complete_config | run_workflow",
-      "command": "shipit suggest-config --goal beta --output json",
+      "command": "shipit suggest-config --goal local --output json",
       "reason": "No Shipfile.yml exists. Generate a starter config..."
     },
     "agentPrompt": "You are helping an iOS developer automate their app release...",
-    "nextQuestion": "Do you have your App Store Connect API credentials ready?"
+    "nextQuestion": "This workflow includes a test step. Do you want to run tests? If yes, I can discover available simulators and devices for your scheme using `xcodebuild -showdestinations`."
   }
 }
 ```
+
+> **Note (beta goal):** When `goal` is `beta`, `appConfig` does not include the destinations entry, and `nextQuestion` asks about TestFlight upload intent instead.
 
 Exit code `2` when `isReady: false`. Check this to gate further steps.
 
@@ -406,9 +406,9 @@ Exit code `2` when `isReady: false`. Check this to gate further steps.
     "stepCount": 4,
     "steps": [
       { "index": 1, "action": "version", "options": { "bump": "build" } },
-      { "index": 2, "action": "archive", "options": null },
-      { "index": 3, "action": "export", "options": null },
-      { "index": 4, "action": "testflight", "options": { "groups": ["Internal QA"] } }
+      { "index": 2, "action": "test", "options": { "retry_on_failure": true } },
+      { "index": 3, "action": "archive", "options": null },
+      { "index": 4, "action": "export", "options": null }
     ]
   }
 }
@@ -495,7 +495,7 @@ public actor RateLimiter: Sendable {
 | Action | Description |
 |---|---|
 | `BuildAction` | `xcodebuild build` → compiled products only |
-| `TestAction` | `xcodebuild test` with optional coverage + result bundle |
+| `TestAction` | `xcodebuild test` — supports multiple `destinations` (simulators + physical devices), runs one pass per destination and aggregates results. Throws `invalidConfiguration` when no destination is configured. |
 | `ArchiveAction` | `xcodebuild archive` → `.xcarchive` |
 | `ExportAction` | `xcodebuild -exportArchive` → `.ipa` |
 | `SignAction` | Cert & profile sync via Git/S3 encrypted vault |
@@ -525,6 +525,7 @@ These types live in `Sources/ShipItKit/Introspection/` and power `ai-session`, `
 | `SchemaValidator` | Validates a `JSONValue` tree against `SchemaField` rules |
 | `ShipfileValidator` | Full YAML parse + schema + semantic workflow rule validation |
 | `AISessionBuilder` | Builds a versioned `AISessionPayload` from a `ProjectInspection` + goal |
+| `DestinationDiscovery` | Runs `xcodebuild -showdestinations` and parses the output into `[XcodebuildDestination]`; used by agents and `ai-session` to surface real simulator/device options instead of invented names |
 
 ### AI session model types (`AISessionTypes.swift`)
 

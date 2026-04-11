@@ -38,6 +38,8 @@ public actor JWTGenerator {
     private let privateKeyData: Data
     private var cachedToken: String?
     private var tokenExpiresAt: Date?
+    /// In-flight generation task; deduplicated so concurrent callers share one signing operation.
+    private var inflightTokenTask: Task<String, any Error>?
     private let logger = Logger.forType(subsystem: "ShipItSwifty", JWTGenerator.self)
 
     /// Creates a `JWTGenerator`.
@@ -96,6 +98,9 @@ public actor JWTGenerator {
     /// Return the cached token if still valid (with a 60-second buffer),
     /// otherwise generate and cache a new one.
     ///
+    /// Concurrent callers that both observe a cache miss share a single in-flight
+    /// `Task` so only one JWT signing operation is performed at a time.
+    ///
     /// - Returns: A valid JWT token string.
     /// - Throws: ``ShipItError/jwtGenerationFailed`` if signing fails.
     public func cachedOrNewToken() async throws -> String {
@@ -107,9 +112,22 @@ public actor JWTGenerator {
             return token
         }
 
+        // Reuse an already-running generation task to avoid duplicate signing.
+        if let task = inflightTokenTask {
+            logger.debug("Awaiting in-flight JWT generation task")
+            return try await task.value
+        }
+
         logger.info("Generating new JWT token (cache miss or near expiry)")
         let lifetimeSeconds = Int(JWTGenerator.defaultLifetime.components.seconds)
-        let token = try await generateToken()
+        let task = Task { [weak self] () throws -> String in
+            guard let self else { throw ShipItError.jwtGenerationFailed(underlying: CancellationError()) }
+            return try await self.generateToken()
+        }
+        inflightTokenTask = task
+        defer { inflightTokenTask = nil }
+
+        let token = try await task.value
         cachedToken = token
         tokenExpiresAt = Date().addingTimeInterval(TimeInterval(lifetimeSeconds))
         return token

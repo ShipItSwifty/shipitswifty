@@ -158,7 +158,7 @@ The `versioning` section controls how `CFBundleVersion` is incremented. `CFBundl
 | Key | Type | Default | Description |
 |---|---|---|---|
 | `strategy` | string | `sequential` | `sequential` — adds 1 each run (guarantees a plain integer). `timestamp` — uses `YYYYMMDDHHmm` format. |
-| `source` | string | `xcodeproj` | `xcodeproj` — reads and writes build settings directly in the `.xcodeproj` file. `asc` — reads the current build number from App Store Connect. |
+| `source` | string | `xcodeproj` | `xcodeproj` — reads `MARKETING_VERSION`/`CURRENT_PROJECT_VERSION` from `xcodebuild -showBuildSettings`; falls back to `agvtool`, then `plutil` on Info.plist. `asc` — reads current build number from App Store Connect; same fallback chain for the read phase. |
 
 ### `version` action options
 
@@ -173,23 +173,70 @@ The `version` action accepts a `bump` option that selects which counter to chang
 
 ### Beta workflow pattern (local-only, Apple semantics)
 
-For a local beta that only increments the build number:
+For a local beta that increments the build number, runs tests, then archives and exports:
 
 ```yaml
 versioning:
   strategy: sequential   # CFBundleVersion stays a plain integer
-  source: xcodeproj      # write directly into .xcodeproj
+  source: xcodeproj      # reads/writes MARKETING_VERSION + CURRENT_PROJECT_VERSION in .xcodeproj
 
 workflows:
   beta:
     - action: version
       options:
-        bump: build      # increments CFBundleVersion only
+        bump: build        # increments CFBundleVersion only; marketing version unchanged
+    - action: test
+      options:
+        destinations:
+          - "platform=iOS Simulator,name=iPhone 16 Pro,OS=18.2"
+        retry_on_failure: true   # retry each failing test once before surfacing a failure
+        # only_testing:           # narrow to specific targets, e.g. [NovalingoTests/CoreTests]
+        # skip_testing:           # skip slow targets, e.g. [NovalingoUITests]
     - action: archive
-    - action: export     # exports IPA locally; no upload to App Store Connect
+    - action: export       # exports IPA locally; no upload to App Store Connect
 ```
 
+Use `xcodebuild -showdestinations -scheme <Scheme>` (or `shipit ai-session --goal local`) to
+discover destination strings that are valid on your machine before filling in the `destinations` array.
+You can list multiple destinations to run tests on several simulators or devices in one step.
+
+**How `source: xcodeproj` is resolved:**
+
+1. `xcodebuild -showBuildSettings` — reads `MARKETING_VERSION` and `CURRENT_PROJECT_VERSION` directly from Xcode build settings. This is the primary path for modern Xcode projects.
+2. `xcrun agvtool` — fallback for projects that have `VERSIONING_SYSTEM = apple-generic` but not the newer `MARKETING_VERSION` key.
+3. `plutil` on `Info.plist` — last resort for legacy projects.
+
 To add a TestFlight upload later, append a `testflight` step and uncomment the `app_store_connect` section.
+
+## `test` action options
+
+The `test` action is configured inline in a workflow step. It does **not** have a top-level Shipfile section.
+
+| Option | Type | Default | Description |
+|---|---|---|---|
+| `destinations` | list | — | **Required.** One or more xcodebuild destination strings. Each entry triggers a separate `xcodebuild test` pass; pass/fail/skip counts are aggregated. Discover valid values with `xcodebuild -showdestinations -scheme <Scheme>`. |
+| `destination` | string | — | Legacy single-destination string. Promoted to a one-element `destinations` list internally. Prefer `destinations` for new configuration. |
+| `scheme` | string | `app.scheme` | Xcode scheme containing the test targets. Falls back to `app.scheme` when omitted. |
+| `configuration` | string | `Debug` | Build configuration used for test compilation. |
+| `enable_code_coverage` | bool | — | Enable `-enableCodeCoverage YES`. When `true` and `result_bundle_path` is unset, a path of `./build/<scheme>-tests.xcresult` is auto-derived. |
+| `result_bundle_path` | string | — | Output path for the `.xcresult` bundle. Auto-derived when `enable_code_coverage` is `true`. |
+| `test_plan` | string | — | Named `.xctestplan` to run. |
+| `only_testing` | list | — | Restrict to specific targets or test cases. Each entry maps to `-only-testing`. |
+| `skip_testing` | list | — | Skip specific targets or test cases. Each entry maps to `-skip-testing`. |
+| `retry_on_failure` | bool | `false` | Pass `-retry-tests-on-failure` to retry each failing test once. |
+
+**Destination string format**
+
+```
+platform=iOS Simulator,name=<SimulatorName>,OS=<Version>
+platform=iOS,name=<DeviceName>
+platform=macOS
+```
+
+Run `xcodebuild -showdestinations -scheme <Scheme>` (with `-workspace` or `-project` as appropriate)
+to list all valid destination strings for your scheme on the current machine. Alternatively, run
+`shipit ai-session --goal local` which calls destination discovery automatically and includes the
+results in `nextQuestion` so an AI agent can ask which destinations to use.
 
 ## `notifications.slack`
 

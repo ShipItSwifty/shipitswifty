@@ -184,6 +184,19 @@ struct InitCommand: AsyncParsableCommand {
 
         # Named workflows for `shipit run <workflow>`
         workflows:
+          # Local development: build, optionally test, archive, and export.
+          # To run tests, fill in the destinations array below.
+          # Run `xcodebuild -showdestinations -scheme <scheme>` to list valid values,
+          # or use `shipit ai-session --goal local` which discovers them for you.
+          local:
+            - action: build
+            - action: test
+              options:
+                destinations:
+                  # - "platform=iOS Simulator,name=<SimulatorName>,OS=<Version>"
+            - action: archive
+            - action: export
+
           beta:
             - action: version
               options: { bump: build }

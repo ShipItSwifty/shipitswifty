@@ -83,6 +83,45 @@ func cliBuildDryRun() async throws {
 
 ---
 
+## DestinationDiscovery tests
+
+`DestinationDiscovery` parses the text output of `xcodebuild -showdestinations`. Test the parser and sort order with a `MockExecutor`:
+
+```swift
+@Test("DestinationDiscovery parses simulator and device entries")
+func destinationDiscoveryParsesOutput() async throws {
+    let rawOutput = """
+    Available destinations for the "MyApp" scheme:
+        { platform:iOS Simulator, id:00000000-1111-2222-3333-444444444444, OS:17.0, name:iPhone 15 }
+        { platform:iOS, id:AA:BB:CC:DD:EE:FF, name:My iPhone }
+    """
+    let executor = MockExecutor { _, _ in
+        ShellOutput(stdout: rawOutput, stderr: "", exitCode: 0)
+    }
+    let context = ActionContext.mock(executor: executor)
+    let destinations = try await DestinationDiscovery(context: context)
+        .discover(scheme: "MyApp")
+
+    // Simulators are sorted first, then physical devices
+    #expect(destinations.count == 2)
+    #expect(destinations[0].platform == "iOS Simulator")
+    #expect(destinations[1].platform == "iOS")
+}
+
+@Test("DestinationDiscovery returns empty array when xcodebuild emits no destinations")
+func destinationDiscoveryEmpty() async throws {
+    let executor = MockExecutor { _, _ in
+        ShellOutput(stdout: "Available destinations for ...\n", stderr: "", exitCode: 0)
+    }
+    let context = ActionContext.mock(executor: executor)
+    let destinations = try await DestinationDiscovery(context: context)
+        .discover(scheme: "NoScheme")
+    #expect(destinations.isEmpty)
+}
+```
+
+---
+
 ## Running tests
 
 ```bash

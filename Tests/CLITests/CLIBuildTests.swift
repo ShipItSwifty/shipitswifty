@@ -188,8 +188,11 @@ struct CLIBuildTests {
 
         let workflow = Workflow("test", steps: [WorkflowStep(action: "nonexistent-action")])
 
-        await #expect(throws: ShipItError.self) {
+        await #expect {
             _ = try await workflow.run(context: context, registry: registry)
+        } throws: { error in
+            guard case ShipItError.invalidConfiguration(let reason) = error else { return false }
+            return reason.contains("nonexistent-action")
         }
     }
 }
@@ -260,11 +263,14 @@ struct RetryPolicyTests {
         nonisolated(unsafe) var callCount = 0
         let policy = RetryPolicy(maxAttempts: 2, initialDelay: .milliseconds(10))
 
-        await #expect(throws: Error.self) {
+        await #expect {
             _ = try await policy.execute { () -> String in
                 callCount += 1
                 throw ShipItError.invalidConfiguration(reason: "Always fails")
             }
+        } throws: { error in
+            guard case ShipItError.invalidConfiguration(let reason) = error else { return false }
+            return reason == "Always fails"
         }
         #expect(callCount == 2)
     }

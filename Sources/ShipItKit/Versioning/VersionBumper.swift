@@ -55,10 +55,18 @@ public struct VersionBumper: Sendable {
 
     /// Read the current marketing version (`CFBundleShortVersionString`).
     public func readVersion() async throws -> String {
-        // Try agvtool first (most reliable for Xcode projects).
-        // Command.run() throws ShellError.exitFailure on non-zero exit, so wrap
-        // in do-catch to fall through to the plutil fallback when agvtool is
-        // unavailable or fails.
+        // When source is "xcodeproj", read MARKETING_VERSION directly from Xcode
+        // build settings. This is the canonical approach for .xcodeproj-backed
+        // projects and avoids the fragile Info.plist search entirely.
+        if context.config.versioningSource == "xcodeproj" {
+            if let v = try await readBuildSetting("MARKETING_VERSION"), !v.isEmpty {
+                return v
+            }
+            // MARKETING_VERSION may not be set if the project still uses a
+            // legacy Info.plist variable reference; fall through to agvtool.
+        }
+
+        // Try agvtool next (works when VERSIONING_SYSTEM = apple-generic is set).
         do {
             let output = try await Command("xcrun", "agvtool", "what-marketing-version", "-terse").run(in: context.shell)
             let version = output.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -67,12 +75,18 @@ public struct VersionBumper: Sendable {
             logger.debug("agvtool what-marketing-version failed, falling back to plutil: \(error.localizedDescription)")
         }
 
-        // Fall back to plutil on Info.plist
+        // Last resort: plutil on Info.plist.
         return try await readPlistValue(key: "CFBundleShortVersionString")
     }
 
     /// Read the current build number (`CFBundleVersion`).
     public func readBuildNumber() async throws -> String {
+        if context.config.versioningSource == "xcodeproj" {
+            if let v = try await readBuildSetting("CURRENT_PROJECT_VERSION"), !v.isEmpty {
+                return v
+            }
+        }
+
         do {
             let output = try await Command("xcrun", "agvtool", "what-version", "-terse").run(in: context.shell)
             let build = output.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -87,6 +101,16 @@ public struct VersionBumper: Sendable {
     // MARK: - Write
 
     private func writeVersion(_ version: String) async throws {
+        if context.config.versioningSource == "xcodeproj" {
+            do {
+                try await writeBuildSetting("MARKETING_VERSION", value: version)
+                logger.info("Set marketing version to: \(version)")
+                return
+            } catch {
+                logger.warning("xcodebuild set MARKETING_VERSION failed, falling back to agvtool: \(error.localizedDescription)")
+            }
+        }
+
         do {
             _ = try await Command("xcrun", "agvtool", "new-marketing-version", version).run(in: context.shell)
         } catch {
@@ -97,6 +121,16 @@ public struct VersionBumper: Sendable {
     }
 
     private func writeBuildNumber(_ build: String) async throws {
+        if context.config.versioningSource == "xcodeproj" {
+            do {
+                try await writeBuildSetting("CURRENT_PROJECT_VERSION", value: build)
+                logger.info("Set build number to: \(build)")
+                return
+            } catch {
+                logger.warning("xcodebuild set CURRENT_PROJECT_VERSION failed, falling back to agvtool: \(error.localizedDescription)")
+            }
+        }
+
         do {
             _ = try await Command("xcrun", "agvtool", "new-version", "-all", build).run(in: context.shell)
         } catch {
@@ -183,6 +217,78 @@ public struct VersionBumper: Sendable {
         }
 
         return "\(major).\(minor).\(patch)"
+    }
+
+    // MARK: - Xcode Build Settings Helpers
+
+    /// Read a single build setting value using `xcodebuild -showBuildSettings`.
+    ///
+    /// Returns `nil` (rather than throwing) when the setting is absent **or** when
+    /// `xcodebuild` exits with a non-zero status (e.g. exit 74 during package
+    /// resolution or when a custom toolchain is active). Callers fall through to
+    /// the agvtool / plutil strategy chain in that case.
+    private func readBuildSetting(_ setting: String) async throws -> String? {
+        var extraArgs: [String] = []
+        if let project = context.config.appProject {
+            extraArgs += ["-project", project]
+        } else if let workspace = context.config.appWorkspace {
+            extraArgs += ["-workspace", workspace]
+        }
+        if let scheme = context.config.appScheme {
+            extraArgs += ["-scheme", scheme]
+        }
+
+        let output: ShellOutput
+        do {
+            output = try await Command("xcodebuild", "-showBuildSettings")
+                .args(extraArgs)
+                .run(in: context.shell)
+        } catch let ShellError.exitFailure(command, shellOutput) {
+            // xcodebuild can exit non-zero (e.g. 74) when packages haven't been
+            // resolved yet, when a custom TOOLCHAINS env var interferes, or when
+            // the project needs a destination hint.  These are not fatal for the
+            // version-reading step — log the failure and let callers fall back to
+            // agvtool / plutil.
+            let stderr = shellOutput.stderr.trimmingCharacters(in: .whitespacesAndNewlines)
+            let detail = stderr.isEmpty ? "(no stderr)" : stderr
+            logger.warning("xcodebuild -showBuildSettings exited with status \(shellOutput.exitCode) for '\(command)'; falling back to agvtool/plutil")
+            logger.warning("xcodebuild -showBuildSettings stderr: \(detail)")
+            return nil
+        } catch {
+            logger.warning("xcodebuild -showBuildSettings failed unexpectedly: \(error.localizedDescription); falling back to agvtool/plutil")
+            return nil
+        }
+
+        // Output is one "    KEY = VALUE" pair per line.
+        let prefix = "\(setting) = "
+        for line in output.stdout.components(separatedBy: "\n") {
+            let trimmed = line.trimmingCharacters(in: CharacterSet.whitespaces)
+            if trimmed.hasPrefix(prefix) {
+                let value = String(trimmed.dropFirst(prefix.count))
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                return value.isEmpty ? nil : value
+            }
+        }
+        return nil
+    }
+
+    /// Write a build setting into the .xcodeproj using `xcodebuild` xcconfig
+    /// override, then commit with `plutil` on the project.pbxproj.
+    ///
+    /// Strategy: use `xcodebuild` with `-xcconfig` isn't viable for persistent
+    /// writes. Instead we use `agvtool` for settings it understands
+    /// (MARKETING_VERSION, CURRENT_PROJECT_VERSION) and let the caller fall
+    /// back to agvtool/plutil when this fails.
+    private func writeBuildSetting(_ setting: String, value: String) async throws {
+        // Map the canonical build-setting name to the agvtool subcommand.
+        switch setting {
+        case "MARKETING_VERSION":
+            _ = try await Command("xcrun", "agvtool", "new-marketing-version", value).run(in: context.shell)
+        case "CURRENT_PROJECT_VERSION":
+            _ = try await Command("xcrun", "agvtool", "new-version", "-all", value).run(in: context.shell)
+        default:
+            throw ShipItError.invalidConfiguration(reason: "No write strategy for build setting '\(setting)'")
+        }
     }
 
     // MARK: - Plist Helpers

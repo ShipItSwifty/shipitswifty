@@ -10,18 +10,16 @@ struct BuildActionTests {
 
     @Test("BuildAction invokes xcodebuild with correct scheme and configuration")
     func buildActionArgs() async throws {
-        nonisolated(unsafe) var capturedCommands: [String] = []
-        let executor = MockExecutor { command, _ in
-            capturedCommands.append(command.description)
-            return ShellOutput(stdout: "Build Succeeded\n", stderr: "", exitCode: 0)
+        let (executor, commands) = makeCaptureExecutor { _, _ in
+            ShellOutput(stdout: "Build Succeeded\n", stderr: "", exitCode: 0)
         }
         let context = ActionContext.mock(executor: executor)
         let options = BuildAction.Options(scheme: "MyApp", configuration: .release)
 
         _ = try await BuildAction().run(with: options, context: context)
 
-        #expect(capturedCommands.count > 0)
-        let buildCommand = capturedCommands.first ?? ""
+        #expect(commands().count > 0)
+        let buildCommand = commands().first ?? ""
         #expect(buildCommand.contains("MyApp"))
         #expect(buildCommand.contains("Release"))
     }
@@ -34,8 +32,11 @@ struct BuildActionTests {
         let context = ActionContext.mock(executor: executor)
         let options = BuildAction.Options(scheme: "MyApp", configuration: .release)
 
-        await #expect(throws: ShipItError.self) {
+        await #expect {
             _ = try await BuildAction().run(with: options, context: context)
+        } throws: { error in
+            guard case ShipItError.buildFailed(let code, _) = error else { return false }
+            return code == 65
         }
     }
 
@@ -57,8 +58,11 @@ struct BuildActionTests {
             platform: .ios
         )
 
-        await #expect(throws: ShipItError.self) {
+        await #expect {
             _ = try await BuildAction().run(with: options, context: contextNoScheme)
+        } throws: { error in
+            guard case ShipItError.invalidConfiguration = error else { return false }
+            return true
         }
     }
 

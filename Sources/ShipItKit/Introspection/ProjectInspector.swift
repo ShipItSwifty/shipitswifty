@@ -110,6 +110,9 @@ public struct ProjectInspector: Sendable {
             .option(.showBuildSettings)
             .run()
 
+        // Note: SubprocessExecutor already throws ShellError.exitFailure before returning a
+        // non-zero exit code in production, so this guard is only reachable via mock executors
+        // in tests that return a non-zero exit code without throwing.
         guard output.exitCode == 0 else { return [:] }
         return output.stdout.split(separator: "\n").reduce(into: [String: String]()) { result, line in
             let parts = line.split(separator: "=", maxSplits: 1, omittingEmptySubsequences: false)

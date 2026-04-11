@@ -92,8 +92,11 @@ struct IPAUploadServiceTests {
             .json(["data": []])
         ])
 
-        await #expect(throws: ShipItError.self) {
+        await #expect {
             _ = try await IPAUploadService(client: client).uploadIPA(at: ipaURL, bundleID: "com.example.missing")
+        } throws: { error in
+            guard case ShipItError.apiError(let statusCode, _) = error else { return false }
+            return statusCode == 404
         }
     }
 
@@ -115,8 +118,11 @@ struct IPAUploadServiceTests {
             .error(statusCode: 409, body: "reservation failed"),
         ])
 
-        await #expect(throws: ShipItError.self) {
+        await #expect {
             _ = try await IPAUploadService(client: client).uploadIPA(at: ipaURL, bundleID: "com.example.app")
+        } throws: { error in
+            guard case ShipItError.apiError(let statusCode, _) = error else { return false }
+            return statusCode == 409
         }
     }
 
@@ -177,8 +183,11 @@ struct IPAUploadServiceTests {
             tokenProvider: { "test-token" }
         )
 
-        await #expect(throws: ShipItError.self) {
+        await #expect {
             _ = try await IPAUploadService(client: client).uploadIPA(at: ipaURL, bundleID: "com.example.app")
+        } throws: { error in
+            guard case ShipItError.apiError(let statusCode, _) = error else { return false }
+            return statusCode == 500
         }
     }
 

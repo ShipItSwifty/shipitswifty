@@ -208,11 +208,35 @@ public enum BuiltInSchemaCatalog {
     private static func testOptions() -> [SchemaField] {
         [
             .string("scheme", description: "Xcode scheme containing tests.", example: .string("MyApp")),
-            .string("destination", description: "xcodebuild destination string.", example: .string("platform=iOS Simulator,name=iPhone 16")),
-            .string("configuration", description: "Build configuration for tests.", example: .string("Debug")),
-            .boolean("enable_code_coverage", description: "Enable code coverage collection.", example: .bool(true)),
-            .string("result_bundle_path", description: "Path for the .xcresult bundle.", example: .string("./build/TestResults.xcresult")),
+            .array(
+                "destinations",
+                description: """
+                One or more xcodebuild destination strings. \
+                Each entry is passed as -destination to a separate xcodebuild test invocation; \
+                results are aggregated across all destinations. \
+                Use `DestinationDiscovery` or `xcodebuild -showdestinations` to enumerate valid \
+                values for your project before setting this field. \
+                When both destinations and the legacy destination field are set, destinations wins. \
+                At least one destination is required; the action fails rather than guessing a \
+                simulator name that may not exist on the current machine.
+                """,
+                example: .array([
+                    .string("platform=iOS Simulator,name=iPhone 16 Pro,OS=18.2"),
+                ]),
+                items: .string("destination", description: "xcodebuild -destination string, e.g. platform=iOS Simulator,name=iPhone 16 Pro,OS=18.2")
+            ),
+            .string(
+                "destination",
+                description: "Single xcodebuild destination string. Kept for backward compatibility with existing Shipfiles. Prefer destinations (array) for new configuration.",
+                example: .string("platform=iOS Simulator,name=iPhone 16 Pro,OS=18.2")
+            ),
+            .string("configuration", description: "Build configuration for tests.", defaultValue: .string("Debug"), example: .string("Debug")),
+            .boolean("enable_code_coverage", description: "Enable code coverage collection. When true and result_bundle_path is unset, a default .xcresult path of ./build/<scheme>-tests.xcresult is used automatically.", example: .bool(true)),
+            .string("result_bundle_path", description: "Path for the .xcresult bundle. Auto-derived when enable_code_coverage is true and this is not set. If a bundle already exists at this path it is removed before xcodebuild runs, making repeated runs safe without manual cleanup.", example: .string("./build/TestResults.xcresult")),
             .string("test_plan", description: "Xcode test plan name.", example: .string("Regression")),
+            .array("only_testing", description: "Restrict the run to specific test targets or test cases. Each entry maps to a separate -only-testing argument.", example: .array([.string("MyAppTests/FeatureTests")]), items: .string("target", description: "Test target or test case identifier, e.g. MyAppTests/MyFeatureTests/testSomething.")),
+            .array("skip_testing", description: "Skip specific test targets or test cases. Each entry maps to a separate -skip-testing argument.", example: .array([.string("MyAppTests/SlowTests")]), items: .string("target", description: "Test target or test case identifier to skip.")),
+            .boolean("retry_on_failure", description: "Automatically retry failing tests once before reporting failure (-retry-tests-on-failure).", defaultValue: .bool(false), example: .bool(true)),
         ]
     }
 
@@ -362,7 +386,9 @@ public enum BuiltInSchemaCatalog {
     }
 
     private static func testExample() -> JSONValue? {
-        workflowExample(action: "test", options: ["destination": .string("platform=iOS Simulator,name=iPhone 16")])
+        workflowExample(action: "test", options: [
+            "destinations": .array([.string("platform=iOS Simulator,name=iPhone 16 Pro,OS=18.2")]),
+        ])
     }
 
     private static func archiveExample() -> JSONValue? {

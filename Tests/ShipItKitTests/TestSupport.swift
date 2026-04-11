@@ -1,4 +1,6 @@
 import Foundation
+import Synchronization
+import SwiftyShell
 
 @testable import ShipItKit
 
@@ -55,38 +57,62 @@ func makeMockSession(handler: @escaping @Sendable (URLRequest) -> MockHTTPRespon
 }
 
 final class ResponseQueue: @unchecked Sendable {
-    private let lock = NSLock()
-    private var responses: [MockHTTPResponse]
+    private let storage: Mutex<[MockHTTPResponse]>
 
     init(_ responses: [MockHTTPResponse]) {
-        self.responses = responses
+        self.storage = .init(responses)
     }
 
     func next() -> MockHTTPResponse {
-        lock.lock()
-        defer { lock.unlock() }
-
-        guard !responses.isEmpty else {
-            return .error(statusCode: 500, body: "No queued mock response")
+        storage.withLock { responses in
+            guard !responses.isEmpty else {
+                return .error(statusCode: 500, body: "No queued mock response")
+            }
+            return responses.removeFirst()
         }
-        return responses.removeFirst()
     }
 }
 
+/// Creates a `MockExecutor` that records the `.description` of every command it
+/// receives, plus a thread-safe reader closure.
+///
+/// Eliminates the `nonisolated(unsafe) var capturedCommands` boilerplate and
+/// replaces it with a Mutex-backed capture box that is safe to read after `await`.
+///
+/// ```swift
+/// let (executor, commands) = makeCaptureExecutor { command, _ in
+///     ShellOutput(stdout: "Build Succeeded\n", stderr: "", exitCode: 0)
+/// }
+/// let context = ActionContext.mock(executor: executor)
+/// _ = try await SomeAction().run(with: options, context: context)
+/// #expect(commands().contains { $0.contains("xcodebuild") })
+/// ```
+///
+/// - Parameter handler: Optional custom handler; defaults to returning exit code 0.
+/// - Returns: `(executor, commands)` where `commands()` returns the captured list.
+func makeCaptureExecutor(
+    handler: (@Sendable (Command, ShellContext) async throws -> ShellOutput)? = nil
+) -> (executor: MockExecutor, commands: @Sendable () -> [String]) {
+    let storage = Mutex<[String]>([])
+    let executor = MockExecutor { command, context in
+        storage.withLock { $0.append(command.description) }
+        if let handler {
+            return try await handler(command, context)
+        }
+        return ShellOutput(stdout: "", stderr: "", exitCode: 0)
+    }
+    return (executor, { storage.withLock { $0 } })
+}
+
 final class MockURLProtocol: URLProtocol {
-    nonisolated(unsafe) private static var handlers: [String: @Sendable (URLRequest) -> MockHTTPResponse] = [:]
-    private static let lock = NSLock()
+    private static let handlers: Mutex<[String: @Sendable (URLRequest) -> MockHTTPResponse]> = .init([:])
 
     static func registerHandler(_ handler: @escaping @Sendable (URLRequest) -> MockHTTPResponse, for sessionID: String) {
-        lock.lock()
-        handlers[sessionID] = handler
-        lock.unlock()
+        handlers.withLock { $0[sessionID] = handler }
     }
 
     private static func handler(for sessionID: String) -> (@Sendable (URLRequest) -> MockHTTPResponse)? {
-        lock.lock()
-        defer { lock.unlock() }
-        return handlers[sessionID]
+        handlers.withLock { $0[sessionID] }
     }
 
     override class func canInit(with request: URLRequest) -> Bool {

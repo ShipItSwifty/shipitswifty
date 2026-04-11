@@ -30,6 +30,17 @@ public struct ShipfileSuggester: Sendable {
             missingValues.append(.init(keyPath: "app_store_connect.private_key or app_store_connect.key_path", reason: "Provide exactly one private key source for App Store Connect.", envVar: "ASC_PRIVATE_KEY or ASC_PRIVATE_KEY_PATH"))
         }
 
+        // For the local goal, the test step is included but destinations are required.
+        // Surface this as a missing value so the user knows they must fill it in before
+        // running the workflow.
+        if goal == .local {
+            missingValues.append(.init(
+                keyPath: "workflows.local[test].options.destinations",
+                reason: "Test destinations must be set to the simulators or devices available on your machine. Run `xcodebuild -showdestinations -scheme <scheme>` or `shipit ai-session --goal local` to discover valid values. Remove the test step to skip testing.",
+                envVar: nil
+            ))
+        }
+
         if !inspection.existingShipfiles.isEmpty {
             warnings.append("Existing Shipfile-like configs were found: \(inspection.existingShipfiles.joined(separator: ", ")).")
         }
@@ -143,7 +154,14 @@ public struct ShipfileSuggester: Sendable {
             lines.append(contentsOf: [
                 "  local:",
                 "    - action: build",
+                "    # Test step: set destinations to the simulators/devices you want to run on.",
+                "    # Run `xcodebuild -showdestinations -scheme <scheme>` to list valid values,",
+                "    # or use `shipit ai-session --goal local` which discovers them automatically.",
+                "    # Remove this step (or leave destinations empty) to skip tests.",
                 "    - action: test",
+                "      options:",
+                "        destinations:",
+                "          # - \"platform=iOS Simulator,name=<SimulatorName>,OS=<Version>\"",
                 "    - action: archive",
                 "    - action: export",
             ])

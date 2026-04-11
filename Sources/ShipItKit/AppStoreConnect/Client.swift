@@ -32,7 +32,7 @@ public struct NoContentResponse: EmptyBodyResponse {
 /// )
 /// let apps: ASCListResponse<ASCApp> = try await client.get("/v1/apps")
 /// ```
-public actor AppStoreConnectClient: Sendable {
+public actor AppStoreConnectClient {
     private static let baseURL = URL(string: "https://api.appstoreconnect.apple.com")!
 
     private let keyID: String
@@ -228,7 +228,13 @@ public actor AppStoreConnectClient: Sendable {
                     body: "Received empty response body for \(request.httpMethod ?? "GET") \(request.url?.path ?? "")"
                 )
             }
-            return emptyResponseType.init() as! T
+            guard let result = emptyResponseType.init() as? T else {
+                throw ShipItError.apiError(
+                    statusCode: httpResponse.statusCode,
+                    body: "Empty-body response type mismatch: expected \(T.self)"
+                )
+            }
+            return result
         }
 
         return try decoder.decode(T.self, from: data)

@@ -7,7 +7,12 @@ This file is the single source of truth for AI agents working in this repository
 When working on this project, invoke these skills as appropriate:
 
 - **`swift-concurrency`** — use whenever touching `async/await`, `actor`, `Sendable`, `Task`, or debugging data-race/concurrency warnings. This project is Swift 6 strict-concurrency throughout.
-- **`feature-dev:feature-dev`** — use for non-trivial feature additions to get architecture guidance before writing code.
+- **`swift-concurrency-pro`** — use when *reviewing* existing concurrency code for correctness, reentrancy safety, structured vs unstructured task choices, or cancellation handling. Complements `swift-concurrency` for review-oriented work.
+- **`swift-testing-pro`** — use when writing, reviewing, or improving tests. All tests in this project use Swift Testing (`@Test`, `#expect`, `#require`). Use for async test patterns, parameterized tests, and test quality review.
+- **`swift-testing-expert`** — use for deeper Swift Testing questions: traits, tags, parallel execution safety, test plans, or migrating any remaining XCTest patterns.
+- **`spm-build-analysis`** — use when investigating slow builds, package resolution issues, dependency graph shape, or build plugin overhead in the SPM manifest.
+- **`xcode-project-analyzer`** — use when auditing xcodebuild invocation behavior, build settings, scheme configuration, or diagnosing why `xcodebuild` exits unexpectedly (e.g. exit 64/74).
+- **`xcode-build-fixer`** — use when applying approved build optimization changes after analysis by `xcode-project-analyzer`.
 
 ## Commands
 
@@ -154,6 +159,19 @@ These are hard constraints — never violate them:
 5. Create `Sources/CLI/Commands/NewActionCommand.swift`
 6. Add to Shipfile schema in `Sources/ShipItKit/Config/Shipfile.swift`
 7. Write tests in `Tests/ShipItKitTests/NewActionTests.swift`
+8. **Update `Sources/ShipItKit/Introspection/BuiltInSchemaCatalog.swift`** — add or update the `actionSchemas()` entry and its `*Options()` helper to reflect all new/changed `Options` fields
+9. **Update `docs/features.md`** — add or update the relevant feature table row(s) to reflect the new capability
+10. **Run `swift build` and `swift test --filter ShipItKitTests`** to confirm no regressions
+
+## Modifying an existing action
+
+Whenever you add, remove, or rename an `Options` or `Result` field on any existing action, you **must** also update all of the following in the same change:
+
+- `Sources/ShipItKit/Introspection/BuiltInSchemaCatalog.swift` — the action's `*Options()` helper
+- `docs/features.md` — the relevant feature table row(s)
+- `Tests/ShipItKitTests/<ActionName>Tests.swift` — add tests for the new/changed behaviour
+
+Failure to keep these three in sync will cause `shipit schema` and `shipit ai-session` to return stale information to agents and CI.
 
 ## Common task reference
 

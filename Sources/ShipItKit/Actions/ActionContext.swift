@@ -66,9 +66,11 @@ public struct ActionContext: Sendable {
     /// let context = ActionContext.mock(executor: executor)
     /// ```
     ///
-    /// - Parameter executor: A `MockExecutor` to capture and mock shell commands.
+    /// - Parameters:
+    ///   - executor: A `MockExecutor` to capture and mock shell commands.
+    ///   - versioningSource: Override the `versioning.source` value (default: `"xcodeproj"`).
     /// - Returns: An `ActionContext` suitable for unit tests.
-    public static func mock(executor: MockExecutor) -> ActionContext {
+    public static func mock(executor: MockExecutor, versioningSource: String = "xcodeproj") -> ActionContext {
         let shell = ShellContext(executor: executor)
         let config = ResolvedConfig(
             appScheme: "MockApp",
@@ -76,7 +78,8 @@ public struct ActionContext: Sendable {
             teamID: "MOCK12345",
             ascKeyID: "MOCKKEY",
             ascIssuerID: "mock-issuer-id",
-            ascPrivateKeyData: nil
+            ascPrivateKeyData: nil,
+            versioningSource: versioningSource
         )
         // Create a placeholder client — tests that need ASC API calls should mock at a higher level
         let dummyKeyData = Data("-----BEGIN EC PRIVATE KEY-----\nMHQCAQEEIBkg4DUVQ1fIFUHBABCLRrFwNVm7MAkGByqGSM49AgEFoWQDYgAE\n-----END EC PRIVATE KEY-----".utf8)
