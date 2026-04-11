@@ -325,8 +325,12 @@ public struct CoverageAction: Action {
             let includeSet = Set(include)
             result = result.filter { includeSet.contains($0.name) }
         } else if firstPartyOnly {
-            // Only apply first-party heuristic when no explicit include list is given.
-            result = result.filter { isFirstParty($0.name) }
+            // Only apply first-party classification when no explicit include list is given.
+            result = result.filter { target in
+                let verdict = classifyTarget(target)
+                logger.debug("[\(target.name)] first-party classification: \(verdict.isFirstParty ? "included" : "excluded") (\(verdict.reason))")
+                return verdict.isFirstParty
+            }
         }
 
         if let exclude {
@@ -337,16 +341,74 @@ public struct CoverageAction: Action {
         return result
     }
 
-    /// Heuristic: flag well-known vendor/test patterns as third-party.
-    private func isFirstParty(_ name: String) -> Bool {
+    // MARK: - First-Party Classification
+
+    /// Result of classifying a target as first-party or third-party.
+    private struct ClassificationVerdict {
+        let isFirstParty: Bool
+        let reason: String
+    }
+
+    /// Classify a coverage target using path-based detection first, then name heuristics.
+    ///
+    /// **Precedence:**
+    /// 1. Path-based: if any source file in the target resolves to a SwiftPM
+    ///    checkout path (`SourcePackages/checkouts/`, `SourcePackages/artifacts/`,
+    ///    or `checkouts/` inside DerivedData), the target is third-party.
+    /// 2. Path-based: if all source files resolve under the current working directory
+    ///    (and not DerivedData), the target is first-party.
+    /// 3. Name heuristic fallback: applied when no file paths are available.
+    private func classifyTarget(_ target: CoverageTarget) -> ClassificationVerdict {
+        // Path-based classification when file information is available
+        if !target.files.isEmpty {
+            // Check if any source file originates from a SwiftPM checkout location.
+            // xccov reports absolute paths, so SPM deps always have DerivedData/…/SourcePackages
+            // or a similar checkout path component.
+            let spmPathComponents = [
+                "/SourcePackages/checkouts/",
+                "/SourcePackages/artifacts/",
+                "/SourcePackages/workspace-state",
+                "/.build/checkouts/",
+            ]
+            let hasSPMFile = target.files.contains { file in
+                spmPathComponents.contains(where: { file.path.contains($0) })
+            }
+            if hasSPMFile {
+                return ClassificationVerdict(isFirstParty: false, reason: "source files in SPM SourcePackages/checkouts path")
+            }
+
+            // Check if source files live under DerivedData (but not in SourcePackages).
+            // Targets whose *all* files are in DerivedData (e.g. generated code stubs)
+            // are treated as third-party to avoid noise. Targets with at least one
+            // non-DerivedData file are considered project-owned.
+            let derivedDataComponent = "/DerivedData/"
+            let allInDerivedData = target.files.allSatisfy { $0.path.contains(derivedDataComponent) }
+            if allInDerivedData {
+                return ClassificationVerdict(isFirstParty: false, reason: "all source files under DerivedData (not in project sources)")
+            }
+
+            // At least one file is outside DerivedData → project-owned source.
+            let hasProjectFile = target.files.contains { !$0.path.contains(derivedDataComponent) }
+            if hasProjectFile {
+                return ClassificationVerdict(isFirstParty: true, reason: "source files found in project directory")
+            }
+        }
+
+        // Name-based fallback when no file path information is available.
+        return classifyByName(target.name)
+    }
+
+    /// Name-based heuristic: flag well-known vendor/test patterns as third-party.
+    /// Used as a fallback when no file paths are available.
+    private func classifyByName(_ name: String) -> ClassificationVerdict {
         let lower = name.lowercased()
         // Test bundles
         if lower.hasSuffix("tests") || lower.hasSuffix("test") || lower.hasSuffix("uitests") {
-            return false
+            return ClassificationVerdict(isFirstParty: false, reason: "name matches test bundle suffix")
         }
         // Swift package dependencies (PackageFrameworks, .build paths)
         if lower.contains("packageframeworks") || lower.contains(".build/") {
-            return false
+            return ClassificationVerdict(isFirstParty: false, reason: "name contains SPM package path component")
         }
         // Common vendor prefixes
         let vendorPrefixes = [
@@ -355,9 +417,11 @@ public struct CoverageAction: Action {
             "swift-", "swiftui", "xctest", "pods-", "rncxx",
         ]
         for prefix in vendorPrefixes {
-            if lower.hasPrefix(prefix) { return false }
+            if lower.hasPrefix(prefix) {
+                return ClassificationVerdict(isFirstParty: false, reason: "name matches known vendor prefix '\(prefix)'")
+            }
         }
-        return true
+        return ClassificationVerdict(isFirstParty: true, reason: "no known third-party name pattern matched (name heuristic)")
     }
 
     // MARK: - Aggregation
