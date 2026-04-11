@@ -10,7 +10,7 @@ import Foundation
 /// - Code Signing (20)
 /// - API / Upload (30)
 /// - Screenshots (40)
-/// - Metadata / Precheck (50)
+/// - Metadata / Precheck / Archive Validation (50)
 /// - Configuration / General (2)
 public enum ShipItError: Error, Sendable {
 
@@ -54,6 +54,9 @@ public enum ShipItError: Error, Sendable {
     /// One or more metadata fields failed App Store guideline validation.
     case precheckFailed(violations: [String])
 
+    /// Archive, IPA, or app bundle failed readiness validation for App Store upload.
+    case validateArchiveFailed(issues: [String])
+
     // MARK: - Configuration / General (exit 2)
 
     /// Shipfile is missing, unreadable, or contains invalid YAML.
@@ -90,6 +93,8 @@ extension ShipItError: LocalizedError {
             return "Screenshot capture failed on \(device) (\(locale)): \(reason)"
         case .precheckFailed(let violations):
             return "Precheck failed with violations:\n" + violations.joined(separator: "\n")
+        case .validateArchiveFailed(let issues):
+            return "Archive validation failed:\n" + issues.joined(separator: "\n")
         case .invalidConfiguration(let reason):
             return "Invalid configuration: \(reason)"
         case .duplicateAction(let name):
@@ -109,6 +114,7 @@ extension ShipItError: LocalizedError {
         case .apiError, .jwtGenerationFailed, .uploadFailed: return 30
         case .screenshotCaptureFailed: return 40
         case .precheckFailed: return 50
+        case .validateArchiveFailed: return 50
         case .invalidConfiguration, .duplicateAction, .missingTool: return 2
         }
     }

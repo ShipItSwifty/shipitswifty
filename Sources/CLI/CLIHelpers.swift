@@ -287,6 +287,11 @@ func errorSuggestions(for error: ShipItError) -> [String] {
         missingToolSuggestions(for: name)
     case .signingResourceNotFound(let description):
         signingResourceSuggestions(for: description)
+    case .validateArchiveFailed:
+        [
+            "Run shipit validate archive to see the full list of issues with severity codes.",
+            "Fix all errors before attempting to upload — warnings are advisory.",
+        ]
     default:
         []
     }

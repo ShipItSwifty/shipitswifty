@@ -34,6 +34,15 @@ swift run shipit --help
 swift run shipit build --scheme MyApp
 swift run shipit run beta --ci --output json
 
+# Validate subcommand family
+swift run shipit validate                          # default: validate yml
+swift run shipit validate yml                      # Shipfile structure and workflow semantics
+swift run shipit validate metadata                 # App Store metadata / precheck rules
+swift run shipit validate archive --archive-path ./build/MyApp.xcarchive
+swift run shipit validate archive --ipa ./build/export/MyApp.ipa
+swift run shipit validate all                      # yml + metadata + archive in sequence
+swift run shipit precheck                          # backwards-compat alias: validate metadata
+
 # AI-first entrypoint (canonical machine-oriented command)
 swift run shipit ai-session --goal beta
 swift run shipit ai-session --goal release --path /path/to/project
@@ -161,7 +170,9 @@ These are hard constraints — never violate them:
 7. Write tests in `Tests/ShipItKitTests/NewActionTests.swift`
 8. **Update `Sources/ShipItKit/Introspection/BuiltInSchemaCatalog.swift`** — add or update the `actionSchemas()` entry and its `*Options()` helper to reflect all new/changed `Options` fields
 9. **Update `docs/features.md`** — add or update the relevant feature table row(s) to reflect the new capability
-10. **Run `swift build` and `swift test --filter ShipItKitTests`** to confirm no regressions
+10. **Update `AGENTS.md`** — if the action changes or adds CLI commands, update the Commands section; if it changes agent workflows, update the relevant sections
+11. **Update `Sources/ShipItKit/Introspection/AISessionBuilder.swift`** — if the action affects what agents should do (e.g. a new validation or workflow step agents need to know about), update `buildAgentPrompt`, `buildNextAction`, or `buildNextQuestion` accordingly
+12. **Run `swift build` and `swift test --filter ShipItKitTests`** to confirm no regressions
 
 ## Modifying an existing action
 
@@ -170,8 +181,23 @@ Whenever you add, remove, or rename an `Options` or `Result` field on any existi
 - `Sources/ShipItKit/Introspection/BuiltInSchemaCatalog.swift` — the action's `*Options()` helper
 - `docs/features.md` — the relevant feature table row(s)
 - `Tests/ShipItKitTests/<ActionName>Tests.swift` — add tests for the new/changed behaviour
+- `AGENTS.md` — update Commands section and any agent workflow guidance that references the changed action
+- `Sources/ShipItKit/Introspection/AISessionBuilder.swift` — update any hardcoded command strings or agent prompt content that references the changed action
 
-Failure to keep these three in sync will cause `shipit schema` and `shipit ai-session` to return stale information to agents and CI.
+Failure to keep these in sync will cause `shipit schema` and `shipit ai-session` to return stale information to agents and CI.
+
+## Mandatory change checklist
+
+Every non-trivial code change (new feature, changed behaviour, new/renamed command) **must** include all applicable items from this checklist before it is considered complete:
+
+| Change type | Required updates |
+|---|---|
+| New CLI command or subcommand | `AGENTS.md` Commands section, `docs/features.md`, `AISessionBuilder` agentPrompt if agents need to know |
+| New or modified `Action` | `BuiltInSchemaCatalog`, `docs/features.md`, tests, `AGENTS.md` if command surface changes, `AISessionBuilder` if agent workflow changes |
+| Changed exit code or error type | `ShipItError`, `CLIHelpers.errorSuggestions`, `docs/architecture.md` exit code table |
+| Changed `ai-session` JSON contract | `AISessionTypes.swift` version bump, `AISessionBuilder`, `docs/architecture.md`, `AGENTS.md` |
+| Changed Shipfile schema | `BuiltInSchemaCatalog`, `Shipfile.swift`, `docs/configuration-reference.md` |
+| New backwards-compat alias | Document in `AGENTS.md` Commands section with `# backwards-compat alias:` comment |
 
 ## Common task reference
 

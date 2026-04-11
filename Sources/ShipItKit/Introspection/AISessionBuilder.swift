@@ -364,7 +364,7 @@ public struct AISessionBuilder: Sendable {
         if !missingValues.isEmpty {
             return NextAction(
                 action: "complete_config",
-                command: "shipit validate --output json",
+                command: "shipit validate yml --output json",
                 reason: "Shipfile exists but has \(missingValues.count) unresolved field(s). Complete missing values and validate."
             )
         }
@@ -384,7 +384,10 @@ public struct AISessionBuilder: Sendable {
             "",
             "Key commands:",
             "  shipit ai-session --goal \(goal.rawValue)              # refresh this session state",
-            "  shipit validate --output json                    # check Shipfile completeness",
+            "  shipit validate yml --output json                # check Shipfile structure and semantics",
+            "  shipit validate metadata --output json           # check App Store metadata (precheck)",
+            "  shipit validate archive --archive-path <path>   # check xcarchive / IPA before upload",
+            "  shipit validate all --output json                # run all validation stages",
             "  shipit suggest-config --goal \(goal.rawValue)          # generate a starter Shipfile",
             "  shipit run \(goal.rawValue) --ci --output json         # execute the workflow",
             "  shipit schema --workflow \(goal.rawValue) --output json # schema for this goal only",

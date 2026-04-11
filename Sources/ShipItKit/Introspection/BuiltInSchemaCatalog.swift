@@ -156,6 +156,7 @@ public enum BuiltInSchemaCatalog {
             actionSchema(name: VersionAction.name, description: VersionAction.description, options: versionOptions(), example: versionExample()),
             actionSchema(name: MetadataAction.name, description: MetadataAction.description, options: metadataOptions(), example: metadataExample()),
             actionSchema(name: PrecheckAction.name, description: PrecheckAction.description, options: precheckOptions(), example: precheckExample()),
+            actionSchema(name: ValidateArchiveAction.name, description: ValidateArchiveAction.description, options: validateArchiveOptions(), example: validateArchiveExample()),
             actionSchema(name: ProvisionAction.name, description: ProvisionAction.description, options: provisionOptions(), example: provisionExample()),
             actionSchema(name: NotifyAction.name, description: NotifyAction.description, options: notifyOptions(), example: notifyExample()),
             actionSchema(name: GitAction.name, description: GitAction.description, options: gitOptions(), example: gitExample()),
@@ -370,8 +371,7 @@ public enum BuiltInSchemaCatalog {
         ]
     }
 
-    private static func dsymOptions() -> [SchemaField] {
-        [
+    private static func dsymOptions() -> [SchemaField] {        [
             .string("operation", required: true, description: "dSYM operation.", allowedValues: ["download", "upload"], example: .string("upload")),
             .string("app_id", description: "App Store Connect app identifier for downloads.", example: .string("1234567890")),
             .string("build_version", description: "Build version filter for downloads.", example: .string("240")),
@@ -445,6 +445,18 @@ public enum BuiltInSchemaCatalog {
 
     private static func dsymExample() -> JSONValue? {
         workflowExample(action: "dsym", options: ["operation": .string("upload"), "dsym_path": .string("./build/App.dSYM.zip")])
+    }
+
+    private static func validateArchiveOptions() -> [SchemaField] {
+        [
+            .string("archive_path", description: "Path to the .xcarchive directory to validate.", example: .string("./build/MyApp.xcarchive")),
+            .string("ipa_path", description: "Path to the .ipa file to validate.", example: .string("./build/export/MyApp.ipa")),
+            .boolean("fail_on_warnings", description: "Treat warnings as failures.", example: .bool(false)),
+        ]
+    }
+
+    private static func validateArchiveExample() -> JSONValue? {
+        workflowExample(action: "validate_archive", options: ["archive_path": .string("./build/MyApp.xcarchive")])
     }
 
     private static func workflowExample(action: String, options: [String: JSONValue]) -> JSONValue {

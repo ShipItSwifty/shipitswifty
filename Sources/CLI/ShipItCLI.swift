@@ -39,7 +39,7 @@ struct ShipItCLI: AsyncParsableCommand {
             SignCommand.self,
             VersionCommand.self,
             MetadataCommand.self,
-            PrecheckCommand.self,
+            PrecheckCommand.self,  // backwards-compat alias for: validate metadata
             ProvisionCommand.self,
             NotifyCommand.self,
             RunCommand.self,
