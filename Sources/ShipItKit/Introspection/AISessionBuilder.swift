@@ -445,6 +445,7 @@ public struct AISessionBuilder: Sendable {
                 "  shipit schema --workflow \(goal.rawValue) --output json        # schema for this goal",
                 "  shipit lint --platform android                                 # run Gradle lint",
                 "  shipit play-store --aab <path> --track beta                   # upload to Google Play",
+                "  shipit coverage --platform android --first-party-only --targets  # summarize JaCoCo coverage",
                 "",
             ]
         case .ios:
@@ -461,6 +462,7 @@ public struct AISessionBuilder: Sendable {
                 "  shipit suggest-config --goal \(goal.rawValue)          # generate a starter Shipfile",
                 "  shipit run \(goal.rawValue) --ci --output json         # execute the workflow",
                 "  shipit schema --workflow \(goal.rawValue) --output json # schema for this goal only",
+                "  shipit coverage --first-party-only --targets     # summarize iOS coverage from xcresult",
                 "",
             ]
         }

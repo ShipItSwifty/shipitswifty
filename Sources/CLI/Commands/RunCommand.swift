@@ -107,6 +107,7 @@ func builtInActionDescriptors() -> [ActionDescriptor] {
     [
         BuildAction.descriptor(for: BuildAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: BuildAction.name)),
         TestAction.descriptor(for: TestAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: TestAction.name)),
+        CoverageAction.descriptor(for: CoverageAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: CoverageAction.name)),
         ArchiveAction.descriptor(for: ArchiveAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: ArchiveAction.name)),
         LintAction.descriptor(for: LintAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: LintAction.name)),
         PlayStoreAction.descriptor(for: PlayStoreAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: PlayStoreAction.name)),

@@ -64,6 +64,20 @@ swift run shipit schema --workflow beta --output json
 
 # Structured dry-run (returns JSON step list)
 swift run shipit run beta --dry-run --output json
+
+# Coverage — read and summarize native coverage artifacts
+swift run shipit coverage                                      # auto-discover, first-party default
+swift run shipit coverage --first-party-only --targets        # per-target summary
+swift run shipit coverage --files                             # per-file breakdown
+swift run shipit coverage --format json                       # machine-readable output
+swift run shipit coverage --format markdown                   # PR comment / CI summary
+swift run shipit coverage --summary                           # single overall line
+swift run shipit coverage --xcresult ./build/MyApp-tests.xcresult  # iOS explicit path
+swift run shipit coverage --platform android                  # Android (JaCoCo XML)
+swift run shipit coverage --platform android --report ./app/build/reports/jacoco/test/jacocoTestReport.xml
+swift run shipit coverage --include-target MyFeatureKit       # include specific target
+swift run shipit coverage --exclude-target GoogleSignIn       # exclude vendor targets
+swift run shipit coverage --sort name --limit 10              # alphabetical, capped
 ```
 
 > **Prerequisite:** Requires access to the remote `SwiftyShell` Swift package dependency during `swift build` and `swift test`.
