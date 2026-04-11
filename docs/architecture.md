@@ -168,7 +168,8 @@ public struct ActionContext: Sendable {
     public let logger: ShipItLogger         // structured logger
     public let config: ResolvedConfig       // merged config
     public let appStoreConnect: AppStoreConnectClient
-    public let platform: Platform           // .ios (default), .android (v2)
+    public let googlePlay: GooglePlayClient?  // nil when no service account configured
+    public let platform: Platform           // .ios (default) or .android
 }
 ```
 
@@ -251,20 +252,28 @@ COMMANDS:
                   Returns: inferred config with confidence + provenance, secret descriptors,
                   ambiguity flags, readiness diagnosis, next action, agent prompt, next question
   validate      Validate Shipfile syntax, schema, and workflow semantics
-  build         Compile the app (xcodebuild build)
-  test          Run tests (xcodebuild test)
-  archive       Archive the app (xcodebuild archive)
-  export        Export IPA from archive
-  sign          Code signing subcommands: init | sync | import | cleanup
-  upload        Upload IPA to App Store Connect
-  testflight    Upload to TestFlight & distribute to groups
-  snapshot      Capture localized screenshots on simulators
-  frame         Add device frames to screenshots
+  build         Compile the app (iOS: xcodebuild build, Android: gradlew assemble)
+  test          Run tests (iOS: xcodebuild test, Android: gradlew test / connectedAndroidTest)
+  archive       Archive the app (iOS: xcodebuild archive → .xcarchive, Android: gradlew bundle → .aab)
+  lint          Static analysis (iOS: xcodebuild analyze, Android: gradlew lint)
+  export        Export IPA from archive (iOS only)
+  sign          Code signing subcommands: init | sync | import | cleanup (iOS only)
+  upload        Upload IPA to App Store Connect (iOS only)
+  testflight    Upload to TestFlight & distribute to groups (iOS only)
+  play-store    Upload AAB to Google Play via service account (Android only)
+  snapshot      Capture localized screenshots on simulators (iOS only)
+  frame         Add device frames to screenshots (iOS only)
   version       Bump version / build number
   metadata      Pull / push App Store metadata
   precheck      Validate metadata before submission
   provision     Manage App IDs, devices, capabilities
   notify        Send build notifications
+  validate      Validate Shipfile syntax, schema, and workflow semantics
+    validate yml       Validate Shipfile YAML structure and workflow semantics
+    validate metadata  Run precheck rules
+    validate archive   Validate .xcarchive / .ipa bundle readiness (iOS only)
+    validate bundle    Validate .aab / .apk bundle readiness via bundletool (Android only)
+    validate all       Run all applicable stages
   run <workflow>    Execute a named workflow from Shipfile.yml
   env           Print resolved config, env vars, and processed files
   doctor        Diagnose common setup issues for the selected Shipfile
@@ -277,6 +286,7 @@ GLOBAL OPTIONS:
   --verbose             Debug logging
   --ci                  CI mode: non-interactive, stricter error handling
   --dry-run             Preview without executing
+  --platform <p>        ios | android (auto-detected from project files when omitted)
 ```
 
 ### Exit codes
@@ -427,7 +437,41 @@ Exit code `2` when `isReady: false`. Check this to gate further steps.
 
 ## App Store Connect client
 
-### `AppStoreConnectClient`
+---
+
+## `GooglePlayClient`
+
+Native Google Play Developer API client, mirroring `AppStoreConnectClient`. Uses RS256 (RSA-SHA256) JWT auth from a service account JSON key.
+
+```swift
+public actor GooglePlayClient: Sendable {
+    public init(serviceAccountJSON: Data) throws
+    public func uploadBundle(at fileURL: URL, packageName: String, track: String, rolloutFraction: Double?) async throws -> String
+}
+```
+
+### JWT authentication (RS256)
+
+Service account JSON from Google Cloud Console. ShipIt extracts the `private_key` and signs with RS256 using the Security framework (no third-party JWT library).
+
+| JWT field | Value |
+|---|---|
+| Algorithm | RS256 (RSA + SHA-256) |
+| `iss` | Service account email |
+| `scope` | `https://www.googleapis.com/auth/androidpublisher` |
+| `aud` | `https://oauth2.googleapis.com/token` |
+| `exp` | `iat` + 3600 s |
+
+### Environment variables
+
+| Variable | Description |
+|---|---|
+| `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` | Full JSON content of the service account key |
+| `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_PATH` | Path to the service account key JSON file |
+
+---
+
+## `AppStoreConnectClient`
 
 ```swift
 public actor AppStoreConnectClient: Sendable {
@@ -501,24 +545,27 @@ public actor RateLimiter: Sendable {
 
 ## Built-in actions
 
-| Action | Description |
-|---|---|
-| `BuildAction` | `xcodebuild build` → compiled products only |
-| `TestAction` | `xcodebuild test` — supports multiple `destinations` (simulators + physical devices), runs one pass per destination and aggregates results. Throws `invalidConfiguration` when no destination is configured. |
-| `ArchiveAction` | `xcodebuild archive` → `.xcarchive` |
-| `ExportAction` | `xcodebuild -exportArchive` → `.ipa` |
-| `SignAction` | Cert & profile sync via Git/S3 encrypted vault |
-| `UploadAction` | Upload IPA to ASC, optional review submission |
-| `TestFlightAction` | Upload to TestFlight, wait for processing, distribute |
-| `SnapshotAction` | Simulator screenshot capture per locale/device |
-| `FrameAction` | Device frame overlay on screenshots |
-| `VersionAction` | Bump `CFBundleVersion` / `CFBundleShortVersionString` |
-| `MetadataAction` | Pull/push localized metadata; optional review submit |
-| `PrecheckAction` | Validate metadata before submission |
-| `ProvisionAction` | Create App IDs, register devices |
-| `NotifyAction` | Post to Slack or custom webhook |
-| `GitAction` | Git status, tagging, changelog |
-| `DsymAction` | Download/upload dSYM files |
+| Action | Platform | Description |
+|---|---|---|
+| `BuildAction` | iOS + Android | iOS: `xcodebuild build` → compiled products. Android: `./gradlew assemble<Variant>` → APK |
+| `TestAction` | iOS + Android | iOS: `xcodebuild test` (multiple destinations, aggregate results). Android: `./gradlew test` (unit) or `./gradlew connectedAndroidTest` (instrumented) |
+| `ArchiveAction` | iOS + Android | iOS: `xcodebuild archive` → `.xcarchive`. Android: `./gradlew bundle<Variant>` → `.aab` |
+| `LintAction` | iOS + Android | iOS: `xcodebuild analyze`. Android: `./gradlew lint` |
+| `ExportAction` | iOS only | `xcodebuild -exportArchive` → `.ipa` |
+| `SignAction` | iOS only | Cert & profile sync via Git/S3 encrypted vault |
+| `UploadAction` | iOS only | Upload IPA to ASC, optional review submission |
+| `TestFlightAction` | iOS only | Upload to TestFlight, wait for processing, distribute |
+| `PlayStoreAction` | Android only | Upload AAB to Google Play via service account |
+| `ValidateBundleAction` | Android only | `bundletool validate --bundle` — pre-upload AAB/APK checks |
+| `SnapshotAction` | iOS only | Simulator screenshot capture per locale/device |
+| `FrameAction` | iOS only | Device frame overlay on screenshots |
+| `VersionAction` | iOS + Android | Bump `CFBundleVersion` / `CFBundleShortVersionString` (iOS) or `versionCode`/`versionName` (Android) |
+| `MetadataAction` | iOS only | Pull/push localized metadata; optional review submit |
+| `PrecheckAction` | iOS only | Validate metadata before submission |
+| `ProvisionAction` | iOS only | Create App IDs, register devices |
+| `NotifyAction` | iOS + Android | Post to Slack or custom webhook |
+| `GitAction` | iOS + Android | Git status, tagging, changelog |
+| `DsymAction` | iOS only | Download/upload dSYM files |
 
 ---
 
@@ -528,12 +575,12 @@ These types live in `Sources/ShipItKit/Introspection/` and power `ai-session`, `
 
 | Type | Role |
 |---|---|
-| `ProjectInspector` | Discovers `.xcworkspace`/`.xcodeproj`, runs `xcodebuild -list` + `-showBuildSettings` to extract schemes, bundle IDs, team IDs |
+| `ProjectInspector` | Discovers `.xcworkspace`/`.xcodeproj` (iOS) and Gradle files (`gradlew`, `build.gradle.kts`) (Android). Auto-detects platform. Runs `xcodebuild -list` + `-showBuildSettings` to extract schemes, bundle IDs, team IDs on iOS. |
 | `ShipfileSuggester` | Generates goal-appropriate `Shipfile.yml` YAML from a `ProjectInspection` |
-| `BuiltInSchemaCatalog` | Static catalog of `SchemaField`/`SchemaSection`/`ActionSchema` descriptors for every Shipfile key and action option |
+| `BuiltInSchemaCatalog` | Static catalog of `SchemaField`/`SchemaSection`/`ActionSchema` descriptors for every Shipfile key and action option — both iOS and Android |
 | `SchemaValidator` | Validates a `JSONValue` tree against `SchemaField` rules |
 | `ShipfileValidator` | Full YAML parse + schema + semantic workflow rule validation |
-| `AISessionBuilder` | Builds a versioned `AISessionPayload` from a `ProjectInspection` + goal |
+| `AISessionBuilder` | Builds a versioned `AISessionPayload` from a `ProjectInspection` + goal + platform. Android gets a Play Store-oriented agent prompt and Google Play secret descriptors. |
 | `DestinationDiscovery` | Runs `xcodebuild -showdestinations` and parses the output into `[XcodebuildDestination]`; used by agents and `ai-session` to surface real simulator/device options instead of invented names |
 
 ### AI session model types (`AISessionTypes.swift`)

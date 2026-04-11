@@ -1,24 +1,27 @@
 import ArgumentParser
 import Foundation
+import ShipItKit
 
 /// The main CLI entry point for ShipItSwifty.
 ///
-/// `shipit` is a Swift-native CLI toolkit for automating iOS app release workflows.
+/// `shipit` is a Swift-native CLI toolkit for automating iOS and Android app release workflows.
 /// It orchestrates building, code signing, screenshots, metadata management,
-/// and distribution to App Store / TestFlight.
+/// and distribution to App Store / TestFlight (iOS) or Google Play (Android).
 ///
 /// ## Usage
 /// ```
 /// shipit <command> [options]
 /// shipit build --scheme MyApp
+/// shipit build --platform android
 /// shipit archive --scheme MyApp --export-method app-store
 /// shipit run beta --ci --output json
+/// shipit run beta --platform android --ci --output json
 /// ```
 @main
 struct ShipItCLI: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "shipit",
-        abstract: "Swift-native CLI for iOS app release automation.",
+        abstract: "Swift-native CLI for iOS and Android app release automation.",
         version: "1.0.0",
         subcommands: [
             InitCommand.self,
@@ -34,6 +37,8 @@ struct ShipItCLI: AsyncParsableCommand {
             ExportCommand.self,
             UploadCommand.self,
             TestFlightCommand.self,
+            LintCommand.self,
+            PlayStoreCommand.self,
             SnapshotCommand.self,
             FrameCommand.self,
             SignCommand.self,
@@ -75,6 +80,9 @@ struct GlobalOptions: ParsableArguments {
     @Flag(name: .long, help: "Preview actions without executing")
     var dryRun: Bool = false
 
+    @Option(name: .long, help: "Target platform: ios | android (auto-detected if omitted)")
+    var platform: Platform?
+
     var effectiveColorMode: ConsoleColorMode {
         noColor ? .never : color
     }
@@ -90,6 +98,9 @@ struct AIBootstrapOptions: ParsableArguments {
 
     @Flag(name: .long, help: "Enable CI mode (non-interactive, strict errors)")
     var ci: Bool = false
+
+    @Option(name: .long, help: "Target platform: ios | android (auto-detected if omitted)")
+    var platform: Platform?
 }
 
 /// Output format selection.

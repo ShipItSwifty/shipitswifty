@@ -14,6 +14,7 @@ import Foundation
 /// | `app.scheme` | `SHIPIT_APP__SCHEME` |
 /// | `app.bundle_id` | `SHIPIT_APP__BUNDLE_ID` |
 /// | `app_store_connect.key_id` | `SHIPIT_APP_STORE_CONNECT__KEY_ID` |
+/// | `android.module` | `SHIPIT_ANDROID__MODULE` |
 ///
 /// ## Bare Secrets
 /// The following are also read without the `SHIPIT_` prefix for CI compatibility:
@@ -21,6 +22,10 @@ import Foundation
 /// - `ASC_ISSUER_ID`
 /// - `ASC_PRIVATE_KEY`
 /// - `VAULT_PASSWORD`
+/// - `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON`
+/// - `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_PATH`
+/// - `SHIPIT_ANDROID__KEYSTORE_PASSWORD`
+/// - `SHIPIT_ANDROID__KEY_PASSWORD`
 public struct Environment: Sendable {
     private let env: [String: String]
 
@@ -31,6 +36,11 @@ public struct Environment: Sendable {
     public init(env: [String: String] = ProcessInfo.processInfo.environment) {
         self.env = env
     }
+
+    // MARK: - Platform
+
+    /// `SHIPIT_PLATFORM` — overrides platform auto-detection. Accepts `ios` or `android`.
+    public var platform: String? { env["SHIPIT_PLATFORM"] }
 
     // MARK: - App Configuration
 
@@ -93,6 +103,46 @@ public struct Environment: Sendable {
     /// `VAULT_PASSWORD` — passphrase for the encrypted certificate repository
     public var vaultPassword: String? { env["VAULT_PASSWORD"] }
 
+    // MARK: - Android
+
+    /// `SHIPIT_ANDROID__MODULE` — Gradle module name (e.g. `app`)
+    public var androidModule: String? { env["SHIPIT_ANDROID__MODULE"] }
+
+    /// `SHIPIT_ANDROID__BUILD_VARIANT` — Gradle build variant (e.g. `release`)
+    public var androidBuildVariant: String? { env["SHIPIT_ANDROID__BUILD_VARIANT"] }
+
+    /// `SHIPIT_ANDROID__BUILD_TYPE` — Output type: `apk` or `aab`
+    public var androidBuildType: String? { env["SHIPIT_ANDROID__BUILD_TYPE"] }
+
+    /// `SHIPIT_ANDROID__GRADLEW_PATH` — Path to the gradlew wrapper script
+    public var androidGradlewPath: String? { env["SHIPIT_ANDROID__GRADLEW_PATH"] }
+
+    /// `SHIPIT_ANDROID__KEYSTORE_PATH` — Path to the Android keystore file
+    public var androidKeystorePath: String? { env["SHIPIT_ANDROID__KEYSTORE_PATH"] }
+
+    /// `SHIPIT_ANDROID__KEYSTORE_PASSWORD` — Keystore password (secret)
+    public var androidKeystorePassword: String? { env["SHIPIT_ANDROID__KEYSTORE_PASSWORD"] }
+
+    /// `SHIPIT_ANDROID__KEY_ALIAS` — Signing key alias within the keystore
+    public var androidKeyAlias: String? { env["SHIPIT_ANDROID__KEY_ALIAS"] }
+
+    /// `SHIPIT_ANDROID__KEY_PASSWORD` — Key password (secret)
+    public var androidKeyPassword: String? { env["SHIPIT_ANDROID__KEY_PASSWORD"] }
+
+    /// `SHIPIT_ANDROID__PACKAGE_NAME` — Android application package name (e.g. `com.example.app`)
+    public var androidPackageName: String? { env["SHIPIT_ANDROID__PACKAGE_NAME"] }
+
+    /// `SHIPIT_ANDROID__PLAY_TRACK` — Google Play track (`qa`, `alpha`, `beta`, `production`)
+    public var androidPlayTrack: String? { env["SHIPIT_ANDROID__PLAY_TRACK"] }
+
+    // MARK: - Google Play
+
+    /// `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` — raw service account JSON contents (secret)
+    public var googlePlayServiceAccountJson: String? { env["GOOGLE_PLAY_SERVICE_ACCOUNT_JSON"] }
+
+    /// `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_PATH` — path to service account JSON file
+    public var googlePlayServiceAccountJsonPath: String? { env["GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_PATH"] }
+
     // MARK: - Notifications
 
     /// `SLACK_WEBHOOK_URL`
@@ -108,3 +158,4 @@ public struct Environment: Sendable {
         env[key]
     }
 }
+

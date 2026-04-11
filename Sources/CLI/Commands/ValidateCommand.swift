@@ -7,18 +7,20 @@ import ShipItKit
 struct ValidateCommand: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "validate",
-        abstract: "Validate Shipfile, App Store metadata, and archive readiness",
+        abstract: "Validate Shipfile, App Store metadata, archive readiness, and Android bundles",
         discussion: """
         SUBCOMMANDS:
           yml        Validate Shipfile structure and workflow semantics (default)
-          metadata   Validate App Store metadata and precheck rules
-          archive    Validate xcarchive / ipa / app bundle for upload readiness
+          metadata   Validate App Store metadata and precheck rules (iOS)
+          archive    Validate xcarchive / ipa / app bundle for upload readiness (iOS)
+          bundle     Validate Android App Bundle (.aab) or APK for Play Store readiness (Android)
           all        Run all validation stages in sequence
         """,
         subcommands: [
             ValidateYmlCommand.self,
             ValidateMetadataCommand.self,
             ValidateArchiveCommand.self,
+            ValidateBundleCommand.self,
             ValidateAllCommand.self,
         ],
         defaultSubcommand: ValidateYmlCommand.self
@@ -100,7 +102,7 @@ struct ValidateMetadataCommand: AsyncParsableCommand {
         do {
             let config = try await resolveRequiredConfig(
                 global: global,
-                cliOptions: CLIOptions(ci: global.ci, dryRun: global.dryRun)
+                cliOptions: CLIOptions(ci: global.ci, dryRun: global.dryRun, platform: global.platform)
             )
             let context = try await buildActionContext(config: config)
 
@@ -184,7 +186,7 @@ struct ValidateArchiveCommand: AsyncParsableCommand {
         do {
             let config = try await resolveRequiredConfig(
                 global: global,
-                cliOptions: CLIOptions(ci: global.ci, dryRun: global.dryRun)
+                cliOptions: CLIOptions(ci: global.ci, dryRun: global.dryRun, platform: global.platform)
             )
             let context = try await buildActionContext(config: config)
 
@@ -248,6 +250,76 @@ struct ValidateArchiveCommand: AsyncParsableCommand {
     }
 }
 
+// MARK: - validate bundle
+
+/// Validate an Android App Bundle (.aab) or APK for Google Play upload readiness.
+///
+/// Checks file format integrity and runs `bundletool validate` if available.
+struct ValidateBundleCommand: AsyncParsableCommand {
+    static let configuration = CommandConfiguration(
+        commandName: "bundle",
+        abstract: "Validate Android App Bundle (.aab) or APK for Google Play upload readiness"
+    )
+
+    @OptionGroup var global: GlobalOptions
+
+    @Option(name: .long, help: "Path to .aab file to validate")
+    var aab: String?
+
+    @Option(name: .long, help: "Path to .apk file to validate")
+    var apk: String?
+
+    @Flag(name: .long, help: "Fail on warnings in addition to errors")
+    var failOnWarnings: Bool = false
+
+    func run() async throws {
+        do {
+            let config = try await resolveRequiredConfig(
+                global: global,
+                cliOptions: CLIOptions(ci: global.ci, dryRun: global.dryRun, platform: global.platform)
+            )
+            let context = try await buildActionContext(config: config)
+
+            let options = ValidateBundleAction.Options(
+                aabPath: aab,
+                apkPath: apk,
+                failOnWarnings: failOnWarnings ? true : nil
+            )
+
+            let result = try await ValidateBundleAction().run(with: options, context: context)
+
+            switch global.output {
+            case .json:
+                let reporter = JSONReporter()
+                print(try reporter.encode(ActionResultEnvelope(
+                    action: "validate",
+                    status: result.passed ? "success" : "failure",
+                    payload: validateBundlePayload(result: result)
+                )))
+            case .human:
+                let formatter = makeHumanFormatter(global: global)
+                formatter.printHeader("Validate: Bundle")
+                formatter.printKV("Path", result.validatedPath)
+                formatter.printKV("Type", result.isAAB ? "AAB" : "APK")
+                if result.issues.isEmpty {
+                    formatter.printSuccess("No bundle issues found")
+                } else {
+                    for issue in result.issues {
+                        let line = "[\(issue.code)] \(issue.message)"
+                        switch issue.severity {
+                        case .error:   formatter.printError(line)
+                        case .warning: formatter.printWarning(line)
+                        }
+                    }
+                }
+            }
+        } catch let error as ShipItError {
+            outputError(error: error, format: global.output, colorMode: global.effectiveColorMode)
+            throw ExitCode(error.exitCode)
+        }
+    }
+}
+
 // MARK: - validate all
 
 /// Run all validation stages in sequence: yml → metadata → archive.
@@ -294,7 +366,7 @@ struct ValidateAllCommand: AsyncParsableCommand {
         do {
             let config = try await resolveRequiredConfig(
                 global: global,
-                cliOptions: CLIOptions(ci: global.ci, dryRun: global.dryRun)
+                cliOptions: CLIOptions(ci: global.ci, dryRun: global.dryRun, platform: global.platform)
             )
             let context = try await buildActionContext(config: config)
             let precheckOptions = PrecheckAction.Options(directory: directory, failOnWarnings: failOnWarnings ? true : nil)
@@ -406,6 +478,22 @@ private func validateArchivePayload(result: ValidateArchiveAction.Result) -> JSO
     .object([
         "mode": .string("archive"),
         "validatedPath": .string(result.validatedPath),
+        "passed": .bool(result.passed),
+        "issues": .array(result.issues.map { issue in
+            .object([
+                "severity": .string(issue.severity.rawValue),
+                "code": .string(issue.code),
+                "message": .string(issue.message),
+            ])
+        }),
+    ])
+}
+
+private func validateBundlePayload(result: ValidateBundleAction.Result) -> JSONValue {
+    .object([
+        "mode": .string("bundle"),
+        "validatedPath": .string(result.validatedPath),
+        "isAAB": .bool(result.isAAB),
         "passed": .bool(result.passed),
         "issues": .array(result.issues.map { issue in
             .object([

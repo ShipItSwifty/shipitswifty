@@ -2,23 +2,26 @@ import ArgumentParser
 import ShipItKit
 import Foundation
 
-/// Compile the app using `xcodebuild build`.
+/// Compile the app using `xcodebuild build` (iOS) or `./gradlew assembleRelease` (Android).
+///
+/// The target platform is auto-detected from project files or can be specified with `--platform`.
 ///
 /// ## Usage
 /// ```
 /// shipit build --scheme MyApp
 /// shipit build --scheme MyApp --configuration Debug
-/// shipit build --scheme MyApp --output json
+/// shipit build --platform android
+/// shipit build --platform android --output json
 /// ```
 struct BuildCommand: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "build",
-        abstract: "Compile the app using xcodebuild build"
+        abstract: "Compile the app (iOS: xcodebuild build, Android: gradlew assemble)"
     )
 
     @OptionGroup var global: GlobalOptions
 
-    @Option(name: .long, help: "Xcode scheme to build")
+    @Option(name: .long, help: "Xcode scheme to build (iOS)")
     var scheme: String?
 
     @Option(name: .long, help: "Build configuration (Debug or Release)")
@@ -35,7 +38,8 @@ struct BuildCommand: AsyncParsableCommand {
                     scheme: scheme,
                     configuration: configuration,
                     ci: global.ci,
-                    dryRun: global.dryRun
+                    dryRun: global.dryRun,
+                    platform: global.platform
                 )
             )
             let context = try await buildActionContext(config: config)
@@ -48,7 +52,11 @@ struct BuildCommand: AsyncParsableCommand {
             )
 
             if global.dryRun {
-                formatter.print("DRY RUN: Would build scheme '\(scheme ?? config.appScheme ?? "unknown")'")
+                if config.platform == .android {
+                    formatter.print("DRY RUN: Would run gradlew assemble\(config.androidBuildVariant.capitalized) in module '\(config.androidModule)'")
+                } else {
+                    formatter.print("DRY RUN: Would build scheme '\(scheme ?? config.appScheme ?? "unknown")'")
+                }
                 return
             }
 

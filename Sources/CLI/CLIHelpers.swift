@@ -26,7 +26,8 @@ func resolveRequiredConfig(
 /// Build a full `ActionContext` from a resolved config.
 ///
 /// Creates the App Store Connect client if credentials are present.
-/// If credentials are missing, creates a placeholder client (will fail on API calls).
+/// Creates the Google Play client if service account data is present.
+/// If credentials are missing, creates placeholder clients (will fail on API calls).
 ///
 /// - Parameter config: The resolved configuration.
 /// - Returns: An `ActionContext` ready for use by actions.
@@ -54,12 +55,21 @@ func buildActionContext(config: ResolvedConfig) async throws -> ActionContext {
         )
     }
 
+    // Build Google Play client — only present when service account data is available
+    let googlePlayClient: GooglePlayClient?
+    if let gpData = config.googlePlayServiceAccountData {
+        googlePlayClient = try? GooglePlayClient(serviceAccountJSON: gpData)
+    } else {
+        googlePlayClient = nil
+    }
+
     return ActionContext(
         shell: shell,
         logger: logger,
         config: config,
         appStoreConnect: ascClient,
-        platform: .ios
+        googlePlay: googlePlayClient,
+        platform: config.platform
     )
 }
 
@@ -168,6 +178,8 @@ func projectInspectionJSON(_ inspection: ProjectInspection) -> JSONValue {
         "fastlaneFiles": .array(inspection.fastlaneFiles.map(JSONValue.string)),
         "ciFiles": .array(inspection.ciFiles.map(JSONValue.string)),
         "warnings": .array(inspection.warnings.map(JSONValue.string)),
+        "detectedPlatform": .string(inspection.detectedPlatform.rawValue),
+        "gradleFiles": .array(inspection.gradleFiles.map(JSONValue.string)),
     ])
 }
 

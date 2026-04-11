@@ -1,8 +1,13 @@
 /// The target platform for build and distribution workflows.
 ///
-/// In v1, only `.ios` is fully supported. `.android` is reserved for the v2 roadmap.
-/// Actions that are platform-specific throw `ShipItError/invalidConfiguration` when
-/// called with an incompatible platform.
+/// Pass `--platform ios` or `--platform android` on the CLI, or omit it to let
+/// ShipItSwifty auto-detect the platform from project files in the working directory.
+///
+/// ## Auto-detection rules
+/// | Project file detected | Platform |
+/// |---|---|
+/// | `gradlew` or `build.gradle.kts` | `.android` |
+/// | `*.xcworkspace` or `*.xcodeproj` | `.ios` |
 ///
 /// ## Usage
 /// ```swift
@@ -12,9 +17,9 @@
 /// }
 /// ```
 public enum Platform: String, Codable, Sendable, CaseIterable {
-    /// Apple iOS platform. Fully supported in v1.
+    /// Apple iOS platform. Fully supported.
     case ios
 
-    /// Android platform. Reserved for v2 roadmap.
+    /// Android platform.
     case android
 }

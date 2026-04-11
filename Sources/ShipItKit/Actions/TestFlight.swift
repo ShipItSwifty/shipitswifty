@@ -87,6 +87,9 @@ public struct TestFlightAction: Action {
     }
 
     public func run(with options: Options, context: ActionContext) async throws -> Result {
+        guard context.platform == .ios else {
+            throw ShipItError.invalidConfiguration(reason: "TestFlightAction requires iOS platform")
+        }
         let ipaPath = options.ipa ?? locateExportedIPA(context: context)
         guard let ipaPath else {
             throw ShipItError.invalidConfiguration(reason: "TestFlight requires an IPA path. Pass --ipa /path/to/App.ipa.")

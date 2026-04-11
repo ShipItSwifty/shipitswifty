@@ -39,7 +39,7 @@ struct SignInitCommand: AsyncParsableCommand {
         do {
             let config = try await resolveRequiredConfig(
                 global: global,
-                cliOptions: CLIOptions(ci: global.ci, dryRun: global.dryRun)
+                cliOptions: CLIOptions(ci: global.ci, dryRun: global.dryRun, platform: global.platform)
             )
             let context = try await buildActionContext(config: config)
             let options = SignAction.Options(operation: .`init`, gitUrl: gitUrl)
@@ -72,7 +72,7 @@ struct SignSyncCommand: AsyncParsableCommand {
         do {
             let config = try await resolveRequiredConfig(
                 global: global,
-                cliOptions: CLIOptions(ci: global.ci, dryRun: global.dryRun)
+                cliOptions: CLIOptions(ci: global.ci, dryRun: global.dryRun, platform: global.platform)
             )
             let context = try await buildActionContext(config: config)
             let formatter = makeHumanFormatter(global: global)
@@ -115,7 +115,7 @@ struct SignImportCommand: AsyncParsableCommand {
         do {
             let config = try await resolveRequiredConfig(
                 global: global,
-                cliOptions: CLIOptions(ci: global.ci, dryRun: global.dryRun)
+                cliOptions: CLIOptions(ci: global.ci, dryRun: global.dryRun, platform: global.platform)
             )
             let context = try await buildActionContext(config: config)
 
@@ -148,7 +148,7 @@ struct SignCleanupCommand: AsyncParsableCommand {
         do {
             let config = try await resolveRequiredConfig(
                 global: global,
-                cliOptions: CLIOptions(ci: global.ci, dryRun: global.dryRun)
+                cliOptions: CLIOptions(ci: global.ci, dryRun: global.dryRun, platform: global.platform)
             )
             let context = try await buildActionContext(config: config)
             let options = SignAction.Options(operation: .cleanup)

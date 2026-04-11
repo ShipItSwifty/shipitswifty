@@ -78,6 +78,9 @@ public struct SnapshotAction: Action {
     }
 
     public func run(with options: Options, context: ActionContext) async throws -> Result {
+        guard context.platform == .ios else {
+            throw ShipItError.invalidConfiguration(reason: "SnapshotAction requires iOS platform")
+        }
         let devices = options.devices ?? context.config.screenshotDevices
         let locales = options.locales ?? context.config.screenshotLocales
         let scheme = options.scheme ?? context.config.screenshotScheme ?? context.config.appScheme

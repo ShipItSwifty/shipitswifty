@@ -44,6 +44,9 @@ metadata:
 versioning:
 notifications:
 workflows:
+# Platform-specific overrides (merged on top of shared config)
+ios:
+android:
 ```
 
 ## `app`
@@ -295,3 +298,45 @@ Workflow notes:
 | `SHIPIT_SCHEME` | `app.scheme` |
 | `SHIPIT_BUNDLE_ID` | `app.bundle_id` |
 | `SHIPIT_TEAM_ID` | `app.team_id` |
+
+## `android`
+
+Platform-specific Android configuration. These values are merged on top of shared config when `--platform android` is active or the platform is auto-detected as Android.
+
+| Key | Type | Default | Env Var | Description |
+|---|---|---|---|---|
+| `module` | string | `app` | — | Gradle module to build/bundle |
+| `build_variant` | string | `release` | — | Gradle build variant (e.g. `release`, `debug`) |
+| `build_type` | string | `aab` | — | `aab` (Android App Bundle) or `apk` |
+| `package_name` | string | — | `SHIPIT_ANDROID__PACKAGE_NAME` | Android application ID (e.g. `com.example.app`) |
+| `keystore_path` | string | — | — | Path to the release keystore |
+| `keystore_password` | string | — | `ANDROID_KEYSTORE_PASSWORD` | Keystore password |
+| `key_alias` | string | — | `ANDROID_KEY_ALIAS` | Key alias in the keystore |
+| `key_password` | string | — | `ANDROID_KEY_PASSWORD` | Key password |
+| `play_track` | string | `qa` | — | Google Play release track (`internal`, `alpha`, `beta`, `production`) |
+| `rollout_fraction` | float | — | — | Staged rollout fraction (0.0–1.0), for `production` track |
+| `gradle_properties` | map | `{}` | — | Extra `-P key=value` properties passed to Gradle |
+| `gradlew_path` | string | — | — | Explicit path to the `gradlew` script (auto-detected when omitted) |
+
+### Google Play credentials
+
+Set these environment variables for Google Play upload actions:
+
+| Variable | Description |
+|---|---|
+| `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` | Full JSON content of the service account key file |
+| `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_PATH` | Path to the service account key JSON file |
+
+Find or create a service account in Google Cloud Console with the `Release Manager` role in Google Play Console.
+
+## `ios`
+
+Platform-specific iOS overrides. Merged on top of shared config when `--platform ios` is active. All top-level `app`, `code_signing`, `archive`, `export`, `testflight`, and `screenshots` keys can appear here to override the shared defaults for iOS only.
+
+```yaml
+ios:
+  app:
+    scheme: MyApp
+  archive:
+    export_method: app-store
+```

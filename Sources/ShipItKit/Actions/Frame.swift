@@ -65,6 +65,9 @@ public struct FrameAction: Action {
     }
 
     public func run(with options: Options, context: ActionContext) async throws -> Result {
+        guard context.platform == .ios else {
+            throw ShipItError.invalidConfiguration(reason: "FrameAction requires iOS platform")
+        }
         let screenshotsDir = options.screenshotsDirectory ?? context.config.screenshotOutputDirectory
         let outputDir = options.outputDirectory ?? "\(screenshotsDir)_framed"
 

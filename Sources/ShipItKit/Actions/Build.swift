@@ -1,18 +1,28 @@
 import OSLog
 import SwiftyShell
 
-/// Compiles the app using `xcodebuild build`.
+/// Compiles the app.
 ///
-/// Produces compiled products in the derived data directory. Does not create
-/// an `.xcarchive` or `.ipa` — use `ArchiveAction` for distribution builds.
+/// - **iOS**: Uses `xcodebuild build`. Produces compiled products in the derived data directory.
+///   Does not create an `.xcarchive` or `.ipa` — use `ArchiveAction` for distribution builds.
+/// - **Android**: Uses `./gradlew assemble<Variant>`. Produces a debug or release APK.
+///   For production AAB builds, use `ArchiveAction` with `buildType: .aab`.
 ///
 /// ## Usage
 /// ```swift
+/// // iOS
 /// let result = try await BuildAction().run(
 ///     with: .init(scheme: "MyApp", configuration: .release),
 ///     context: context
 /// )
 /// print("App path: \(result.appPath ?? "N/A")")
+///
+/// // Android
+/// let result = try await BuildAction().run(
+///     with: .init(module: "app", buildVariant: "release"),
+///     context: androidContext
+/// )
+/// print("APK path: \(result.apkPath ?? "N/A")")
 /// ```
 ///
 /// ## Topics
@@ -25,7 +35,7 @@ public struct BuildAction: Action {
     public static let name = "build"
 
     /// Human-readable description for `--help` output.
-    public static let description = "Compile the app using xcodebuild build"
+    public static let description = "Compile the app (iOS: xcodebuild build, Android: gradlew assemble)"
 
     private let logger = Logger.forType(subsystem: "ShipItSwifty", BuildAction.self)
 
@@ -34,30 +44,44 @@ public struct BuildAction: Action {
 
     /// Configuration options for the build action.
     public struct Options: Codable, Sendable {
-        /// Xcode scheme to build. Overrides `config.appScheme`.
+        // MARK: iOS options
+
+        /// Xcode scheme to build. Overrides `config.appScheme`. (iOS only)
         public var scheme: String?
 
         /// Build configuration (e.g. `Release`, `Debug`). Default: `Release`.
         public var configuration: BuildConfiguration?
 
-        /// Path to the Xcode workspace.
+        /// Path to the Xcode workspace. (iOS only)
         public var workspace: String?
 
-        /// Path to the Xcode project (used if `workspace` is nil).
+        /// Path to the Xcode project (used if `workspace` is nil). (iOS only)
         public var project: String?
 
-        /// Path to derived data directory.
+        /// Path to derived data directory. (iOS only)
         public var derivedDataPath: String?
 
-        /// Additional xcargs (key=value pairs).
+        /// Additional xcargs (key=value pairs). (iOS only)
         public var xcargs: [String: String]?
 
         /// Whether to clean before building.
         public var clean: Bool?
 
+        // MARK: Android options
+
+        /// Gradle module name (e.g. `"app"`). Overrides `config.androidModule`. (Android only)
+        public var module: String?
+
+        /// Gradle build variant (e.g. `"release"`, `"debug"`). (Android only)
+        public var buildVariant: String?
+
+        /// Product flavor (e.g. `"free"`, `"paid"`). Combined with `buildVariant`. (Android only)
+        public var flavor: String?
+
+        /// Additional Gradle `-P` properties. (Android only)
+        public var gradleProperties: [String: String]?
+
         /// Creates `Options` for the build action.
-        ///
-        /// All parameters are optional; unset values fall back to `ResolvedConfig`.
         public init(
             scheme: String? = nil,
             configuration: BuildConfiguration? = nil,
@@ -65,7 +89,11 @@ public struct BuildAction: Action {
             project: String? = nil,
             derivedDataPath: String? = nil,
             xcargs: [String: String]? = nil,
-            clean: Bool? = nil
+            clean: Bool? = nil,
+            module: String? = nil,
+            buildVariant: String? = nil,
+            flavor: String? = nil,
+            gradleProperties: [String: String]? = nil
         ) {
             self.scheme = scheme
             self.configuration = configuration
@@ -74,10 +102,14 @@ public struct BuildAction: Action {
             self.derivedDataPath = derivedDataPath
             self.xcargs = xcargs
             self.clean = clean
+            self.module = module
+            self.buildVariant = buildVariant
+            self.flavor = flavor
+            self.gradleProperties = gradleProperties
         }
     }
 
-    /// Build configuration preset.
+    /// Build configuration preset (iOS).
     public enum BuildConfiguration: String, Codable, Sendable {
         case debug = "Debug"
         case release = "Release"
@@ -85,22 +117,36 @@ public struct BuildAction: Action {
 
     /// Result of a successful build.
     public struct Result: Codable, Sendable {
-        /// Path to the compiled `.app` bundle.
+        // MARK: iOS result fields
+
+        /// Path to the compiled `.app` bundle. (iOS)
         public let appPath: String?
 
-        /// Path to the dSYM file.
+        /// Path to the dSYM file. (iOS)
         public let dsymPath: String?
 
-        /// Exit code from xcodebuild.
+        // MARK: Android result fields
+
+        /// Path to the output APK file. (Android)
+        public let apkPath: String?
+
+        /// Exit code from the build tool.
         public let exitCode: Int
 
         /// Number of warnings emitted.
         public let warnings: Int
 
         /// Creates a `Result`.
-        public init(appPath: String? = nil, dsymPath: String? = nil, exitCode: Int = 0, warnings: Int = 0) {
+        public init(
+            appPath: String? = nil,
+            dsymPath: String? = nil,
+            apkPath: String? = nil,
+            exitCode: Int = 0,
+            warnings: Int = 0
+        ) {
             self.appPath = appPath
             self.dsymPath = dsymPath
+            self.apkPath = apkPath
             self.exitCode = exitCode
             self.warnings = warnings
         }
@@ -112,15 +158,26 @@ public struct BuildAction: Action {
     ///   - options: Build configuration options.
     ///   - context: Shared execution context.
     /// - Returns: Build result with artifact paths.
-    /// - Throws: ``ShipItError/buildFailed`` if xcodebuild exits non-zero.
+    /// - Throws: ``ShipItError/buildFailed`` if the build exits non-zero.
     public func run(with options: Options, context: ActionContext) async throws -> Result {
+        switch context.platform {
+        case .ios:
+            return try await runIOS(options: options, context: context)
+        case .android:
+            return try await runAndroid(options: options, context: context)
+        }
+    }
+
+    // MARK: - iOS Build
+
+    private func runIOS(options: Options, context: ActionContext) async throws -> Result {
         let scheme = options.scheme ?? context.config.appScheme
         guard let scheme else {
             throw ShipItError.invalidConfiguration(reason: "Build requires a scheme. Set app.scheme in Shipfile.yml or pass --scheme.")
         }
 
         let configuration = options.configuration?.rawValue ?? context.config.buildConfiguration
-        logger.info("Building scheme '\(scheme)' (\(configuration))")
+        logger.info("Building iOS scheme '\(scheme)' (\(configuration))")
 
         var xcodeBuild = XcodeBuild(context: context.shell)
             .option(.scheme(scheme))
@@ -170,22 +227,79 @@ public struct BuildAction: Action {
 
         logger.info("Build succeeded for scheme '\(scheme)'")
 
-        let appPath = parseAppPath(from: output.stdout)
-        let dsymPath = parseDsymPath(from: output.stdout)
-        let warningCount = countWarnings(in: output.stdout)
-
         return Result(
-            appPath: appPath,
-            dsymPath: dsymPath,
+            appPath: parseAppPath(from: output.stdout),
+            dsymPath: parseDsymPath(from: output.stdout),
             exitCode: Int(output.exitCode),
-            warnings: warningCount
+            warnings: countWarnings(in: output.stdout)
+        )
+    }
+
+    // MARK: - Android Build
+
+    private func runAndroid(options: Options, context: ActionContext) async throws -> Result {
+        let module = options.module ?? context.config.androidModule
+        let variant = options.buildVariant ?? context.config.androidBuildVariant
+        let flavor = options.flavor ?? context.config.androidGradleProperties["flavor"]
+
+        // Determine task: assembleFreeRelease or assembleRelease
+        let task: GradleTask
+        if let flavor {
+            task = GradleTask.assemble(flavor: flavor, variant: variant)
+        } else {
+            task = variant.lowercased() == "debug" ? .assembleDebug : .assembleRelease
+        }
+
+        logger.info("Building Android module '\(module)' with task '\(task.name)'")
+
+        var gradle = Gradle(context: context.shell)
+            .task(task)
+            .flag(.noDaemon)
+
+        // Apply config-level Gradle properties
+        let allProps = context.config.androidGradleProperties.merging(options.gradleProperties ?? [:]) { _, new in new }
+        for (key, value) in allProps {
+            gradle = gradle.property(.custom(key: key, value: value))
+        }
+
+        if options.clean == true {
+            gradle = Gradle(context: context.shell)
+                .task(.clean)
+                .task(task)
+                .flag(.noDaemon)
+        }
+
+        let output: ShellOutput
+        do {
+            output = try await gradle.run()
+        } catch let ShellError.exitFailure(_, output) {
+            logger.error("Android build failed with exit code \(output.exitCode)")
+            throw ShipItError.buildFailed(
+                exitCode: Int(output.exitCode),
+                log: [output.stdout, output.stderr]
+                    .filter { !$0.isEmpty }
+                    .joined(separator: "\n")
+            )
+        }
+
+        if output.exitCode != 0 {
+            logger.error("Android build failed with exit code \(output.exitCode)")
+            throw ShipItError.buildFailed(exitCode: Int(output.exitCode), log: output.stderr)
+        }
+
+        logger.info("Android build succeeded for module '\(module)'")
+
+        let apkPath = parseApkPath(from: output.stdout, module: module, variant: variant)
+        return Result(
+            apkPath: apkPath,
+            exitCode: Int(output.exitCode),
+            warnings: countWarnings(in: output.stdout)
         )
     }
 
     // MARK: - Private Helpers
 
     private func parseAppPath(from output: String) -> String? {
-        // Look for lines like: "Build/Products/Release-iphoneos/MyApp.app"
         let lines = output.components(separatedBy: "\n")
         for line in lines {
             if line.contains(".app") && !line.contains(".dSYM") {
@@ -211,9 +325,24 @@ public struct BuildAction: Action {
         return nil
     }
 
+    private func parseApkPath(from output: String, module: String, variant: String) -> String? {
+        // Gradle outputs: "app/build/outputs/apk/release/app-release.apk"
+        let lines = output.components(separatedBy: "\n")
+        for line in lines {
+            if line.contains(".apk") && line.contains(variant) {
+                let components = line.components(separatedBy: " ")
+                if let apkComponent = components.first(where: { $0.hasSuffix(".apk") }) {
+                    return apkComponent
+                }
+            }
+        }
+        // Fallback: well-known default path
+        return "\(module)/build/outputs/apk/\(variant)/\(module)-\(variant).apk"
+    }
+
     private func countWarnings(in output: String) -> Int {
         output.components(separatedBy: "\n")
-            .filter { $0.contains("warning:") }
+            .filter { $0.contains("warning:") || $0.contains("w:") }
             .count
     }
 }

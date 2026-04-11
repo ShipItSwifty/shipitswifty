@@ -65,6 +65,9 @@ public struct ExportAction: Action {
     }
 
     public func run(with options: Options, context: ActionContext) async throws -> Result {
+        guard context.platform == .ios else {
+            throw ShipItError.invalidConfiguration(reason: "ExportAction requires iOS platform")
+        }
         let archivePath = options.archivePath
             ?? context.config.exportArchivePath
             ?? context.config.archiveOutputPath

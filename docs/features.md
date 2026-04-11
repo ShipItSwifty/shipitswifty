@@ -133,42 +133,68 @@ ShipItSwifty follows Apple's two-version model:
 
 ---
 
-## Android roadmap (v2)
+## Android support (v1)
 
-Android support is **not in v1 scope** but the architecture accommodates it.
+Android support ships in v1 alongside iOS. Platform is auto-detected from project files (`gradlew` → Android, `*.xcworkspace`/`*.xcodeproj` → iOS) or set explicitly with `--platform android`.
 
-| Area | iOS (v1) | Android (v2) |
+### Android actions
+
+| Action | CLI | Description |
 |---|---|---|
-| Build | `xcodebuild` | `gradle assembleRelease` |
-| Test | `xcodebuild test` | `gradle test` / `connectedAndroidTest` |
-| Sign | Certificates + profiles | Keystore + signing config |
-| Upload | App Store Connect API | Google Play Developer API |
-| Screenshots | `XCUITest` + simulators | Screengrab + emulators |
-| Metadata | ASC metadata API | Play Console metadata API |
-| Distribution | TestFlight | Internal App Sharing / Firebase |
+| **Build** | `shipit build --platform android` | `./gradlew assembleRelease` (or configured variant) |
+| **Archive** | `shipit archive --platform android` | `./gradlew bundleRelease` — produces an `.aab` |
+| **Test** | `shipit test --platform android` | `./gradlew test` (unit) or `./gradlew connectedAndroidTest` (instrumented) |
+| **Lint** | `shipit lint --platform android` | `./gradlew lint` |
+| **Play Store** | `shipit play-store` | Upload AAB to Google Play via service account JWT auth |
+| **Validate Bundle** | `shipit validate bundle` | `bundletool validate --bundle` — AAB/APK pre-upload checks |
 
-### Platform architecture
-
-`ActionContext` gains a `platform: Platform` field (default `.ios`). Actions read it to branch behavior.
-
-```swift
-public enum Platform: String, Codable, Sendable {
-    case ios
-    case android  // v2
-}
-```
-
-Shipfile supports per-platform config blocks. `shipit run --platform android` merges the `android:` block on top of shared defaults:
+### Android Shipfile example
 
 ```yaml
-ios:
-  scheme: MyApp
+platform: android
+
 android:
   module: app
-  build_type: release
+  build_variant: release
+  package_name: com.example.myapp
+  play_track: internal
+  keystore_path: ./certs/release.keystore
+  keystore_password: ${ANDROID_KEYSTORE_PASSWORD}
+  key_alias: release
+  key_password: ${ANDROID_KEY_PASSWORD}
+
+workflows:
+  beta:
+    steps:
+      - action: test
+      - action: archive
+      - action: play_store
 ```
 
-`ShipItKit` will gain `GooglePlayClient` alongside `AppStoreConnectClient` in v2.
+### Platform-aware commands
+
+All commands accept `--platform ios|android`. When omitted, the platform is auto-detected:
+- `gradlew` or `build.gradle.kts` in the root → `.android`
+- `*.xcworkspace` or `*.xcodeproj` in the root → `.ios`
+- Default → `.ios`
+
+AI session is also platform-aware: `shipit ai-session --goal beta --platform android` returns an Android-specific agent prompt and secret descriptors for Google Play service accounts.
+
+---
+
+## Android roadmap (v2+)
+
+| Area | Status |
+|---|---|
+| Build (Gradle assemble) | **Implemented** |
+| Archive (Gradle bundle → AAB) | **Implemented** |
+| Test (unit + instrumented) | **Implemented** |
+| Lint | **Implemented** |
+| Play Store upload | **Implemented** |
+| Bundle validation (bundletool) | **Implemented** |
+| Screenshots (Screengrab + emulators) | Deferred |
+| Play Console metadata API | Deferred |
+| Firebase App Distribution | Deferred |
 
 ---
 

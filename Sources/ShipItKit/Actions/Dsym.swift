@@ -88,6 +88,9 @@ public struct DsymAction: Action {
     }
 
     public func run(with options: Options, context: ActionContext) async throws -> Result {
+        guard context.platform == .ios else {
+            throw ShipItError.invalidConfiguration(reason: "DsymAction requires iOS platform")
+        }
         switch options.operation {
         case .download:
             return try await downloadDsyms(options: options, context: context)

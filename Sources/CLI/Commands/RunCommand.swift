@@ -23,7 +23,7 @@ struct RunCommand: AsyncParsableCommand {
         do {
             let config = try await resolveRequiredConfig(
                 global: global,
-                cliOptions: CLIOptions(ci: global.ci, dryRun: global.dryRun)
+                cliOptions: CLIOptions(ci: global.ci, dryRun: global.dryRun, platform: global.platform)
             )
             let context = try await buildActionContext(config: config)
 
@@ -108,6 +108,9 @@ func builtInActionDescriptors() -> [ActionDescriptor] {
         BuildAction.descriptor(for: BuildAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: BuildAction.name)),
         TestAction.descriptor(for: TestAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: TestAction.name)),
         ArchiveAction.descriptor(for: ArchiveAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: ArchiveAction.name)),
+        LintAction.descriptor(for: LintAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: LintAction.name)),
+        PlayStoreAction.descriptor(for: PlayStoreAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: PlayStoreAction.name)),
+        ValidateBundleAction.descriptor(for: ValidateBundleAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: ValidateBundleAction.name)),
         ExportAction.descriptor(for: ExportAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: ExportAction.name)),
         SignAction.descriptor(for: SignAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: SignAction.name)),
         UploadAction.descriptor(for: UploadAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: UploadAction.name)),

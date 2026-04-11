@@ -16,9 +16,13 @@ public struct ProjectInspector: Sendable {
         let preferredContainer = preferredContainer(from: containers)
         let schemes = try await inspectSchemes(in: preferredContainer)
         let suggestedAppConfig = suggestedAppConfig(from: preferredContainer, schemes: schemes)
+        let gradleFiles = discoverGradleFiles(fileManager: fileManager)
+        let detectedPlatform: Platform = !gradleFiles.isEmpty ? .android : (containers.isEmpty ? .ios : .ios)
 
         var warnings: [String] = []
-        if containers.isEmpty {
+        if containers.isEmpty && gradleFiles.isEmpty {
+            warnings.append("No .xcworkspace, .xcodeproj, or Gradle files were found under the selected path.")
+        } else if containers.isEmpty && detectedPlatform == .ios {
             warnings.append("No .xcworkspace or .xcodeproj files were found under the selected path.")
         }
         if !containers.isEmpty && schemes.isEmpty {
@@ -37,7 +41,9 @@ public struct ProjectInspector: Sendable {
             existingShipfiles: discoverFiles(named: ["Shipfile.yml", "Shipfile.example.yml"], suffixes: ["yml", "yaml"], matcher: { $0.lastPathComponent.hasPrefix("Shipfile") }, fileManager: fileManager),
             fastlaneFiles: discoverKnownFiles(["fastlane/Fastfile", "fastlane/Appfile"], fileManager: fileManager),
             ciFiles: discoverKnownFiles([".github/workflows", "bitrise.yml", ".gitlab-ci.yml"], fileManager: fileManager),
-            warnings: warnings
+            warnings: warnings,
+            detectedPlatform: detectedPlatform,
+            gradleFiles: gradleFiles
         )
     }
 
@@ -190,6 +196,23 @@ public struct ProjectInspector: Sendable {
         relativePaths.compactMap { relativePath in
             let absolute = URL(fileURLWithPath: rootPath).appendingPathComponent(relativePath).path
             return fileManager.fileExists(atPath: absolute) ? relativePath : nil
+        }
+    }
+
+    /// Discovers Gradle-related files (`gradlew`, `gradlew.bat`, `build.gradle`, `build.gradle.kts`,
+    /// `settings.gradle`, `settings.gradle.kts`) at the root level of the project.
+    private func discoverGradleFiles(fileManager: FileManager) -> [String] {
+        let knownGradleFiles = [
+            "gradlew",
+            "gradlew.bat",
+            "build.gradle",
+            "build.gradle.kts",
+            "settings.gradle",
+            "settings.gradle.kts",
+        ]
+        return knownGradleFiles.compactMap { name in
+            let absolute = URL(fileURLWithPath: rootPath).appendingPathComponent(name).path
+            return fileManager.fileExists(atPath: absolute) ? name : nil
         }
     }
 

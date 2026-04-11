@@ -4,7 +4,7 @@ import SwiftyShell
 /// Shared context passed to every action during execution.
 ///
 /// Provides access to the shell execution environment, logger,
-/// resolved configuration, and the App Store Connect client.
+/// resolved configuration, App Store Connect client, and (for Android) Google Play client.
 ///
 /// ## Usage
 /// ```swift
@@ -26,8 +26,11 @@ public struct ActionContext: Sendable {
     /// Merged configuration from Shipfile + env + CLI.
     public let config: ResolvedConfig
 
-    /// App Store Connect API client.
+    /// App Store Connect API client (iOS).
     public let appStoreConnect: AppStoreConnectClient
+
+    /// Google Play API client (Android). `nil` when Google Play credentials are not configured.
+    public let googlePlay: GooglePlayClient?
 
     /// Target platform for this run.
     public let platform: Platform
@@ -39,18 +42,21 @@ public struct ActionContext: Sendable {
     ///   - logger: Structured logger.
     ///   - config: Resolved configuration.
     ///   - appStoreConnect: App Store Connect API client.
+    ///   - googlePlay: Google Play API client (optional; only present for Android).
     ///   - platform: Target platform (default: `.ios`).
     public init(
         shell: ShellContext,
         logger: Logger,
         config: ResolvedConfig,
         appStoreConnect: AppStoreConnectClient,
+        googlePlay: GooglePlayClient? = nil,
         platform: Platform = .ios
     ) {
         self.shell = shell
         self.logger = logger
         self.config = config
         self.appStoreConnect = appStoreConnect
+        self.googlePlay = googlePlay
         self.platform = platform
     }
 
@@ -69,8 +75,13 @@ public struct ActionContext: Sendable {
     /// - Parameters:
     ///   - executor: A `MockExecutor` to capture and mock shell commands.
     ///   - versioningSource: Override the `versioning.source` value (default: `"xcodeproj"`).
+    ///   - platform: Target platform (default: `.ios`).
     /// - Returns: An `ActionContext` suitable for unit tests.
-    public static func mock(executor: MockExecutor, versioningSource: String = "xcodeproj") -> ActionContext {
+    public static func mock(
+        executor: MockExecutor,
+        versioningSource: String = "xcodeproj",
+        platform: Platform = .ios
+    ) -> ActionContext {
         let shell = ShellContext(executor: executor)
         let config = ResolvedConfig(
             appScheme: "MockApp",
@@ -79,7 +90,8 @@ public struct ActionContext: Sendable {
             ascKeyID: "MOCKKEY",
             ascIssuerID: "mock-issuer-id",
             ascPrivateKeyData: nil,
-            versioningSource: versioningSource
+            versioningSource: versioningSource,
+            platform: platform
         )
         // Create a placeholder client — tests that need ASC API calls should mock at a higher level
         let dummyKeyData = Data("-----BEGIN EC PRIVATE KEY-----\nMHQCAQEEIBkg4DUVQ1fIFUHBABCLRrFwNVm7MAkGByqGSM49AgEFoWQDYgAE\n-----END EC PRIVATE KEY-----".utf8)
@@ -93,7 +105,8 @@ public struct ActionContext: Sendable {
             logger: Logger.forType(subsystem: "ShipItSwiftyTests", ActionContext.self),
             config: config,
             appStoreConnect: ascClient,
-            platform: .ios
+            googlePlay: nil,
+            platform: platform
         )
     }
 }
