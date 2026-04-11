@@ -330,7 +330,16 @@ swift run shipit schema --workflow beta --output json
 swift run shipit suggest-config --goal beta --output json
 
 # Validate the generated Shipfile before execution
-swift run shipit validate --shipfile ./Shipfile.yml --output json
+swift run shipit validate yml --shipfile ./Shipfile.yml --output json
+
+# Validate App Store metadata before submission
+swift run shipit validate metadata --output json
+
+# Validate an xcarchive before upload
+swift run shipit validate archive --archive-path ./build/MyApp.xcarchive
+
+# Run all validation stages (yml + metadata + archive)
+swift run shipit validate all --output json
 
 # Non-interactive init (agents/CI)
 swift run shipit init --goal beta --non-interactive --output json

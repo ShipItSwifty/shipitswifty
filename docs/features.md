@@ -6,7 +6,7 @@ This document covers the planned feature surface, current v1 scope, the long-ter
 
 | Area | Included in v1.0 | Deferred |
 |---|---|---|
-| **CLI** | `init`, `schema`, `inspect project`, `suggest-config`, `ai-bootstrap`, `ai-session`, `validate`, `build`, `test`, `archive`, `export`, `sign sync`, `testflight`, `metadata`, `version`, `run`, `env`, `doctor` | Advanced git automation, PR creation, sales/finance reporting |
+| **CLI** | `init`, `schema`, `inspect project`, `suggest-config`, `ai-bootstrap`, `ai-session`, `validate`, `validate yml`, `validate metadata`, `validate archive`, `validate all`, `build`, `test`, `archive`, `export`, `sign sync`, `testflight`, `metadata`, `version`, `run`, `env`, `doctor` | Advanced git automation, PR creation, sales/finance reporting |
 | **Code signing** | Vault-style sync from Git-backed encrypted storage | S3/GCS backends, certificate lifecycle beyond core sync |
 | **Distribution** | TestFlight upload, metadata push/pull, App Store submission primitives | Full review automation coverage |
 | **Screenshots** | Capture + upload basics | Framing, visual diffing, preview video processing |
@@ -25,7 +25,7 @@ This document covers the planned feature surface, current v1 scope, the long-ter
 | **Config suggestion** | `shipit suggest-config --goal <local\|beta\|release>` produces a YAML draft plus missing-value hints |
 | **Bootstrap response** | `shipit ai-bootstrap --goal <local\|beta\|release>` always returns JSON with inspection, schema, suggestion, and validation for AI agents |
 | **AI session** | `shipit ai-session --goal <local\|beta\|release>` returns a **versioned, stable JSON contract** (v1) containing inferred config with confidence + provenance, secret descriptors, ambiguity flags, readiness diagnosis, next deterministic action, agent system prompt, and the single best follow-up question to ask the user |
-| **Validation** | `shipit validate` checks YAML parsing, top-level schema, workflow action options, and common semantic mistakes |
+| **Validation** | `shipit validate` (default: yml) checks YAML parsing, top-level schema, workflow action options, and common semantic mistakes. `shipit validate metadata` runs precheck rules. `shipit validate archive` validates xcarchive / ipa bundle readiness for upload. `shipit validate all` runs all stages. |
 
 ### Building
 
@@ -79,7 +79,8 @@ This document covers the planned feature surface, current v1 scope, the long-ter
 |---|---|
 | **Pull** | Download current metadata from ASC into local files (`metadata/en-US/description.txt`, etc.) |
 | **Push** | Upload name, subtitle, description, keywords, `release_notes.txt` |
-| **Precheck** | Validate text length, forbidden words, URL formats before upload |
+| **Precheck** | Validate text length, forbidden words, URL formats before upload — also available as `shipit validate metadata` |
+| **Archive readiness** | `shipit validate archive` — pre-upload checks: icon alpha, Info.plist completeness, bundle ID format, version keys, iPad orientation, and archive structure |
 | **Localization** | Upsert app-info and app-store-version localizations per locale |
 
 ### Versioning
@@ -187,7 +188,8 @@ Migrating from `fastlane`? See the dedicated migration guide in [Walkthrough](wa
 | Certificate fetch | `shipit sign cert` | ASC API-driven |
 | Profile fetch | `shipit sign profile` | ASC API-driven |
 | App ID creation | `shipit provision` | App ID + capabilities |
-| Metadata validation | `shipit precheck` | Pre-submission checks |
+| Metadata validation | `shipit validate metadata` | Also available as `shipit precheck` (backwards-compat alias) |
+| Archive validation | `shipit validate archive` | Pre-upload bundle readiness checks |
 | Push certificates | `shipit sign push-cert` | Push notification certificates |
 | Build number bump | `shipit version --bump build` | Multiple strategies |
 | Version bump | `shipit version --bump minor` | SemVer support |

@@ -271,7 +271,7 @@ swift run shipit ai-bootstrap --goal beta
 swift run shipit schema --output json
 swift run shipit inspect project --output json
 swift run shipit suggest-config --goal beta --output json
-swift run shipit validate --shipfile ./Shipfile.yml --output json
+swift run shipit validate yml --shipfile ./Shipfile.yml --output json
 ```
 
 `ai-bootstrap` always emits JSON and is intended for AI/tooling integrations rather than direct human consumption.

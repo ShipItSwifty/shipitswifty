@@ -117,6 +117,7 @@ func builtInActionDescriptors() -> [ActionDescriptor] {
         VersionAction.descriptor(for: VersionAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: VersionAction.name)),
         MetadataAction.descriptor(for: MetadataAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: MetadataAction.name)),
         PrecheckAction.descriptor(for: PrecheckAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: PrecheckAction.name)),
+        ValidateArchiveAction.descriptor(for: ValidateArchiveAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: ValidateArchiveAction.name)),
         ProvisionAction.descriptor(for: ProvisionAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: ProvisionAction.name)),
         NotifyAction.descriptor(for: NotifyAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: NotifyAction.name)),
         GitAction.descriptor(for: GitAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: GitAction.name)),
