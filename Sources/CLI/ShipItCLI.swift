@@ -33,6 +33,7 @@ struct ShipItCLI: AsyncParsableCommand {
             ValidateCommand.self,
             BuildCommand.self,
             TestCommand.self,
+            CoverageCommand.self,
             ArchiveCommand.self,
             ExportCommand.self,
             UploadCommand.self,

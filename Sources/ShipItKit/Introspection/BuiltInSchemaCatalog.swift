@@ -146,6 +146,7 @@ public enum BuiltInSchemaCatalog {
         [
             actionSchema(name: BuildAction.name, description: BuildAction.description, options: buildOptions(), example: buildExample()),
             actionSchema(name: TestAction.name, description: TestAction.description, options: testOptions(), example: testExample()),
+            actionSchema(name: CoverageAction.name, description: CoverageAction.description, options: coverageOptions(), example: coverageExample()),
             actionSchema(name: ArchiveAction.name, description: ArchiveAction.description, options: archiveOptions(), example: archiveExample()),
             actionSchema(name: LintAction.name, description: LintAction.description, options: lintOptions(), example: lintExample()),
             actionSchema(name: PlayStoreAction.name, description: PlayStoreAction.description, options: playStoreOptions(), example: playStoreExample()),
@@ -394,7 +395,28 @@ public enum BuiltInSchemaCatalog {
         ]
     }
 
-    private static func dsymOptions() -> [SchemaField] {        [
+    private static func coverageOptions() -> [SchemaField] {
+        [
+            // Shared options
+            .string("format", description: "Output format.", defaultValue: .string("text"), allowedValues: ["text", "json", "markdown"], example: .string("json")),
+            .boolean("first_party_only", description: "Suppress test bundles, SPM dependencies, and vendor frameworks. Recommended default.", defaultValue: .bool(true), example: .bool(true)),
+            .boolean("summary", description: "Print a single overall coverage line and exit. No per-target/module detail.", example: .bool(true)),
+            .boolean("show_targets", description: "Include per-target (iOS) or per-module (Android) breakdown.", example: .bool(true)),
+            .boolean("show_files", description: "Include per-file breakdown within each target/module.", example: .bool(true)),
+            .boolean("show_functions", description: "Include per-function breakdown when available (iOS only).", example: .bool(false)),
+            .array("include_targets", description: "Explicitly include these target/module names. Overrides first-party filter.", example: .array([.string("MyFeatureKit")]), items: .string("name", description: "Target or module name.")),
+            .array("exclude_targets", description: "Explicitly exclude these target/module names.", example: .array([.string("GoogleSignIn")]), items: .string("name", description: "Target or module name.")),
+            .string("sort", description: "Sort order for output entries.", defaultValue: .string("coverage"), allowedValues: ["coverage", "name"], example: .string("coverage")),
+            .integer("limit", description: "Limit the number of targets/modules shown.", example: .int(20)),
+            // iOS-specific options
+            .string("xcresult_path", description: "Explicit path to the .xcresult bundle (iOS). Auto-discovered from ./build/<scheme>-tests.xcresult when omitted.", example: .string("./build/MyApp-tests.xcresult")),
+            // Android-specific options
+            .string("report_path", description: "Explicit path to the JaCoCo XML report (Android). Auto-discovered from common Gradle output paths when omitted.", example: .string("./app/build/reports/jacoco/test/jacocoTestReport.xml")),
+        ]
+    }
+
+    private static func dsymOptions() -> [SchemaField] {
+        [
             .string("operation", required: true, description: "dSYM operation.", allowedValues: ["download", "upload"], example: .string("upload")),
             .string("app_id", description: "App Store Connect app identifier for downloads.", example: .string("1234567890")),
             .string("build_version", description: "Build version filter for downloads.", example: .string("240")),
@@ -406,6 +428,13 @@ public enum BuiltInSchemaCatalog {
 
     private static func buildExample() -> JSONValue? {
         workflowExample(action: "build", options: ["configuration": .string("Release")])
+    }
+
+    private static func coverageExample() -> JSONValue? {
+        workflowExample(action: "coverage", options: [
+            "first_party_only": .bool(true),
+            "show_targets": .bool(true),
+        ])
     }
 
     private static func testExample() -> JSONValue? {
