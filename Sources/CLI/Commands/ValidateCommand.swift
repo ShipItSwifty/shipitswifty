@@ -475,7 +475,7 @@ private func validateYmlPayload(report: ValidationReport) -> JSONValue {
 }
 
 private func validateArchivePayload(result: ValidateArchiveAction.Result) -> JSONValue {
-    .object([
+    var fields: [String: JSONValue] = [
         "mode": .string("archive"),
         "validatedPath": .string(result.validatedPath),
         "passed": .bool(result.passed),
@@ -486,7 +486,11 @@ private func validateArchivePayload(result: ValidateArchiveAction.Result) -> JSO
                 "message": .string(issue.message),
             ])
         }),
-    ])
+    ]
+    if let bundleID = result.bundleID {
+        fields["bundleId"] = .string(bundleID)
+    }
+    return .object(fields)
 }
 
 private func validateBundlePayload(result: ValidateBundleAction.Result) -> JSONValue {

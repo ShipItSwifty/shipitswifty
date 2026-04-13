@@ -149,6 +149,17 @@ struct CoverageCommand: AsyncParsableCommand {
 
     private func printHuman(result: CoverageAction.Result, options: CoverageAction.Options, global: GlobalOptions) {
         let formatter = makeHumanFormatter(global: global)
+
+        // Overall line (shared by summary and full modes)
+        let overallBar = coverageBar(result.overallLineCoverage)
+        let overallLine = "Overall  \(overallBar)  \(String(format: "%.1f", result.overallLineCoverage))%  (\(result.coveredLines)/\(result.executableLines) lines)"
+
+        // --summary: single line only
+        if options.summary == true {
+            formatter.print(overallLine)
+            return
+        }
+
         let sorted = sortedTargets(result.targets, by: options.sort ?? .coverage)
         let limited = applyLimit(sorted, limit: options.limit)
 
@@ -158,44 +169,36 @@ struct CoverageCommand: AsyncParsableCommand {
         formatter.printSuccess("\(platformLabel) Coverage Summary\(filterNote)")
         formatter.print("Source: \(result.source)")
         formatter.print("")
-
-        // Overall line
-        let overallBar = coverageBar(result.overallLineCoverage)
-        formatter.print("Overall  \(overallBar)  \(String(format: "%.1f", result.overallLineCoverage))%  (\(result.coveredLines)/\(result.executableLines) lines)")
-
-        if options.summary == true {
-            return
-        }
+        formatter.print(overallLine)
 
         // Per-target breakdown
         if limited.isEmpty { return }
 
         formatter.print("")
         let header = result.platform == "ios" ? "Target" : "Module"
-        formatter.print(String(format: "%-48s  %8s  %8s", header, "Coverage", "Lines"))
+        formatter.print(String(format: "%-48@  %8@  %8@", header as NSString, "Coverage" as NSString, "Lines" as NSString))
         formatter.print(String(repeating: "-", count: 70))
 
         for target in limited {
             let lineInfo = "\(target.coveredLines)/\(target.executableLines)"
-            formatter.print(String(format: "%-48s  %6.1f%%  %s",
-                                   trimName(target.name, maxLength: 48),
+            formatter.print(String(format: "%-48@  %6.1f%%  %@",
+                                   trimName(target.name, maxLength: 48) as NSString,
                                    target.lineCoverage,
-                                   lineInfo))
+                                   lineInfo as NSString))
 
             // Per-file breakdown
             if options.showFiles == true && !target.files.isEmpty {
                 let sortedFiles = target.files.sorted { $0.lineCoverage < $1.lineCoverage }
                 for file in sortedFiles {
                     let shortPath = URL(fileURLWithPath: file.path).lastPathComponent
-                    formatter.print(String(format: "  %-46s  %6.1f%%  %s",
-                                          trimName(shortPath, maxLength: 46),
+                    formatter.print(String(format: "  %-46@  %6.1f%%  %@",
+                                          trimName(shortPath, maxLength: 46) as NSString,
                                           file.lineCoverage,
-                                          "\(file.coveredLines)/\(file.executableLines)"))
+                                          "\(file.coveredLines)/\(file.executableLines)" as NSString))
                 }
             }
         }
 
-        _ = overallBar  // suppress unused warning when summary=false
     }
 
     // MARK: - Markdown Output

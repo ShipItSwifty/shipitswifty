@@ -56,6 +56,14 @@ let package = Package(
                 .product(name: "SwiftyShell", package: "SwiftyShell"),
             ]
         ),
+        .testTarget(
+            name: "IntegrationTests",
+            dependencies: [
+                "ShipItKit",
+            ],
+            path: "Tests/IntegrationTests",
+            exclude: ["Fixtures"]
+        ),
     ],
     swiftLanguageModes: [.v6]
 )

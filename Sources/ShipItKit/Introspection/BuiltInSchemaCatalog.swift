@@ -123,6 +123,33 @@ public enum BuiltInSchemaCatalog {
                 ]
             ),
             .object(
+                "ios",
+                description: "iOS-specific overrides merged on top of shared config when platform resolves to .ios. Useful in monorepo projects containing both iOS and Android targets.",
+                properties: [
+                    .string("scheme", description: "iOS-specific Xcode scheme override.", example: .string("MyApp"), envVar: "SHIPIT_IOS__SCHEME"),
+                    .string("workspace", description: "iOS-specific Xcode workspace override.", example: .string("MyApp.xcworkspace"), envVar: "SHIPIT_IOS__WORKSPACE"),
+                    .string("project", description: "iOS-specific Xcode project override.", example: .string("MyApp.xcodeproj"), envVar: "SHIPIT_IOS__PROJECT"),
+                ]
+            ),
+            .object(
+                "android",
+                description: "Android-specific configuration merged on top of shared config when platform resolves to .android.",
+                notes: ["Set platform to android via --platform android or SHIPIT_PLATFORM=android."],
+                properties: [
+                    .string("module", description: "Gradle module name (e.g. app). Defaults to 'app'.", example: .string("app"), envVar: "SHIPIT_ANDROID__MODULE"),
+                    .string("build_variant", description: "Gradle build variant (e.g. release, debug). Defaults to 'release'.", example: .string("release"), envVar: "SHIPIT_ANDROID__BUILD_VARIANT"),
+                    .string("build_type", description: "Output artifact type: aab or apk. Defaults to 'aab'.", allowedValues: ["aab", "apk"], example: .string("aab"), envVar: "SHIPIT_ANDROID__BUILD_TYPE"),
+                    .string("package_name", description: "Android application package name.", example: .string("com.example.myapp"), envVar: "SHIPIT_ANDROID__PACKAGE_NAME"),
+                    .string("play_track", description: "Google Play distribution track.", allowedValues: ["qa", "alpha", "beta", "production"], example: .string("qa"), envVar: "SHIPIT_ANDROID__PLAY_TRACK"),
+                    .string("gradlew_path", description: "Path to the gradlew wrapper script. Auto-detected if omitted.", example: .string("./gradlew")),
+                    .string("keystore_path", description: "Path to the Android keystore (.jks/.keystore) file.", example: .string("./android-keystore.jks")),
+                    .string("keystore_alias", description: "Signing key alias within the keystore.", example: .string("upload"), envVar: "SHIPIT_ANDROID__KEY_ALIAS"),
+                    .number("rollout_fraction", description: "Staged rollout fraction (0.0–1.0). Omit for full rollout.", example: .double(0.1)),
+                    .string("flavor", description: "Product flavor name (e.g. free, paid). Combined with build_variant for task names.", example: .string("free")),
+                    .array("gradle_flags", description: "Additional Gradle flags passed to every gradlew invocation.", example: .array([.string("--no-daemon")]), items: .string("flag", description: "Gradle flag.")),
+                ]
+            ),
+            .object(
                 "workflows",
                 description: "Named workflows executed with `shipit run <workflow>`.",
                 notes: ["Workflow names are dynamic keys.", "Each workflow is an ordered list of action steps."],
@@ -540,7 +567,7 @@ public enum BuiltInSchemaCatalog {
                 allowsAdditionalProperties: true,
                 additionalProperties: .string("<lang>", description: "Release note text for the given language tag.")
             ),
-            .any("rollout_fraction", description: "Staged rollout fraction (0.0–1.0). Omit for full rollout.", example: .double(0.1)),
+            .number("rollout_fraction", description: "Staged rollout fraction (0.0–1.0). Omit for full rollout.", example: .double(0.1)),
             .string("package_name", description: "Android package name. Overrides android.package_name in Shipfile.", example: .string("com.example.myapp")),
         ]
     }

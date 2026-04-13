@@ -215,6 +215,27 @@ struct ValidateArchiveActionTests {
         }
     }
 
+    @Test("throws validateArchiveFailed when icon declaration is missing")
+    func missingIconDeclaration() async throws {
+        let (archivePath, cleanup) = try makeXCArchive(infoPlistContents: [
+            "CFBundleIdentifier": "com.example.myapp",
+            "CFBundleShortVersionString": "1.0.0",
+            "CFBundleVersion": "1",
+            "UIMainStoryboardFile": "Main",
+        ])
+        defer { cleanup() }
+
+        let context = mockContext()
+        let options = ValidateArchiveAction.Options(archivePath: archivePath)
+
+        await #expect {
+            _ = try await ValidateArchiveAction().run(with: options, context: context)
+        } throws: { error in
+            guard case ShipItError.validateArchiveFailed(let issues) = error else { return false }
+            return issues.contains { $0.contains("BUNDLE_MISSING_ICON_DECLARATION") }
+        }
+    }
+
     @Test("throws validateArchiveFailed for invalid CFBundleIdentifier format")
     func invalidBundleIdentifier() async throws {
         let (archivePath, cleanup) = try makeXCArchive(infoPlistContents: [
