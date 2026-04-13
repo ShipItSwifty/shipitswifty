@@ -126,7 +126,7 @@ public struct ExportAction: Action {
         outputDirectory: String,
         context: ActionContext
     ) async throws -> String {
-        let tmpPath = NSTemporaryDirectory() + "ExportOptions_\(Int(Date().timeIntervalSince1970)).plist"
+        let tmpPath = NSTemporaryDirectory() + "ExportOptions_\(UUID().uuidString).plist"
 
         var plistContent = """
         <?xml version="1.0" encoding="UTF-8"?>

@@ -103,18 +103,20 @@ public struct TestFlightAction: Action {
             throw ShipItError.uploadFailed(asset: ipaPath, reason: "IPA not found: \(ipaPath)")
         }
 
-        logger.info("Uploading to TestFlight: \(ipaPath)")
+        let skipWaiting = options.skipWaitingForBuildProcessing
+            ?? context.config.skipWaitingForBuildProcessing
+        let groups = options.groups ?? context.config.testFlightGroups
+        let needsBuildID = !skipWaiting || !groups.isEmpty
 
-        // Upload the IPA using the upload action logic
-        let uploadAction = UploadAction()
-        let uploadResult = try await uploadAction.run(
-            with: UploadAction.Options(ipaPath: ipaPath),
-            context: context
+        logger.info("Uploading to TestFlight: \(ipaPath)")
+        let uploadResult = try await IPAUploadService(client: context.appStoreConnect).uploadIPA(
+            at: ipaURL,
+            bundleID: bundleID,
+            context: context,
+            resolveBuildID: needsBuildID
         )
 
         let buildID = uploadResult.buildID
-        let skipWaiting = options.skipWaitingForBuildProcessing
-            ?? context.config.skipWaitingForBuildProcessing
 
         var processingComplete = false
         if !skipWaiting, let buildID {
@@ -123,7 +125,6 @@ public struct TestFlightAction: Action {
         }
 
         // Distribute to beta groups
-        let groups = options.groups ?? context.config.testFlightGroups
         var distributedGroups: [String] = []
 
         if processingComplete && !groups.isEmpty, let buildID {

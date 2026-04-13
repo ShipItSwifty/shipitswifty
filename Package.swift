@@ -47,6 +47,7 @@ let package = Package(
             dependencies: [
                 "ShipItKit",
                 .product(name: "SwiftyShell", package: "SwiftyShell"),
+                .product(name: "Crypto", package: "swift-crypto"),
             ]
         ),
         .testTarget(

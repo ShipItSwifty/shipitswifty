@@ -81,7 +81,8 @@ public struct UploadAction: Action {
         logger.info("Uploading IPA: \(ipaPath)")
         let uploadResult = try await IPAUploadService(client: context.appStoreConnect).uploadIPA(
             at: URL(fileURLWithPath: ipaPath),
-            bundleID: bundleID
+            bundleID: bundleID,
+            context: context
         )
 
         var reviewSubmissionID: String?
@@ -96,7 +97,7 @@ public struct UploadAction: Action {
             reviewSubmissionID = submission.reviewSubmissionID
         }
 
-        logger.info("Upload complete for build \(uploadResult.buildID)")
+        logger.info("Upload complete for build \(uploadResult.buildID ?? "unknown")")
         return Result(
             buildID: uploadResult.buildID,
             reviewSubmissionID: reviewSubmissionID,
