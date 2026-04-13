@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+import SwiftyShell
 @testable import ShipItKit
 
 @Suite("TestFlightAction", .serialized)
@@ -13,14 +14,26 @@ struct TestFlightActionTests {
         let ipaURL = tempDirectory.appendingPathComponent("Example.ipa")
         try Data("ipa-data".utf8).write(to: ipaURL)
 
-        let uploadServer = MockUploadServer()
         nonisolated(unsafe) var betaGroupQuery: [String: String] = [:]
+
+        let executor = MockExecutor { command, _ in
+            // xcrun altool --upload-app → success
+            if command.arguments.first == "altool" {
+                return ShellOutput(stdout: "", stderr: "", exitCode: 0)
+            }
+            // bash -c "unzip | plutil" → build version "1"
+            if command.arguments.first == "-c" {
+                return ShellOutput(stdout: "1\n", stderr: "", exitCode: 0)
+            }
+            return ShellOutput(stdout: "", stderr: "", exitCode: 0)
+        }
 
         let session = makeMockSession { request in
             let path = request.url?.path ?? ""
             let queryItems = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)?.queryItems ?? []
             let query = Dictionary(uniqueKeysWithValues: queryItems.map { ($0.name, $0.value ?? "") })
 
+            // App lookup
             if path == "/v1/apps", query["filter[bundleId]"] == "com.example.app" {
                 return .json([
                     "data": [[
@@ -30,44 +43,24 @@ struct TestFlightActionTests {
                 ])
             }
 
-            if path == "/v1/builds", request.httpMethod == "POST" {
+            // Build lookup after altool upload (polling by version)
+            if path == "/v1/builds", query["filter[version]"] == "1" {
                 return .json([
-                    "data": [
-                        "id": "build-123",
-                        "attributes": [
-                            "uploadOperations": [[
-                                "method": "PUT",
-                                "url": uploadServer.uploadURL.absoluteString,
-                                "offset": 0,
-                                "length": 8,
-                                "requestHeaders": []
-                            ]]
-                        ]
-                    ]
+                    "data": [["id": "build-123", "attributes": ["version": "1"]]]
                 ])
             }
 
-            if path == "/v1/builds/build-123", request.httpMethod == "PATCH" {
-                return .json([
-                    "data": [
-                        "id": "build-123",
-                        "attributes": ["version": "1"]
-                    ]
-                ])
-            }
-
+            // Build processing status check
             if path == "/v1/builds/build-123", request.httpMethod == "GET" {
                 return .json([
                     "data": [
                         "id": "build-123",
-                        "attributes": [
-                            "processingState": "VALID",
-                            "version": "1"
-                        ]
+                        "attributes": ["processingState": "VALID", "version": "1"]
                     ]
                 ])
             }
 
+            // Beta groups
             if path == "/v1/betaGroups", request.httpMethod == "GET" {
                 betaGroupQuery = query
                 return .json([
@@ -78,29 +71,33 @@ struct TestFlightActionTests {
                 ])
             }
 
+            // Distribute to group
             if path == "/v1/betaGroups/group-1/relationships/builds", request.httpMethod == "POST" {
                 return .empty(statusCode: 204)
-            }
-
-            if request.url == uploadServer.uploadURL {
-                return .empty(statusCode: 200)
             }
 
             return .error(statusCode: 404, body: "not found")
         }
 
+        let base = ActionContext.mock(executor: executor)
         let client = AppStoreConnectClient(
-            keyID: "KEY",
-            issuerID: "ISSUER",
+            keyID: "TESTKEY",
+            issuerID: "test-issuer",
             privateKeyData: Data("placeholder".utf8),
             session: session,
             tokenProvider: { "test-token" }
         )
-
         let context = ActionContext(
-            shell: .init(),
-            logger: .forType(subsystem: "ShipItSwiftyTests", TestFlightAction.self),
-            config: ResolvedConfig(bundleID: "com.example.app"),
+            shell: base.shell,
+            logger: base.logger,
+            config: ResolvedConfig(
+                bundleID: "com.example.app",
+                ascKeyID: "TESTKEY",
+                ascIssuerID: "test-issuer",
+                ascPrivateKeyData: Data(
+                    "-----BEGIN PRIVATE KEY-----\nfake\n-----END PRIVATE KEY-----\n".utf8
+                )
+            ),
             appStoreConnect: client,
             platform: .ios
         )
@@ -119,5 +116,66 @@ struct TestFlightActionTests {
         #expect(result.distributedGroups == ["Internal QA"])
         #expect(betaGroupQuery["filter[app]"] == "app-1")
         #expect(betaGroupQuery["filter[builds]"] == nil)
+    }
+
+    @Test("skip waiting with no groups does not resolve build ID")
+    func skipsBuildLookupWhenWaitingAndDistributionAreDisabled() async throws {
+        let tempDirectory = try makeTempDirectory()
+        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+
+        let ipaURL = tempDirectory.appendingPathComponent("Example.ipa")
+        try Data("ipa-data".utf8).write(to: ipaURL)
+
+        nonisolated(unsafe) var ascWasCalled = false
+
+        let executor = MockExecutor { _, _ in
+            ShellOutput(stdout: "", stderr: "", exitCode: 0)
+        }
+        let session = makeMockSession { _ in
+            ascWasCalled = true
+            return .error(statusCode: 500, body: "unexpected request")
+        }
+
+        let base = ActionContext.mock(executor: executor)
+        let client = AppStoreConnectClient(
+            keyID: "TESTKEY",
+            issuerID: "test-issuer",
+            privateKeyData: Data("placeholder".utf8),
+            session: session,
+            tokenProvider: { "test-token" }
+        )
+        let context = ActionContext(
+            shell: base.shell,
+            logger: base.logger,
+            config: ResolvedConfig(
+                bundleID: "com.example.app",
+                ascKeyID: "TESTKEY",
+                ascIssuerID: "test-issuer",
+                ascPrivateKeyData: Data(
+                    "-----BEGIN PRIVATE KEY-----\nfake\n-----END PRIVATE KEY-----\n".utf8
+                ),
+                skipWaitingForBuildProcessing: true
+            ),
+            appStoreConnect: client,
+            platform: .ios
+        )
+
+        let result = try await TestFlightAction().run(
+            with: .init(ipa: ipaURL.path),
+            context: context
+        )
+
+        #expect(result.buildID == nil)
+        #expect(result.processingComplete == false)
+        #expect(result.distributedGroups.isEmpty)
+        #expect(ascWasCalled == false)
+    }
+
+    // MARK: - Helpers
+
+    private func makeTempDirectory() throws -> URL {
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+        return url
     }
 }

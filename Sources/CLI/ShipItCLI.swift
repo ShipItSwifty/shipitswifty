@@ -22,7 +22,7 @@ struct ShipItCLI: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "shipit",
         abstract: "Swift-native CLI for iOS and Android app release automation.",
-        version: "1.0.0",
+        version: "0.0.1 (build 12)",
         subcommands: [
             InitCommand.self,
             SchemaCommand.self,

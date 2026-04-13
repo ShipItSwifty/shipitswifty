@@ -1,3 +1,4 @@
+import Crypto
 import Foundation
 import JWTKit
 import OSLog
@@ -69,8 +70,8 @@ public actor JWTGenerator {
         logger.info("Generating JWT token with keyID: \(self.keyID)")
 
         do {
-            let pemString = String(decoding: privateKeyData, as: UTF8.self)
-            let ecKey = try ES256PrivateKey(pem: pemString)
+            let pemString = try JWTGenerator.pemString(from: privateKeyData)
+            let ecKey = try JWTGenerator.loadES256Key(pem: pemString)
             let keyCollection = await JWTKeyCollection()
                 .add(ecdsa: ecKey, kid: JWKIdentifier(string: keyID))
 
@@ -132,6 +133,102 @@ public actor JWTGenerator {
         tokenExpiresAt = Date().addingTimeInterval(TimeInterval(lifetimeSeconds))
         return token
     }
+
+    // MARK: - Internal Helpers
+
+    /// Loads an ES256 private key from a PEM string.
+    ///
+    /// Primary path: `ES256PrivateKey(pem:)` via JWTKit → swift-asn1.
+    ///
+    /// Fallback path (Apple `.p8` keys): Apple's PKCS#8 keys embed optional
+    /// `[0] ECParameters` and `[1] ECPoint` fields inside the `ECPrivateKey`
+    /// SEQUENCE. swift-asn1 1.x throws `CryptoKitASN1Error.unhandledEncoding`
+    /// (error 7) when it encounters those context tags. The fallback scans the
+    /// raw DER for the known marker `02 01 01 04 20` (ECPrivateKey version +
+    /// 32-byte private-scalar OCTET STRING) and constructs the key directly
+    /// from the scalar bytes, bypassing swift-asn1 entirely.
+    static func loadES256Key(pem: String) throws -> ES256PrivateKey {
+        // 1. Try the normal path first (handles SEC1 and well-formed PKCS#8).
+        if let key = try? ES256PrivateKey(pem: pem) {
+            return key
+        }
+
+        // 2. Fallback: extract the raw 32-byte scalar from PKCS#8 DER directly.
+        let scalar = try JWTGenerator.rawPrivateScalar(fromPKCS8PEM: pem)
+        let p256Key = try P256.Signing.PrivateKey(rawRepresentation: scalar)
+        return try ES256PrivateKey(backing: p256Key)
+    }
+
+    /// Extracts the 32-byte P-256 private scalar from a PKCS#8 PEM string
+    /// by scanning the raw DER for the ECPrivateKey marker sequence.
+    ///
+    /// The marker `[0x02, 0x01, 0x01, 0x04, 0x20]` is:
+    /// - `02 01 01` — `ECPrivateKey.version` INTEGER value 1
+    /// - `04 20`    — `ECPrivateKey.privateKey` OCTET STRING, length 32
+    ///
+    /// The 32 bytes that follow are the raw big-endian private scalar.
+    static func rawPrivateScalar(fromPKCS8PEM pem: String) throws -> Data {
+        let b64 = pem
+            .split(separator: "\n", omittingEmptySubsequences: true)
+            .filter { !$0.hasPrefix("-") }
+            .joined()
+        guard let der = Data(base64Encoded: b64, options: .ignoreUnknownCharacters) else {
+            throw JWTGeneratorError.invalidKeyEncoding
+        }
+
+        let bytes = [UInt8](der)
+        let marker: [UInt8] = [0x02, 0x01, 0x01, 0x04, 0x20]
+        let scalarLength = 32
+        guard bytes.count > marker.count + scalarLength else {
+            throw JWTGeneratorError.invalidKeyEncoding
+        }
+
+        for i in 0...(bytes.count - marker.count - scalarLength) {
+            if bytes[i..<(i + marker.count)].elementsEqual(marker) {
+                let start = i + marker.count
+                return Data(bytes[start..<(start + scalarLength)])
+            }
+        }
+
+        throw JWTGeneratorError.invalidKeyEncoding
+    }
+
+    /// Converts raw `.p8` key bytes to a clean PEM string.
+    ///
+    /// Uses a strict (non-lossy) UTF-8 decode so that corrupted data raises an
+    /// error instead of silently replacing bad bytes with `\uFFFD`, which would
+    /// corrupt the base64 payload and cause `CryptoKitASN1Error` downstream.
+    /// Strips a leading UTF-8 BOM (`\u{FEFF}`) and trims surrounding whitespace
+    /// so that files saved by certain editors/CI tools parse correctly.
+    static func pemString(from data: Data) throws -> String {
+        guard var pem = String(data: data, encoding: .utf8) else {
+            throw JWTGeneratorError.invalidKeyEncoding
+        }
+        // Strip UTF-8 BOM if present (some editors/tools prepend U+FEFF)
+        if pem.hasPrefix("\u{FEFF}") {
+            pem = String(pem.dropFirst())
+        }
+        pem = pem.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !pem.isEmpty else {
+            throw JWTGeneratorError.invalidKeyEncoding
+        }
+        guard pem.hasPrefix("-----BEGIN") else {
+            throw JWTGeneratorError.missingPEMHeader
+        }
+        return pem
+    }
+}
+
+// MARK: - JWTGeneratorError
+
+/// Errors thrown by ``JWTGenerator`` before reaching the JWT-signing layer.
+public enum JWTGeneratorError: Error, Sendable {
+    /// The private key data could not be decoded as UTF-8 PEM text.
+    case invalidKeyEncoding
+    /// The data does not begin with a PEM header (`-----BEGIN`).
+    /// Most likely cause: App Store Connect credentials are not configured
+    /// (ASC_PRIVATE_KEY / ASC_PRIVATE_KEY_PATH not set or not exported).
+    case missingPEMHeader
 }
 
 // MARK: - JWT Payload

@@ -15,7 +15,7 @@ struct SigningTests {
     /// cleanup is idempotent and must still exit 0.
     @Test("sign cleanup exits 0 (idempotent)", .requiresSigningIdentity)
     func signCleanupIsIdempotent() async throws {
-        let result = try await CLI.run("sign", "--operation", "cleanup")
+        let result = try await CLI.run("sign", "cleanup")
         #expect(result.exitCode == 0, "sign cleanup should always succeed:\n\(result.output)")
     }
 
@@ -23,7 +23,7 @@ struct SigningTests {
     /// exit with a non-zero code and an actionable error message.
     @Test("sign sync without git-url exits non-zero with descriptive error", .requiresSigningIdentity)
     func signSyncMissingGitUrlExitsNonZero() async throws {
-        let result = try await CLI.run("sign", "--operation", "sync")
+        let result = try await CLI.run("sign", "sync")
         #expect(result.exitCode != 0, "sign sync without --git-url must fail")
         #expect(
             result.output.lowercased().contains("git_url") ||
@@ -65,7 +65,7 @@ struct SigningTests {
         //
         // Step 1: Create temporary keychain.
         let createResult = try await CLI.run(
-            "sign", "--operation", "cleanup",
+            "sign", "cleanup",
             environment: ["SHIPIT_PLATFORM": "ios"]
         )
         #expect(
@@ -78,7 +78,7 @@ struct SigningTests {
         // keychain layer — KeychainHelper unit tests already cover command construction;
         // this test proves the binary + subprocess chain works end-to-end.
         let importResult = try await CLI.run(
-            "sign", "--operation", "cleanup",
+            "sign", "cleanup",
             environment: ["SHIPIT_PLATFORM": "ios"]
         )
         #expect(
