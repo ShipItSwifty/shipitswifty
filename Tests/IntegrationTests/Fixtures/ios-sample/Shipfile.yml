@@ -1,0 +1,10 @@
+app:
+  scheme: ios-sample
+  bundle_id: com.shipitswifty.integration
+
+workflows:
+  beta:
+    - action: build
+      options:
+        configuration: Debug
+    - action: archive

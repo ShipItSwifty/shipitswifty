@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<!DOCTYPE report PUBLIC "-//JACOCO//DTD Report 1.1//EN" "report.dtd">
+<!--
+  Pre-canned JaCoCo XML fixture for CoverageIntegrationTests.
+  Package paths use 3-level depth (com/shipitswifty/<module>) so the
+  AndroidCoverageParser groups them as "feature" and "core" modules.
+  Known values (verified in tests):
+    - Module "feature"  → 80 covered / 100 executable = 80.0% line coverage
+    - Module "core"     → 45 covered / 60  executable = 75.0% line coverage
+    - Overall           → 125 / 160 = 78.1%
+-->
+<report name="android-sample">
+
+  <package name="com/shipitswifty/feature">
+    <sourcefile name="ViewModel.kt">
+      <counter type="LINE" covered="50" missed="10"/>
+    </sourcefile>
+    <sourcefile name="Repository.kt">
+      <counter type="LINE" covered="30" missed="10"/>
+    </sourcefile>
+    <counter type="LINE" covered="80" missed="20"/>
+  </package>
+
+  <package name="com/shipitswifty/core">
+    <sourcefile name="Utils.kt">
+      <counter type="LINE" covered="25" missed="5"/>
+    </sourcefile>
+    <sourcefile name="Extensions.kt">
+      <counter type="LINE" covered="20" missed="10"/>
+    </sourcefile>
+    <counter type="LINE" covered="45" missed="15"/>
+  </package>
+
+  <counter type="LINE" covered="125" missed="35"/>
+</report>

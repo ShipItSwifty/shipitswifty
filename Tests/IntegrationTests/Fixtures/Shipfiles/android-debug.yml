@@ -1,0 +1,12 @@
+app:
+  bundle_id: com.shipitswifty.integration
+  scheme: app
+
+android:
+  module: app
+  build_variant: debug
+
+workflows:
+  beta:
+    - action: build
+    - action: test

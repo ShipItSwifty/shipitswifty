@@ -81,6 +81,9 @@ public struct ValidateArchiveAction: Action {
         /// The path that was validated (archive or IPA).
         public let validatedPath: String
 
+        /// The app bundle identifier extracted from the archive, if available.
+        public let bundleID: String?
+
         /// All issues found (errors + warnings).
         public let issues: [ArchiveIssue]
 
@@ -88,13 +91,15 @@ public struct ValidateArchiveAction: Action {
         public var passed: Bool { issues.allSatisfy { $0.severity != .error } }
 
         /// Creates a `Result`.
-        public init(validatedPath: String, issues: [ArchiveIssue] = []) {
+        public init(validatedPath: String, bundleID: String? = nil, issues: [ArchiveIssue] = []) {
             self.validatedPath = validatedPath
+            self.bundleID = bundleID
             self.issues = issues
         }
 
         private enum CodingKeys: String, CodingKey {
             case validatedPath = "validated_path"
+            case bundleID = "bundle_id"
             case issues
             case passed
         }
@@ -102,6 +107,7 @@ public struct ValidateArchiveAction: Action {
         public func encode(to encoder: Encoder) throws {
             var container = encoder.container(keyedBy: CodingKeys.self)
             try container.encode(validatedPath, forKey: .validatedPath)
+            try container.encodeIfPresent(bundleID, forKey: .bundleID)
             try container.encode(issues, forKey: .issues)
             try container.encode(passed, forKey: .passed)
         }
@@ -109,6 +115,7 @@ public struct ValidateArchiveAction: Action {
         public init(from decoder: Decoder) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
             validatedPath = try container.decode(String.self, forKey: .validatedPath)
+            bundleID = try container.decodeIfPresent(String.self, forKey: .bundleID)
             issues = try container.decode([ArchiveIssue].self, forKey: .issues)
         }
     }
@@ -142,11 +149,12 @@ public struct ValidateArchiveAction: Action {
         logger.info("ValidateArchive: validating '\(targetPath)'")
 
         var issues: [ArchiveIssue] = []
+        var bundleID: String?
 
         if isIPA {
             try await validateIPA(at: targetPath, issues: &issues, context: context)
         } else {
-            try await validateXCArchive(at: targetPath, issues: &issues, context: context)
+            bundleID = try await validateXCArchive(at: targetPath, issues: &issues, context: context)
         }
 
         let errorCount = issues.filter { $0.severity == .error }.count
@@ -160,7 +168,7 @@ public struct ValidateArchiveAction: Action {
             logger.info("ValidateArchive: '\(targetPath)' passed all checks")
         }
 
-        let result = Result(validatedPath: targetPath, issues: issues)
+        let result = Result(validatedPath: targetPath, bundleID: bundleID, issues: issues)
 
         // Fail if errors found, or if failOnWarnings is set and warnings found
         let shouldFail = errorCount > 0 || ((options.failOnWarnings == true) && warningCount > 0)
@@ -173,7 +181,9 @@ public struct ValidateArchiveAction: Action {
 
     // MARK: - xcarchive validation
 
-    private func validateXCArchive(at path: String, issues: inout [ArchiveIssue], context: ActionContext) async throws {
+    /// Validates an xcarchive and returns the bundle identifier extracted from the app bundle, if available.
+    @discardableResult
+    private func validateXCArchive(at path: String, issues: inout [ArchiveIssue], context: ActionContext) async throws -> String? {
         // Validate archive directory structure
         let productsPath = "\(path)/Products"
         let infoPlistPath = "\(path)/Info.plist"
@@ -184,7 +194,7 @@ public struct ValidateArchiveAction: Action {
                 message: "Archive is missing the Products directory — this is not a valid .xcarchive.",
                 severity: .error
             ))
-            return
+            return nil
         }
 
         if !FileManager.default.fileExists(atPath: infoPlistPath) {
@@ -201,13 +211,14 @@ public struct ValidateArchiveAction: Action {
         let appBundlePath = findAppBundle(in: applicationsPath)
 
         if let appBundle = appBundlePath {
-            try validateAppBundle(at: appBundle, issues: &issues)
+            return try validateAppBundle(at: appBundle, issues: &issues)
         } else {
             issues.append(.init(
                 code: "ARCHIVE_NO_APP_BUNDLE",
                 message: "No .app bundle found inside Products/Applications/ — archive may be malformed.",
                 severity: .error
             ))
+            return nil
         }
     }
 
@@ -254,7 +265,9 @@ public struct ValidateArchiveAction: Action {
 
     // MARK: - App bundle validation
 
-    private func validateAppBundle(at appBundle: String, issues: inout [ArchiveIssue]) throws {
+    /// Validates an app bundle and returns the bundle identifier if present and valid.
+    @discardableResult
+    private func validateAppBundle(at appBundle: String, issues: inout [ArchiveIssue]) throws -> String? {
         let infoPlistPath = "\(appBundle)/Info.plist"
 
         // Ensure Info.plist exists
@@ -264,7 +277,7 @@ public struct ValidateArchiveAction: Action {
                 message: "App bundle is missing Info.plist at \(infoPlistPath).",
                 severity: .error
             ))
-            return
+            return nil
         }
 
         guard let plist = NSDictionary(contentsOfFile: infoPlistPath) else {
@@ -273,24 +286,27 @@ public struct ValidateArchiveAction: Action {
                 message: "Info.plist exists but could not be parsed at \(infoPlistPath).",
                 severity: .error
             ))
-            return
+            return nil
         }
 
-        validateBundleIdentifier(plist: plist, issues: &issues)
+        let extractedBundleID = validateBundleIdentifier(plist: plist, issues: &issues)
         validateVersionKeys(plist: plist, issues: &issues)
         validateIconKey(plist: plist, appBundle: appBundle, issues: &issues)
         validateIPadOrientations(plist: plist, issues: &issues)
         validateUIMainStoryboard(plist: plist, issues: &issues)
+        return extractedBundleID
     }
 
-    private func validateBundleIdentifier(plist: NSDictionary, issues: inout [ArchiveIssue]) {
+    /// Validates CFBundleIdentifier and returns the extracted value (even if invalid).
+    @discardableResult
+    private func validateBundleIdentifier(plist: NSDictionary, issues: inout [ArchiveIssue]) -> String? {
         guard let bundleID = plist["CFBundleIdentifier"] as? String, !bundleID.isEmpty else {
             issues.append(.init(
                 code: "BUNDLE_MISSING_BUNDLE_ID",
                 message: "Info.plist is missing CFBundleIdentifier.",
                 severity: .error
             ))
-            return
+            return nil
         }
         // Validate bundle ID format (reverse-DNS)
         let bundleIDRegex = try? NSRegularExpression(pattern: #"^[A-Za-z0-9\-\.]+$"#)
@@ -302,6 +318,7 @@ public struct ValidateArchiveAction: Action {
                 severity: .error
             ))
         }
+        return bundleID
     }
 
     private func validateVersionKeys(plist: NSDictionary, issues: inout [ArchiveIssue]) {
@@ -322,7 +339,8 @@ public struct ValidateArchiveAction: Action {
     }
 
     private func validateIconKey(plist: NSDictionary, appBundle: String, issues: inout [ArchiveIssue]) {
-        // Require at least one icon declaration
+        // Warn if no icon declaration — this is an App Store submission requirement,
+        // not a hard build error. Unsigned/simulator archives legitimately lack icon declarations.
         let hasPrimaryIcon = plist["CFBundleIcons"] != nil || plist["CFBundleIconFiles"] != nil
         if !hasPrimaryIcon {
             issues.append(.init(

@@ -17,3 +17,11 @@ DerivedData/
 
 # macOS
 .DS_Store
+
+# Integration test credentials (never commit real secrets)
+.env.integration
+
+# Android fixture generated wrapper files (run `gradle wrapper` to generate)
+Tests/IntegrationTests/Fixtures/android-sample/gradle/wrapper/gradle-wrapper.jar
+Tests/IntegrationTests/Fixtures/android-sample/.gradle/
+Tests/IntegrationTests/Fixtures/android-sample/app/build/

@@ -138,6 +138,25 @@ extension SchemaField {
         )
     }
 
+    public static func number(
+        _ name: String,
+        required: Bool = false,
+        description: String,
+        defaultValue: JSONValue? = nil,
+        example: JSONValue? = nil,
+        notes: [String] = []
+    ) -> SchemaField {
+        SchemaField(
+            name: name,
+            type: .number,
+            required: required,
+            description: description,
+            defaultValue: defaultValue,
+            example: example,
+            notes: notes
+        )
+    }
+
     public static func object(
         _ name: String,
         required: Bool = false,

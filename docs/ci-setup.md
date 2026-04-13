@@ -32,6 +32,19 @@ Add these under **Settings → Secrets → Actions**:
 | `ASC_PRIVATE_KEY` | Raw `.p8` key contents (no file path in CI) |
 | `VAULT_PASSWORD` | Passphrase for encrypted certificate repo |
 | `SLACK_WEBHOOK_URL` | Slack incoming webhook URL (optional) |
+| `SHIPIT_TEST_P12_BASE64` | Base64-encoded development `.p12` for signing integration tests |
+| `SHIPIT_TEST_P12_PASSWORD` | Export password for the `.p12` above |
+
+`SHIPIT_TEST_P12_BASE64` and `SHIPIT_TEST_P12_PASSWORD` are only needed if you want the signing
+integration tests to run in CI. Without them, those tests skip automatically.
+
+To produce the base64 value from a `.p12` file:
+
+```bash
+base64 -i MyCert.p12 | pbcopy    # copies to clipboard — paste as the secret value
+```
+
+See `CONTRIBUTING.md` for full signing credential setup instructions.
 
 ### Example release workflow
 
