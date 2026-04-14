@@ -27,10 +27,11 @@ public struct VersionBumper: Sendable {
     /// - Parameter options: Which component to bump and how.
     /// - Returns: The new version and build number strings.
     public func bump(options: VersionAction.Options) async throws -> VersionAction.Result {
-        let currentVersion = try await readVersion()
-        let currentBuild = try await readBuildNumber()
+        let effectiveSource = resolveVersioningSource(options: options)
+        let currentVersion = try await readVersion(source: effectiveSource)
+        let currentBuild = try await readBuildNumber(source: effectiveSource)
 
-        logger.info("Current version: \(currentVersion), build: \(currentBuild)")
+        logger.info("Current version: \(currentVersion), build: \(currentBuild) (source: \(effectiveSource))")
 
         let (newVersion, newBuild) = try await computeNewValues(
             currentVersion: currentVersion,
@@ -40,25 +41,52 @@ public struct VersionBumper: Sendable {
 
         // Write new values
         if newVersion != currentVersion {
-            try await writeVersion(newVersion)
+            try await writeVersion(newVersion, source: effectiveSource)
         }
 
         if newBuild != currentBuild {
-            try await writeBuildNumber(newBuild)
+            try await writeBuildNumber(newBuild, source: effectiveSource)
         }
 
         logger.info("Version bumped: \(currentVersion) -> \(newVersion), build: \(currentBuild) -> \(newBuild)")
         return VersionAction.Result(version: newVersion, buildNumber: newBuild)
     }
 
+    /// Resolve which versioning source to use based on options and config.
+    private func resolveVersioningSource(options: VersionAction.Options) -> String {
+        // Options target override takes highest priority
+        if let target = options.target {
+            switch target.lowercased() {
+            case "source_of_truth", "project_spec":
+                return "project_spec"
+            case "xcodeproj":
+                return "xcodeproj"
+            default:
+                return target
+            }
+        }
+        return context.config.versioningSource
+    }
+
     // MARK: - Read
 
     /// Read the current marketing version (`CFBundleShortVersionString`).
     public func readVersion() async throws -> String {
+        try await readVersion(source: context.config.versioningSource)
+    }
+
+    /// Read the current marketing version from the specified source.
+    private func readVersion(source: String) async throws -> String {
+        // Project spec source — read directly from YAML
+        if source == "project_spec" {
+            let specSource = ProjectSpecVersionSource(context: context)
+            return try specSource.readVersion()
+        }
+
         // When source is "xcodeproj", read MARKETING_VERSION directly from Xcode
         // build settings. This is the canonical approach for .xcodeproj-backed
         // projects and avoids the fragile Info.plist search entirely.
-        if context.config.versioningSource == "xcodeproj" {
+        if source == "xcodeproj" {
             if let v = try await readBuildSetting("MARKETING_VERSION"), !v.isEmpty {
                 return v
             }
@@ -81,7 +109,17 @@ public struct VersionBumper: Sendable {
 
     /// Read the current build number (`CFBundleVersion`).
     public func readBuildNumber() async throws -> String {
-        if context.config.versioningSource == "xcodeproj" {
+        try await readBuildNumber(source: context.config.versioningSource)
+    }
+
+    /// Read the current build number from the specified source.
+    private func readBuildNumber(source: String) async throws -> String {
+        if source == "project_spec" {
+            let specSource = ProjectSpecVersionSource(context: context)
+            return try specSource.readBuildNumber()
+        }
+
+        if source == "xcodeproj" {
             if let v = try await readBuildSetting("CURRENT_PROJECT_VERSION"), !v.isEmpty {
                 return v
             }
@@ -100,8 +138,15 @@ public struct VersionBumper: Sendable {
 
     // MARK: - Write
 
-    private func writeVersion(_ version: String) async throws {
-        if context.config.versioningSource == "xcodeproj" {
+    private func writeVersion(_ version: String, source: String) async throws {
+        if source == "project_spec" {
+            let specSource = ProjectSpecVersionSource(context: context)
+            try specSource.writeVersion(version)
+            logger.info("Set marketing version to: \(version) (project spec)")
+            return
+        }
+
+        if source == "xcodeproj" {
             do {
                 try await writeBuildSetting("MARKETING_VERSION", value: version)
                 logger.info("Set marketing version to: \(version)")
@@ -120,8 +165,15 @@ public struct VersionBumper: Sendable {
         logger.info("Set marketing version to: \(version)")
     }
 
-    private func writeBuildNumber(_ build: String) async throws {
-        if context.config.versioningSource == "xcodeproj" {
+    private func writeBuildNumber(_ build: String, source: String) async throws {
+        if source == "project_spec" {
+            let specSource = ProjectSpecVersionSource(context: context)
+            try specSource.writeBuildNumber(build)
+            logger.info("Set build number to: \(build) (project spec)")
+            return
+        }
+
+        if source == "xcodeproj" {
             do {
                 try await writeBuildSetting("CURRENT_PROJECT_VERSION", value: build)
                 logger.info("Set build number to: \(build)")

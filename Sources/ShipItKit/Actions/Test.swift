@@ -215,15 +215,15 @@ public struct TestAction: Action {
             )
         }
 
-        guard let effectiveDestinations = options.resolvedDestinations, !effectiveDestinations.isEmpty else {
-            throw ShipItError.invalidConfiguration(
-                reason: """
-                Test requires at least one destination. \
-                Use `DestinationDiscovery` to find available destinations for scheme '\(scheme)', \
-                then set `destinations` in the test step options. \
-                Example: destinations: ["platform=iOS Simulator,name=iPhone 16 Pro,OS=18.2"]
-                """
-            )
+        // Resolve destinations — auto-discover if none configured
+        let effectiveDestinations: [String]
+        if let configured = options.resolvedDestinations, !configured.isEmpty {
+            effectiveDestinations = configured
+        } else {
+            // Attempt auto-discovery of a suitable iPhone simulator
+            logger.info("No test destinations configured — auto-discovering available simulators for scheme '\(scheme)'")
+            let discovered = try await autoDiscoverDestination(scheme: scheme, context: context)
+            effectiveDestinations = [discovered]
         }
 
         let configuration = options.configuration ?? "Debug"
@@ -520,5 +520,67 @@ public struct TestAction: Action {
             }
         }
         return 0
+    }
+
+    // MARK: - Automatic Destination Discovery
+
+    /// Auto-discovers a suitable iPhone simulator destination for test runs.
+    ///
+    /// Uses `DestinationDiscovery` to enumerate available destinations, then selects
+    /// the best iPhone simulator. Prefers the highest OS version, and among equal
+    /// versions prefers Pro models.
+    ///
+    /// - Parameters:
+    ///   - scheme: The Xcode scheme to query destinations for.
+    ///   - context: Action context providing shell and config.
+    /// - Returns: A destination string suitable for `-destination`.
+    /// - Throws: `ShipItError.invalidConfiguration` when no suitable simulator is found.
+    private func autoDiscoverDestination(scheme: String, context: ActionContext) async throws -> String {
+        let discoverer = DestinationDiscovery(shell: context.shell)
+        let allDestinations = try await discoverer.availableDestinations(
+            scheme: scheme,
+            workspace: context.config.appWorkspace,
+            project: context.config.appProject
+        )
+
+        // Filter to iPhone simulators only
+        let iPhoneSimulators = allDestinations.filter {
+            $0.isSimulator && $0.name.contains("iPhone")
+        }
+
+        guard !iPhoneSimulators.isEmpty else {
+            // Build a helpful error message listing what we found
+            let found = allDestinations.map { "\($0.platform): \($0.name)" }.joined(separator: "\n  - ")
+            let foundSummary = allDestinations.isEmpty
+                ? "No destinations were found."
+                : "Found \(allDestinations.count) destination(s), but none are iPhone simulators:\n  - \(found)"
+            throw ShipItError.invalidConfiguration(
+                reason: """
+                Could not auto-discover a suitable iPhone simulator for scheme '\(scheme)'. \
+                \(foundSummary)
+
+                To fix this:
+                  1. Install an iOS Simulator runtime: Xcode > Settings > Platforms
+                  2. Create a simulator: xcrun simctl create "iPhone 16 Pro" "com.apple.CoreSimulator.SimDeviceType.iPhone-16-Pro"
+                  3. Or set destinations explicitly in your test step options:
+                     destinations: ["platform=iOS Simulator,name=iPhone 16 Pro,OS=18.2"]
+                """
+            )
+        }
+
+        // Sort: highest OS version first, then prefer Pro models, then by name
+        let sorted = iPhoneSimulators.sorted { lhs, rhs in
+            let lhsOS = lhs.os ?? "0"
+            let rhsOS = rhs.os ?? "0"
+            if lhsOS != rhsOS { return lhsOS.compare(rhsOS, options: .numeric) == .orderedDescending }
+            let lhsPro = lhs.name.contains("Pro")
+            let rhsPro = rhs.name.contains("Pro")
+            if lhsPro != rhsPro { return lhsPro }
+            return lhs.name < rhs.name
+        }
+
+        let selected = sorted[0]
+        logger.info("Auto-selected simulator: '\(selected.name)' (OS \(selected.os ?? "?"))")
+        return selected.destinationString
     }
 }

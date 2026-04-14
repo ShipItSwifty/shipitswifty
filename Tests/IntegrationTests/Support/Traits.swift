@@ -103,17 +103,6 @@ extension Trait where Self == CredentialTrait {
         )
     }
 
-    /// Requires a path to a signed iOS archive for end-to-end upload-readiness validation.
-    static var requiresSignedArchive: CredentialTrait {
-        let env = ProcessInfo.processInfo.environment
-        let archivePath = env["SHIPIT_SIGNED_ARCHIVE_PATH"]
-        let exists = archivePath.map { FileManager.default.fileExists(atPath: $0) } ?? false
-        return CredentialTrait(
-            conditionMet: exists,
-            message: "Signed archive not configured — set SHIPIT_SIGNED_ARCHIVE_PATH to a signed .xcarchive for com.shipitswifty.integration."
-        )
-    }
-
     /// Requires a local "Apple Development" code signing identity in the default keychain.
     ///
     /// Use on Layer 2 signing tests that install certificates and sign builds on a dev machine.

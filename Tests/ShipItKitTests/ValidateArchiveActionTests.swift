@@ -215,7 +215,7 @@ struct ValidateArchiveActionTests {
         }
     }
 
-    @Test("throws validateArchiveFailed when icon declaration is missing")
+    @Test("reports warning when icon declaration is missing")
     func missingIconDeclaration() async throws {
         let (archivePath, cleanup) = try makeXCArchive(infoPlistContents: [
             "CFBundleIdentifier": "com.example.myapp",
@@ -227,13 +227,12 @@ struct ValidateArchiveActionTests {
 
         let context = mockContext()
         let options = ValidateArchiveAction.Options(archivePath: archivePath)
+        let result = try await ValidateArchiveAction().run(with: options, context: context)
 
-        await #expect {
-            _ = try await ValidateArchiveAction().run(with: options, context: context)
-        } throws: { error in
-            guard case ShipItError.validateArchiveFailed(let issues) = error else { return false }
-            return issues.contains { $0.contains("BUNDLE_MISSING_ICON_DECLARATION") }
-        }
+        let iconIssue = result.issues.first { $0.code == "BUNDLE_MISSING_ICON_DECLARATION" }
+        try #require(iconIssue != nil, "Expected BUNDLE_MISSING_ICON_DECLARATION warning")
+        #expect(iconIssue?.severity == .warning)
+        #expect(result.passed, "Missing icon should be a warning, not a validation failure")
     }
 
     @Test("throws validateArchiveFailed for invalid CFBundleIdentifier format")

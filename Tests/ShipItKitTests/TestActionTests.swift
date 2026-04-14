@@ -465,6 +465,131 @@ struct TestActionTests {
         #expect(!command.contains("-retry-tests-on-failure"))
     }
 
+    // MARK: - Auto-discovery of simulator destinations
+
+    @Test("Auto-discovers iPhone simulator when no destinations configured")
+    func autoDiscoversiPhoneSimulator() async throws {
+        nonisolated(unsafe) var callIndex = 0
+        let executor = MockExecutor { command, _ in
+            let desc = command.description
+            callIndex += 1
+            // First call: xcodebuild -showdestinations (from DestinationDiscovery)
+            if desc.contains("-showdestinations") || desc.contains("showDestinations") {
+                return ShellOutput(
+                    stdout: """
+                    Available destinations for the "MockApp" scheme:
+                        { platform:iOS Simulator, id:SIM-1, OS:18.2, name:iPhone 16 Pro }
+                        { platform:iOS Simulator, id:SIM-2, OS:18.2, name:iPhone 16 }
+                        { platform:iOS Simulator, id:SIM-3, OS:17.5, name:iPhone 15 }
+                    """,
+                    stderr: "",
+                    exitCode: 0
+                )
+            }
+            // Second call: xcodebuild test (the actual test run)
+            return ShellOutput(
+                stdout: "Executed 5 tests, with 0 failures (0 unexpected) in 1.234 (1.567) seconds\n",
+                stderr: "",
+                exitCode: 0
+            )
+        }
+        let context = ActionContext.mock(executor: executor)
+
+        // No destinations or destination in options — should auto-discover
+        let result = try await TestAction().run(
+            with: .init(scheme: "MockApp"),
+            context: context
+        )
+
+        #expect(result.passCount == 5)
+        #expect(result.failCount == 0)
+    }
+
+    @Test("Auto-discovery prefers highest OS version and Pro models")
+    func autoDiscoveryPrefersBestSimulator() async throws {
+        let (executor, commands) = makeCaptureExecutor { command, _ in
+            let desc = command.description
+            if desc.contains("-showdestinations") || desc.contains("showDestinations") {
+                return ShellOutput(
+                    stdout: """
+                        { platform:iOS Simulator, id:SIM-1, OS:17.5, name:iPhone 15 Pro }
+                        { platform:iOS Simulator, id:SIM-2, OS:18.2, name:iPhone 16 }
+                        { platform:iOS Simulator, id:SIM-3, OS:18.2, name:iPhone 16 Pro }
+                    """,
+                    stderr: "",
+                    exitCode: 0
+                )
+            }
+            return ShellOutput(
+                stdout: "Executed 1 test, with 0 failures\n",
+                stderr: "",
+                exitCode: 0
+            )
+        }
+        let context = ActionContext.mock(executor: executor)
+
+        _ = try await TestAction().run(with: .init(scheme: "MockApp"), context: context)
+
+        // The test run command (second call) should use the iPhone 16 Pro (highest OS + Pro)
+        let testCommand = commands().last ?? ""
+        #expect(testCommand.contains("iPhone 16 Pro"))
+    }
+
+    @Test("Auto-discovery throws when only non-iPhone simulators are available")
+    func autoDiscoveryThrowsWhenNoiPhones() async throws {
+        let executor = MockExecutor { command, _ in
+            let desc = command.description
+            if desc.contains("-showdestinations") || desc.contains("showDestinations") {
+                return ShellOutput(
+                    stdout: """
+                        { platform:iOS Simulator, id:SIM-1, OS:18.2, name:Apple Watch Series 9 }
+                        { platform:macOS, id:MAC-1, name:My Mac }
+                    """,
+                    stderr: "",
+                    exitCode: 0
+                )
+            }
+            return ShellOutput(stdout: "", stderr: "", exitCode: 0)
+        }
+        let context = ActionContext.mock(executor: executor)
+
+        do {
+            _ = try await TestAction().run(with: .init(scheme: "MockApp"), context: context)
+            Issue.record("Expected TestAction to throw when no iPhone simulators found")
+        } catch let error as ShipItError {
+            guard case .invalidConfiguration(let reason) = error else {
+                Issue.record("Expected .invalidConfiguration, got \(error)")
+                return
+            }
+            #expect(reason.contains("Could not auto-discover"))
+        }
+    }
+
+    @Test("Auto-discovery skips when explicit destinations are provided")
+    func autoDiscoverySkippedWithExplicitDestinations() async throws {
+        let (executor, commands) = makeCaptureExecutor { _, _ in
+            ShellOutput(
+                stdout: "Executed 1 test, with 0 failures\n",
+                stderr: "",
+                exitCode: 0
+            )
+        }
+        let context = ActionContext.mock(executor: executor)
+
+        _ = try await TestAction().run(
+            with: .init(
+                scheme: "MockApp",
+                destinations: ["platform=iOS Simulator,name=iPhone 15,OS=17.5"]
+            ),
+            context: context
+        )
+
+        // Should NOT have called -showdestinations since explicit destinations were given
+        #expect(!commands().contains { $0.contains("-showdestinations") || $0.contains("showDestinations") })
+        // Should have used the explicit destination
+        #expect(commands().contains { $0.contains("iPhone 15") })
+    }
+
     // MARK: - Missing scheme
 
     @Test("Throws invalidConfiguration when no scheme is resolvable")
