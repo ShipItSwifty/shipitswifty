@@ -24,6 +24,7 @@ struct ASCIntegrationTests {
         let result = try await CLI.run(
             "validate", "metadata",
             "--shipfile", FixturePaths.iosBetaShipfile.path,
+            "--directory", FixturePaths.metadata.path,
             "--output", "json",
             environment: ascEnvironment()
         )
