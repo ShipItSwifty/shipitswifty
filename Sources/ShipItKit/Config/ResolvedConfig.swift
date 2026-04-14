@@ -148,6 +148,32 @@ public struct ResolvedConfig: Sendable {
     /// Source of version information.
     public let versioningSource: String
 
+    /// Path to the project spec file for `project_spec` versioning source.
+    public let versioningSpecPath: String?
+
+    /// YAML key for the build number in the project spec (default: `CURRENT_PROJECT_VERSION`).
+    public let versioningBuildKey: String
+
+    /// YAML key for the marketing version in the project spec (default: `MARKETING_VERSION`).
+    public let versioningMarketingKey: String
+
+    // MARK: - Project Generation
+
+    /// Project generation tool name (e.g. `xcodegen`, `tuist`).
+    public let projectGenerationTool: String?
+
+    /// Shell command to run for project generation.
+    public let projectGenerationCommand: String?
+
+    /// Path to the project spec file (e.g. `project.yml`).
+    public let projectGenerationSpecPath: String?
+
+    /// Path to the generated output project (e.g. `MyApp.xcodeproj`).
+    public let projectGenerationOutputProject: String?
+
+    /// Whether to auto-generate the project when the output is missing.
+    public let projectGenerationAutoGenerate: Bool
+
     // MARK: - Notifications
 
     /// Slack webhook URL for notifications.
@@ -160,6 +186,9 @@ public struct ResolvedConfig: Sendable {
 
     /// Named release workflows from the Shipfile.
     public let workflows: [String: WorkflowConfig]
+
+    /// User-defined composite actions from the Shipfile.
+    public let customActions: [String: CustomActionConfig]
 
     // MARK: - Platform
 
@@ -249,9 +278,18 @@ public struct ResolvedConfig: Sendable {
         phasedRelease: Bool = false,
         versioningStrategy: String = "sequential",
         versioningSource: String = "xcodeproj",
+        versioningSpecPath: String? = nil,
+        versioningBuildKey: String = "CURRENT_PROJECT_VERSION",
+        versioningMarketingKey: String = "MARKETING_VERSION",
+        projectGenerationTool: String? = nil,
+        projectGenerationCommand: String? = nil,
+        projectGenerationSpecPath: String? = nil,
+        projectGenerationOutputProject: String? = nil,
+        projectGenerationAutoGenerate: Bool = true,
         slackWebhookUrl: String? = nil,
         slackChannel: String? = nil,
         workflows: [String: WorkflowConfig] = [:],
+        customActions: [String: CustomActionConfig] = [:],
         platform: Platform = .ios,
         androidModule: String = "app",
         androidBuildVariant: String = "release",
@@ -305,9 +343,18 @@ public struct ResolvedConfig: Sendable {
         self.phasedRelease = phasedRelease
         self.versioningStrategy = versioningStrategy
         self.versioningSource = versioningSource
+        self.versioningSpecPath = versioningSpecPath
+        self.versioningBuildKey = versioningBuildKey
+        self.versioningMarketingKey = versioningMarketingKey
+        self.projectGenerationTool = projectGenerationTool
+        self.projectGenerationCommand = projectGenerationCommand
+        self.projectGenerationSpecPath = projectGenerationSpecPath
+        self.projectGenerationOutputProject = projectGenerationOutputProject
+        self.projectGenerationAutoGenerate = projectGenerationAutoGenerate
         self.slackWebhookUrl = slackWebhookUrl
         self.slackChannel = slackChannel
         self.workflows = workflows
+        self.customActions = customActions
         self.platform = platform
         self.androidModule = androidModule
         self.androidBuildVariant = androidBuildVariant

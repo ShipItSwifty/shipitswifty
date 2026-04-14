@@ -82,6 +82,53 @@ swift run shipit coverage --sort name --limit 10              # alphabetical, ca
 
 > **Prerequisite:** Requires access to the remote `SwiftyShell` Swift package dependency during `swift build` and `swift test`.
 
+## Custom actions (composite workflow steps)
+
+`Shipfile.yml` supports a `custom_actions:` block where users define reusable, parameterized step sequences. A custom action is invoked from a workflow the same way as a built-in:
+
+```yaml
+custom_actions:
+  build_and_sign:
+    description: "Test, archive, and export with a chosen export method."
+    parameters:
+      method:
+        type: string
+        required: true
+    steps:
+      - action: test
+      - action: archive
+      - action: export
+        options:
+          method: "{{param.method}}"
+
+workflows:
+  beta:
+    - action: build_and_sign
+      options: { method: app-store }
+    - action: testflight
+  adhoc:
+    - action: build_and_sign
+      options: { method: ad-hoc }
+```
+
+**Parameter substitution:** Inside a step's `options:` block, string values may reference declared parameters with `{{param.NAME}}`. This delimiter is deliberately chosen to avoid collisions with:
+
+- Shipfile's own `${ENV_VAR}` expansion (different delimiter; env expansion runs *before* composite substitution, so you can mix them: `"{{param.track}}-${DEPLOY_ENV}"`).
+- GitHub Actions `${{ env.X }}` / `${{ secrets.X }}`.
+- CircleCI `<< parameters.X >>`.
+- Xcode Cloud / shell `$VAR` / `${VAR}`.
+
+**Rules enforced by `shipit validate yml`:**
+- Custom action names must not collide with built-in action names.
+- Each step's `action:` must resolve to a built-in or another composite.
+- Every `{{param.NAME}}` reference must match a declared parameter.
+- Required parameters (no `default:`) must be supplied at the call site.
+- Composite-to-composite references must be acyclic.
+
+**Agent guidance:** `shipit ai-session` enumerates the user's declared custom actions in the generated `agentPrompt` so agents prefer reusing an existing composite over duplicating its step sequence in a new workflow.
+
+See `docs/configuration-reference.md` for the full schema and examples.
+
 ## App Store Connect credentials (for ASC-backed features)
 
 Set these environment variables:
