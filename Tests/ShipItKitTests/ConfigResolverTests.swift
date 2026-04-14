@@ -230,4 +230,182 @@ struct ConfigResolverTests {
         try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
         return url
     }
+
+    // MARK: - Project generation config
+
+    @Test("Resolves project generation config from Shipfile")
+    func resolvesProjectGenerationConfig() async throws {
+        let tempDirectory = try makeTempDirectory()
+        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+
+        let shipfileURL = tempDirectory.appendingPathComponent("Shipfile.yml")
+        try """
+        app:
+          project: MyApp.xcodeproj
+          scheme: MyApp
+        project_generation:
+          tool: xcodegen
+          command: xcodegen generate --spec custom.yml
+          spec_path: custom.yml
+          output_project: MyApp.xcodeproj
+          auto_generate: false
+        """.write(to: shipfileURL, atomically: true, encoding: .utf8)
+
+        let resolver = ConfigResolver(environment: Environment())
+        let config = try await resolver.resolve(shipfilePath: shipfileURL.path)
+
+        #expect(config.projectGenerationTool == "xcodegen")
+        #expect(config.projectGenerationCommand == "xcodegen generate --spec custom.yml")
+        #expect(config.projectGenerationSpecPath == "custom.yml")
+        #expect(config.projectGenerationOutputProject == "MyApp.xcodeproj")
+        #expect(config.projectGenerationAutoGenerate == false)
+    }
+
+    @Test("Project generation defaults auto_generate to true when not specified")
+    func projectGenerationDefaultsAutoGenerate() async throws {
+        let tempDirectory = try makeTempDirectory()
+        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+
+        let shipfileURL = tempDirectory.appendingPathComponent("Shipfile.yml")
+        try """
+        app:
+          scheme: MyApp
+        project_generation:
+          tool: xcodegen
+        """.write(to: shipfileURL, atomically: true, encoding: .utf8)
+
+        let resolver = ConfigResolver(environment: Environment())
+        let config = try await resolver.resolve(shipfilePath: shipfileURL.path)
+
+        #expect(config.projectGenerationTool == "xcodegen")
+        #expect(config.projectGenerationAutoGenerate == true)
+    }
+
+    @Test("Default project generation command is derived from tool name")
+    func defaultProjectGenerationCommandFromTool() async throws {
+        let tempDirectory = try makeTempDirectory()
+        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+
+        let shipfileURL = tempDirectory.appendingPathComponent("Shipfile.yml")
+        try """
+        app:
+          scheme: MyApp
+        project_generation:
+          tool: xcodegen
+        """.write(to: shipfileURL, atomically: true, encoding: .utf8)
+
+        let resolver = ConfigResolver(environment: Environment())
+        let config = try await resolver.resolve(shipfilePath: shipfileURL.path)
+
+        // Should auto-derive "xcodegen generate" from tool name
+        #expect(config.projectGenerationCommand == "xcodegen generate")
+    }
+
+    @Test("versioning.spec_path falls back to project_generation.spec_path")
+    func versioningSpecPathFallsBack() async throws {
+        let tempDirectory = try makeTempDirectory()
+        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+
+        let shipfileURL = tempDirectory.appendingPathComponent("Shipfile.yml")
+        try """
+        app:
+          scheme: MyApp
+        project_generation:
+          tool: xcodegen
+          spec_path: project.yml
+        versioning:
+          source: project_spec
+        """.write(to: shipfileURL, atomically: true, encoding: .utf8)
+
+        let resolver = ConfigResolver(environment: Environment())
+        let config = try await resolver.resolve(shipfilePath: shipfileURL.path)
+
+        #expect(config.versioningSource == "project_spec")
+        #expect(config.versioningSpecPath == "project.yml")
+    }
+
+    @Test("Explicit versioning.spec_path overrides project_generation.spec_path")
+    func explicitVersioningSpecPathOverrides() async throws {
+        let tempDirectory = try makeTempDirectory()
+        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+
+        let shipfileURL = tempDirectory.appendingPathComponent("Shipfile.yml")
+        try """
+        app:
+          scheme: MyApp
+        project_generation:
+          tool: xcodegen
+          spec_path: project.yml
+        versioning:
+          source: project_spec
+          spec_path: custom-version-spec.yml
+        """.write(to: shipfileURL, atomically: true, encoding: .utf8)
+
+        let resolver = ConfigResolver(environment: Environment())
+        let config = try await resolver.resolve(shipfilePath: shipfileURL.path)
+
+        #expect(config.versioningSpecPath == "custom-version-spec.yml")
+        #expect(config.projectGenerationSpecPath == "project.yml")
+    }
+
+    @Test("Versioning custom build_key and marketing_key are resolved")
+    func versioningCustomKeysResolved() async throws {
+        let tempDirectory = try makeTempDirectory()
+        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+
+        let shipfileURL = tempDirectory.appendingPathComponent("Shipfile.yml")
+        try """
+        app:
+          scheme: MyApp
+        versioning:
+          source: project_spec
+          build_key: MY_BUILD_NUMBER
+          marketing_key: MY_VERSION_STRING
+        """.write(to: shipfileURL, atomically: true, encoding: .utf8)
+
+        let resolver = ConfigResolver(environment: Environment())
+        let config = try await resolver.resolve(shipfilePath: shipfileURL.path)
+
+        #expect(config.versioningBuildKey == "MY_BUILD_NUMBER")
+        #expect(config.versioningMarketingKey == "MY_VERSION_STRING")
+    }
+
+    @Test("Versioning keys default to standard Xcode names")
+    func versioningKeysDefaults() async throws {
+        let tempDirectory = try makeTempDirectory()
+        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+
+        let shipfileURL = tempDirectory.appendingPathComponent("Shipfile.yml")
+        try """
+        app:
+          scheme: MyApp
+        """.write(to: shipfileURL, atomically: true, encoding: .utf8)
+
+        let resolver = ConfigResolver(environment: Environment())
+        let config = try await resolver.resolve(shipfilePath: shipfileURL.path)
+
+        #expect(config.versioningBuildKey == "CURRENT_PROJECT_VERSION")
+        #expect(config.versioningMarketingKey == "MARKETING_VERSION")
+    }
+
+    @Test("No project generation config when block is absent")
+    func noProjectGenerationWhenAbsent() async throws {
+        let tempDirectory = try makeTempDirectory()
+        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+
+        let shipfileURL = tempDirectory.appendingPathComponent("Shipfile.yml")
+        try """
+        app:
+          scheme: MyApp
+        """.write(to: shipfileURL, atomically: true, encoding: .utf8)
+
+        let resolver = ConfigResolver(environment: Environment())
+        let config = try await resolver.resolve(shipfilePath: shipfileURL.path)
+
+        #expect(config.projectGenerationTool == nil)
+        #expect(config.projectGenerationCommand == nil)
+        #expect(config.projectGenerationSpecPath == nil)
+        #expect(config.projectGenerationOutputProject == nil)
+        #expect(config.projectGenerationAutoGenerate == true)
+    }
 }

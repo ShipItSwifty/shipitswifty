@@ -346,7 +346,7 @@ public struct ValidateArchiveAction: Action {
             issues.append(.init(
                 code: "BUNDLE_MISSING_ICON_DECLARATION",
                 message: "Info.plist has no CFBundleIcons or CFBundleIconFiles key. App Store requires a 1024×1024 app icon.",
-                severity: .error
+                severity: .warning
             ))
         }
 

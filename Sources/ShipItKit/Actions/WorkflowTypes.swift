@@ -103,6 +103,10 @@ public struct Workflow: Sendable {
 
     /// Run all steps in this workflow sequentially.
     ///
+    /// When the context has project generation configured and the output project
+    /// does not exist, this method auto-generates the Xcode project before
+    /// executing the first step that requires an Xcode container.
+    ///
     /// - Parameters:
     ///   - context: Shared execution context passed to each action.
     ///   - registry: The action registry used to look up descriptors by name.
@@ -115,6 +119,11 @@ public struct Workflow: Sendable {
         logger.info("Starting workflow '\(name)' with \(steps.count) step(s)")
         var stepResults: [ActionResultEnvelope] = []
         let startTime = Date()
+
+        // Auto-generate project before running any Xcode-dependent steps
+        if Self.requiresXcodeContainer(steps: steps) {
+            try await context.ensureProjectGenerated()
+        }
 
         for (index, step) in steps.enumerated() {
             logger.info("Workflow '\(name)' step \(index + 1)/\(steps.count): \(step.action)")
@@ -133,6 +142,16 @@ public struct Workflow: Sendable {
         let duration = Date().timeIntervalSince(startTime)
         logger.info("Workflow '\(name)' completed in \(String(format: "%.1f", duration))s")
         return WorkflowResult(workflowName: name, stepResults: stepResults, duration: duration)
+    }
+
+    /// Actions that require an `.xcodeproj` or `.xcworkspace` to be present.
+    private static let xcodeContainerActions: Set<String> = [
+        "build", "test", "archive", "export", "version", "lint", "snapshot", "coverage",
+    ]
+
+    /// Returns `true` when any step in the workflow is an action that needs an Xcode container.
+    private static func requiresXcodeContainer(steps: [WorkflowStep]) -> Bool {
+        steps.contains { xcodeContainerActions.contains($0.action) }
     }
 }
 

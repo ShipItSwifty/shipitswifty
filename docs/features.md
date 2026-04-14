@@ -52,7 +52,8 @@ This document covers the planned feature surface, current v1 scope, the long-ter
 | **UI Tests** | Implemented | `--only-testing` / `--skip-testing` target filtering; run on any simulator or device destination |
 | **Multi-destination runs** | Implemented | `destinations` array — each entry triggers a separate `xcodebuild test` pass; pass/fail/skip counts are aggregated across all destinations. Supports simulators, physical devices, and mixed matrices in one step. |
 | **Destination discovery** | Implemented | `DestinationDiscovery` calls `xcodebuild -showdestinations` for the selected scheme and returns typed `XcodebuildDestination` values sorted simulators-first. Used by `ai-session` and `suggest-config` to avoid inventing simulator names. |
-| **No-destination guard** | Implemented | When `destinations` (and the legacy `destination`) are both absent the action throws `ShipItError.invalidConfiguration` with an actionable message rather than guessing a name that may not be installed. |
+| **No-destination guard** | Implemented | When `destinations` (and the legacy `destination`) are both absent, the action auto-discovers a suitable iPhone simulator using `DestinationDiscovery`. If no iPhone simulator is available, it throws `ShipItError.invalidConfiguration` with an actionable message listing what was found. |
+| **Automatic destination discovery** | Implemented | When no destinations are configured, the test action auto-discovers available iPhone simulators via `xcodebuild -showdestinations`, preferring the highest OS version and Pro models. Eliminates manual simulator configuration for most projects. |
 | **Code Coverage** | Implemented | `-enableCodeCoverage YES`; auto-derives `./build/<scheme>-tests.xcresult` when coverage enabled and no explicit path given; any existing bundle at the resolved path is removed before xcodebuild runs, making repeated local and CI runs safe without manual cleanup |
 | **Test Result Parsing** | Implemented | Structured pass/fail/skip counts from xcodebuild summary line; per-test `FAILED` line fallback for parallelized output |
 | **Test Plans** | Implemented | `--test-plan` selects a named `.xctestplan` |
@@ -121,8 +122,22 @@ ShipItSwifty follows Apple's two-version model:
 | **Bump Version** | Increment a segment of `CFBundleShortVersionString` (`bump: major/minor/patch`). Resets `CFBundleVersion` to `1`. |
 | **Version Source — xcodeproj** | Reads `MARKETING_VERSION` and `CURRENT_PROJECT_VERSION` directly from Xcode build settings via `xcodebuild -showBuildSettings`. Writes via `agvtool new-marketing-version` / `agvtool new-version -all`. Falls back to agvtool read and then `plutil` on Info.plist for legacy projects without those build settings. |
 | **Version Source — asc** | Reads the current build number from App Store Connect. Falls through to agvtool / plutil for the read phase. |
+| **Version Source — project_spec** | Reads and writes version values directly in a YAML project spec file (e.g. XcodeGen `project.yml`). Performs line-by-line replacement to preserve formatting, comments, and structure. Configurable via `versioning.spec_path`, `versioning.build_key`, `versioning.marketing_key`. Falls back to `project_generation.spec_path` when `versioning.spec_path` is not set. |
+| **Version Target Override** | The `version` action accepts a `target` option (`source_of_truth`, `project_spec`, or `xcodeproj`) to override the configured versioning source per-step, enabling workflows that write to the spec file even when the default source is `xcodeproj`. |
 | **Git Tag** | Auto-tag releases with version |
 | **Changelog** | Generate from git commits between tags |
+
+### Project Generation
+
+For iOS projects that use spec-driven project tools (XcodeGen, Tuist, etc.), ShipItSwifty can auto-generate the `.xcodeproj` before any Xcode-dependent workflow step.
+
+| Feature | Status | Description |
+|---|---|---|
+| **Auto-generation** | Implemented | When `project_generation.tool` is configured in Shipfile.yml, `Workflow.run()` automatically generates the Xcode project before the first Xcode-dependent step (build, test, archive, etc.). Skips generation when the output project already exists. |
+| **`generate_project` action** | Implemented | Explicit action for project generation. Supports `command`, `spec_path`, `output_project`, and `force` options. Registered as a first-class action in the action registry. |
+| **XcodeGen support** | Implemented | Default command for `tool: xcodegen` is `xcodegen generate`. Custom commands are supported for non-standard invocations. |
+| **Auto-generate toggle** | Implemented | `project_generation.auto_generate: false` disables auto-generation; the `generate_project` action must be invoked explicitly. |
+| **Spec validation** | Implemented | Generation validates that the spec file exists before running and that the output project was created after the command completes. |
 
 ### Distribution
 

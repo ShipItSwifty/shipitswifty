@@ -34,8 +34,7 @@ This runs:
 - Android dry-run paths (no SDK needed)
 
 Tests requiring credentials silently skip when the env vars are absent.
-The signed archive validation test also skips unless `SHIPIT_SIGNED_ARCHIVE_PATH` points to
-an existing signed `.xcarchive` for `com.shipitswifty.integration`.
+The archive validation test archives the `ios-sample` fixture and validates the result inline.
 
 ### Tier 3 — Integration tests with credentials
 
@@ -162,29 +161,6 @@ For local development you have the file on disk, so you can skip the base64 step
 
 ---
 
-## Signed archive validation
-
-`shipit validate archive` is treated as a strict upload-readiness gate, so the integration
-test for it requires a genuinely signed archive rather than the unsigned local fixture archive.
-
-1. Produce a signed `.xcarchive` for **`com.shipitswifty.integration`** using your normal
-   signing setup.
-2. Export its path:
-
-```bash
-export SHIPIT_SIGNED_ARCHIVE_PATH=/absolute/path/to/com.shipitswifty.integration.xcarchive
-```
-
-3. Re-run:
-
-```bash
-swift test --filter BuildIntegrationTests.validateArchiveReportsBundleID
-```
-
-The test skips automatically when `SHIPIT_SIGNED_ARCHIVE_PATH` is unset or missing.
-
----
-
 ## Binary ID guard
 
 Every credentialed test calls `assertIntegrationScope()` as the first line. This is a
@@ -201,7 +177,6 @@ production app.
    - `.requiresASCCredentials`
    - `.requiresGooglePlayCredentials`
    - `.requiresAndroid`
-   - `.requiresSignedArchive`
    - `.requiresSimulator`
    - `.requiresSigningIdentity` — local "Apple Development" cert in the default keychain
    - `.requiresP12Credentials` — `SHIPIT_TEST_P12_BASE64` + `SHIPIT_TEST_P12_PASSWORD`

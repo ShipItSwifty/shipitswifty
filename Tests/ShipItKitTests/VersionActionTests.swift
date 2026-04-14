@@ -361,4 +361,294 @@ struct VersionActionTests {
         let context = ActionContext.mock(executor: executor, versioningSource: "asc")
         #expect(context.config.versioningSource == "asc")
     }
+
+    // MARK: - project_spec source — read/write via YAML file
+
+    /// Helper: creates a temp YAML spec file, returns the path.
+    private func makeTempSpec(content: String) throws -> (path: String, cleanup: () -> Void) {
+        let dir = NSTemporaryDirectory() + "ShipItTests-\(UUID().uuidString)"
+        try FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
+        let path = dir + "/project.yml"
+        try content.write(toFile: path, atomically: true, encoding: .utf8)
+        return (path, { try? FileManager.default.removeItem(atPath: dir) })
+    }
+
+    /// Helper: makes a context configured for project_spec versioning.
+    private func makeProjectSpecContext(executor: MockExecutor, specPath: String) -> ActionContext {
+        let config = ResolvedConfig(
+            appScheme: "MockApp",
+            versioningSource: "project_spec",
+            versioningSpecPath: specPath
+        )
+        let dummyKeyData = Data("-----BEGIN EC PRIVATE KEY-----\nMHQCAQEEIBkg4DUVQ1fIFUHBABCLRrFwNVm7MAkGByqGSM49AgEFoWQDYgAE\n-----END EC PRIVATE KEY-----".utf8)
+        let ascClient = AppStoreConnectClient(keyID: "K", issuerID: "I", privateKeyData: dummyKeyData)
+        return ActionContext(
+            shell: ShellContext(executor: executor),
+            logger: .forType(subsystem: "ShipItSwiftyTests", VersionAction.self),
+            config: config,
+            appStoreConnect: ascClient
+        )
+    }
+
+    @Test("VersionAction project_spec source reads and bumps build number in YAML")
+    func projectSpecBumpsBuild() async throws {
+        let yaml = """
+        name: MyApp
+        settings:
+          MARKETING_VERSION: "1.0.0"
+          CURRENT_PROJECT_VERSION: "10"
+        """
+        let (path, cleanup) = try makeTempSpec(content: yaml)
+        defer { cleanup() }
+
+        // project_spec source does file I/O — no shell commands needed for read/write
+        let executor = MockExecutor { _, _ in
+            ShellOutput(stdout: "", stderr: "", exitCode: 0)
+        }
+        let context = makeProjectSpecContext(executor: executor, specPath: path)
+        let result = try await VersionAction().run(with: .init(bump: .build), context: context)
+
+        #expect(result.version == "1.0.0")
+        #expect(result.buildNumber == "11")
+
+        // Verify the YAML file was updated
+        let updated = try String(contentsOfFile: path, encoding: .utf8)
+        #expect(updated.contains("CURRENT_PROJECT_VERSION: \"11\""))
+        #expect(updated.contains("MARKETING_VERSION: \"1.0.0\""))
+    }
+
+    @Test("VersionAction project_spec source bumps patch version in YAML")
+    func projectSpecBumpsPatch() async throws {
+        let yaml = """
+        name: MyApp
+        settings:
+          MARKETING_VERSION: "2.3.4"
+          CURRENT_PROJECT_VERSION: "50"
+        """
+        let (path, cleanup) = try makeTempSpec(content: yaml)
+        defer { cleanup() }
+
+        let executor = MockExecutor { _, _ in
+            ShellOutput(stdout: "", stderr: "", exitCode: 0)
+        }
+        let context = makeProjectSpecContext(executor: executor, specPath: path)
+        let result = try await VersionAction().run(with: .init(bump: .patch), context: context)
+
+        #expect(result.version == "2.3.5")
+        #expect(result.buildNumber == "50")
+
+        let updated = try String(contentsOfFile: path, encoding: .utf8)
+        #expect(updated.contains("MARKETING_VERSION: \"2.3.5\""))
+    }
+
+    @Test("VersionAction project_spec source sets explicit version and build")
+    func projectSpecSetsExplicit() async throws {
+        let yaml = """
+        settings:
+          MARKETING_VERSION: "1.0.0"
+          CURRENT_PROJECT_VERSION: "1"
+        """
+        let (path, cleanup) = try makeTempSpec(content: yaml)
+        defer { cleanup() }
+
+        let executor = MockExecutor { _, _ in
+            ShellOutput(stdout: "", stderr: "", exitCode: 0)
+        }
+        let context = makeProjectSpecContext(executor: executor, specPath: path)
+        let result = try await VersionAction().run(
+            with: .init(bump: .set, version: "5.0.0", buildNumber: "100"),
+            context: context
+        )
+
+        #expect(result.version == "5.0.0")
+        #expect(result.buildNumber == "100")
+
+        let updated = try String(contentsOfFile: path, encoding: .utf8)
+        #expect(updated.contains("MARKETING_VERSION: \"5.0.0\""))
+        #expect(updated.contains("CURRENT_PROJECT_VERSION: \"100\""))
+    }
+
+    @Test("VersionAction does not invoke agvtool or xcodebuild for project_spec source")
+    func projectSpecDoesNotCallShell() async throws {
+        let yaml = """
+        settings:
+          MARKETING_VERSION: "1.0.0"
+          CURRENT_PROJECT_VERSION: "1"
+        """
+        let (path, cleanup) = try makeTempSpec(content: yaml)
+        defer { cleanup() }
+
+        let (executor, commands) = makeCaptureExecutor()
+        let context = makeProjectSpecContext(executor: executor, specPath: path)
+        _ = try await VersionAction().run(with: .init(bump: .build), context: context)
+
+        // No shell commands should have been executed
+        #expect(commands().isEmpty)
+    }
+
+    // MARK: - target option override
+
+    @Test("VersionAction target: source_of_truth overrides xcodeproj config to use project_spec")
+    func targetOverridesToProjectSpec() async throws {
+        let yaml = """
+        settings:
+          MARKETING_VERSION: "1.0.0"
+          CURRENT_PROJECT_VERSION: "5"
+        """
+        let (path, cleanup) = try makeTempSpec(content: yaml)
+        defer { cleanup() }
+
+        // Config says xcodeproj, but options.target says source_of_truth
+        let executor = MockExecutor { _, _ in
+            ShellOutput(stdout: "", stderr: "", exitCode: 0)
+        }
+        let config = ResolvedConfig(
+            appScheme: "MockApp",
+            versioningSource: "xcodeproj",
+            versioningSpecPath: path
+        )
+        let dummyKeyData = Data("-----BEGIN EC PRIVATE KEY-----\nMHQCAQEEIBkg4DUVQ1fIFUHBABCLRrFwNVm7MAkGByqGSM49AgEFoWQDYgAE\n-----END EC PRIVATE KEY-----".utf8)
+        let ascClient = AppStoreConnectClient(keyID: "K", issuerID: "I", privateKeyData: dummyKeyData)
+        let context = ActionContext(
+            shell: ShellContext(executor: executor),
+            logger: .forType(subsystem: "ShipItSwiftyTests", VersionAction.self),
+            config: config,
+            appStoreConnect: ascClient
+        )
+
+        let result = try await VersionAction().run(
+            with: .init(bump: .build, target: "source_of_truth"),
+            context: context
+        )
+
+        #expect(result.version == "1.0.0")
+        #expect(result.buildNumber == "6")
+
+        // Verify YAML file was updated (not agvtool)
+        let updated = try String(contentsOfFile: path, encoding: .utf8)
+        #expect(updated.contains("CURRENT_PROJECT_VERSION: \"6\""))
+    }
+
+    @Test("VersionAction target: project_spec is equivalent to source_of_truth")
+    func targetProjectSpecAlias() async throws {
+        let yaml = """
+        settings:
+          MARKETING_VERSION: "1.0.0"
+          CURRENT_PROJECT_VERSION: "7"
+        """
+        let (path, cleanup) = try makeTempSpec(content: yaml)
+        defer { cleanup() }
+
+        let executor = MockExecutor { _, _ in
+            ShellOutput(stdout: "", stderr: "", exitCode: 0)
+        }
+        let config = ResolvedConfig(
+            appScheme: "MockApp",
+            versioningSource: "xcodeproj",
+            versioningSpecPath: path
+        )
+        let dummyKeyData = Data("-----BEGIN EC PRIVATE KEY-----\nMHQCAQEEIBkg4DUVQ1fIFUHBABCLRrFwNVm7MAkGByqGSM49AgEFoWQDYgAE\n-----END EC PRIVATE KEY-----".utf8)
+        let ascClient = AppStoreConnectClient(keyID: "K", issuerID: "I", privateKeyData: dummyKeyData)
+        let context = ActionContext(
+            shell: ShellContext(executor: executor),
+            logger: .forType(subsystem: "ShipItSwiftyTests", VersionAction.self),
+            config: config,
+            appStoreConnect: ascClient
+        )
+
+        let result = try await VersionAction().run(
+            with: .init(bump: .build, target: "project_spec"),
+            context: context
+        )
+
+        #expect(result.buildNumber == "8")
+    }
+
+    // MARK: - target: xcodeproj override
+
+    @Test("VersionAction target: xcodeproj overrides project_spec config to use Xcode build settings")
+    func targetXcodeprojOverridesProjectSpecConfig() async throws {
+        nonisolated(unsafe) var executedCommands: [String] = []
+        let executor = MockExecutor { command, _ in
+            let description = command.description
+            executedCommands.append(description)
+
+            if description.contains("showBuildSettings") {
+                return ShellOutput(
+                    stdout: "MARKETING_VERSION = 3.0.0\n    CURRENT_PROJECT_VERSION = 20\n",
+                    stderr: "", exitCode: 0
+                )
+            }
+            return ShellOutput(stdout: "", stderr: "", exitCode: 0)
+        }
+
+        // Config says project_spec, but options.target says xcodeproj
+        let config = ResolvedConfig(
+            appScheme: "MockApp",
+            versioningSource: "project_spec",
+            versioningSpecPath: "/some/path/project.yml"
+        )
+        let dummyKeyData = Data("-----BEGIN EC PRIVATE KEY-----\nMHQCAQEEIBkg4DUVQ1fIFUHBABCLRrFwNVm7MAkGByqGSM49AgEFoWQDYgAE\n-----END EC PRIVATE KEY-----".utf8)
+        let ascClient = AppStoreConnectClient(keyID: "K", issuerID: "I", privateKeyData: dummyKeyData)
+        let context = ActionContext(
+            shell: ShellContext(executor: executor),
+            logger: .forType(subsystem: "ShipItSwiftyTests", VersionAction.self),
+            config: config,
+            appStoreConnect: ascClient
+        )
+
+        let result = try await VersionAction().run(
+            with: .init(bump: .build, target: "xcodeproj"),
+            context: context
+        )
+
+        #expect(result.version == "3.0.0")
+        #expect(result.buildNumber == "21")
+        // Must have used xcodebuild, not the YAML file
+        #expect(executedCommands.contains { $0.contains("showBuildSettings") })
+    }
+
+    @Test("VersionAction with no target option uses config versioningSource")
+    func noTargetUsesConfigSource() async throws {
+        let yaml = """
+        settings:
+          MARKETING_VERSION: "1.0.0"
+          CURRENT_PROJECT_VERSION: "3"
+        """
+        let (path, cleanup) = try makeTempSpec(content: yaml)
+        defer { cleanup() }
+
+        let (executor, commands) = makeCaptureExecutor()
+        let context = makeProjectSpecContext(executor: executor, specPath: path)
+        _ = try await VersionAction().run(with: .init(bump: .build), context: context)
+
+        // Config is project_spec, no target override — should not call shell
+        #expect(commands().isEmpty)
+
+        let updated = try String(contentsOfFile: path, encoding: .utf8)
+        #expect(updated.contains("CURRENT_PROJECT_VERSION: \"4\""))
+    }
+
+    // MARK: - BuiltInSchemaCatalog version schema
+
+    @Test("BuiltInSchemaCatalog version schema includes target field")
+    func schemaCatalogVersionTargetField() {
+        let schema = BuiltInSchemaCatalog.optionSchema(for: VersionAction.name)
+        let fieldNames = schema.map(\.name)
+        #expect(fieldNames.contains("target"))
+    }
+
+    @Test("BuiltInSchemaCatalog versioning section includes spec_path, build_key, and marketing_key")
+    func schemaCatalogVersioningSectionFields() {
+        let fields = BuiltInSchemaCatalog.shipfileFields()
+        guard let versioningSection = fields.first(where: { $0.name == "versioning" }) else {
+            Issue.record("versioning section not found in shipfileFields()")
+            return
+        }
+        let propertyNames = versioningSection.propertyValues.map(\.name)
+        #expect(propertyNames.contains("spec_path"))
+        #expect(propertyNames.contains("build_key"))
+        #expect(propertyNames.contains("marketing_key"))
+        #expect(propertyNames.contains("source"))
+    }
 }

@@ -52,6 +52,17 @@ public struct VersionAction: Action {
         /// Strategy for auto-incrementing build numbers.
         public var strategy: BuildNumberStrategy?
 
+        /// Where to write the version bump. When `source_of_truth` is specified,
+        /// the bump targets the project spec file (e.g. `project.yml`) rather than
+        /// the generated `.xcodeproj`. This is required for XcodeGen repos where the
+        /// `.xcodeproj` is regenerated and would lose changes.
+        ///
+        /// Valid values:
+        /// - `nil` (default): uses the `versioning.source` from config
+        /// - `"source_of_truth"` or `"project_spec"`: writes to the spec file
+        /// - `"xcodeproj"`: writes to the Xcode project directly
+        public var target: String?
+
         /// Creates `Options` for the version action.
         ///
         /// - Parameters:
@@ -59,16 +70,19 @@ public struct VersionAction: Action {
         ///   - version: Specific version string (used when `bump` is `.set`).
         ///   - buildNumber: Specific build number to set.
         ///   - strategy: Auto-increment strategy override.
+        ///   - target: Override versioning target (`source_of_truth`, `project_spec`, `xcodeproj`).
         public init(
             bump: BumpType = .build,
             version: String? = nil,
             buildNumber: String? = nil,
-            strategy: BuildNumberStrategy? = nil
+            strategy: BuildNumberStrategy? = nil,
+            target: String? = nil
         ) {
             self.bump = bump
             self.version = version
             self.buildNumber = buildNumber
             self.strategy = strategy
+            self.target = target
         }
     }
 

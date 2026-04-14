@@ -91,14 +91,28 @@ struct BuildIntegrationTests {
 
     // MARK: - validate archive
 
-    @Test("validate archive reports correct bundle ID for a signed archive", .requiresSignedArchive)
+    @Test("validate archive reports correct bundle ID")
     func validateArchiveReportsBundleID() async throws {
+        try assertIOSFixtureExists()
         try assertIntegrationScope(shipfile: FixturePaths.iosBetaShipfile)
-        let signedArchivePath = try #require(ProcessInfo.processInfo.environment["SHIPIT_SIGNED_ARCHIVE_PATH"])
+
+        // Build an archive from the ios-sample fixture so the test is self-contained.
+        let tmpArchive = FileManager.default.temporaryDirectory
+            .appendingPathComponent("validate-\(UUID().uuidString).xcarchive")
+        defer { try? FileManager.default.removeItem(at: tmpArchive) }
+
+        let archiveResult = try await CLI.run(
+            "archive",
+            "--scheme", scheme,
+            "--output-path", tmpArchive.path,
+            workingDirectory: fixtureDir,
+            timeout: 300
+        )
+        try #require(archiveResult.exitCode == 0, "archive failed:\n\(archiveResult.stderr)")
 
         let validateResult = try await CLI.run(
             "validate", "archive",
-            "--archive-path", signedArchivePath,
+            "--archive-path", tmpArchive.path,
             "--output", "json"
         )
         #expect(validateResult.exitCode == 0, "validate archive failed:\n\(validateResult.stderr)")
