@@ -44,11 +44,26 @@ struct AISessionCommand: AsyncParsableCommand {
 
         let platform = options.platform ?? autoDetectPlatform(at: path)
 
+        // Pass through any user-defined custom actions so the generated agent
+        // prompt can enumerate them and steer agents toward reuse.
+        let customActions: [String: CustomActionConfig]
+        if hasExistingShipfile {
+            let resolver = ConfigResolver()
+            let resolved = try? await resolver.resolve(
+                cliOptions: CLIOptions(ci: options.ci, platform: platform),
+                shipfilePath: resolvedShipfilePath
+            )
+            customActions = resolved?.customActions ?? [:]
+        } else {
+            customActions = [:]
+        }
+
         let payload = AISessionBuilder().build(
             goal: goal,
             inspection: inspection,
             hasExistingShipfile: hasExistingShipfile,
-            platform: platform
+            platform: platform,
+            customActions: customActions
         )
 
         let reporter = JSONReporter()

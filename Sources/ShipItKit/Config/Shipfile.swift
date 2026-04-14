@@ -48,11 +48,36 @@ public struct Shipfile: Codable, Sendable {
     /// Versioning strategy settings.
     public var versioning: VersioningConfig?
 
+    /// Project generation configuration (e.g. XcodeGen, Tuist).
+    public var projectGeneration: ProjectGenerationConfig?
+
     /// Notification settings.
     public var notifications: NotificationsConfig?
 
     /// Named release workflows.
     public var workflows: [String: WorkflowConfig]?
+
+    /// User-defined composite actions — reusable, parameterized sequences of built-in
+    /// actions (or other custom actions). Invoked from workflow steps by name, just
+    /// like built-in actions. See ``CustomActionConfig``.
+    ///
+    /// ## Example
+    /// ```yaml
+    /// custom_actions:
+    ///   build_and_sign:
+    ///     description: "Test, archive, and export the app."
+    ///     parameters:
+    ///       method:
+    ///         type: string
+    ///         required: true
+    ///     steps:
+    ///       - action: test
+    ///       - action: archive
+    ///       - action: export
+    ///         options:
+    ///           method: "{{param.method}}"
+    /// ```
+    public var customActions: [String: CustomActionConfig]?
 
     /// iOS-specific overrides merged on top of shared config when platform resolves to `.ios`.
     ///
@@ -83,8 +108,10 @@ public struct Shipfile: Codable, Sendable {
         screenshots: ScreenshotsConfig? = nil,
         metadata: MetadataConfig? = nil,
         versioning: VersioningConfig? = nil,
+        projectGeneration: ProjectGenerationConfig? = nil,
         notifications: NotificationsConfig? = nil,
         workflows: [String: WorkflowConfig]? = nil,
+        customActions: [String: CustomActionConfig]? = nil,
         ios: IOSConfig? = nil,
         android: AndroidConfig? = nil
     ) {
@@ -98,8 +125,10 @@ public struct Shipfile: Codable, Sendable {
         self.screenshots = screenshots
         self.metadata = metadata
         self.versioning = versioning
+        self.projectGeneration = projectGeneration
         self.notifications = notifications
         self.workflows = workflows
+        self.customActions = customActions
         self.ios = ios
         self.android = android
     }
@@ -115,10 +144,92 @@ public struct Shipfile: Codable, Sendable {
         case screenshots
         case metadata
         case versioning
+        case projectGeneration = "project_generation"
         case notifications
         case workflows
+        case customActions = "custom_actions"
         case ios
         case android
+    }
+}
+
+/// A user-defined reusable sequence of action steps.
+///
+/// Custom actions let you factor out duplicated step sequences (for example
+/// `test` → `archive` → `export`) so that multiple workflows can reference
+/// a single named composite instead of repeating the steps.
+///
+/// Custom actions are invoked exactly like built-in actions — a workflow step
+/// uses `action: <name>` and forwards options as the custom action's call-site
+/// parameters. Inside each step's `options:` block, string values can reference
+/// declared parameters using the `{{param.NAME}}` syntax (evaluated *after*
+/// Shipfile env expansion and independent of CI template syntaxes like
+/// GitHub Actions' `${{ }}` or CircleCI's `<< >>`).
+public struct CustomActionConfig: Codable, Sendable {
+    /// Optional human-readable description surfaced in schema and AI prompts.
+    public var description: String?
+
+    /// Declared parameters that call sites may pass in as `options:`.
+    ///
+    /// Keys are parameter names referenced via `{{param.<name>}}`.
+    public var parameters: [String: CustomActionParameter]?
+
+    /// The ordered sequence of step invocations the composite expands to.
+    public var steps: [WorkflowStepConfig]
+
+    public init(
+        description: String? = nil,
+        parameters: [String: CustomActionParameter]? = nil,
+        steps: [WorkflowStepConfig]
+    ) {
+        self.description = description
+        self.parameters = parameters
+        self.steps = steps
+    }
+}
+
+/// A declared parameter on a ``CustomActionConfig``.
+///
+/// Used for validation (required vs. defaulted), defaulting, and surfacing
+/// the shape of custom actions to AI agents via `shipit ai-session`.
+public struct CustomActionParameter: Codable, Sendable {
+    /// Value kind: `"string"` (default), `"bool"`, `"int"`, `"number"`, `"array"`, or `"any"`.
+    public var type: String?
+
+    /// Whether the parameter must be supplied at the call site. Defaults to
+    /// `true` when no `defaultValue` is set, otherwise `false`.
+    public var required: Bool?
+
+    /// Fallback value applied when the call site omits the parameter.
+    public var defaultValue: JSONValue?
+
+    /// Optional human-readable description.
+    public var description: String?
+
+    public init(
+        type: String? = nil,
+        required: Bool? = nil,
+        defaultValue: JSONValue? = nil,
+        description: String? = nil
+    ) {
+        self.type = type
+        self.required = required
+        self.defaultValue = defaultValue
+        self.description = description
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case type
+        case required
+        case defaultValue = "default"
+        case description
+    }
+
+    /// The parameter is required when explicitly marked `required` *or*
+    /// no default value was supplied.
+    public var isRequired: Bool {
+        if let required { return required }
+        return defaultValue == nil
     }
 }
 
@@ -435,13 +546,102 @@ public struct VersioningConfig: Codable, Sendable {
     /// Strategy for incrementing build numbers.
     public var strategy: String?
 
-    /// Source of version information.
+    /// Source of version information (`xcodeproj`, `asc`, or `project_spec`).
+    ///
+    /// When `project_spec` is selected, version reads and writes target the
+    /// project spec file (e.g. `project.yml` for XcodeGen) rather than the
+    /// generated `.xcodeproj`. This keeps the source of truth file in sync.
     public var source: String?
 
+    /// Path to the project spec file (e.g. `project.yml`). Required when
+    /// `source` is `project_spec`.
+    public var specPath: String?
+
+    /// The YAML key path used for the build number in the project spec file.
+    /// Defaults to `CURRENT_PROJECT_VERSION`.
+    public var buildKey: String?
+
+    /// The YAML key path used for the marketing version in the project spec file.
+    /// Defaults to `MARKETING_VERSION`.
+    public var marketingKey: String?
+
     /// Creates a `VersioningConfig`.
-    public init(strategy: String? = nil, source: String? = nil) {
+    public init(
+        strategy: String? = nil,
+        source: String? = nil,
+        specPath: String? = nil,
+        buildKey: String? = nil,
+        marketingKey: String? = nil
+    ) {
         self.strategy = strategy
         self.source = source
+        self.specPath = specPath
+        self.buildKey = buildKey
+        self.marketingKey = marketingKey
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case strategy
+        case source
+        case specPath = "spec_path"
+        case buildKey = "build_key"
+        case marketingKey = "marketing_key"
+    }
+}
+
+/// Project generation configuration for spec-driven projects (e.g. XcodeGen, Tuist).
+///
+/// When configured, ShipIt auto-generates the Xcode project before any
+/// action that requires it (build, test, archive, export, version).
+///
+/// ## Example
+/// ```yaml
+/// project_generation:
+///   tool: xcodegen
+///   command: xcodegen generate
+///   spec_path: ./project.yml
+///   output_project: ./MyApp.xcodeproj
+///   auto_generate: true
+/// ```
+public struct ProjectGenerationConfig: Codable, Sendable {
+    /// The project generation tool name (e.g. `xcodegen`, `tuist`).
+    public var tool: String?
+
+    /// The shell command to run for project generation.
+    /// Defaults to `xcodegen generate` when `tool` is `xcodegen`.
+    public var command: String?
+
+    /// Path to the project spec file (e.g. `project.yml`).
+    public var specPath: String?
+
+    /// Path to the generated Xcode project (e.g. `MyApp.xcodeproj`).
+    public var outputProject: String?
+
+    /// Whether to automatically generate the project when the output is missing
+    /// or stale. Defaults to `true`.
+    public var autoGenerate: Bool?
+
+    /// Creates a `ProjectGenerationConfig`.
+    public init(
+        tool: String? = nil,
+        command: String? = nil,
+        specPath: String? = nil,
+        outputProject: String? = nil,
+        autoGenerate: Bool? = nil
+    ) {
+        self.tool = tool
+        self.command = command
+        self.specPath = specPath
+        self.outputProject = outputProject
+        self.autoGenerate = autoGenerate
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case tool
+        case command
+        case specPath = "spec_path"
+        case outputProject = "output_project"
+        case autoGenerate = "auto_generate"
     }
 }
 

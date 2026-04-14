@@ -285,6 +285,88 @@ Workflow notes:
 - `testflight` and `upload` can reuse that exported IPA automatically when they run after `export` in the same workflow and no explicit `ipa` / `ipa_path` is set.
 - `validate` reports an error when `testflight` or `upload` has no explicit IPA and no prior export context.
 
+## `custom_actions`
+
+User-defined composite actions — reusable, parameterized sequences of built-in actions (or other custom actions). Use these to avoid duplicating step blocks across workflows (for example sharing `test → archive → export` between `beta` and `adhoc`).
+
+```yaml
+custom_actions:
+  <composite-name>:
+    description: "Human-readable summary (optional)."
+    parameters:
+      <param-name>:
+        type: string        # string | bool | int | number | array | object | any
+        required: true       # defaults to true when no default is set
+        default: <value>     # optional fallback when call site omits the value
+        description: "..."
+    steps:
+      - action: <registered-action-or-other-composite>
+        options:
+          <option>: "{{param.<param-name>}}"
+```
+
+Invocation is identical to a built-in action — a workflow step uses `action: <composite-name>` and forwards call-site values via its `options:` block:
+
+```yaml
+custom_actions:
+  build_and_sign:
+    description: "Test, archive, and export the app with a chosen export method."
+    parameters:
+      method:
+        type: string
+        required: true
+    steps:
+      - action: test
+      - action: archive
+      - action: export
+        options:
+          method: "{{param.method}}"
+
+workflows:
+  beta:
+    - action: build_and_sign
+      options:
+        method: app-store
+    - action: testflight
+  adhoc:
+    - action: build_and_sign
+      options:
+        method: ad-hoc
+    - action: notify
+```
+
+### Parameter reference syntax: `{{param.NAME}}`
+
+Inside a step's `options:` block, string values may reference declared parameters using `{{param.NAME}}`. This delimiter is chosen to stay out of the way of every common template system that surrounds a Shipfile:
+
+| System | Template syntax | Safe alongside `{{param.X}}`? |
+|---|---|---|
+| Shipfile `${ENV_VAR}` expansion | `${FOO}` | ✅ Different delimiter. Env expansion runs *before* composite substitution, so you can freely mix: `key: "{{param.track}}-${DEPLOY_ENV}"`. |
+| GitHub Actions | `${{ env.X }}`, `${{ secrets.X }}` | ✅ Different delimiter (leading `$` + double braces). |
+| CircleCI parameters | `<< parameters.X >>` | ✅ Different delimiter. |
+| Xcode Cloud / shell | `$VAR`, `${VAR}` | ✅ Different delimiter. |
+
+Rules:
+
+- Only string **leaves** in a step's `options:` are scanned. Keys and non-string scalars are untouched.
+- When a string is *exactly* `{{param.NAME}}`, the underlying typed JSON value is substituted (`bool`, `int`, `array`, `object`). When it appears inline with other text, the value is stringified.
+- Unknown parameter references cause `shipit validate yml` to report an error rather than silently expanding to an empty string.
+
+### Validation rules
+
+`shipit validate yml` enforces:
+
+- Custom action names must not collide with built-in action names.
+- `steps:` must contain at least one step.
+- Each step's `action:` must resolve to a built-in or another declared custom action.
+- Each `{{param.NAME}}` reference inside a step's options must match a declared parameter.
+- Required parameters must be supplied at the call site (or have a `default:`).
+- The graph of composite-to-composite references must be acyclic.
+
+### AI-session integration
+
+`shipit ai-session` includes the user's custom actions in the generated agent prompt (name, description, and declared parameters). Agents are instructed to prefer invoking an existing composite over duplicating its step sequence in a new workflow.
+
 ## Environment Variables Summary
 
 | Variable | Maps To |

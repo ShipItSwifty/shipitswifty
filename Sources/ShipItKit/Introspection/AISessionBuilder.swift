@@ -30,7 +30,8 @@ public struct AISessionBuilder: Sendable {
         goal: SuggestionGoal,
         inspection: ProjectInspection,
         hasExistingShipfile: Bool,
-        platform: Platform = .ios
+        platform: Platform = .ios,
+        customActions: [String: CustomActionConfig] = [:]
     ) -> AISessionPayload {
         let suggestion = ShipfileSuggester().suggest(goal: goal, from: inspection)
         let app = inspection.suggestedAppConfig
@@ -52,7 +53,7 @@ public struct AISessionBuilder: Sendable {
             ambiguities: ambiguities,
             platform: platform
         )
-        let agentPrompt = buildAgentPrompt(goal: goal, readiness: readiness, platform: platform)
+        let agentPrompt = buildAgentPrompt(goal: goal, readiness: readiness, platform: platform, customActions: customActions)
         let nextQuestion = buildNextQuestion(
             goal: goal,
             missingValues: suggestion.missingValues,
@@ -426,7 +427,12 @@ public struct AISessionBuilder: Sendable {
 
     // MARK: - Agent prompt
 
-    private func buildAgentPrompt(goal: SuggestionGoal, readiness: AIReadiness, platform: Platform) -> String {
+    private func buildAgentPrompt(
+        goal: SuggestionGoal,
+        readiness: AIReadiness,
+        platform: Platform,
+        customActions: [String: CustomActionConfig] = [:]
+    ) -> String {
         let platformFlag = platform == .android ? " --platform android" : ""
         var lines: [String]
 
@@ -542,6 +548,30 @@ public struct AISessionBuilder: Sendable {
             "",
             "When config is incomplete, ask one focused question at a time, starting with the highest-impact missing value.",
         ]
+
+        // Custom composite actions are first-class. Always mention the feature;
+        // enumerate concrete ones when the resolved Shipfile defines any.
+        lines += [
+            "",
+            "Custom actions:",
+            "  Users can define reusable step sequences under `custom_actions:` in Shipfile.yml to avoid duplicating",
+            "  step blocks across workflows (for example sharing `test → archive → export` between beta and ad-hoc).",
+            "  Call them from workflow steps the same way as built-ins (`action: <name>` + optional `options:`).",
+            "  Inside a composite's step options, reference declared parameters as `{{param.NAME}}` — this syntax",
+            "  is chosen specifically to avoid collisions with Shipfile's `${ENV_VAR}` expansion, GitHub Actions",
+            "  `${{ ... }}`, and CircleCI `<< ... >>` templating, so it is safe to use in any CI environment.",
+        ]
+        if !customActions.isEmpty {
+            lines.append("  Defined in this project:")
+            for (name, config) in customActions.sorted(by: { $0.key < $1.key }) {
+                let params = (config.parameters ?? [:]).keys.sorted().joined(separator: ", ")
+                let paramSuffix = params.isEmpty ? "" : "  (params: \(params))"
+                let desc = config.description.map { " — \($0)" } ?? ""
+                lines.append("    - \(name)\(paramSuffix)\(desc)")
+            }
+            lines.append("  Prefer invoking an existing custom action over duplicating its step sequence in a new workflow.")
+        }
+
         return lines.joined(separator: "\n")
     }
 

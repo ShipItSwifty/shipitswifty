@@ -103,7 +103,21 @@ public enum BuiltInSchemaCatalog {
                 description: "Version bump defaults. ShipItSwifty follows Apple's two-version model: CFBundleShortVersionString is the user-facing MAJOR.MINOR.PATCH marketing version; CFBundleVersion is the plain-integer internal build counter incremented on every beta run.",
                 properties: [
                     .string("strategy", description: "How CFBundleVersion is incremented. `sequential` adds 1 each run (guarantees a plain integer, required by Apple). `timestamp` uses YYYYMMDDHHmm format.", defaultValue: .string("sequential"), allowedValues: ["sequential", "timestamp", "commitCount"], example: .string("sequential")),
-                    .string("source", description: "Where CFBundleVersion and CFBundleShortVersionString are read and written. `xcodeproj` reads/writes Xcode build settings directly in the .xcodeproj file. `asc` reads the current build number from App Store Connect.", defaultValue: .string("xcodeproj"), allowedValues: ["xcodeproj", "asc"], example: .string("xcodeproj")),
+                    .string("source", description: "Where CFBundleVersion and CFBundleShortVersionString are read and written. `xcodeproj` reads/writes Xcode build settings directly in the .xcodeproj file. `project_spec` reads/writes a project spec YAML file (e.g. XcodeGen project.yml). `asc` reads the current build number from App Store Connect.", defaultValue: .string("xcodeproj"), allowedValues: ["xcodeproj", "project_spec", "asc"], example: .string("xcodeproj")),
+                    .string("spec_path", description: "Path to the project spec file (e.g. project.yml). Required when source is `project_spec`. Falls back to project_generation.spec_path if not set.", example: .string("./project.yml")),
+                    .string("build_key", description: "YAML key for the build number in the project spec.", defaultValue: .string("CURRENT_PROJECT_VERSION"), example: .string("CURRENT_PROJECT_VERSION")),
+                    .string("marketing_key", description: "YAML key for the marketing version in the project spec.", defaultValue: .string("MARKETING_VERSION"), example: .string("MARKETING_VERSION")),
+                ]
+            ),
+            .object(
+                "project_generation",
+                description: "Project generation configuration for spec-driven projects (e.g. XcodeGen, Tuist). When configured, ShipIt auto-generates the Xcode project before any action that requires it.",
+                properties: [
+                    .string("tool", description: "Project generation tool name.", allowedValues: ["xcodegen", "tuist"], example: .string("xcodegen")),
+                    .string("command", description: "Shell command to run for project generation. Defaults to 'xcodegen generate' when tool is xcodegen.", example: .string("xcodegen generate")),
+                    .string("spec_path", description: "Path to the project spec file.", example: .string("./project.yml")),
+                    .string("output_project", description: "Path to the generated Xcode project.", example: .string("./MyApp.xcodeproj")),
+                    .boolean("auto_generate", description: "Automatically generate the project when the output is missing.", defaultValue: .bool(true), example: .bool(true)),
                 ]
             ),
             .object(
@@ -160,7 +174,49 @@ public enum BuiltInSchemaCatalog {
                     items: workflowStepField()
                 )
             ),
+            .object(
+                "custom_actions",
+                description: "User-defined composite actions — reusable, parameterized sequences of built-in actions (or other custom actions). Invoked from workflow steps by name, just like built-in actions. Use `{{param.NAME}}` inside step options to reference declared parameters.",
+                notes: [
+                    "Custom-action names must not collide with built-in action names.",
+                    "Parameter references use `{{param.NAME}}` — chosen to avoid collisions with Shipfile `${ENV_VAR}` expansion, GitHub Actions `${{ ... }}`, and CircleCI `<< ... >>` templating.",
+                    "Composite references between custom actions are allowed but must be acyclic.",
+                ],
+                allowsAdditionalProperties: true,
+                additionalProperties: customActionField()
+            ),
         ]
+    }
+
+    private static func customActionField() -> SchemaField {
+        .object(
+            "<custom_action>",
+            description: "A reusable composite action definition.",
+            properties: [
+                .string("description", description: "Human-readable description of the composite."),
+                .object(
+                    "parameters",
+                    description: "Declared call-site parameters referenced by `{{param.NAME}}` inside step options.",
+                    allowsAdditionalProperties: true,
+                    additionalProperties: .object(
+                        "<parameter>",
+                        description: "A single parameter declaration.",
+                        properties: [
+                            .string("type", description: "Value kind.", defaultValue: .string("string"), allowedValues: ["string", "bool", "int", "number", "array", "object", "any"], example: .string("string")),
+                            .boolean("required", description: "Whether the parameter must be supplied at the call site. Defaults to true when no default is set."),
+                            .any("default", description: "Fallback value when the call site omits the parameter."),
+                            .string("description", description: "Human-readable description of the parameter."),
+                        ]
+                    )
+                ),
+                .array(
+                    "steps",
+                    required: true,
+                    description: "Ordered action steps the composite expands to.",
+                    items: workflowStepField()
+                ),
+            ]
+        )
     }
 
     public static func shipfileSections() -> [SchemaSection] {
@@ -192,6 +248,7 @@ public enum BuiltInSchemaCatalog {
             actionSchema(name: NotifyAction.name, description: NotifyAction.description, options: notifyOptions(), example: notifyExample()),
             actionSchema(name: GitAction.name, description: GitAction.description, options: gitOptions(), example: gitExample()),
             actionSchema(name: DsymAction.name, description: DsymAction.description, options: dsymOptions(), example: dsymExample()),
+            actionSchema(name: GenerateProjectAction.name, description: GenerateProjectAction.description, options: generateProjectOptions(), example: generateProjectExample()),
         ].sorted { $0.name < $1.name }
     }
 
@@ -364,6 +421,7 @@ public enum BuiltInSchemaCatalog {
             .string("version", description: "Explicit marketing version when `bump` is `set`.", example: .string("2.4.0")),
             .string("build_number", description: "Explicit build number override.", example: .string("240")),
             .string("strategy", description: "Build number strategy override for this step. Overrides the top-level versioning.strategy setting.", allowedValues: ["sequential", "timestamp", "commitCount"], example: .string("sequential")),
+            .string("target", description: "Where to write the version bump. `source_of_truth` or `project_spec` writes to the spec file (e.g. project.yml). `xcodeproj` writes to the Xcode project. When unset, uses the versioning.source from config.", allowedValues: ["source_of_truth", "project_spec", "xcodeproj"], example: .string("source_of_truth")),
         ]
     }
 
@@ -524,6 +582,19 @@ public enum BuiltInSchemaCatalog {
 
     private static func dsymExample() -> JSONValue? {
         workflowExample(action: "dsym", options: ["operation": .string("upload"), "dsym_path": .string("./build/App.dSYM.zip")])
+    }
+
+    private static func generateProjectOptions() -> [SchemaField] {
+        [
+            .string("command", description: "Override the generation command (e.g. 'xcodegen generate --spec alt.yml').", example: .string("xcodegen generate")),
+            .string("spec_path", description: "Path to the project spec file. Falls back to config project_generation.spec_path.", example: .string("./project.yml")),
+            .string("output_project", description: "Path to the expected output project.", example: .string("./MyApp.xcodeproj")),
+            .boolean("force", description: "Force regeneration even if the output project already exists.", example: .bool(true)),
+        ]
+    }
+
+    private static func generateProjectExample() -> JSONValue? {
+        workflowExample(action: "generate_project", options: ["force": .bool(true)])
     }
 
     private static func validateArchiveOptions() -> [SchemaField] {

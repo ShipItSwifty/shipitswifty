@@ -27,6 +27,12 @@ This document covers the planned feature surface, current v1 scope, the long-ter
 | **AI session** | `shipit ai-session --goal <local\|beta\|release>` returns a **versioned, stable JSON contract** (v1) containing inferred config with confidence + provenance, secret descriptors, ambiguity flags, readiness diagnosis, next deterministic action, agent system prompt, and the single best follow-up question to ask the user |
 | **Validation** | `shipit validate` (default: yml) checks YAML parsing, top-level schema, workflow action options, and common semantic mistakes. `shipit validate metadata` runs precheck rules. `shipit validate archive` validates xcarchive / ipa bundle readiness for upload. `shipit validate all` runs all stages. |
 
+### Workflow composition
+
+| Feature | Description |
+|---|---|
+| **Custom actions** | Under `custom_actions:` in `Shipfile.yml`, define reusable parameterized step sequences and invoke them from workflows the same way as built-in actions. Supports declared parameters (with `type`, `required`, `default`), `{{param.NAME}}` substitution in step options (CI-safe — does not collide with `${ENV_VAR}`, GitHub Actions `${{ }}`, or CircleCI `<< >>`), nested composites with cycle detection, and collision detection against built-in action names. `shipit validate yml` enforces all of these rules. `shipit ai-session` surfaces declared composites to agents so they reuse instead of duplicate. |
+
 ### Building
 
 | Feature | Description |

@@ -77,7 +77,27 @@ public struct ShipfileValidator: Sendable {
     private func validationIssues(for resolvedConfig: ResolvedConfig, actionDescriptors: [ActionDescriptor]) -> [ValidationIssue] {
         var issues: [ValidationIssue] = []
 
-        let descriptorsByName = Dictionary(uniqueKeysWithValues: actionDescriptors.map { ($0.name, $0) })
+        let builtInNames = Set(actionDescriptors.map(\.name))
+        var descriptorsByName = Dictionary(uniqueKeysWithValues: actionDescriptors.map { ($0.name, $0) })
+
+        // Validate custom actions themselves, then inject pseudo-descriptors so
+        // workflow steps referencing them aren't flagged as unknown.
+        issues.append(contentsOf: customActionIssues(
+            customActions: resolvedConfig.customActions,
+            builtInNames: builtInNames
+        ))
+
+        for (compositeName, config) in resolvedConfig.customActions {
+            let compositeSchema = CompositeAction.parameterSchema(for: config)
+            descriptorsByName[compositeName] = ActionDescriptor(
+                name: compositeName,
+                description: config.description ?? "Custom composite action.",
+                optionSchema: compositeSchema,
+                runJSON: { _, _ in
+                    ActionResultEnvelope(action: compositeName, status: "success", payload: nil)
+                }
+            )
+        }
 
         for (workflowName, steps) in resolvedConfig.workflows.sorted(by: { $0.key < $1.key }) {
             for (index, step) in steps.enumerated() {
@@ -252,6 +272,98 @@ public struct ShipfileValidator: Sendable {
             return false
         }
         return contents.contains(where: { $0.hasSuffix(".ipa") })
+    }
+
+    private func customActionIssues(
+        customActions: [String: CustomActionConfig],
+        builtInNames: Set<String>
+    ) -> [ValidationIssue] {
+        guard !customActions.isEmpty else { return [] }
+        var issues: [ValidationIssue] = []
+
+        // Collision with built-ins.
+        for name in customActions.keys.sorted() where builtInNames.contains(name) {
+            issues.append(.init(
+                severity: .error,
+                path: "$.custom_actions.\(name)",
+                message: "Custom action '\(name)' collides with a built-in action. Rename the custom action."
+            ))
+        }
+
+        // Cycle detection.
+        if let cycle = ActionRegistry.detectCycle(in: customActions) {
+            issues.append(.init(
+                severity: .error,
+                path: "$.custom_actions",
+                message: "Custom action cycle detected: \(cycle.joined(separator: " -> "))."
+            ))
+        }
+
+        let compositeNames = Set(customActions.keys)
+        for (compositeName, config) in customActions.sorted(by: { $0.key < $1.key }) {
+            let declared = Set((config.parameters ?? [:]).keys)
+            let pathPrefix = "$.custom_actions.\(compositeName)"
+
+            if config.steps.isEmpty {
+                issues.append(.init(
+                    severity: .error,
+                    path: pathPrefix + ".steps",
+                    message: "Custom action '\(compositeName)' must declare at least one step."
+                ))
+            }
+
+            for (index, step) in config.steps.enumerated() {
+                let stepPath = pathPrefix + ".steps[\(index)]"
+
+                // Referenced action must be a built-in or another composite.
+                if !builtInNames.contains(step.action), !compositeNames.contains(step.action) {
+                    issues.append(.init(
+                        severity: .error,
+                        path: stepPath + ".action",
+                        message: "Unknown action '\(step.action)' referenced in custom action '\(compositeName)'."
+                    ))
+                }
+
+                // `{{param.X}}` references must match a declared parameter.
+                for ref in parameterReferences(in: step.options) where !declared.contains(ref) {
+                    issues.append(.init(
+                        severity: .error,
+                        path: stepPath + ".options",
+                        message: "Custom action '\(compositeName)' references undeclared parameter '\(ref)'. Add it under custom_actions.\(compositeName).parameters."
+                    ))
+                }
+            }
+        }
+
+        return issues
+    }
+
+    private func parameterReferences(in value: JSONValue?) -> Set<String> {
+        guard let value else { return [] }
+        var out: Set<String> = []
+        collectParameterReferences(in: value, into: &out)
+        return out
+    }
+
+    private func collectParameterReferences(in value: JSONValue, into out: inout Set<String>) {
+        switch value {
+        case .string(let s):
+            var cursor = s.startIndex
+            while let open = s.range(of: "{{param.", range: cursor ..< s.endIndex) {
+                guard let close = s.range(of: "}}", range: open.upperBound ..< s.endIndex) else { break }
+                let key = String(s[open.upperBound ..< close.lowerBound]).trimmingCharacters(in: .whitespaces)
+                if !key.isEmpty, !key.contains("{{"), !key.contains("}}") {
+                    out.insert(key)
+                }
+                cursor = close.upperBound
+            }
+        case .array(let arr):
+            for item in arr { collectParameterReferences(in: item, into: &out) }
+        case .object(let obj):
+            for v in obj.values { collectParameterReferences(in: v, into: &out) }
+        default:
+            break
+        }
     }
 
     private func stringOption(_ key: String, in object: [String: JSONValue]) -> String? {

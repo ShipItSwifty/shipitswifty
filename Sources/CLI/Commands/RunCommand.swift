@@ -33,6 +33,7 @@ struct RunCommand: AsyncParsableCommand {
 
             let registry = ActionRegistry()
             try await registerBuiltInActions(into: registry)
+            try await registry.registerCustomActions(config.customActions)
             let formatter = makeHumanFormatter(global: global)
 
             let steps = workflowConfig.map { WorkflowStep(action: $0.action, options: $0.options) }
@@ -126,5 +127,6 @@ func builtInActionDescriptors() -> [ActionDescriptor] {
         NotifyAction.descriptor(for: NotifyAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: NotifyAction.name)),
         GitAction.descriptor(for: GitAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: GitAction.name)),
         DsymAction.descriptor(for: DsymAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: DsymAction.name)),
+        GenerateProjectAction.descriptor(for: GenerateProjectAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: GenerateProjectAction.name)),
     ]
 }

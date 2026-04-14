@@ -137,6 +137,18 @@ public struct ConfigResolver: Sendable {
         // Android config (from android: block merged with env vars)
         let androidConfig = shipfile?.android
 
+        // Project generation config
+        let projGen = shipfile?.projectGeneration
+        let projGenTool = projGen?.tool
+        let projGenCommand = projGen?.command ?? defaultProjectGenCommand(tool: projGenTool)
+        let projGenSpecPath = projGen?.specPath
+        let projGenOutputProject = projGen?.outputProject
+        let projGenAutoGenerate = projGen?.autoGenerate ?? true
+
+        // Versioning config — resolve spec_path from project_generation if not set
+        let versioningSource = shipfile?.versioning?.source ?? "xcodeproj"
+        let versioningSpecPath = shipfile?.versioning?.specPath ?? projGenSpecPath
+
         return ResolvedConfig(
             processedFiles: processedFiles,
             appWorkspace: environment.appWorkspace ?? effectiveApp?.workspace ?? autoDetectedAppConfig.workspace,
@@ -180,10 +192,19 @@ public struct ConfigResolver: Sendable {
             automaticRelease: shipfile?.metadata?.automaticRelease ?? false,
             phasedRelease: shipfile?.metadata?.phasedRelease ?? false,
             versioningStrategy: shipfile?.versioning?.strategy ?? "sequential",
-            versioningSource: shipfile?.versioning?.source ?? "xcodeproj",
+            versioningSource: versioningSource,
+            versioningSpecPath: versioningSpecPath,
+            versioningBuildKey: shipfile?.versioning?.buildKey ?? "CURRENT_PROJECT_VERSION",
+            versioningMarketingKey: shipfile?.versioning?.marketingKey ?? "MARKETING_VERSION",
+            projectGenerationTool: projGenTool,
+            projectGenerationCommand: projGenCommand,
+            projectGenerationSpecPath: projGenSpecPath,
+            projectGenerationOutputProject: projGenOutputProject,
+            projectGenerationAutoGenerate: projGenAutoGenerate,
             slackWebhookUrl: environment.slackWebhookUrl ?? shipfile?.notifications?.slack?.webhookUrl,
             slackChannel: shipfile?.notifications?.slack?.channel,
             workflows: shipfile?.workflows ?? [:],
+            customActions: shipfile?.customActions ?? [:],
             platform: platform,
             androidModule: environment.androidModule ?? androidConfig?.module ?? "app",
             androidBuildVariant: environment.androidBuildVariant ?? androidConfig?.buildVariant ?? "release",
@@ -396,6 +417,18 @@ public struct ConfigResolver: Sendable {
             let value = parts[1].trimmingCharacters(in: .whitespaces)
             guard !key.isEmpty, !value.isEmpty else { return }
             settings[key] = value
+        }
+    }
+
+    /// Returns the default generation command for a known project generation tool.
+    private func defaultProjectGenCommand(tool: String?) -> String? {
+        switch tool?.lowercased() {
+        case "xcodegen":
+            return "xcodegen generate"
+        case "tuist":
+            return "tuist generate"
+        default:
+            return nil
         }
     }
 }
