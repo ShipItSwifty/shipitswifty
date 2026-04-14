@@ -148,7 +148,7 @@ struct ConfigResolverTests {
           key_path: \(privateKeyURL.path)
         """.write(to: shipfileURL, atomically: true, encoding: .utf8)
 
-        let resolver = ConfigResolver(environment: Environment())
+        let resolver = ConfigResolver(environment: Environment(env: [:]))
         let config = try await resolver.resolve(shipfilePath: shipfileURL.path)
 
         #expect(config.processedFiles == [shipfileURL.path, privateKeyURL.path])

@@ -34,4 +34,7 @@ enum FixturePaths {
     static let androidDebugShipfile: URL = fixturesRoot
         .appendingPathComponent("Shipfiles")
         .appendingPathComponent("android-debug.yml")
+
+    /// Minimal App Store metadata fixture used by precheck integration tests.
+    static let metadata: URL = fixturesRoot.appendingPathComponent("metadata")
 }
