@@ -39,7 +39,7 @@ jobs:
             --target ShipItKit \
             --disable-indexing \
             --transform-for-static-hosting \
-            --hosting-base-path ShipItSwifty \
+            --hosting-base-path shipitswifty \
             --output-path ./docs-output
 
       - name: Upload Pages artifact

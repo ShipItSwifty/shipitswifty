@@ -1,12 +1,8 @@
 class Shipit < Formula
-  # For local tap testing before the public repository and release tarball exist,
-  # replace `url`/`sha256` or `head` with local `file://` paths in the tap copy.
-  desc "Swift-native CLI toolkit for iOS release automation"
-  homepage "https://github.com/arjang/ShipItSwifty"
-  url "https://github.com/arjang/ShipItSwifty/archive/refs/tags/1.0.0.tar.gz"
-  sha256 "REPLACE_WITH_RELEASE_TARBALL_SHA256"
+  desc "Swift-native CLI toolkit for iOS and Android release automation"
+  homepage "https://github.com/ArjangConsulting/shipitswifty"
   license "MIT"
-  head "https://github.com/arjang/ShipItSwifty.git", branch: "main"
+  head "https://github.com/ArjangConsulting/shipitswifty.git", branch: "main"
 
   uses_from_macos "swift" => :build
 
@@ -22,6 +18,6 @@ class Shipit < Formula
   end
 
   test do
-    assert_match "OVERVIEW: A Swift-native CLI toolkit for iOS release automation.", shell_output("#{bin}/shipit --help")
+    assert_match "OVERVIEW: Swift-native CLI for iOS and Android app release automation.", shell_output("#{bin}/shipit --help")
   end
 end

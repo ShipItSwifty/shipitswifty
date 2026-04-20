@@ -144,7 +144,7 @@ Set one of these environment variables:
 
 ## Architecture
 
-ShipItSwifty is a Swift 6 CLI toolkit for iOS app release automation. There are two products:
+ShipItSwifty is a Swift 6 CLI toolkit for iOS and Android app release automation. There are two products:
 
 - **`ShipItKit`** — reusable library; all domain logic lives here
 - **`shipit`** (CLI) — thin argument-parsing layer over `ShipItKit`

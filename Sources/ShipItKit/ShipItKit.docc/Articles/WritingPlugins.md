@@ -130,18 +130,16 @@ let retries = options?["retries"]?.int ?? 3
 Use `ActionContext.mock(executor:)` to get a test context without spawning real processes:
 
 ```swift
-import XCTest
+import Testing
 import ShipItKit
 
-final class TrackReleaseActionTests: XCTestCase {
-    func testTrackRelease() async throws {
-        let context = ActionContext.mock()
-        let action = TrackReleaseAction()
-        let result = try await action.run(
-            with: .init(version: "1.0", channel: "beta"),
-            context: context
-        )
-        XCTAssertFalse(result.eventId.isEmpty)
-    }
+@Test func trackReleaseReturnsEventID() async throws {
+    let context = ActionContext.mock()
+    let action = TrackReleaseAction()
+    let result = try await action.run(
+        with: .init(version: "1.0", channel: "beta"),
+        context: context
+    )
+    #expect(result.eventId.isEmpty == false)
 }
 ```
