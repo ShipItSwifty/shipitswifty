@@ -13,6 +13,8 @@ let package = Package(
     dependencies: [
         // Shell execution
         .package(url: "https://github.com/maniramezan/swiftyshell", branch: "main"),
+        // DocC generation command plugin
+        .package(url: "https://github.com/swiftlang/swift-docc-plugin", exact: "1.4.5"),
         // CLI argument parsing
         .package(url: "https://github.com/apple/swift-argument-parser", from: "1.7.1"),
         // JWT for App Store Connect auth
@@ -32,6 +34,7 @@ let package = Package(
                 .product(name: "JWTKit", package: "jwt-kit"),
                 .product(name: "Yams", package: "Yams"),
                 .product(name: "Crypto", package: "swift-crypto"),
+                .product(name: "CryptoExtras", package: "swift-crypto"),
                 .product(name: "Logging", package: "swift-log"),
             ]
         ),
@@ -48,6 +51,7 @@ let package = Package(
                 "ShipItKit",
                 .product(name: "SwiftyShell", package: "SwiftyShell"),
                 .product(name: "Crypto", package: "swift-crypto"),
+                .product(name: "CryptoExtras", package: "swift-crypto"),
             ]
         ),
         .testTarget(

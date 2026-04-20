@@ -1,15 +1,17 @@
 # ShipItSwifty
 
-Swift-native CLI toolkit for iOS app release automation, built entirely in Swift 6.
+Swift-native CLI toolkit for iOS and Android app release automation, built entirely in Swift 6.
 
-[![CI](https://github.com/ArjangConsulting/ShipItSwifty/actions/workflows/ci.yml/badge.svg)](https://github.com/ArjangConsulting/ShipItSwifty/actions/workflows/ci.yml)
+[![CI](https://github.com/ArjangConsulting/shipitswifty/actions/workflows/ci.yml/badge.svg)](https://github.com/ArjangConsulting/shipitswifty/actions/workflows/ci.yml)
 
 ## What is it?
 
-ShipItSwifty automates the iOS release pipeline:
+ShipItSwifty automates mobile release pipelines:
 
 - Build, test, archive, and export your app
 - Distribute to TestFlight and the App Store
+- Build, lint, validate, and archive Android apps
+- Upload Android releases to Google Play tracks
 - Manage code signing via an encrypted certificate vault
 - Capture and frame screenshots
 - Bump versions and push metadata
@@ -51,19 +53,16 @@ swift run shipit run beta
 
 ### Homebrew
 
-Once the repository and release tags are public, you can install `shipit` from a tap:
+The repository includes a Homebrew formula template at `Formula/shipit.rb`, but there is no published tap yet.
 
-```bash
-brew tap arjang/tap
-brew install shipit
-```
+If you want to distribute `shipit` through Homebrew, copy that formula into your tap and install it as a `--HEAD` formula until tagged release tarballs are published.
 
-The formula in this repository builds `shipit` from source with SwiftPM. Copy `Formula/shipit.rb` into the `arjang/homebrew-tap` repository as `Formula/shipit.rb`, then replace the release URL and SHA256 placeholders before publishing the tap update.
+For now, the supported install path is building from source from the public repository:
 
 ### Build from source
 
 ```bash
-git clone https://github.com/maniramezan/ShipItSwifty
+git clone https://github.com/ArjangConsulting/shipitswifty
 cd ShipItSwifty
 swift build
 ```
@@ -228,7 +227,7 @@ Two products:
 - [CI Setup](docs/ci-setup.md) — GitHub Actions and CI configuration
 - [Configuration Reference](docs/configuration-reference.md) — all Shipfile keys
 - [Plugin Development](docs/plugin-development.md) — writing custom actions
-- [DocC API Reference](https://maniramezan.github.io/ShipItSwifty/documentation/shipitkit/) — generated from source
+- [DocC API Reference](https://arjangconsulting.github.io/shipitswifty/documentation/shipitkit/) — generated from source
 
 ## Development
 

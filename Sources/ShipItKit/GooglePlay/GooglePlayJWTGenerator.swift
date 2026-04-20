@@ -1,5 +1,6 @@
 import Foundation
 import Crypto
+import CryptoExtras
 import OSLog
 
 /// Generates and caches Google OAuth2 access tokens for service account authentication.
@@ -53,7 +54,7 @@ public actor GooglePlayJWTGenerator: Sendable {
         return tokenResponse.accessToken
     }
 
-    private func buildJWT() throws -> String {
+    func buildJWT() throws -> String {
         let now = Int(Date().timeIntervalSince1970)
         let expiry = now + 3600
 
@@ -77,52 +78,24 @@ public actor GooglePlayJWTGenerator: Sendable {
 
         // Sign with RS256
         let privateKeyPEM = credentials.privateKey
-        let keyData = Data(privateKeyPEM.utf8)
-        let privateKey = try P256.Signing.PrivateKey(pemRepresentation: privateKeyPEM)
-        _ = keyData  // suppress unused warning
         let signature = try rsaSign(input: signingInput, pemKey: privateKeyPEM)
         let sigB64 = base64URLEncode(signature)
 
         return "\(signingInput).\(sigB64)"
     }
 
-    /// RS256 signing using system Security framework (available on macOS 15+).
+    /// RS256 signing for Google service-account PKCS#8 PEM keys.
     private func rsaSign(input: String, pemKey: String) throws -> Data {
-        // Use Security framework for RSA-SHA256 since swift-crypto doesn't expose RSA signing
-        let inputData = Data(input.utf8)
-
-        // Strip PEM headers and decode the base64 DER
-        let stripped = pemKey
-            .components(separatedBy: "\n")
-            .filter { !$0.hasPrefix("-----") && !$0.isEmpty }
-            .joined()
-        guard let derData = Data(base64Encoded: stripped) else {
-            throw ShipItError.invalidConfiguration(reason: "Google Play: failed to decode RSA private key PEM")
-        }
-
-        var error: Unmanaged<CFError>?
-        let attributes: [CFString: Any] = [
-            kSecAttrKeyType: kSecAttrKeyTypeRSA,
-            kSecAttrKeyClass: kSecAttrKeyClassPrivate,
-        ]
-        guard let secKey = SecKeyCreateWithData(derData as CFData, attributes as CFDictionary, &error) else {
+        do {
+            let privateKey = try _RSA.Signing.PrivateKey(pemRepresentation: pemKey)
+            let digest = SHA256.hash(data: Data(input.utf8))
+            let signature = try privateKey.signature(for: digest, padding: .insecurePKCS1v1_5)
+            return signature.rawRepresentation
+        } catch {
             throw ShipItError.invalidConfiguration(
-                reason: "Google Play: failed to create RSA key — \(error?.takeRetainedValue().localizedDescription ?? "unknown")"
+                reason: "Google Play: RSA signing failed — \(error.localizedDescription)"
             )
         }
-
-        var signError: Unmanaged<CFError>?
-        guard let signature = SecKeyCreateSignature(
-            secKey,
-            .rsaSignatureMessagePKCS1v15SHA256,
-            inputData as CFData,
-            &signError
-        ) else {
-            throw ShipItError.invalidConfiguration(
-                reason: "Google Play: RSA signing failed — \(signError?.takeRetainedValue().localizedDescription ?? "unknown")"
-            )
-        }
-        return signature as Data
     }
 
     private func exchangeJWTForToken(jwt: String) async throws -> GoogleOAuth2TokenResponse {
