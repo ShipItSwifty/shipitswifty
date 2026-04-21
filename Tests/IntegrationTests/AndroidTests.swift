@@ -10,7 +10,12 @@ import Foundation
 /// Dry-run tests run on any machine. Real Gradle builds are gated on `requiresAndroid`.
 ///
 /// **Prerequisite:** Run `swift build` before running these tests.
-@Suite("Android Integration")
+///
+/// `.serialized` is required: parallel Gradle runs contend on shared `~/.gradle` caches
+/// and locks even when each test has its own project directory copy.
+/// iOS tests use xcodebuild which isolates derived data by SRCROOT, so they can
+/// run in parallel. Gradle cannot — it must be serialized.
+@Suite("Android Integration", .serialized)
 struct AndroidIntegrationTests {
 
     private let fixtureDir = FixturePaths.androidSample
@@ -57,7 +62,7 @@ struct AndroidIntegrationTests {
                 workingDirectory: tmpFixture,
                 timeout: 300
             )
-            #expect(result.exitCode == 0, "Gradle build failed:\n\(result.stderr)")
+            #expect(result.exitCode == 0, "Gradle build failed:\n\(result.output)")
 
             let apkDir = tmpFixture.appendingPathComponent("app/build/outputs/apk/debug")
             #expect(
@@ -78,7 +83,7 @@ struct AndroidIntegrationTests {
                 workingDirectory: tmpFixture,
                 timeout: 300
             )
-            #expect(result.exitCode == 0, "Gradle tests failed:\n\(result.stderr)")
+            #expect(result.exitCode == 0, "Gradle tests failed:\n\(result.output)")
         }
     }
 
@@ -109,7 +114,7 @@ struct AndroidIntegrationTests {
                 workingDirectory: tmpFixture,
                 timeout: 300
             )
-            #expect(result.exitCode == 0, "Gradle archive failed:\n\(result.stderr)")
+            #expect(result.exitCode == 0, "Gradle archive failed:\n\(result.output)")
 
             let aabDir = tmpFixture.appendingPathComponent("app/build/outputs/bundle/release")
             #expect(
