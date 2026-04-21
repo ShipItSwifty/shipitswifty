@@ -10,7 +10,7 @@ import Foundation
 /// Dry-run tests run on any machine. Real Gradle builds are gated on `requiresAndroid`.
 ///
 /// **Prerequisite:** Run `swift build` before running these tests.
-@Suite("Android Integration", .serialized)
+@Suite("Android Integration")
 struct AndroidIntegrationTests {
 
     private let fixtureDir = FixturePaths.androidSample
@@ -49,67 +49,73 @@ struct AndroidIntegrationTests {
     @Test("build assembleDebug succeeds", .requiresAndroid)
     func buildAssembleDebugSucceeds() async throws {
         try assertAndroidFixtureExists()
-        let result = try await CLI.run(
-            "build",
-            "--platform", "android",
-            "--shipfile", FixturePaths.androidDebugShipfile.path,
-            workingDirectory: fixtureDir,
-            timeout: 300
-        )
-        #expect(result.exitCode == 0, "Gradle build failed:\n\(result.stderr)")
+        try await withFixtureCopy(of: fixtureDir) { tmpFixture in
+            let result = try await CLI.run(
+                "build",
+                "--platform", "android",
+                "--shipfile", FixturePaths.androidDebugShipfile.path,
+                workingDirectory: tmpFixture,
+                timeout: 300
+            )
+            #expect(result.exitCode == 0, "Gradle build failed:\n\(result.stderr)")
 
-        // Verify debug APK was produced
-        let apkDir = fixtureDir
-            .appendingPathComponent("app/build/outputs/apk/debug")
-        let apkExists = FileManager.default.fileExists(atPath: apkDir.path)
-        #expect(apkExists, "Expected debug APK at \(apkDir.path)")
+            let apkDir = tmpFixture.appendingPathComponent("app/build/outputs/apk/debug")
+            #expect(
+                FileManager.default.fileExists(atPath: apkDir.path),
+                "Expected debug APK at \(apkDir.path)"
+            )
+        }
     }
 
     @Test("test runs unit tests and passes", .requiresAndroid)
     func testRunsUnitTests() async throws {
         try assertAndroidFixtureExists()
-        let result = try await CLI.run(
-            "test",
-            "--platform", "android",
-            "--shipfile", FixturePaths.androidReleaseShipfile.path,
-            workingDirectory: fixtureDir,
-            timeout: 300
-        )
-        #expect(result.exitCode == 0, "Gradle tests failed:\n\(result.stderr)")
+        try await withFixtureCopy(of: fixtureDir) { tmpFixture in
+            let result = try await CLI.run(
+                "test",
+                "--platform", "android",
+                "--shipfile", FixturePaths.androidReleaseShipfile.path,
+                workingDirectory: tmpFixture,
+                timeout: 300
+            )
+            #expect(result.exitCode == 0, "Gradle tests failed:\n\(result.stderr)")
+        }
     }
 
     @Test("lint runs and exits 0 on clean fixture", .requiresAndroid)
     func lintPassesOnFixture() async throws {
         try assertAndroidFixtureExists()
-        let result = try await CLI.run(
-            "lint",
-            "--platform", "android",
-            "--shipfile", FixturePaths.androidReleaseShipfile.path,
-            workingDirectory: fixtureDir,
-            timeout: 300
-        )
-        // Lint may return non-zero for warnings — we just check it ran
-        #expect(result.exitCode == 0 || result.stdout.contains("lint"),
-                "Lint did not run as expected:\n\(result.output)")
+        try await withFixtureCopy(of: fixtureDir) { tmpFixture in
+            let result = try await CLI.run(
+                "lint",
+                "--platform", "android",
+                "--shipfile", FixturePaths.androidReleaseShipfile.path,
+                workingDirectory: tmpFixture,
+                timeout: 300
+            )
+            #expect(result.exitCode == 0 || result.stdout.contains("lint"),
+                    "Lint did not run as expected:\n\(result.output)")
+        }
     }
 
     @Test("archive produces AAB for release variant", .requiresAndroid)
     func archiveProducesAAB() async throws {
         try assertAndroidFixtureExists()
-        let result = try await CLI.run(
-            "archive",
-            "--platform", "android",
-            "--shipfile", FixturePaths.androidReleaseShipfile.path,
-            workingDirectory: fixtureDir,
-            timeout: 300
-        )
-        #expect(result.exitCode == 0, "Gradle archive failed:\n\(result.stderr)")
+        try await withFixtureCopy(of: fixtureDir) { tmpFixture in
+            let result = try await CLI.run(
+                "archive",
+                "--platform", "android",
+                "--shipfile", FixturePaths.androidReleaseShipfile.path,
+                workingDirectory: tmpFixture,
+                timeout: 300
+            )
+            #expect(result.exitCode == 0, "Gradle archive failed:\n\(result.stderr)")
 
-        let aabDir = fixtureDir
-            .appendingPathComponent("app/build/outputs/bundle/release")
-        #expect(
-            FileManager.default.fileExists(atPath: aabDir.path),
-            "Expected AAB at \(aabDir.path)"
-        )
+            let aabDir = tmpFixture.appendingPathComponent("app/build/outputs/bundle/release")
+            #expect(
+                FileManager.default.fileExists(atPath: aabDir.path),
+                "Expected AAB at \(aabDir.path)"
+            )
+        }
     }
 }
