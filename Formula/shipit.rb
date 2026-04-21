@@ -1,8 +1,8 @@
 class Shipit < Formula
   desc "Swift-native CLI toolkit for iOS and Android release automation"
-  homepage "https://github.com/ArjangConsulting/shipitswifty"
+  homepage "https://github.com/shipitswifty/shipitswifty"
   license "MIT"
-  head "https://github.com/ArjangConsulting/shipitswifty.git", branch: "main"
+  head "https://github.com/shipitswifty/shipitswifty.git", branch: "main"
 
   uses_from_macos "swift" => :build
 

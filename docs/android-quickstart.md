@@ -13,7 +13,7 @@ Get your first Android build shipped with ShipItSwifty.
 
 ```bash
 # From source
-git clone https://github.com/ArjangConsulting/shipitswifty
+git clone https://github.com/shipitswifty/shipitswifty
 cd ShipItSwifty
 swift build -c release
 cp .build/release/shipit /usr/local/bin/shipit
