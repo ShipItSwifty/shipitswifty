@@ -35,7 +35,7 @@ public actor PluginRegistry {
     /// for each action descriptor they provide.
     ///
     /// - Parameter registry: The `ActionRegistry` to populate.
-    /// - Throws: ``ShipItError/duplicateAction`` if a plugin registers a name collision.
+    /// - Throws: ``ShipItError/duplicateAction(name:)`` if a plugin registers a name collision.
     public func registerAll(into registry: ActionRegistry) async throws {
         for pluginType in pluginTypes {
             logger.info("Loading plugin: \(pluginType.name) — \(pluginType.description)")

@@ -39,7 +39,7 @@ struct AndroidCoverageParser: Sendable {
     ///
     /// - Parameter reportPath: Absolute or project-relative path to the XML report.
     /// - Returns: Array of ``CoverageTarget`` values (one per discovered module).
-    /// - Throws: ``ShipItError/invalidConfiguration`` when parsing fails.
+    /// - Throws: ``ShipItError/invalidConfiguration(reason:)`` when parsing fails.
     func parse(reportPath: String) async throws -> [CoverageTarget] {
         logger.debug("Parsing JaCoCo XML report at \(reportPath)")
 

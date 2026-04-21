@@ -102,8 +102,8 @@ public struct PlayStoreAction: Action {
     ///   - options: Play Store upload options.
     ///   - context: Shared execution context (must have `googlePlay` client configured).
     /// - Returns: Upload result with versionCode, track, and package name.
-    /// - Throws: ``ShipItError/invalidConfiguration`` if credentials or artifact path are missing.
-    ///   ``ShipItError/uploadFailed`` if the Play API returns an error.
+    /// - Throws: ``ShipItError/invalidConfiguration(reason:)`` if credentials or artifact path are missing.
+    ///   ``ShipItError/uploadFailed(asset:reason:)`` if the Play API returns an error.
     public func run(with options: Options, context: ActionContext) async throws -> Result {
         guard context.platform == .android else {
             throw ShipItError.invalidConfiguration(

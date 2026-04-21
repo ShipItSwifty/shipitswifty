@@ -53,6 +53,10 @@ public struct ProvisionAction: Action {
         /// Creates `Options` for the provision action.
         ///
         /// - Parameter operation: The provisioning operation to perform.
+        /// - Parameter bundleId: Bundle ID to create (for `createAppId`).
+        /// - Parameter appName: App name for the new bundle ID.
+        /// - Parameter deviceUDIDs: Device UDIDs to register (for `registerDevices`).
+        /// - Parameter deviceNames: Device names corresponding to the UDIDs.
         public init(
             operation: ProvisionOperation = .listBundleIds,
             bundleId: String? = nil,

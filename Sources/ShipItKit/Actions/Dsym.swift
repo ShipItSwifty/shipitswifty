@@ -54,7 +54,11 @@ public struct DsymAction: Action {
         /// Creates `Options` for the dsym action.
         ///
         /// - Parameter operation: Whether to download or upload dSYMs.
-        /// - Other parameters are optional; unset values fall back to `ResolvedConfig`.
+        /// - Parameter appID: App Store Connect app ID to download dSYMs for.
+        /// - Parameter buildVersion: Build version to download dSYMs for.
+        /// - Parameter outputDirectory: Directory to save downloaded dSYMs.
+        /// - Parameter dsymPath: Path to a dSYM file or directory to upload.
+        /// - Parameter uploadUrl: Crash reporting service URL to upload to.
         public init(
             operation: DsymOperation = .download,
             appID: String? = nil,

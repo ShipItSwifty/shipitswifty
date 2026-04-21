@@ -20,8 +20,8 @@ struct IOSCoverageParser: Sendable {
     ///
     /// - Parameter xcresultPath: Absolute or project-relative path to the bundle.
     /// - Returns: Array of ``CoverageTarget`` values (unsorted, unfiltered).
-    /// - Throws: ``ShipItError/invalidConfiguration`` when xccov returns an error;
-    ///           ``ShipItError/missingTool`` if `xcrun` is not on PATH.
+    /// - Throws: ``ShipItError/invalidConfiguration(reason:)`` when xccov returns an error;
+    ///           ``ShipItError/missingTool(name:)`` if `xcrun` is not on PATH.
     func parse(xcresultPath: String) async throws -> [CoverageTarget] {
         logger.debug("Running xccov view --report --json on \(xcresultPath)")
 

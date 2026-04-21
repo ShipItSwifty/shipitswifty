@@ -57,7 +57,11 @@ public struct SignAction: Action {
         /// Creates `Options` for the sign action.
         ///
         /// - Parameter operation: The signing operation to perform.
-        /// - Other parameters are optional; unset values fall back to `ResolvedConfig`.
+        /// - Parameter type: Profile type: `development`, `adhoc`, `appstore`, or `enterprise`.
+        /// - Parameter ci: Whether running in CI mode (creates a temporary keychain).
+        /// - Parameter gitUrl: URL of the certificate Git repository.
+        /// - Parameter p12Path: Path to a `.p12` file to import.
+        /// - Parameter provisioningProfilePath: Path to a `.mobileprovision` file to import.
         public init(
             operation: SignOperation,
             type: String? = nil,

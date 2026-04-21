@@ -37,7 +37,9 @@ public struct ExportAction: Action {
 
         /// Creates `Options` for the export action.
         ///
-        /// All parameters are optional; unset values fall back to `ResolvedConfig`.
+        /// - Parameter archivePath: Path to the `.xcarchive` to export.
+        /// - Parameter outputDirectory: Directory where the exported IPA is written.
+        /// - Parameter exportMethod: Export method: `app-store`, `ad-hoc`, `development`, or `enterprise`.
         public init(
             archivePath: String? = nil,
             outputDirectory: String? = nil,

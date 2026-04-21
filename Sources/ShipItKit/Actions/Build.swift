@@ -158,7 +158,7 @@ public struct BuildAction: Action {
     ///   - options: Build configuration options.
     ///   - context: Shared execution context.
     /// - Returns: Build result with artifact paths.
-    /// - Throws: ``ShipItError/buildFailed`` if the build exits non-zero.
+    /// - Throws: ``ShipItError/buildFailed(exitCode:log:)`` if the build exits non-zero.
     public func run(with options: Options, context: ActionContext) async throws -> Result {
         switch context.platform {
         case .ios:

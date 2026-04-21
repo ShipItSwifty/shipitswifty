@@ -37,7 +37,9 @@ public struct FrameAction: Action {
 
         /// Creates `Options` for the frame action.
         ///
-        /// All parameters are optional; unset values fall back to `ResolvedConfig`.
+        /// - Parameter screenshotsDirectory: Directory containing source screenshots.
+        /// - Parameter outputDirectory: Directory where framed screenshots are written.
+        /// - Parameter force: Overwrite existing framed screenshots.
         public init(
             screenshotsDirectory: String? = nil,
             outputDirectory: String? = nil,

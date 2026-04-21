@@ -46,7 +46,7 @@ public struct AssetUploader: Sendable {
     ///   - reservation: The `UploadReservation` returned by the preceding ASC reserve call.
     ///   - progress: Called periodically with upload progress in the range `0.0 ... 1.0`.
     /// - Returns: An `UploadCommit` that must be sent to ASC to finalize the upload.
-    /// - Throws: ``ShipItError/uploadFailed`` on unrecoverable failure after retries.
+    /// - Throws: ``ShipItError/uploadFailed(asset:reason:)`` on unrecoverable failure after retries.
     public func upload(
         fileURL: URL,
         to reservation: UploadReservation,
