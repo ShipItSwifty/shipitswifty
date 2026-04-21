@@ -50,6 +50,9 @@ extension Action {
     ///
     /// The descriptor captures the action's `run(with:context:)` implementation,
     /// decoding JSON options at runtime and wrapping results in `ActionResultEnvelope`.
+    ///
+    /// - Parameter instance: An instance of the action used to capture its `run` implementation.
+    /// - Parameter optionSchema: Schema fields describing the action's configurable options.
     public static func descriptor(for instance: Self, optionSchema: [SchemaField] = []) -> ActionDescriptor {
         ActionDescriptor(
             name: Self.name,
@@ -95,6 +98,7 @@ public struct ActionDescriptor: Sendable {
     /// - Parameters:
     ///   - name: The unique identifier for this action.
     ///   - description: Human-readable description.
+    ///   - optionSchema: Schema fields describing the action's configurable options.
     ///   - runJSON: Type-erased execution closure.
     public init(
         name: String,

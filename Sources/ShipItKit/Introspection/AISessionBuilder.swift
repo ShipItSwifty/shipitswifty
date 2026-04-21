@@ -26,6 +26,7 @@ public struct AISessionBuilder: Sendable {
     ///   - hasExistingShipfile: Whether a Shipfile already exists at the target path.
     ///   - platform: Target platform. Defaults to `.ios`. When `.android`, the agent prompt and
     ///     secret descriptors are adapted for the Android/Google Play workflow.
+    ///   - customActions: User-defined composite actions declared in `Shipfile.custom_actions`.
     public func build(
         goal: SuggestionGoal,
         inspection: ProjectInspection,

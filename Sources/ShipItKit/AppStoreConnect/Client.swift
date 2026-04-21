@@ -94,7 +94,7 @@ public actor AppStoreConnectClient {
     ///   - path: The API path (e.g. `"/v1/apps"`).
     ///   - query: Optional query parameters.
     /// - Returns: Decoded response of type `T`.
-    /// - Throws: ``ShipItError/apiError`` on non-2xx responses.
+    /// - Throws: ``ShipItError/apiError(statusCode:body:)`` on non-2xx responses.
     public func get<T: Decodable & Sendable>(
         _ path: String,
         query: [String: String] = [:]
@@ -109,7 +109,7 @@ public actor AppStoreConnectClient {
     ///   - path: The API path.
     ///   - body: The request body (encoded as JSON).
     /// - Returns: Decoded response of type `Response`.
-    /// - Throws: ``ShipItError/apiError`` on non-2xx responses.
+    /// - Throws: ``ShipItError/apiError(statusCode:body:)`` on non-2xx responses.
     public func post<Body: Encodable & Sendable, Response: Decodable & Sendable>(
         _ path: String,
         body: Body
@@ -124,7 +124,7 @@ public actor AppStoreConnectClient {
     ///   - path: The API path.
     ///   - body: The request body (encoded as JSON).
     /// - Returns: Decoded response of type `Response`.
-    /// - Throws: ``ShipItError/apiError`` on non-2xx responses.
+    /// - Throws: ``ShipItError/apiError(statusCode:body:)`` on non-2xx responses.
     public func patch<Body: Encodable & Sendable, Response: Decodable & Sendable>(
         _ path: String,
         body: Body
@@ -145,7 +145,7 @@ public actor AppStoreConnectClient {
     ///   - fileURL: Local file URL of the asset to upload.
     ///   - reservation: The reservation returned by a prior ASC API call.
     /// - Returns: The upload commit, which should be sent to ASC to finalize.
-    /// - Throws: ``ShipItError/uploadFailed`` on failure.
+    /// - Throws: ``ShipItError/uploadFailed(asset:reason:)`` on failure.
     public func uploadAsset(at fileURL: URL, reservation: UploadReservation) async throws -> UploadCommit {
         logger.info("Uploading asset: \(fileURL.lastPathComponent)")
         let uploader = AssetUploader(session: session)

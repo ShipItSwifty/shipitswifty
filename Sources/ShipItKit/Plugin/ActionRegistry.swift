@@ -21,7 +21,7 @@ public actor ActionRegistry {
     /// Register a new action descriptor.
     ///
     /// - Parameter descriptor: The descriptor to register.
-    /// - Throws: ``ShipItError/duplicateAction`` if an action with the same name is already registered.
+    /// - Throws: ``ShipItError/duplicateAction(name:)`` if an action with the same name is already registered.
     public func register(_ descriptor: ActionDescriptor) throws {
         guard descriptors[descriptor.name] == nil else {
             throw ShipItError.duplicateAction(name: descriptor.name)
@@ -56,8 +56,8 @@ public actor ActionRegistry {
     /// 3. The graph of composite → composite references must be acyclic.
     ///
     /// - Parameter customActions: The `custom_actions` map from the resolved Shipfile.
-    /// - Throws: ``ShipItError/duplicateAction`` for name collisions,
-    ///   ``ShipItError/invalidConfiguration`` for cycles.
+    /// - Throws: ``ShipItError/duplicateAction(name:)`` for name collisions,
+    ///   ``ShipItError/invalidConfiguration(reason:)`` for cycles.
     public func registerCustomActions(_ customActions: [String: CustomActionConfig]) throws {
         guard !customActions.isEmpty else { return }
 

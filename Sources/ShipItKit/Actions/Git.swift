@@ -61,6 +61,11 @@ public struct GitAction: Action {
         /// Creates `Options` for the git action.
         ///
         /// - Parameter operation: The git operation to perform.
+        /// - Parameter tagName: Tag name (for `tag` operation).
+        /// - Parameter tagMessage: Message for an annotated tag.
+        /// - Parameter commitMessage: Commit message (for `commit` operation).
+        /// - Parameter remote: Remote name for `push` (default: `origin`).
+        /// - Parameter pushTags: Whether to push tags when pushing.
         public init(
             operation: GitOperation = .ensureClean,
             tagName: String? = nil,

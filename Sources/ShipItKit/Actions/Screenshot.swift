@@ -42,7 +42,11 @@ public struct SnapshotAction: Action {
 
         /// Creates `Options` for the snapshot action.
         ///
-        /// All parameters are optional; unset values fall back to `ResolvedConfig`.
+        /// - Parameter devices: Simulator device names to capture (e.g. `["iPhone 15 Pro"]`).
+        /// - Parameter locales: Locales to capture (e.g. `["en-US", "fr-FR"]`).
+        /// - Parameter scheme: Xcode scheme containing the UI test target.
+        /// - Parameter outputDirectory: Directory where screenshots are saved.
+        /// - Parameter clear: Remove existing screenshots before capturing.
         public init(
             devices: [String]? = nil,
             locales: [String]? = nil,

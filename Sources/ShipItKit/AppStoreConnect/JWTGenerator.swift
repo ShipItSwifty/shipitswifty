@@ -62,7 +62,7 @@ public actor JWTGenerator {
     ///   - lifetime: Token validity window. Defaults to 15 minutes.
     ///     Apple enforces a hard cap of 20 minutes for unscoped tokens;
     ///     scoped GET-only tokens on select resources allow up to 6 months.
-    /// - Throws: ``ShipItError/jwtGenerationFailed`` if signing fails.
+    /// - Throws: ``ShipItError/jwtGenerationFailed(underlying:)`` if signing fails.
     public func generateToken(
         scope: [String]? = nil,
         lifetime: Duration = JWTGenerator.defaultLifetime
@@ -103,7 +103,7 @@ public actor JWTGenerator {
     /// `Task` so only one JWT signing operation is performed at a time.
     ///
     /// - Returns: A valid JWT token string.
-    /// - Throws: ``ShipItError/jwtGenerationFailed`` if signing fails.
+    /// - Throws: ``ShipItError/jwtGenerationFailed(underlying:)`` if signing fails.
     public func cachedOrNewToken() async throws -> String {
         let bufferSeconds: TimeInterval = 60
         if let token = cachedToken,

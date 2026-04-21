@@ -252,6 +252,10 @@ public enum BuiltInSchemaCatalog {
         ].sorted { $0.name < $1.name }
     }
 
+    /// Returns the option schema fields for a named built-in action.
+    ///
+    /// - Parameter actionName: The registered action name (e.g. `"archive"`, `"build"`).
+    /// - Returns: The action's declared option fields, or an empty array if the name is unknown.
     public static func optionSchema(for actionName: String) -> [SchemaField] {
         actionSchemas().first(where: { $0.name == actionName })?.options ?? []
     }

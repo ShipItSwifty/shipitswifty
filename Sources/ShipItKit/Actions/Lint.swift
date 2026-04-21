@@ -120,7 +120,7 @@ public struct LintAction: Action {
     ///   - options: Lint configuration options.
     ///   - context: Shared execution context.
     /// - Returns: Lint result with issue counts and report path.
-    /// - Throws: ``ShipItError/buildFailed`` if lint exits non-zero and `failOnError` is true.
+    /// - Throws: ``ShipItError/buildFailed(exitCode:log:)`` if lint exits non-zero and `failOnError` is true.
     public func run(with options: Options, context: ActionContext) async throws -> Result {
         switch context.platform {
         case .ios:
