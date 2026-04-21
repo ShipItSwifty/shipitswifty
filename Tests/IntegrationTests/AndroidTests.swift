@@ -10,7 +10,7 @@ import Foundation
 /// Dry-run tests run on any machine. Real Gradle builds are gated on `requiresAndroid`.
 ///
 /// **Prerequisite:** Run `swift build` before running these tests.
-@Suite("Android Integration")
+@Suite("Android Integration", .serialized)
 struct AndroidIntegrationTests {
 
     private let fixtureDir = FixturePaths.androidSample

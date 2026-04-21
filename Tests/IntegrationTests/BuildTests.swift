@@ -7,7 +7,7 @@ import Foundation
 /// (available on any macOS machine with Xcode installed) but do not need credentials.
 ///
 /// **Prerequisite:** Run `swift build` before running these tests.
-@Suite("Build Integration")
+@Suite("Build Integration", .serialized)
 struct BuildIntegrationTests {
 
     private let fixtureDir = FixturePaths.iosSample
