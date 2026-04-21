@@ -18,6 +18,9 @@ DerivedData/
 # macOS
 .DS_Store
 
+# DocC output
+docs-output/
+
 # Integration test credentials (never commit real secrets)
 .env.integration
 
