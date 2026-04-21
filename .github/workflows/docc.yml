@@ -30,6 +30,14 @@ jobs:
       - name: Select Xcode
         run: sudo xcode-select -s /Applications/Xcode_26.4.app
 
+      - name: Cache SPM dependencies
+        uses: actions/cache@v4
+        with:
+          path: ShipItSwifty/.build/checkouts
+          key: ${{ runner.os }}-spm-${{ hashFiles('ShipItSwifty/Package.resolved') }}
+          restore-keys: |
+            ${{ runner.os }}-spm-
+
       - name: Build DocC for ShipItKit
         working-directory: ShipItSwifty
         run: |
