@@ -18,7 +18,7 @@ let package = Package(
         // CLI argument parsing
         .package(url: "https://github.com/apple/swift-argument-parser", from: "1.7.1"),
         // JWT for App Store Connect auth
-        .package(url: "https://github.com/vapor/jwt-kit", from: "5.4.0"),
+        .package(url: "https://github.com/vapor/jwt-kit", .upToNextMinor(from: "5.3.0")),
         // YAML config parsing
         .package(url: "https://github.com/jpsim/Yams", from: "6.2.0"),
         // Crypto for code signing operations
