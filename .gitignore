@@ -25,3 +25,4 @@ DerivedData/
 Tests/IntegrationTests/Fixtures/android-sample/gradle/wrapper/gradle-wrapper.jar
 Tests/IntegrationTests/Fixtures/android-sample/.gradle/
 Tests/IntegrationTests/Fixtures/android-sample/app/build/
+Tests/IntegrationTests/Fixtures/android-sample/build/
