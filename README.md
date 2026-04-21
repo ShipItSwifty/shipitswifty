@@ -2,7 +2,7 @@
 
 Swift-native CLI toolkit for iOS and Android app release automation, built entirely in Swift 6.
 
-[![CI](https://github.com/ArjangConsulting/shipitswifty/actions/workflows/ci.yml/badge.svg)](https://github.com/ArjangConsulting/shipitswifty/actions/workflows/ci.yml)
+[![CI](https://github.com/shipitswifty/shipitswifty/actions/workflows/ci.yml/badge.svg)](https://github.com/shipitswifty/shipitswifty/actions/workflows/ci.yml)
 
 ## What is it?
 
@@ -62,7 +62,7 @@ For now, the supported install path is building from source from the public repo
 ### Build from source
 
 ```bash
-git clone https://github.com/ArjangConsulting/shipitswifty
+git clone https://github.com/shipitswifty/shipitswifty
 cd ShipItSwifty
 swift build
 ```
@@ -227,7 +227,7 @@ Two products:
 - [CI Setup](docs/ci-setup.md) — GitHub Actions and CI configuration
 - [Configuration Reference](docs/configuration-reference.md) — all Shipfile keys
 - [Plugin Development](docs/plugin-development.md) — writing custom actions
-- [DocC API Reference](https://arjangconsulting.github.io/shipitswifty/documentation/shipitkit/) — generated from source
+- [DocC API Reference](https://shipitswifty.github.io/shipitswifty/documentation/shipitkit/) — generated from source
 
 ## Development
 

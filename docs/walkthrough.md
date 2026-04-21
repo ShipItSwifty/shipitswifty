@@ -11,7 +11,7 @@ A step-by-step guide to setting up and running your first release.
 ## Step 1 — Clone and build
 
 ```bash
-git clone https://github.com/ArjangConsulting/shipitswifty
+git clone https://github.com/shipitswifty/shipitswifty
 cd ShipItSwifty
 swift build
 ```
