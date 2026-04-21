@@ -4,7 +4,7 @@
 
 Please do not open public GitHub issues for suspected security vulnerabilities.
 
-Report security issues privately to `security@arjangconsulting.com` with:
+Report security issues privately to `security@shipitswifty.dev` with:
 
 - a short description of the issue
 - affected versions or commit hashes
