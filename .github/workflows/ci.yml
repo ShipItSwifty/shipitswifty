@@ -13,7 +13,7 @@ jobs:
 
     steps:
       - name: Checkout ShipItSwifty
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           path: ShipItSwifty
 
@@ -42,7 +42,7 @@ jobs:
         continue-on-error: true
 
       - name: Upload coverage
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v6
         with:
           files: ShipItSwifty/coverage.lcov
           working-directory: ShipItSwifty

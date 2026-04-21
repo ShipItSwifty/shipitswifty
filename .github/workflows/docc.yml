@@ -23,7 +23,7 @@ jobs:
 
     steps:
       - name: Checkout ShipItSwifty
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           path: ShipItSwifty
 
@@ -43,7 +43,7 @@ jobs:
             --output-path ./docs-output
 
       - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v5
         with:
           path: ShipItSwifty/docs-output
 
@@ -58,4 +58,4 @@ jobs:
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
