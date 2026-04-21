@@ -20,11 +20,11 @@ let package = Package(
         // JWT for App Store Connect auth
         .package(url: "https://github.com/vapor/jwt-kit", from: "5.4.0"),
         // YAML config parsing
-        .package(url: "https://github.com/jpsim/Yams", from: "6.2.0"),
+        .package(url: "https://github.com/jpsim/Yams", from: "6.2.1"),
         // Crypto for code signing operations
-        .package(url: "https://github.com/apple/swift-crypto", from: "4.3.1"),
+        .package(url: "https://github.com/apple/swift-crypto", from: "4.4.0"),
         // Structured logging
-        .package(url: "https://github.com/apple/swift-log", from: "1.11.0"),
+        .package(url: "https://github.com/apple/swift-log", from: "1.12.0"),
     ],
     targets: [
         .target(
