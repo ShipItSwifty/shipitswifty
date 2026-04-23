@@ -1,0 +1,72 @@
+@Tutorial(time: 5) {
+    @Intro(title: "Set up an Android Shipfile") {
+        Wire ShipItSwifty into a Gradle-based Android project and verify the
+        configuration.
+
+        @Image(source: tutorial-android-setup.png, alt: "Android setup")
+    }
+
+    @Section(title: "Configure platform: android") {
+        @ContentAndMedia {
+            ShipItSwifty treats Android as a first-class target. Set `platform:
+            android` at the top of your Shipfile to switch the default action
+            mappings to Gradle.
+        }
+
+        @Steps {
+            @Step {
+                Create an Android Shipfile.
+
+                @Code(name: "Shipfile.yml", file: 08-android-shipfile.yml)
+            }
+
+            @Step {
+                Verify the resolved configuration.
+
+                @Code(name: "Terminal", file: 08-env.sh)
+            }
+        }
+    }
+
+    @Section(title: "Configure Google Play credentials") {
+        @ContentAndMedia {
+            Google Play uploads require a service-account JSON key with the
+            "Release manager" role on the app.
+        }
+
+        @Steps {
+            @Step {
+                Export your service-account JSON via env var (preferred for CI)
+                or set a path locally.
+
+                @Code(name: "~/.zshrc", file: 09-play-env.sh)
+            }
+
+            @Step {
+                Confirm credentials are detected.
+
+                @Code(name: "Terminal", file: 09-env-verify.sh)
+            }
+        }
+    }
+
+    @Section(title: "Build and lint") {
+        @ContentAndMedia {
+            Run a build and lint pass before configuring uploads.
+        }
+
+        @Steps {
+            @Step {
+                Build the release variant.
+
+                @Code(name: "Terminal", file: 10-android-build.sh)
+            }
+
+            @Step {
+                Run lint and coverage.
+
+                @Code(name: "Terminal", file: 10-android-lint-coverage.sh)
+            }
+        }
+    }
+}

@@ -1,0 +1,46 @@
+@Tutorials(name: "ShipItKit") {
+    @Intro(title: "Meet ShipItKit") {
+        Learn how to ship iOS and Android releases with a single Swift-native toolchain.
+        These tutorials walk through your first beta release, your first Android upload,
+        and your first plugin — start to finish, no fastlane required.
+
+        @Image(source: hero.png, alt: "ShipItKit hero image")
+    }
+
+    @Chapter(name: "iOS Quick Start") {
+        Configure a Shipfile, run a build, and ship a beta to TestFlight.
+
+        @Image(source: chapter-ios.png, alt: "iOS chapter cover")
+
+        @TutorialReference(tutorial: "doc:01-iOS-Setup")
+        @TutorialReference(tutorial: "doc:02-iOS-First-Build")
+        @TutorialReference(tutorial: "doc:03-iOS-TestFlight")
+    }
+
+    @Chapter(name: "Android Quick Start") {
+        Configure a Shipfile for an Android project and ship to a Google Play track.
+
+        @Image(source: chapter-android.png, alt: "Android chapter cover")
+
+        @TutorialReference(tutorial: "doc:04-Android-Setup")
+        @TutorialReference(tutorial: "doc:05-Android-PlayStore")
+    }
+
+    @Chapter(name: "Build a Plugin") {
+        Extend ShipItKit with a custom action, register it, and call it from a workflow.
+
+        @Image(source: chapter-plugin.png, alt: "Plugin chapter cover")
+
+        @TutorialReference(tutorial: "doc:06-Plugin-Project")
+        @TutorialReference(tutorial: "doc:07-Plugin-Action")
+        @TutorialReference(tutorial: "doc:08-Plugin-Register")
+    }
+
+    @Resources {
+        Explore companion material for the tutorials.
+
+        @Forums(destination: "https://github.com/shipitswifty/shipitswifty/discussions") {
+            Ask questions and share workflows with other ShipItSwifty users.
+        }
+    }
+}

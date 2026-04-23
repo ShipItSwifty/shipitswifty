@@ -266,17 +266,40 @@ public struct MyPlugin: ShipItPlugin {
 
 ## Documentation
 
-| | |
-|---|---|
-| **Website** | [shipitswifty.tools](https://shipitswifty.tools) — full guides + API reference |
-| **Walkthrough** | [`docs/walkthrough.md`](docs/walkthrough.md) |
-| **Configuration reference** | [`docs/configuration-reference.md`](docs/configuration-reference.md) |
-| **Plugin development** | [`docs/plugin-development.md`](docs/plugin-development.md) |
-| **CI setup** | [`docs/ci-setup.md`](docs/ci-setup.md) |
-| **Android quickstart** | [`docs/android-quickstart.md`](docs/android-quickstart.md) |
-| **Architecture** | [`docs/architecture.md`](docs/architecture.md) |
-| **Testing** | [`docs/testing.md`](docs/testing.md) |
-| **Security** | [`docs/security.md`](docs/security.md) |
+ShipItSwifty's canonical docs are built with **DocC** and will be hosted at [shipitswifty.tools](https://shipitswifty.tools) (coming soon). Until the site launches, you can browse them locally:
+
+```bash
+swift package generate-documentation --target ShipItKit
+open .build/plugins/Swift-DocC/outputs/ShipItKit.doccarchive
+```
+
+The DocC archive includes a multi-chapter **interactive tutorial** (iOS quick start, Android quick start, and "build your first plugin"), 16 topic articles, and the full symbol-level API reference.
+
+### Articles & guides
+
+| Topic | DocC article | Long-form (mirrored) |
+|---|---|---|
+| **Getting started** | `GettingStarted` | — |
+| **Walkthrough** | (see Tutorials chapter 1) | [`docs/walkthrough.md`](docs/walkthrough.md) |
+| **Core concepts** | `CoreConcepts`, `Architecture` | [`docs/architecture.md`](docs/architecture.md) |
+| **Configuration reference** | `ConfigurationReference` | [`docs/configuration-reference.md`](docs/configuration-reference.md) |
+| **Workflows & composites** | `Workflows`, `CompositeActions` | — |
+| **Actions catalog** | `ActionsCatalog` | [`docs/features.md`](docs/features.md) |
+| **Versioning** | `Versioning` | — |
+| **Coverage** | `Coverage` | — |
+| **Validation** | `Validation` | — |
+| **Code signing & vault** | `CodeSigningAndVault` | — |
+| **App Store Connect** | `AppStoreConnectIntegration` | — |
+| **Android & Google Play** | `AndroidAndGooglePlay` | [`docs/android-quickstart.md`](docs/android-quickstart.md) |
+| **CI integration** | `CIIntegration` | [`docs/ci-setup.md`](docs/ci-setup.md) |
+| **AI session protocol** | `AISession` | — |
+| **Output formats** | `OutputFormats` | — |
+| **Testing with mocks** | `TestingWithMocks` | [`docs/testing.md`](docs/testing.md) |
+| **Migrating from Fastlane** | `MigratingFromFastlane` | — |
+| **Error handling** | `ErrorHandling` | — |
+| **Writing plugins** | `WritingPlugins` (+ Tutorials chapter 3) | [`docs/plugin-development.md`](docs/plugin-development.md) |
+| **Security** | (in `CodeSigningAndVault`) | [`docs/security.md`](docs/security.md) |
+| **Homebrew install** | — | [`docs/homebrew.md`](docs/homebrew.md) |
 | **DocC API reference** | [shipitswifty.tools/docs/api/shipitkit](https://shipitswifty.tools/docs/api/shipitkit) |
 
 ## Development

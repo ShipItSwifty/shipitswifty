@@ -1,0 +1,1 @@
+shipit env --platform android

@@ -1,0 +1,65 @@
+@Tutorial(time: 5) {
+    @Intro(title: "Build and test your iOS app") {
+        Run your first `shipit build` and `shipit test` commands and inspect
+        the structured output.
+
+        @Image(source: tutorial-ios-build.png, alt: "Build and test")
+    }
+
+    @Section(title: "Run a build") {
+        @ContentAndMedia {
+            `shipit build` calls `xcodebuild build` with the resolved scheme,
+            configuration, and any extra `xcargs` from your Shipfile.
+        }
+
+        @Steps {
+            @Step {
+                Build the default scheme.
+
+                @Code(name: "Terminal", file: 04-build.sh)
+            }
+
+            @Step {
+                Get the same result as JSON to feed downstream tooling.
+
+                @Code(name: "Terminal", file: 04-build-json.sh)
+            }
+
+            @Step {
+                Read the typed payload — `appPath`, `dsymPath`, `exitCode`, and
+                `warnings` — that the build action returned.
+
+                @Code(name: "build.json", file: 04-build-payload.json)
+            }
+        }
+    }
+
+    @Section(title: "Run tests with coverage") {
+        @ContentAndMedia {
+            Tests run via `xcodebuild test` against one or more destinations.
+            Pair them with `shipit coverage` to summarise the resulting
+            `.xcresult` bundle.
+        }
+
+        @Steps {
+            @Step {
+                Add a `destinations` list to your Shipfile so the test action
+                knows what to target.
+
+                @Code(name: "Shipfile.yml", file: 05-shipfile-destinations.yml)
+            }
+
+            @Step {
+                Run the tests.
+
+                @Code(name: "Terminal", file: 05-test.sh)
+            }
+
+            @Step {
+                Summarise coverage as Markdown — perfect for a PR comment.
+
+                @Code(name: "Terminal", file: 05-coverage.sh)
+            }
+        }
+    }
+}

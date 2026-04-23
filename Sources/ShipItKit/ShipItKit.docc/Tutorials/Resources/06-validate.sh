@@ -1,0 +1,1 @@
+shipit validate yml

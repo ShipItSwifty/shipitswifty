@@ -1,0 +1,30 @@
+@Tutorial(time: 5) {
+    @Intro(title: "Scaffold a plugin package") {
+        Create a Swift package that depends on `ShipItKit` and exposes a
+        `ShipItPlugin` type.
+
+        @Image(source: tutorial-plugin-project.png, alt: "Plugin project")
+    }
+
+    @Section(title: "Create the package") {
+        @ContentAndMedia {
+            Plugins are statically-linked Swift packages that conform to
+            `ShipItPlugin`. They register actions at process startup — there is
+            no runtime dylib loading in v1.
+        }
+
+        @Steps {
+            @Step {
+                Initialize a new Swift package.
+
+                @Code(name: "Terminal", file: 13-init-package.sh)
+            }
+
+            @Step {
+                Add ShipItKit as a dependency.
+
+                @Code(name: "Package.swift", file: 13-package.swift)
+            }
+        }
+    }
+}

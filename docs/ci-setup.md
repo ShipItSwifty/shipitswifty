@@ -1,5 +1,7 @@
 # CI Setup
 
+> **DocC mirror:** Also available as the `CIIntegration` article in the `ShipItKit` DocC archive. Canonical online version (coming soon): [shipitswifty.tools/docs/ci](https://shipitswifty.tools/docs/ci).
+
 How to run ShipItSwifty in GitHub Actions and other CI systems.
 
 ## GitHub Actions

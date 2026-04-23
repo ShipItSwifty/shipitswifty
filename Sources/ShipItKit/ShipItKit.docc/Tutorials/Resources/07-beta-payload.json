@@ -1,0 +1,14 @@
+{
+  "action": "run",
+  "status": "success",
+  "payload": {
+    "workflow": "beta",
+    "stepCount": 4,
+    "results": [
+      { "action": "version",    "status": "success", "payload": { "buildNumber": 412 } },
+      { "action": "archive",    "status": "success", "payload": { "archivePath": "./build/MyApp.xcarchive" } },
+      { "action": "export",     "status": "success", "payload": { "ipaPath": "./build/export/MyApp.ipa" } },
+      { "action": "testflight", "status": "success", "payload": { "buildId": "abc-123", "groups": ["Internal QA"] } }
+    ]
+  }
+}

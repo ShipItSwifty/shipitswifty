@@ -1,5 +1,7 @@
 # Plugin Development
 
+> **DocC mirror:** Also available as the `WritingPlugins` article and tutorial chapter 3 ("Build a Plugin") in the `ShipItKit` DocC archive. Canonical online version (coming soon): [shipitswifty.tools/docs/plugins](https://shipitswifty.tools/docs/plugins).
+
 Extend ShipItSwifty with custom actions.
 
 ## Overview

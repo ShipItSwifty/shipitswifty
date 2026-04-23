@@ -1,0 +1,2 @@
+shipit --help
+shipit --version
