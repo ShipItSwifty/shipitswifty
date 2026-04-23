@@ -1,5 +1,7 @@
 # Configuration Reference
 
+> **DocC mirror:** Also available as the `ConfigurationReference` article in the `ShipItKit` DocC archive. Canonical online version (coming soon): [shipitswifty.tools/docs/configuration-reference](https://shipitswifty.tools/docs/configuration-reference).
+
 All config file keys, environment variables, and CLI flags.
 
 `Shipfile.yml` is only the default config filename. ShipIt reads `./Shipfile.yml` when `--shipfile` is omitted, but any YAML file path works with `--shipfile <path>`.

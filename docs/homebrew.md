@@ -1,5 +1,7 @@
 # Homebrew Release Checklist
 
+> Maintainer-only release checklist. Not mirrored in DocC. Canonical online version (coming soon): [shipitswifty.tools/docs/homebrew](https://shipitswifty.tools/docs/homebrew).
+
 Use this checklist when publishing `shipit` to a Homebrew tap.
 
 ## Prerequisites

@@ -1,5 +1,7 @@
 # ShipItSwifty — Feature Catalog
 
+> **DocC mirror:** A condensed catalog with cross-links to action symbols lives in the `ActionsCatalog` article in the `ShipItKit` DocC archive. This file remains the authoritative roadmap. Canonical online version (coming soon): [shipitswifty.tools/docs/features](https://shipitswifty.tools/docs/features).
+
 This document covers the planned feature surface, current v1 scope, the long-term roadmap, and a comparison with common release automation tools.
 
 ## v1 MVP scope

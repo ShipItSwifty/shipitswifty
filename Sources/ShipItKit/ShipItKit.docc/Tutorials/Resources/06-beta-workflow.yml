@@ -1,0 +1,11 @@
+workflows:
+  beta:
+    - action: version
+      options: { bump: build }
+    - action: archive
+      options: { export_method: app-store }
+    - action: export
+    - action: testflight
+      options:
+        groups: ["Internal QA"]
+        changelog: "Bug fixes and stability improvements."

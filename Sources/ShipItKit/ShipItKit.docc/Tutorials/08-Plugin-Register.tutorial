@@ -1,0 +1,50 @@
+@Tutorial(time: 5) {
+    @Intro(title: "Register and use your plugin") {
+        Bundle your action into a `ShipItPlugin`, register it at process
+        startup, and call it from a workflow.
+
+        @Image(source: tutorial-plugin-register.png, alt: "Plugin register")
+    }
+
+    @Section(title: "Bundle into a ShipItPlugin") {
+        @ContentAndMedia {
+            A plugin exposes a metatype with `name`, `description`, and an
+            `actions` array of `ActionDescriptor` values.
+        }
+
+        @Steps {
+            @Step {
+                Implement the plugin type.
+
+                @Code(name: "BuildTimingPlugin.swift", file: 16-plugin.swift)
+            }
+        }
+    }
+
+    @Section(title: "Register at startup and use") {
+        @ContentAndMedia {
+            Register the plugin into the shared `PluginRegistry`, then add a
+            workflow step that calls your action by name.
+        }
+
+        @Steps {
+            @Step {
+                Register at process startup.
+
+                @Code(name: "main.swift", file: 17-register.swift)
+            }
+
+            @Step {
+                Call the action from a workflow.
+
+                @Code(name: "Shipfile.yml", file: 17-workflow.yml)
+            }
+
+            @Step {
+                Run the workflow.
+
+                @Code(name: "Terminal", file: 17-run.sh)
+            }
+        }
+    }
+}

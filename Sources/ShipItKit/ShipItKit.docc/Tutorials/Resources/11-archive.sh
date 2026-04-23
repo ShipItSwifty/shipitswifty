@@ -1,0 +1,1 @@
+shipit archive --platform android

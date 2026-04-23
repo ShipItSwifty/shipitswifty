@@ -1,0 +1,16 @@
+{
+  "action": "run",
+  "status": "success",
+  "payload": {
+    "workflow": "beta",
+    "stepCount": 6,
+    "results": [
+      { "action": "version",    "status": "success", "payload": { "versionCode": 412 } },
+      { "action": "lint",       "status": "success", "payload": { "warnings": 0, "errors": 0 } },
+      { "action": "test",       "status": "success", "payload": { "passed": 124, "failed": 0 } },
+      { "action": "archive",    "status": "success", "payload": { "aabPath": "./app/build/outputs/bundle/release/app-release.aab" } },
+      { "action": "validate-bundle", "status": "success", "payload": { "issues": [] } },
+      { "action": "play-store", "status": "success", "payload": { "versionCode": 412, "track": "internal" } }
+    ]
+  }
+}

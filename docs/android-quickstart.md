@@ -1,5 +1,7 @@
 # Android Quickstart
 
+> **DocC mirror:** Also available as the `AndroidAndGooglePlay` article and tutorial chapter 2 ("Android Quick Start") in the `ShipItKit` DocC archive. Canonical online version (coming soon): [shipitswifty.tools/docs/android](https://shipitswifty.tools/docs/android).
+
 Get your first Android build shipped with ShipItSwifty.
 
 ## Prerequisites

@@ -1,0 +1,51 @@
+@Tutorial(time: 10) {
+    @Intro(title: "Write a custom action") {
+        Implement an `Action` that runs a shell command, times it, and emits
+        a JSON-friendly result.
+
+        @Image(source: tutorial-plugin-action.png, alt: "Plugin action")
+    }
+
+    @Section(title: "Define Options and Result") {
+        @ContentAndMedia {
+            Every action has typed `Options` and `Result` types — both
+            `Codable & Sendable`. Snake-case YAML keys are decoded to
+            camelCase Swift properties automatically.
+        }
+
+        @Steps {
+            @Step {
+                Declare the action's `Options`.
+
+                @Code(name: "BuildTimingAction.swift", file: 14-options.swift)
+            }
+
+            @Step {
+                Declare the result.
+
+                @Code(name: "BuildTimingAction.swift", file: 14-result.swift)
+            }
+        }
+    }
+
+    @Section(title: "Implement run(with:context:)") {
+        @ContentAndMedia {
+            The action's body splits the command, runs it through SwiftyShell,
+            and records the elapsed time using `ContinuousClock`.
+        }
+
+        @Steps {
+            @Step {
+                Implement `run(with:context:)`.
+
+                @Code(name: "BuildTimingAction.swift", file: 15-run.swift)
+            }
+
+            @Step {
+                Add a unit test using `ActionContext.mock(executor:)`.
+
+                @Code(name: "BuildTimingActionTests.swift", file: 15-tests.swift)
+            }
+        }
+    }
+}

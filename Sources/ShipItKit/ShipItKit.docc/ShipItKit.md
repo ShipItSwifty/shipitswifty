@@ -1,85 +1,172 @@
 # ``ShipItKit``
 
-A Swift-native library for automating iOS app release workflows.
+A Swift-native library for automating iOS and Android app release workflows.
 
 ## Overview
 
-`ShipItKit` is the reusable core of ShipItSwifty — a Swift-native release toolkit. It provides a composable action model, YAML-based workflow configuration, App Store Connect API integration, and code-signing utilities.
+`ShipItKit` is the reusable core of ShipItSwifty — a Swift-native release toolkit for both Apple and Android platforms. It provides a composable action model, YAML-based workflow configuration, App Store Connect and Google Play API integration, code-signing utilities, and an AI-friendly schema for agent-driven setup.
 
-All domain logic lives in `ShipItKit`. The `shipit` CLI is a thin argument-parsing layer on top of it, and any app or CI script can embed `ShipItKit` directly.
+All domain logic lives in `ShipItKit`. The `shipit` CLI is a thin argument-parsing layer on top of it, and any Swift app, server, or CI script can embed `ShipItKit` directly.
 
-### Core Execution Model
+> **New here?** Start with <doc:GettingStarted>, then walk through the <doc:tutorials/Tutorials> for hands-on iOS, Android, and plugin chapters. For deep design background, see <doc:CoreConcepts> and <doc:Architecture>.
+
+### Core execution model
 
 ```
 Shipfile.yml / CLI flags / env vars
         ↓
   ConfigResolver  →  ResolvedConfig
         ↓
-  ActionContext (shell, logger, config, AppStoreConnectClient)
+  ActionContext (shell, logger, config, AppStoreConnectClient, GooglePlayClient?, platform)
         ↓
-  ActionRegistry (actor) — maps action names → ActionDescriptors
+  ActionRegistry (actor) — built-in + plugin actions, by name
         ↓
   Workflow.run(context:registry:)  →  executes WorkflowStep[] sequentially
         ↓
-  Action.run(with:context:)  →  ActionResultEnvelope
+  Action.run(with:context:)  →  ActionResultEnvelope (Codable)
 ```
 
-### Key Abstractions
+### Hard architectural rules
 
-| Type | Role |
+These constraints are enforced throughout the codebase:
+
+1. All shell execution goes through **SwiftyShell** — never `Foundation.Process` directly.
+2. All App Store Connect calls go through ``AppStoreConnectClient`` — no raw HTTP.
+3. All public types are **`Sendable`** (Swift 6 strict concurrency).
+4. Async work uses **structured concurrency** only.
+5. Actions derive behaviour solely from their typed `Options` and the ``ActionContext`` — no hidden global state.
+
+### Two ways to use it
+
+| Surface | When to use |
 |---|---|
-| ``Action`` | Protocol — one unit of work (`build`, `archive`, `testflight`, …) |
-| ``ActionDescriptor`` | Type-erased wrapper produced by `Action.descriptor(for:)` |
-| ``ActionRegistry`` | `actor` — serializes registration and lookup by name |
-| ``Workflow`` / ``WorkflowStep`` | A named sequence of steps defined in Shipfile YAML |
-| ``ActionContext`` | Passed to every `Action.run(...)` — carries shell, logger, config |
-| ``ConfigResolver`` | Merges CLI flags → env vars → Shipfile → defaults |
+| **`shipit` CLI** | Daily release work, CI pipelines, AI agents calling the binary directly. |
+| **`ShipItKit` library** | Embedding release flows in your own Swift tools, custom servers, or test harnesses. Authoring plugins. |
 
 ## Topics
 
-### Getting Started
+### Essentials
 
 - <doc:GettingStarted>
-
-### Core Concepts
-
 - <doc:CoreConcepts>
+- <doc:Architecture>
+- <doc:tutorials/Tutorials>
 
-### Configuration Reference
+### Configuration
 
 - <doc:ConfigurationReference>
+- <doc:Workflows>
+- <doc:CompositeActions>
+- <doc:Versioning>
+- ``Shipfile``
+- ``ResolvedConfig``
+- ``ConfigResolver``
+- ``Platform``
 
-### Writing Plugins
+### Building, testing, distributing
 
-- <doc:WritingPlugins>
+- <doc:ActionsCatalog>
+- <doc:Coverage>
+- <doc:Validation>
+- <doc:OutputFormats>
+- ``BuildAction``
+- ``TestAction``
+- ``ArchiveAction``
+- ``ExportAction``
+- ``UploadAction``
+- ``TestFlightAction``
+- ``MetadataAction``
+- ``CoverageAction``
+- ``LintAction``
+- ``VersionAction``
+- ``NotifyAction``
 
-### Actions
+### iOS code signing & App Store Connect
+
+- <doc:CodeSigningAndVault>
+- <doc:AppStoreConnectIntegration>
+- ``SignAction``
+- ``ProvisionAction``
+- ``AppStoreConnectClient``
+- ``JWTGenerator``
+- ``IPAUploadService``
+- ``AssetUploader``
+- ``AppStoreReleaseService``
+
+### Android & Google Play
+
+- <doc:AndroidAndGooglePlay>
+- ``PlayStoreAction``
+- ``GooglePlayClient``
+- ``GooglePlayUploadService``
+- ``GooglePlayJWTGenerator``
+- ``Gradle``
+- ``GradleTask``
+- ``GradleFlag``
+- ``GradleProperty``
+- ``Bundletool``
+- ``Adb``
+- ``Emulator``
+
+### AI-assisted setup
+
+- <doc:AISession>
+- ``AISessionBuilder``
+- ``AISessionPayload``
+- ``ProjectInspector``
+- ``ShipfileSuggester``
+- ``ShipfileValidator``
+- ``BuiltInSchemaCatalog``
+- ``InferredConfigEntry``
+- ``SecretDescriptor``
+
+### Action model
 
 - ``Action``
 - ``ActionDescriptor``
 - ``ActionContext``
 - ``ActionResultEnvelope``
+- ``CompositeAction``
 
-### Registry and Workflows
+### Workflow runtime
 
 - ``ActionRegistry``
 - ``Workflow``
 - ``WorkflowStep``
+- ``CustomActionConfig``
 
-### Plugin System
+### Plugins
 
+- <doc:WritingPlugins>
 - ``ShipItPlugin``
 - ``PluginRegistry``
 
-### Configuration
+### CI and automation
 
-- ``Shipfile``
-- ``ResolvedConfig``
-- ``ConfigResolver``
+- <doc:CIIntegration>
+- <doc:MigratingFromFastlane>
 
-### Errors and Utilities
+### Testing
 
+- <doc:TestingWithMocks>
+- ``ActionContext/mock(executor:versioningSource:platform:)``
+
+### Errors and reporting
+
+- <doc:ErrorHandling>
 - ``ShipItError``
 - ``RetryPolicy``
 - ``JSONValue``
 - ``JSONReporter``
+- ``Notifier``
+
+### Lower-level wrappers
+
+- ``XcodeBuild``
+- ``XcodeBuildOption``
+- ``DestinationDiscovery``
+- ``XcodebuildDestination``
+- ``Xcrun``
+- ``Simctl``
+- ``SimctlCommand``
+- ``XcrunOption``

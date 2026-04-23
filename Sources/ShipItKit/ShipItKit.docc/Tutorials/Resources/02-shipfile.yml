@@ -1,0 +1,12 @@
+app:
+  workspace: MyApp.xcworkspace
+  scheme: MyApp
+  bundle_id: com.example.myapp
+  team_id: ABCDE12345
+
+workflows:
+  beta:
+    - action: archive
+      options: { export_method: app-store }
+    - action: testflight
+      options: { groups: ["Internal QA"] }

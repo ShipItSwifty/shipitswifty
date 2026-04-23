@@ -1,0 +1,7 @@
+app:
+  workspace: MyApp.xcworkspace
+  scheme: MyApp
+
+test:
+  destinations:
+    - "platform=iOS Simulator,name=iPhone 15,OS=latest"

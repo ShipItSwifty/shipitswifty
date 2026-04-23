@@ -1,0 +1,10 @@
+{
+  "action": "build",
+  "status": "success",
+  "payload": {
+    "appPath": "/Users/me/Library/Developer/Xcode/DerivedData/MyApp-abc/Build/Products/Release-iphoneos/MyApp.app",
+    "dsymPath": "/Users/me/Library/Developer/Xcode/DerivedData/MyApp-abc/Build/Products/Release-iphoneos/MyApp.app.dSYM",
+    "exitCode": 0,
+    "warnings": 0
+  }
+}

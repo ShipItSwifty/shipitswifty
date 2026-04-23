@@ -1,0 +1,61 @@
+@Tutorial(time: 8) {
+    @Intro(title: "Upload to Google Play") {
+        Define an Android beta workflow and ship an AAB to a Play track.
+
+        @Image(source: tutorial-android-playstore.png, alt: "Play Store")
+    }
+
+    @Section(title: "Validate before uploading") {
+        @ContentAndMedia {
+            Static validation catches packageName mismatches, versionCode
+            collisions, and unsigned bundles before you spend bandwidth on an
+            upload.
+        }
+
+        @Steps {
+            @Step {
+                Archive an AAB.
+
+                @Code(name: "Terminal", file: 11-archive.sh)
+            }
+
+            @Step {
+                Validate it.
+
+                @Code(name: "Terminal", file: 11-validate.sh)
+            }
+        }
+    }
+
+    @Section(title: "Define and run the beta workflow") {
+        @ContentAndMedia {
+            Wrap test, archive, and upload into a single workflow.
+        }
+
+        @Steps {
+            @Step {
+                Define the beta workflow.
+
+                @Code(name: "Shipfile.yml", file: 12-android-beta.yml)
+            }
+
+            @Step {
+                Dry-run to confirm the planned step list.
+
+                @Code(name: "Terminal", file: 12-dry-run.sh)
+            }
+
+            @Step {
+                Run the workflow with JSON output for CI.
+
+                @Code(name: "Terminal", file: 12-run-beta.sh)
+            }
+
+            @Step {
+                Inspect the per-step envelopes.
+
+                @Code(name: "beta.json", file: 12-beta-payload.json)
+            }
+        }
+    }
+}

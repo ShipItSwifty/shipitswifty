@@ -1,0 +1,64 @@
+@Tutorial(time: 8) {
+    @Intro(title: "Ship a beta to TestFlight") {
+        Define a `beta` workflow that bumps the build number, archives, exports,
+        and uploads to TestFlight — then run it.
+
+        @Image(source: tutorial-ios-testflight.png, alt: "TestFlight")
+    }
+
+    @Section(title: "Define the workflow") {
+        @ContentAndMedia {
+            A workflow is a named, ordered list of action steps under
+            `workflows:` in your Shipfile.
+        }
+
+        @Steps {
+            @Step {
+                Add a `beta` workflow that bumps `CFBundleVersion`, archives,
+                exports, and uploads to TestFlight.
+
+                @Code(name: "Shipfile.yml", file: 06-beta-workflow.yml)
+            }
+
+            @Step {
+                Validate the Shipfile structure before running anything.
+
+                @Code(name: "Terminal", file: 06-validate.sh)
+            }
+
+            @Step {
+                Dry-run the workflow to see the resolved step list without
+                executing anything.
+
+                @Code(name: "Terminal", file: 06-dry-run.sh)
+            }
+        }
+    }
+
+    @Section(title: "Run the workflow") {
+        @ContentAndMedia {
+            With ASC credentials in your environment, run the beta lane.
+        }
+
+        @Steps {
+            @Step {
+                Execute the workflow.
+
+                @Code(name: "Terminal", file: 07-run-beta.sh)
+            }
+
+            @Step {
+                In CI, prefer the JSON output and `--ci` flag for stable,
+                non-interactive behaviour.
+
+                @Code(name: "Terminal", file: 07-run-beta-ci.sh)
+            }
+
+            @Step {
+                Check the per-step result envelopes.
+
+                @Code(name: "beta.json", file: 07-beta-payload.json)
+            }
+        }
+    }
+}

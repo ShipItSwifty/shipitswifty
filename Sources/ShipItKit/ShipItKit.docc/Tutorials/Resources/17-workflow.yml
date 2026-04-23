@@ -1,0 +1,9 @@
+workflows:
+  beta:
+    - action: build-timing
+      options:
+        command: "swift build -c release"
+    - action: archive
+    - action: testflight
+      options:
+        groups: ["Internal QA"]

@@ -1,0 +1,22 @@
+platform: android
+
+android:
+  module: app
+  build_variant: release
+  package_name: com.example.myapp
+  play_track: internal
+
+workflows:
+  beta:
+    - action: version
+      options: { bump: build }
+    - action: lint
+    - action: test
+    - action: archive
+    - action: validate-bundle
+    - action: play-store
+      options:
+        track: internal
+        rollout_fraction: 1.0
+        release_notes:
+          en-US: "Bug fixes and stability improvements."
