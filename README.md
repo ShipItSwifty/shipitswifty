@@ -1,89 +1,111 @@
 # ShipItSwifty
 
-Swift-native CLI toolkit for iOS and Android app release automation, built entirely in Swift 6.
+Swift-native CLI for **iOS and Android** app release automation, built end-to-end in Swift 6.
 
 [![CI](https://github.com/shipitswifty/shipitswifty/actions/workflows/ci.yml/badge.svg)](https://github.com/shipitswifty/shipitswifty/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Swift 6](https://img.shields.io/badge/Swift-6.0-orange.svg)](https://swift.org)
+
+> **Documentation:** [shipitswifty.tools](https://shipitswifty.tools) — guides, configuration reference, DocC API, and walkthroughs.
+
+---
 
 ## What is it?
 
-ShipItSwifty automates mobile release pipelines:
+ShipItSwifty automates the build → archive → distribute pipeline for mobile apps, on both Apple and Android platforms, from a single declarative `Shipfile.yml`. It is delivered as:
 
-- Build, test, archive, and export your app
-- Distribute to TestFlight and the App Store
-- Build, lint, validate, and archive Android apps
-- Upload Android releases to Google Play tracks
-- Manage code signing via an encrypted certificate vault
-- Capture and frame screenshots
-- Bump versions and push metadata
-- Post Slack notifications
+- **`ShipItKit`** — a reusable Swift library where all the domain logic lives.
+- **`shipit`** — a thin CLI on top of `ShipItKit` you can run locally or in CI.
 
-It is structured as a **library** (`ShipItKit`) and a **CLI** (`shipit`), so you can use the command line directly or embed the library in your own Swift tools.
+Use the CLI directly, embed the library in your own Swift tools, or extend it with statically-linked plugins.
+
+## Why?
+
+| If you currently use… | ShipItSwifty offers |
+|---|---|
+| **fastlane** | A Swift-native, type-safe equivalent — no Ruby toolchain, structured JSON output, first-class Android support, and an AI-friendly schema for agent-driven release workflows. |
+| **bash + xcodebuild + altool** | A typed `xcodebuild` wrapper, App Store Connect REST client, code-signing vault, and reusable workflows — without re-inventing them per repo. |
+| **Bitrise / Codemagic steps** | A portable runner that does the same work locally and on any CI, with deterministic dry-runs and machine-readable output. |
+
+## Features
+
+| Area | iOS | Android | Notes |
+|---|:-:|:-:|---|
+| Build | ✅ | ✅ | `xcodebuild build` / `gradlew assemble<Variant>` |
+| Test (unit + UI) | ✅ | ✅ | Multi-destination matrix on iOS, unit + instrumented on Android |
+| Code coverage | ✅ | ✅ | Reads `.xcresult` / JaCoCo XML; first-party filtering, per-target/file breakdown, JSON & Markdown output |
+| Lint / static analysis | ✅ | ✅ | `xcodebuild analyze` / `gradlew lint` |
+| Archive | ✅ | ✅ | `.xcarchive` / `.aab` |
+| Export | ✅ | — | `xcodebuild -exportArchive` with auto-generated export options |
+| Code signing | ✅ | — | Vault-style sync from a Git-backed encrypted store |
+| Provisioning | ✅ | — | Profile + App ID + device management via ASC API |
+| App Store / TestFlight upload | ✅ | — | Native ASC REST client (no `altool` / `iTMSTransporter` dependency) |
+| Google Play upload | — | ✅ | Service-account JWT auth, configurable track |
+| Metadata push / pull | ✅ | — | Localized strings, release notes |
+| Submission validation | ✅ | ✅ | `validate yml` / `validate metadata` / `validate archive` / `validate bundle` |
+| Versioning | ✅ | ✅ | `agvtool`, project-spec (XcodeGen), or App Store Connect as source of truth |
+| Screenshots | ✅ | — | Capture + frame; `frameit` integration |
+| Notifications | ✅ | ✅ | Slack, generic webhooks, macOS notifications |
+| Project generation | ✅ | — | Auto-runs XcodeGen / Tuist before Xcode-dependent steps |
+| Workflow composition | ✅ | ✅ | Reusable parameterised `custom_actions` in YAML |
+| Plugins | ✅ | ✅ | Statically-linked Swift packages contributing custom actions |
+| AI-assisted setup | ✅ | ✅ | `ai-session` returns a stable JSON contract for agents (config inference, secrets, next-action, schema) |
+
+For the full feature catalogue and roadmap, see [`docs/features.md`](docs/features.md) or [shipitswifty.tools/docs](https://shipitswifty.tools/docs).
 
 ## Requirements
 
 - macOS 15+
 - Swift 6 / Xcode 16+
-
-## Quick Start
-
-```bash
-# Build the CLI
-swift build
-
-# Create a config file
-cp Shipfile.example.yml Shipfile.yml
-
-# Verify your configuration
-swift run shipit env
-
-# Run a build
-swift run shipit build --scheme MyApp
-
-# Force colorful human output
-swift run shipit build --scheme MyApp --color always
-
-# Run a test suite
-swift run shipit test --scheme MyApp
-
-# Run a release workflow
-swift run shipit run beta
-```
+- For Android: a working JDK 17+ and a project with `gradlew`
 
 ## Installation
 
-### Homebrew
-
-The repository includes a Homebrew formula template at `Formula/shipit.rb`, but there is no published tap yet.
-
-If you want to distribute `shipit` through Homebrew, copy that formula into your tap and install it as a `--HEAD` formula until tagged release tarballs are published.
-
-For now, the supported install path is building from source from the public repository:
-
-### Build from source
+### Build from source (recommended today)
 
 ```bash
 git clone https://github.com/shipitswifty/shipitswifty
-cd ShipItSwifty
-swift build
-```
-
-To use `shipit` globally, copy the binary:
-
-```bash
+cd shipitswifty
 swift build -c release
 cp .build/release/shipit /usr/local/bin/shipit
 ```
 
-## Configuration
+### Homebrew
 
-Create a config file at your project root. `Shipfile.yml` is the default name, but you can use any path with `--shipfile <path>`:
+A formula template lives at [`Formula/shipit.rb`](Formula/shipit.rb), but there is **no published tap** at the time of writing. To install via Homebrew today you need to copy the formula into your own tap and install it as `--HEAD`:
+
+```bash
+brew tap-new <you>/shipit
+cp Formula/shipit.rb "$(brew --repository)/Library/Taps/<you>/homebrew-shipit/Formula/shipit.rb"
+brew install --HEAD <you>/shipit/shipit
+```
+
+The full checklist for publishing a tap, computing tarball SHAs, and cutting a stable release lives in [`docs/homebrew.md`](docs/homebrew.md).
+
+## Quick start
+
+```bash
+# 1. Generate a Shipfile interactively
+shipit init
+
+# 2. Diagnose your environment
+shipit doctor
+
+# 3. Run a single action
+shipit build --scheme MyApp
+shipit test --scheme MyApp
+
+# 4. Or run a workflow defined in Shipfile.yml
+shipit run beta
+```
+
+A minimal iOS `Shipfile.yml`:
 
 ```yaml
 app:
   workspace: MyApp.xcworkspace
   scheme: MyApp
-  # bundle_id: com.example.myapp  # Optional; auto-detected from Xcode if omitted
-  # team_id: ABCDE12345           # Optional; auto-detected from Xcode if omitted
+  # bundle_id / team_id are auto-detected from Xcode if omitted
 
 app_store_connect:
   key_id: ${ASC_KEY_ID}
@@ -106,99 +128,82 @@ workflows:
       options: { submit_for_review: true, phased_release: true }
 ```
 
-Copy the full example: `cp Shipfile.example.yml Shipfile.yml`
+A minimal Android `Shipfile.yml`:
 
-You do not have to keep the name `Shipfile.yml`. ShipIt uses `./Shipfile.yml` by default, but any YAML file path works with `--shipfile <path>`.
+```yaml
+platform: android
 
-All config-backed CLI commands require the file to exist. If `./Shipfile.yml` is missing, or if `--shipfile <path>` points to a missing file, the command exits non-zero with exit code `2`.
+android:
+  module: app
+  build_variant: release
+  package_name: com.example.myapp
+  play_track: internal
 
-## CLI Commands
+workflows:
+  beta:
+    - action: test
+    - action: archive
+    - action: play-store
+```
 
-| Command | Description |
+Copy the full annotated example: `cp Shipfile.example.yml Shipfile.yml`.
+
+## CLI reference (summary)
+
+`shipit help <subcommand>` shows the full option list for every command.
+
+| Group | Commands |
 |---|---|
-| `shipit init` | Scaffold a default `Shipfile.yml` interactively |
-| `shipit build` | Compile with `xcodebuild build` |
-| `shipit test` | Run tests with `xcodebuild test` |
-| `shipit archive` | Archive for distribution |
-| `shipit export` | Export IPA from archive |
-| `shipit upload` | Upload IPA to App Store Connect |
-| `shipit testflight` | Distribute to TestFlight |
-| `shipit sign` | Install certificates and profiles |
-| `shipit provision` | Sync provisioning profiles |
-| `shipit snapshot` | Capture screenshots |
-| `shipit frame` | Frame screenshots |
-| `shipit version` | Bump version or build number |
-| `shipit metadata` | Push App Store metadata |
-| `shipit precheck` | Validate submission readiness |
-| `shipit notify` | Send Slack notifications |
-| `shipit run <workflow>` | Execute a named workflow from Shipfile |
-| `shipit env` | Print resolved configuration, environment variables, and processed files |
-| `shipit doctor` | Diagnose environment issues using the selected Shipfile |
+| **Setup / inspection** | `init`, `doctor`, `env`, `inspect`, `suggest-config`, `schema` |
+| **AI agents** | `ai-bootstrap`, `ai-session` |
+| **Validation** | `validate yml`, `validate metadata`, `validate archive`, `validate bundle`, `validate all`, `precheck` (alias) |
+| **Build & test** | `build`, `test`, `coverage`, `lint`, `archive`, `export` |
+| **Distribution (iOS)** | `upload`, `testflight`, `metadata`, `sign`, `provision`, `snapshot`, `frame` |
+| **Distribution (Android)** | `play-store` |
+| **Versioning & ops** | `version`, `notify`, `run` |
 
-### Global options (all commands)
+Every command supports the same global options:
 
 | Flag | Description |
 |---|---|
-| `--shipfile <path>` | Path to config file. Defaults to `./Shipfile.yml`, and the file must exist for config-backed commands |
-| `--output human\|json` | Output format (default: `human`) |
-| `--color auto\|always\|never` | Color mode for human output (default: `auto`) |
-| `--no-color` | Disable color in human output |
+| `--shipfile <path>` | Path to config file (default `./Shipfile.yml`; must exist for config-backed commands) |
+| `--platform ios\|android` | Override platform auto-detection |
+| `--output human\|json` | Output format (JSON is never colorized) |
+| `--color auto\|always\|never` / `--no-color` | Color control for human output |
 | `--verbose` | Enable debug logging |
-| `--ci` | CI mode — non-interactive, strict errors |
+| `--ci` | Non-interactive, strict-error CI mode |
 | `--dry-run` | Preview without executing |
 
-## Color Output
+## Credentials
 
-Human-readable output supports ANSI colors for headers, status lines, dry-run output, and tables.
+### App Store Connect (iOS)
 
-```bash
-swift run shipit build --scheme MyApp --color always
-swift run shipit doctor --no-color
-```
+For any action that calls the App Store Connect API:
 
-Use `--color auto` to follow terminal detection, `--color always` to force colors, and `--color never` or `--no-color` to disable them.
-
-## App Store Connect Credentials
-
-For actions that call the App Store Connect API, you need:
-- `ASC_KEY_ID`
-- `ASC_ISSUER_ID`
-- exactly one of `ASC_PRIVATE_KEY` or `ASC_PRIVATE_KEY_PATH`
-
-`ASC_PRIVATE_KEY` is the raw contents of the downloaded `.p8` file. `ASC_PRIVATE_KEY_PATH` is a local file path alternative. If both are set, ShipIt prefers `ASC_PRIVATE_KEY`.
-
-If you only use local Xcode flows such as `build`, `test`, `archive`, or `export`, you can skip App Store Connect credentials entirely.
-
-Where to get them in App Store Connect:
-1. Open `App Store Connect`.
-2. Go to `Users and Access`.
-3. Open the `Integrations` tab.
-4. Open `App Store Connect API`.
-5. Create or select an API key.
-6. Copy the `Key ID` into `ASC_KEY_ID`.
-7. Copy the `Issuer ID` into `ASC_ISSUER_ID`.
-8. Download the `.p8` file and either:
-   - store its contents in `ASC_PRIVATE_KEY`, or
-   - point `ASC_PRIVATE_KEY_PATH` at the file locally.
-
-| Variable | Description |
+| Variable | Purpose |
 |---|---|
-| `ASC_KEY_ID` | API key ID from App Store Connect |
-| `ASC_ISSUER_ID` | Issuer ID from App Store Connect |
-| `ASC_PRIVATE_KEY` | Raw `.p8` key contents (preferred for CI) |
-| `ASC_PRIVATE_KEY_PATH` | Path to `.p8` file (local development) |
+| `ASC_KEY_ID` | API key ID |
+| `ASC_ISSUER_ID` | Issuer ID |
+| `ASC_PRIVATE_KEY` | Raw `.p8` contents (preferred for CI) |
+| `ASC_PRIVATE_KEY_PATH` | Path to the `.p8` file (preferred locally) |
 
-## JSON Output
+You only need these for upload/metadata/precheck/provision flows. Local `build` / `test` / `archive` / `export` work without them.
 
-Every command supports `--output json` for machine-readable output, suitable for CI pipelines or downstream tooling:
+### Google Play (Android)
+
+| Variable | Purpose |
+|---|---|
+| `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` | Raw service-account JSON (preferred for CI) |
+| `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_PATH` | Path to the JSON file (preferred locally) |
+
+## Output modes
 
 ```bash
-swift run shipit build --scheme MyApp --output json | jq .
+shipit build --scheme MyApp --output json | jq .
+shipit run beta --dry-run --output json     # see the planned step list
 ```
 
-JSON output is never colorized.
-
-If configuration loading fails, ShipIt returns a non-zero exit code and prints a failure envelope in JSON mode.
+JSON output is stable, machine-readable, and never colorized — suitable for CI dashboards, AI agents, or downstream tooling. Configuration failures emit a JSON failure envelope with a non-zero exit code.
 
 ## Architecture
 
@@ -207,63 +212,84 @@ Shipfile.yml / CLI flags / env vars
         ↓
   ConfigResolver  →  ResolvedConfig
         ↓
-  ActionContext (shell, logger, config, AppStoreConnectClient)
+  ActionContext (shell, logger, config, AppStoreConnectClient, GooglePlayClient?, platform)
         ↓
-  ActionRegistry (actor) — maps action names → ActionDescriptors
+  ActionRegistry (actor) — built-in + plugin actions, by name
         ↓
   Workflow.run(context:registry:)  →  executes WorkflowStep[] sequentially
         ↓
-  Action.run(with:context:)  →  ActionResultEnvelope
+  Action.run(with:context:)  →  ActionResultEnvelope (Codable)
 ```
 
-Two products:
+Hard rules enforced throughout the codebase:
 
-- **`ShipItKit`** — reusable library; all domain logic
-- **`shipit`** (CLI) — thin argument-parsing layer over `ShipItKit`
+1. All shell execution goes through **SwiftyShell** — never `Foundation.Process` directly.
+2. All App Store Connect calls go through **`AppStoreConnectClient`** — no raw HTTP.
+3. All public types are **`Sendable`** (Swift 6 strict concurrency).
+4. Async work uses **structured concurrency** only.
+5. Actions derive behaviour solely from their typed `Options` and the `ActionContext` — no hidden global state.
 
-## Documentation
+Detailed architecture, including the typed `XcodeBuild` and `Gradle` fluent wrappers used by every shell-driven action, is in [`docs/architecture.md`](docs/architecture.md).
 
-- [Walkthrough](docs/walkthrough.md) — step-by-step guide
-- [CI Setup](docs/ci-setup.md) — GitHub Actions and CI configuration
-- [Configuration Reference](docs/configuration-reference.md) — all Shipfile keys
-- [Plugin Development](docs/plugin-development.md) — writing custom actions
-- [DocC API Reference](https://shipitswifty.github.io/shipitswifty/documentation/shipitkit/) — generated from source
+## Extending with plugins
 
-## Development
+Plugins are statically-linked Swift packages that register custom `Action`s at startup. The full guide — including a runnable `BuildTimingAction` (wraps another action and records duration) and `CopyArtifactsAction` (copies built `.ipa` / `.aab` / dSYMs to a versioned folder) — lives in [`docs/plugin-development.md`](docs/plugin-development.md).
 
-```bash
-# Build
-swift build
-
-# Run all tests with coverage
-swift test --enable-code-coverage
-
-# Run a single test suite
-swift test --filter ShipItKitTests
-
-# Run specific test
-swift test --filter ShipItKitTests.JSONValueTests
-
-# Run CLI directly
-swift run shipit --help
-```
-
-## Extending with Plugins
-
-Plugins are statically linked Swift packages that add custom actions. Implement `ShipItPlugin` and register at bootstrap:
+Skeleton:
 
 ```swift
+import ShipItKit
+
+public struct MyAction: Action {
+    public static let name = "my-action"
+    public static let description = "Does something useful"
+
+    public struct Options: Codable, Sendable { public var foo: String? }
+    public struct Result: Codable, Sendable { public var bar: String }
+
+    public init() {}
+
+    public func run(with options: Options, context: ActionContext) async throws -> Result {
+        context.logger.info("Running my-action with foo=\(options.foo ?? "nil")")
+        return Result(bar: "done")
+    }
+}
+
 public struct MyPlugin: ShipItPlugin {
     public static let name = "my-plugin"
     public static let description = "Custom release actions"
-    public static var actions: [ActionDescriptor] = [
-        MyCustomAction.descriptor(for: MyCustomAction())
+    public static let actions: [ActionDescriptor] = [
+        MyAction.descriptor(for: MyAction())
     ]
 }
 ```
 
-See [Plugin Development](docs/plugin-development.md) for a full walkthrough.
+## Documentation
+
+| | |
+|---|---|
+| **Website** | [shipitswifty.tools](https://shipitswifty.tools) — full guides + API reference |
+| **Walkthrough** | [`docs/walkthrough.md`](docs/walkthrough.md) |
+| **Configuration reference** | [`docs/configuration-reference.md`](docs/configuration-reference.md) |
+| **Plugin development** | [`docs/plugin-development.md`](docs/plugin-development.md) |
+| **CI setup** | [`docs/ci-setup.md`](docs/ci-setup.md) |
+| **Android quickstart** | [`docs/android-quickstart.md`](docs/android-quickstart.md) |
+| **Architecture** | [`docs/architecture.md`](docs/architecture.md) |
+| **Testing** | [`docs/testing.md`](docs/testing.md) |
+| **Security** | [`docs/security.md`](docs/security.md) |
+| **DocC API reference** | [shipitswifty.tools/docs/api/shipitkit](https://shipitswifty.tools/docs/api/shipitkit) |
+
+## Development
+
+```bash
+swift build
+swift test --enable-code-coverage
+swift test --filter ShipItKitTests.BuildActionTests
+swift run shipit --help
+```
+
+See [`CONTRIBUTING.md`](CONTRIBUTING.md) for the full contributor guide.
 
 ## License
 
-MIT
+MIT — see [`LICENSE`](LICENSE).
