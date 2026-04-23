@@ -22,7 +22,6 @@ struct ShipItCLI: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "shipit",
         abstract: "Swift-native CLI for iOS and Android app release automation.",
-        version: "0.0.1 (build 12)",
         subcommands: [
             InitCommand.self,
             SchemaCommand.self,
@@ -54,6 +53,31 @@ struct ShipItCLI: AsyncParsableCommand {
         ],
         defaultSubcommand: nil
     )
+
+    static let versionString = "0.0.1 (build 12)"
+
+    static func main(_ arguments: [String]?) async {
+        let arguments = arguments ?? Array(CommandLine.arguments.dropFirst())
+        if arguments == ["--version"] {
+            print(versionString)
+            return
+        }
+
+        do {
+            var command = try parseAsRoot(arguments)
+            if var asyncCommand = command as? AsyncParsableCommand {
+                try await asyncCommand.run()
+            } else {
+                try command.run()
+            }
+        } catch {
+            exit(withError: error)
+        }
+    }
+
+    static func main() async {
+        await main(nil)
+    }
 }
 
 // MARK: - Global Options Mixin
