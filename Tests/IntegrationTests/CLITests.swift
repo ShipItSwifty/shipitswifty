@@ -21,10 +21,17 @@ struct CLIIntegrationTests {
 
     @Test("--version exits 0 and contains a version string")
     func versionExitsZero() async throws {
-        let result = try await CLI.run("version")
+        let result = try await CLI.run("--version")
         #expect(result.exitCode == 0)
         // Version string should look like "1.0.0" or "0.x.y"
         #expect(result.stdout.contains("."))
+    }
+
+    @Test("subcommands do not accept inherited --version")
+    func subcommandsRejectInheritedVersionFlag() async throws {
+        let result = try await CLI.run("build", "--version")
+        #expect(result.exitCode != 0)
+        #expect(result.output.contains("Unknown option '--version'"), "output: \(result.output)")
     }
 
     // MARK: - Schema
