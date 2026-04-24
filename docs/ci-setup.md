@@ -1,6 +1,6 @@
 # CI Setup
 
-> **DocC mirror:** Also available as the `CIIntegration` article in the `ShipItKit` DocC archive. Canonical online version (coming soon): [shipitswifty.tools/docs/ci](https://shipitswifty.tools/docs/ci).
+> **DocC mirror:** Also available as the `CIIntegration` article in the `ShipItKit` DocC archive.
 
 How to run ShipItSwifty in GitHub Actions and other CI systems.
 
@@ -63,14 +63,14 @@ on:
 
 jobs:
   release:
-    runs-on: macos-15
+    runs-on: macos-26
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           path: ShipItSwifty
 
       - name: Select Xcode
-        run: sudo xcode-select -s /Applications/Xcode_16.3.app
+        run: sudo xcode-select -s /Applications/Xcode_26.4.app
 
       - name: Run workflow
         working-directory: ShipItSwifty
@@ -129,4 +129,4 @@ The docs will be available at `https://<org>.github.io/ShipItSwifty/documentatio
 
 ## Xcode Version
 
-The workflows pin `Xcode_16.3.app`. Update the `xcode-select` step if you need a different version. Available Xcode versions on GitHub's `macos-15` runner are listed in the [GitHub Actions runner images](https://github.com/actions/runner-images) documentation.
+The workflows pin `Xcode_26.4.app`. Update the `xcode-select` step if you need a different version. Available Xcode versions on GitHub's `macos-26` runner are listed in the [GitHub Actions runner images](https://github.com/actions/runner-images) documentation.

@@ -6,7 +6,7 @@ Swift-native CLI for **iOS and Android** app release automation, built end-to-en
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Swift 6](https://img.shields.io/badge/Swift-6.0-orange.svg)](https://swift.org)
 
-> **Documentation:** [shipitswifty.tools](https://shipitswifty.tools) — guides, configuration reference, DocC API, and walkthroughs.
+> **Documentation:** browse the [`docs/`](docs/) folder for guides and configuration reference, or build the DocC archive locally (see [Documentation](#documentation) below).
 
 ---
 
@@ -51,7 +51,7 @@ Use the CLI directly, embed the library in your own Swift tools, or extend it wi
 | Plugins | ✅ | ✅ | Statically-linked Swift packages contributing custom actions |
 | AI-assisted setup | ✅ | ✅ | `ai-session` returns a stable JSON contract for agents (config inference, secrets, next-action, schema) |
 
-For the full feature catalogue and roadmap, see [`docs/features.md`](docs/features.md) or [shipitswifty.tools/docs](https://shipitswifty.tools/docs).
+For the full feature catalogue and roadmap, see [`docs/features.md`](docs/features.md).
 
 ## Requirements
 
@@ -266,7 +266,7 @@ public struct MyPlugin: ShipItPlugin {
 
 ## Documentation
 
-ShipItSwifty's canonical docs are built with **DocC** and will be hosted at [shipitswifty.tools](https://shipitswifty.tools) (coming soon). Until the site launches, you can browse them locally:
+ShipItSwifty's canonical docs are built with **DocC**. Browse them locally:
 
 ```bash
 swift package generate-documentation --target ShipItKit
@@ -300,7 +300,7 @@ The DocC archive includes a multi-chapter **interactive tutorial** (iOS quick st
 | **Writing plugins** | `WritingPlugins` (+ Tutorials chapter 3) | [`docs/plugin-development.md`](docs/plugin-development.md) |
 | **Security** | (in `CodeSigningAndVault`) | [`docs/security.md`](docs/security.md) |
 | **Homebrew install** | — | [`docs/homebrew.md`](docs/homebrew.md) |
-| **DocC API reference** | [shipitswifty.tools/docs/api/shipitkit](https://shipitswifty.tools/docs/api/shipitkit) |
+| **DocC API reference** | Build with `swift package generate-documentation --target ShipItKit` |
 
 ## Development
 

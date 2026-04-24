@@ -47,11 +47,11 @@ on: { push: { branches: [main] } }
 
 jobs:
   beta:
-    runs-on: macos-15
+    runs-on: macos-26
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: maxim-lobanov/setup-xcode@v2
-        with: { xcode-version: '16.4' }
+        with: { xcode-version: '26.4' }
       - name: Install shipit
         run: |
           git clone https://github.com/shipitswifty/shipitswifty /tmp/shipit
@@ -75,7 +75,7 @@ jobs:
   beta:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: actions/setup-java@v5
         with: { distribution: 'temurin', java-version: '17' }
       # … install shipit …
@@ -107,7 +107,7 @@ jobs:
 
 ```yaml
 beta:
-  image: macos-15-xcode-16
+  image: macos-26-xcode-26
   variables:
     LANG: en_US.UTF-8
   script:

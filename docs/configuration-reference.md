@@ -1,6 +1,6 @@
 # Configuration Reference
 
-> **DocC mirror:** Also available as the `ConfigurationReference` article in the `ShipItKit` DocC archive. Canonical online version (coming soon): [shipitswifty.tools/docs/configuration-reference](https://shipitswifty.tools/docs/configuration-reference).
+> **DocC mirror:** Also available as the `ConfigurationReference` article in the `ShipItKit` DocC archive.
 
 All config file keys, environment variables, and CLI flags.
 

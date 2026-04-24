@@ -1,6 +1,6 @@
 # ShipItSwifty — Testing Strategy
 
-> **DocC mirror:** Also available as the `TestingWithMocks` article in the `ShipItKit` DocC archive. Canonical online version (coming soon): [shipitswifty.tools/docs/testing](https://shipitswifty.tools/docs/testing).
+> **DocC mirror:** Also available as the `TestingWithMocks` article in the `ShipItKit` DocC archive.
 
 ## Overview
 
