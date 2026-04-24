@@ -1,6 +1,6 @@
 # ShipItSwifty — Architecture
 
-> **DocC mirror:** Also available as the `Architecture` and `CoreConcepts` articles in the `ShipItKit` DocC archive. Canonical online version (coming soon): [shipitswifty.tools/docs/architecture](https://shipitswifty.tools/docs/architecture).
+> **DocC mirror:** Also available as the `Architecture` and `CoreConcepts` articles in the `ShipItKit` DocC archive.
 
 ShipItSwifty is a pure-Swift CLI toolkit for automating iOS app release workflows, built entirely in Swift 6.
 

@@ -1,6 +1,6 @@
 # ShipItSwifty Walkthrough
 
-> **DocC mirror:** This walkthrough is also available as an interactive tutorial in DocC — see chapter 1 ("iOS Quick Start") of the `ShipItKit` tutorials. Build with `swift package generate-documentation --target ShipItKit`. Canonical online version (coming soon): [shipitswifty.tools/tutorials](https://shipitswifty.tools/tutorials).
+> **DocC mirror:** This walkthrough is also available as an interactive tutorial in DocC — see chapter 1 ("iOS Quick Start") of the `ShipItKit` tutorials. Build with `swift package generate-documentation --target ShipItKit`.
 
 A step-by-step guide to setting up and running your first release.
 

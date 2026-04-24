@@ -247,14 +247,14 @@ struct CoverageActionTests {
               ]
             },
             {
-              "name": "Novalingo.app",
+              "name": "Sample.app",
               "lineCoverage": 0.8,
               "coveredLines": 80,
               "executableLines": 100,
               "files": [
                 {
                   "name": "AppDelegate.swift",
-                  "path": "/Users/developer/Developer/Novalingo/Sources/AppDelegate.swift",
+                  "path": "/Users/developer/Developer/Sample/Sources/AppDelegate.swift",
                   "lineCoverage": 0.8,
                   "coveredLines": 80,
                   "executableLines": 100
@@ -276,7 +276,7 @@ struct CoverageActionTests {
         // SPM package target should be excluded via path-based detection
         #expect(!names.contains("APITraceDebug"))
         // First-party app target should be present
-        #expect(names.contains("Novalingo"))
+        #expect(names.contains("Sample"))
     }
 
     @Test("iOS: SPM target excluded via .build/checkouts path")
@@ -389,9 +389,9 @@ struct CoverageActionTests {
         let xccovJSON = """
         {
           "targets": [
-            { "name": "NovalingoCore.framework", "lineCoverage": 0.75, "coveredLines": 75, "executableLines": 100, "files": [] },
+            { "name": "SampleCore.framework", "lineCoverage": 0.75, "coveredLines": 75, "executableLines": 100, "files": [] },
             { "name": "GoogleSignIn.framework", "lineCoverage": 0.9, "coveredLines": 90, "executableLines": 100, "files": [] },
-            { "name": "NovalingoTests.xctest", "lineCoverage": 1.0, "coveredLines": 100, "executableLines": 100, "files": [] }
+            { "name": "SampleTests.xctest", "lineCoverage": 1.0, "coveredLines": 100, "executableLines": 100, "files": [] }
           ]
         }
         """
@@ -404,12 +404,12 @@ struct CoverageActionTests {
         let result = try await CoverageAction().run(with: options, context: context)
         let names = result.targets.map(\.name)
 
-        // Name heuristic: NovalingoCore passes (no vendor pattern)
-        #expect(names.contains("NovalingoCore"))
+        // Name heuristic: SampleCore passes (no vendor pattern)
+        #expect(names.contains("SampleCore"))
         // Name heuristic: GoogleSignIn excluded via "google" prefix
         #expect(!names.contains("GoogleSignIn"))
-        // Name heuristic: NovalingoTests excluded via "tests" suffix
-        #expect(!names.contains("NovalingoTests"))
+        // Name heuristic: SampleTests excluded via "tests" suffix
+        #expect(!names.contains("SampleTests"))
     }
 
     @Test("iOS: first-party-only false with SPM path still includes all non-zero targets")
@@ -433,14 +433,14 @@ struct CoverageActionTests {
               ]
             },
             {
-              "name": "Novalingo.app",
+              "name": "Sample.app",
               "lineCoverage": 0.8,
               "coveredLines": 80,
               "executableLines": 100,
               "files": [
                 {
                   "name": "AppDelegate.swift",
-                  "path": "/Users/developer/Developer/Novalingo/Sources/AppDelegate.swift",
+                  "path": "/Users/developer/Developer/Sample/Sources/AppDelegate.swift",
                   "lineCoverage": 0.8,
                   "coveredLines": 80,
                   "executableLines": 100
@@ -461,7 +461,7 @@ struct CoverageActionTests {
 
         // With firstPartyOnly: false, SPM targets should NOT be filtered out
         #expect(names.contains("APITraceDebug"))
-        #expect(names.contains("Novalingo"))
+        #expect(names.contains("Sample"))
     }
 
     @Test("iOS: mixed-path target with one project file is included as first-party")

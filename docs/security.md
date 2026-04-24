@@ -1,6 +1,6 @@
 # ShipItSwifty — Security Model
 
-> **DocC mirror:** Security guidance is folded into the `CodeSigningAndVault` article in the `ShipItKit` DocC archive. Canonical online version (coming soon): [shipitswifty.tools/docs/security](https://shipitswifty.tools/docs/security).
+> **DocC mirror:** Security guidance is folded into the `CodeSigningAndVault` article in the `ShipItKit` DocC archive.
 
 ## Secrets management
 

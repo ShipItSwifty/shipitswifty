@@ -31,6 +31,10 @@ struct GooglePlayJWTGeneratorTests {
     }
 }
 
+// Test-only RSA key generated solely for this test file. It is not associated
+// with any Google service account, App Store Connect key, or other live
+// credential, and exists only to drive `GooglePlayJWTGenerator` through the
+// signing path so its output can be verified.
 private let testRSAPrivateKeyPEM = """
 -----BEGIN PRIVATE KEY-----
 MIIEvwIBADANBgkqhkiG9w0BAQEFAASCBKkwggSlAgEAAoIBAQDd19chv0wmMdfh

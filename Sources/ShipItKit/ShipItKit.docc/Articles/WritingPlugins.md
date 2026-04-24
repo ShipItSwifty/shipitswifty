@@ -6,7 +6,7 @@ Extend ShipItKit with custom actions using the plugin system.
 
 ShipItKit's plugin system lets you add custom actions without modifying the core library. In v1, plugins are **statically linked** Swift packages — you add them to `Package.swift` and register them at startup. Runtime dylib loading is out of scope.
 
-This article covers the protocol contract; for two complete, end-to-end runnable examples (`build-timing` that wraps another action, and `copy-artifacts` that copies built `.ipa` / `.aab` / dSYMs to a versioned directory), see [Plugin Development](https://shipitswifty.tools/docs/guides/plugin-development) on the website.
+This article covers the protocol contract; for two complete, end-to-end runnable examples (`build-timing` that wraps another action, and `copy-artifacts` that copies built `.ipa` / `.aab` / dSYMs to a versioned directory), see [`docs/plugin-development.md`](https://github.com/shipitswifty/shipitswifty/blob/main/docs/plugin-development.md) in the repository.
 
 ## Creating a plugin
 
