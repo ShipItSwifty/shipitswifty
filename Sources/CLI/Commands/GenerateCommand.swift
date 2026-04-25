@@ -1,0 +1,349 @@
+import ArgumentParser
+import Foundation
+import OSLog
+import ShipItKit
+
+#if canImport(Darwin)
+  import Darwin
+#elseif canImport(Glibc)
+  import Glibc
+#endif
+
+/// Generate a Shipfile.yml from project inspection and user confirmation.
+///
+/// `shipit generate` inspects the current project, detects whether it looks like
+/// an iOS, Android, or mixed workspace, asks the user to confirm inferred values,
+/// writes `Shipfile.yml`, and offers to run `shipit doctor` afterward.
+struct GenerateCommand: AsyncParsableCommand {
+  static let configuration = CommandConfiguration(
+    commandName: "generate",
+    abstract: "Generate Shipfile.yml from project inspection and guided prompts"
+  )
+
+  @OptionGroup var global: GlobalOptions
+
+  @Option(name: .long, help: "Goal to optimize for: local, beta, or release")
+  var goal: SuggestionGoal = .beta
+
+  @Option(name: .long, help: "Root path to inspect")
+  var path: String = FileManager.default.currentDirectoryPath
+
+  @Flag(name: .long, help: "Overwrite an existing Shipfile without asking")
+  var force: Bool = false
+
+  @Flag(name: .long, help: "Skip prompts and write the best-effort generated Shipfile")
+  var nonInteractive: Bool = false
+
+  @Flag(name: .long, help: "Do not prompt to run doctor after writing the Shipfile")
+  var skipDoctorPrompt: Bool = false
+
+  private static let logger = Logger.forType(subsystem: "ShipItSwifty", GenerateCommand.self)
+
+  func run() async throws {
+    Self.logger.info("Starting Shipfile generation for path: \(path)")
+
+    let formatter = makeHumanFormatter(global: global)
+    let inspection = try await ProjectInspector(rootPath: path).inspect()
+    let platform = try resolvePlatform(from: inspection, formatter: formatter)
+    let suggestion = ShipfileSuggester().suggest(goal: goal, platform: platform, from: inspection)
+    let outputPath = resolvedOutputPath()
+
+    if global.dryRun {
+      formatter.printHeader("Shipfile Preview")
+      formatter.print(suggestion.yaml)
+      return
+    }
+
+    if FileManager.default.fileExists(atPath: outputPath), !force {
+      guard
+        nonInteractive
+          || confirm(
+            "Shipfile.yml already exists at \(outputPath). Overwrite?", defaultAnswer: false)
+      else {
+        formatter.printWarning("Generation cancelled. Existing Shipfile.yml was not changed.")
+        Self.logger.info("Shipfile generation cancelled because output already exists")
+        return
+      }
+    }
+
+    let yaml = try buildYAML(
+      suggestion: suggestion,
+      platform: platform,
+      formatter: formatter
+    )
+
+    Self.logger.info("Writing generated Shipfile to: \(outputPath)")
+    try FileManager.default.createDirectory(
+      atPath: URL(fileURLWithPath: outputPath).deletingLastPathComponent().path,
+      withIntermediateDirectories: true
+    )
+    try yaml.write(toFile: outputPath, atomically: true, encoding: .utf8)
+
+    switch global.output {
+    case .json:
+      let payload: JSONValue = .object([
+        "path": .string(outputPath),
+        "goal": .string(goal.rawValue),
+        "platform": .string(platform.rawValue),
+        "missing": .array(
+          suggestion.missingValues.map { missing in
+            .object([
+              "keyPath": .string(missing.keyPath),
+              "reason": .string(missing.reason),
+              "envVar": missing.envVar.map(JSONValue.string) ?? .null,
+            ])
+          }),
+        "warnings": .array(suggestion.warnings.map(JSONValue.string)),
+      ])
+      print(
+        try JSONReporter().encode(
+          ActionResultEnvelope(action: "generate", status: "success", payload: payload)))
+    case .human:
+      formatter.printSuccess("Created Shipfile.yml at \(outputPath)")
+      printGenerationSummary(suggestion: suggestion, platform: platform, formatter: formatter)
+    }
+
+    Self.logger.info("Shipfile generation completed")
+    try await offerDoctor(outputPath: outputPath, formatter: formatter)
+  }
+
+  private func resolvePlatform(from inspection: ProjectInspection, formatter: HumanFormatter) throws
+    -> Platform
+  {
+    if let platform = global.platform {
+      return platform
+    }
+
+    let hasIOS = !inspection.xcodeContainers.isEmpty
+    let hasAndroid = !inspection.gradleFiles.isEmpty
+
+    if hasIOS && hasAndroid && !nonInteractive && global.output == .human {
+      formatter.printHeader("Detected Platforms")
+      formatter.print("This project appears to contain both iOS and Android files.")
+      return choosePlatform(defaultPlatform: inspection.detectedPlatform)
+    }
+
+    return inspection.detectedPlatform
+  }
+
+  private func buildYAML(
+    suggestion: SuggestedShipfile,
+    platform: Platform,
+    formatter: HumanFormatter
+  ) throws -> String {
+    guard !nonInteractive, global.output == .human else {
+      return suggestion.yaml
+    }
+
+    if !isInteractiveTerminal {
+      return suggestion.yaml
+    }
+
+    formatter.printHeader("Project Detection")
+    formatter.printKV("Platform", platform.rawValue)
+    formatter.printKV("Goal", goal.rawValue)
+
+    for warning in suggestion.warnings {
+      formatter.printWarning(warning)
+    }
+
+    let overrides = collectOverrides(
+      suggestion: suggestion, platform: platform, formatter: formatter)
+    let confirmedYAML = apply(overrides: overrides, to: suggestion.yaml)
+
+    formatter.printHeader("Shipfile Preview")
+    formatter.print(confirmedYAML)
+
+    guard confirm("Write this Shipfile.yml?", defaultAnswer: true) else {
+      Self.logger.info("Shipfile generation cancelled at final confirmation")
+      throw ExitCode(1)
+    }
+
+    return confirmedYAML
+  }
+
+  private func collectOverrides(
+    suggestion: SuggestedShipfile,
+    platform: Platform,
+    formatter: HumanFormatter
+  ) -> [String: String] {
+    switch platform {
+    case .ios:
+      return collectIOSOverrides(suggestion: suggestion, formatter: formatter)
+    case .android:
+      return collectAndroidOverrides(suggestion: suggestion, formatter: formatter)
+    }
+  }
+
+  private func collectIOSOverrides(suggestion: SuggestedShipfile, formatter: HumanFormatter)
+    -> [String: String]
+  {
+    let app = suggestion.inspection.suggestedAppConfig
+    formatter.printHeader("Confirm iOS Values")
+
+    var overrides: [String: String] = [:]
+    addOverride(
+      &overrides, placeholder: "${SHIPIT_APP__SCHEME}",
+      value: ask("Xcode scheme", defaultValue: app.scheme))
+    addOverride(
+      &overrides, placeholder: "${SHIPIT_APP__BUNDLE_ID}",
+      value: ask("Bundle identifier", defaultValue: app.bundleID))
+    addOverride(
+      &overrides, placeholder: "${SHIPIT_APP__TEAM_ID}",
+      value: ask("Apple Developer Team ID", defaultValue: app.teamID))
+
+    if app.workspace == nil && app.project == nil {
+      let container = ask("Workspace or project path", defaultValue: nil)
+      if container.hasSuffix(".xcworkspace") {
+        overrides["# workspace: MyApp.xcworkspace"] = "workspace: \(container)"
+      } else if !container.isEmpty {
+        overrides["# project: MyApp.xcodeproj"] = "project: \(container)"
+      }
+    }
+
+    let uploadsToTestFlight =
+      goal == .release
+      || confirm(
+        "Do you want this Shipfile to include App Store Connect upload settings?",
+        defaultAnswer: false)
+    if uploadsToTestFlight {
+      formatter.printHeader("App Store Connect Environment")
+      formatter.print("ShipIt will reference env vars instead of storing secrets in Shipfile.yml.")
+      printEnvironmentStatus(
+        ["ASC_KEY_ID", "ASC_ISSUER_ID", "ASC_PRIVATE_KEY_PATH", "ASC_PRIVATE_KEY"],
+        formatter: formatter)
+      overrides["# app_store_connect:"] = "app_store_connect:"
+      overrides["#   key_id: ${ASC_KEY_ID}"] = "  key_id: ${ASC_KEY_ID}"
+      overrides["#   issuer_id: ${ASC_ISSUER_ID}"] = "  issuer_id: ${ASC_ISSUER_ID}"
+      overrides["#   key_path: ${ASC_PRIVATE_KEY_PATH}"] = "  key_path: ${ASC_PRIVATE_KEY_PATH}"
+      overrides["    # - action: testflight"] = "    - action: testflight"
+      overrides["    #   options:"] = "      options:"
+      overrides["    #     groups: [\"Internal QA\"]"] = "        groups: [\"Internal QA\"]"
+    }
+
+    return overrides
+  }
+
+  private func collectAndroidOverrides(suggestion: SuggestedShipfile, formatter: HumanFormatter)
+    -> [String: String]
+  {
+    formatter.printHeader("Confirm Android Values")
+
+    var overrides: [String: String] = [:]
+    addOverride(
+      &overrides, placeholder: "${SHIPIT_ANDROID__MODULE}",
+      value: ask("Gradle module", defaultValue: "app"))
+    addOverride(
+      &overrides, placeholder: "${SHIPIT_ANDROID__PACKAGE_NAME}",
+      value: ask("Android package name", defaultValue: nil))
+    addOverride(
+      &overrides, placeholder: "${SHIPIT_ANDROID__KEYSTORE_PATH}",
+      value: ask("Keystore path", defaultValue: nil))
+    addOverride(
+      &overrides, placeholder: "${SHIPIT_ANDROID__KEY_ALIAS}",
+      value: ask("Keystore key alias", defaultValue: nil))
+
+    let uploadsToPlay =
+      goal == .release
+      || confirm(
+        "Do you want this Shipfile to include Google Play upload settings?", defaultAnswer: false)
+    if uploadsToPlay {
+      formatter.printHeader("Google Play Environment")
+      formatter.print("ShipIt will reference env vars instead of storing secrets in Shipfile.yml.")
+      printEnvironmentStatus(
+        [
+          "GOOGLE_PLAY_SERVICE_ACCOUNT_JSON",
+          "GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_PATH",
+          "SHIPIT_ANDROID__KEYSTORE_PASSWORD",
+          "SHIPIT_ANDROID__KEY_PASSWORD",
+        ], formatter: formatter)
+      overrides["    # - action: play-store"] = "    - action: play-store"
+    }
+
+    return overrides
+  }
+
+  private func printEnvironmentStatus(_ names: [String], formatter: HumanFormatter) {
+    let environment = ProcessInfo.processInfo.environment
+    for name in names {
+      formatter.printKV(name, environment[name] == nil ? "(not set)" : "[set]")
+    }
+  }
+
+  private func addOverride(_ overrides: inout [String: String], placeholder: String, value: String)
+  {
+    guard !value.isEmpty else { return }
+    overrides[placeholder] = value
+  }
+
+  private func printGenerationSummary(
+    suggestion: SuggestedShipfile, platform: Platform, formatter: HumanFormatter
+  ) {
+    formatter.printKV("Platform", platform.rawValue)
+    formatter.printKV("Goal", suggestion.goal.rawValue)
+    if !suggestion.missingValues.isEmpty {
+      formatter.printHeader("Values To Review")
+      for missing in suggestion.missingValues {
+        let envHint = missing.envVar.map { " (or set \($0))" } ?? ""
+        formatter.printKV(missing.keyPath, missing.reason + envHint)
+      }
+    }
+  }
+
+  private func offerDoctor(outputPath: String, formatter: HumanFormatter) async throws {
+    guard !skipDoctorPrompt, !nonInteractive, global.output == .human, isInteractiveTerminal else {
+      return
+    }
+    guard confirm("Run shipit doctor now to check this configuration?", defaultAnswer: true) else {
+      return
+    }
+
+    Self.logger.info("Running doctor after Shipfile generation")
+    var doctor = DoctorCommand()
+    doctor.global = global
+    doctor.global.shipfile = outputPath
+    try await doctor.run()
+  }
+
+  private func resolvedOutputPath() -> String {
+    let baseURL = URL(fileURLWithPath: path)
+    let shipfileURL = URL(fileURLWithPath: global.shipfile)
+    if shipfileURL.path.hasPrefix("/") {
+      return shipfileURL.path
+    }
+    return baseURL.appendingPathComponent(global.shipfile).path
+  }
+
+  private func apply(overrides: [String: String], to yaml: String) -> String {
+    overrides.reduce(yaml) { result, entry in
+      guard !entry.value.isEmpty else { return result }
+      return result.replacingOccurrences(of: entry.key, with: entry.value)
+    }
+  }
+
+  private func choosePlatform(defaultPlatform: Platform) -> Platform {
+    let answer = ask(
+      "Platform to generate for (ios/android)", defaultValue: defaultPlatform.rawValue
+    ).lowercased()
+    return Platform(rawValue: answer) ?? defaultPlatform
+  }
+
+  private func ask(_ prompt: String, defaultValue: String?) -> String {
+    let suffix = defaultValue.map { " [\($0)]" } ?? ""
+    print("\(prompt)\(suffix): ", terminator: "")
+    let answer = readLine()?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+    return answer.isEmpty ? (defaultValue ?? "") : answer
+  }
+
+  private func confirm(_ prompt: String, defaultAnswer: Bool) -> Bool {
+    let suffix = defaultAnswer ? "Y/n" : "y/N"
+    print("\(prompt) [\(suffix)]: ", terminator: "")
+    let answer = readLine()?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() ?? ""
+    if answer.isEmpty { return defaultAnswer }
+    return ["y", "yes"].contains(answer)
+  }
+
+  private var isInteractiveTerminal: Bool {
+    isatty(STDIN_FILENO) != 0 && isatty(STDOUT_FILENO) != 0
+  }
+}

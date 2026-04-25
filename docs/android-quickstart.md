@@ -39,7 +39,7 @@ The response includes:
 ## 3. Create a Shipfile
 
 ```bash
-shipit init --goal beta --platform android --non-interactive --output json
+shipit generate --goal beta --platform android --non-interactive --output json
 ```
 
 Or write one manually:

@@ -86,7 +86,7 @@ The full checklist for publishing a tap, computing tarball SHAs, and cutting a s
 
 ```bash
 # 1. Generate a Shipfile interactively
-shipit init
+shipit generate
 
 # 2. Diagnose your environment
 shipit doctor
@@ -154,7 +154,7 @@ Copy the full annotated example: `cp Shipfile.example.yml Shipfile.yml`.
 
 | Group | Commands |
 |---|---|
-| **Setup / inspection** | `init`, `doctor`, `env`, `inspect`, `suggest-config`, `schema` |
+| **Setup / inspection** | `generate`, `doctor`, `env`, `inspect`, `suggest-config`, `schema` |
 | **AI agents** | `ai-bootstrap`, `ai-session` |
 | **Validation** | `validate yml`, `validate metadata`, `validate archive`, `validate bundle`, `validate all`, `precheck` (alias) |
 | **Build & test** | `build`, `test`, `coverage`, `lint`, `archive`, `export` |

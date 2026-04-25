@@ -275,7 +275,7 @@ Use these AI-oriented commands to inspect the supported workflow surface:
 swift run shipit ai-bootstrap --goal beta
 swift run shipit schema --output json
 swift run shipit inspect project --output json
-swift run shipit suggest-config --goal beta --output json
+swift run shipit generate --goal beta
 swift run shipit validate yml --shipfile ./Shipfile.yml --output json
 ```
 
