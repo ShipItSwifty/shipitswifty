@@ -241,7 +241,7 @@ public enum ShipItError: Error, Sendable {
 shipit <command> [global options]
 
 COMMANDS:
-  init          Interactive project setup — generates Shipfile.yml
+  generate      Guided project setup — generates Shipfile.yml
                   --goal <local|beta|release>  Template to generate (default: beta)
                   --non-interactive            Use ProjectInspector + ShipfileSuggester; no prompts
                   --output json                Emit structured JSON on success
@@ -338,8 +338,8 @@ swift run shipit inspect project --output json
 # Goal-scoped schema slice (beta only)
 swift run shipit schema --workflow beta --output json
 
-# Generate a starter Shipfile
-swift run shipit suggest-config --goal beta --output json
+# Generate a Shipfile
+swift run shipit generate --goal beta
 
 # Validate the generated Shipfile before execution
 swift run shipit validate yml --shipfile ./Shipfile.yml --output json
@@ -353,8 +353,8 @@ swift run shipit validate archive --archive-path ./build/MyApp.xcarchive
 # Run all validation stages (yml + metadata + archive)
 swift run shipit validate all --output json
 
-# Non-interactive init (agents/CI)
-swift run shipit init --goal beta --non-interactive --output json
+# Non-interactive generation (agents/CI)
+swift run shipit generate --goal beta --non-interactive --output json
 
 # Simulate a workflow without executing it (returns structured JSON)
 swift run shipit run beta --dry-run --output json
@@ -402,7 +402,7 @@ swift run shipit run beta --dry-run --output json
     },
     "nextAction": {
       "action": "resolve_blocker | resolve_ambiguity | create_shipfile | complete_config | run_workflow",
-      "command": "shipit suggest-config --goal local --output json",
+      "command": "shipit generate --goal local",
       "reason": "No Shipfile.yml exists. Generate a starter config..."
     },
     "agentPrompt": "You are helping an iOS developer automate their app release...",

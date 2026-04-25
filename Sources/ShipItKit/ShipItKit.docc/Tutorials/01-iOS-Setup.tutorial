@@ -27,12 +27,12 @@
 
     @Section(title: "Create a Shipfile") {
         @ContentAndMedia {
-            Either let `shipit init` write one for you or copy the example.
+            Either let `shipit generate` write one for you or copy the example.
         }
 
         @Steps {
             @Step {
-                Run `shipit init` from your project root. It will inspect your
+                Run `shipit generate` from your project root. It will inspect your
                 Xcode project and generate a Shipfile populated with what it can
                 detect.
 

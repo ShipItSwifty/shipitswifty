@@ -72,7 +72,7 @@ Output is always JSON when invoked this way.
   },
   "shipfileSuggestion": "...generated YAML body...",
   "nextAction": {
-    "command": "shipit init --goal beta --non-interactive --output json",
+    "command": "shipit generate --goal beta",
     "rationale": "All inputs ready; create the Shipfile."
   },
   "nextQuestion": {
@@ -102,12 +102,12 @@ If your project has multiple runnable schemes, multiple bundle IDs across config
 2. Re-run `ai-session --goal <goal>` after the user supplies the choice (typically by editing `Shipfile.yml` or exporting an env var).
 3. Continue when `ambiguities` is empty.
 
-## Non-interactive init
+## Non-interactive generation
 
 When agents are confident enough to write a Shipfile without further user input, they call:
 
 ```bash
-shipit init --goal beta --non-interactive --output json
+shipit generate --goal beta --non-interactive --output json
 ```
 
 This uses ``ProjectInspector`` for the same accurate scheme/bundle/team detection, writes `Shipfile.yml`, and returns a JSON result listing any unresolved fields.

@@ -56,8 +56,9 @@ swift run shipit ai-session --goal beta
 swift run shipit ai-session --goal release --path /path/to/project
 swift run shipit ai-session --goal beta --platform android   # Android-specific agent prompt
 
-# Non-interactive init (agents/CI)
-swift run shipit init --goal beta --non-interactive --output json
+# Guided Shipfile generation
+swift run shipit generate --goal beta
+swift run shipit generate --goal beta --non-interactive --output json
 
 # Goal-scoped schema slice
 swift run shipit schema --workflow beta --output json

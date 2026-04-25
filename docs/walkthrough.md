@@ -42,7 +42,7 @@ If your project is ambiguous (e.g., multiple runnable schemes), resolve those fi
 For non-interactive use (CI/agent flows):
 
 ```bash
-swift run shipit init --goal beta --non-interactive --output json
+swift run shipit generate --goal beta --non-interactive --output json
 ```
 
 This uses `ProjectInspector` for accurate scheme/bundle/team detection, writes `Shipfile.yml`, and returns a JSON result listing any unresolved fields.

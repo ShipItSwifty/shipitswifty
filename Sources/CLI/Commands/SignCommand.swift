@@ -1,4 +1,5 @@
 import ArgumentParser
+import Foundation
 import ShipItKit
 
 /// Code signing subcommands.
@@ -11,153 +12,169 @@ import ShipItKit
 /// shipit sign cleanup
 /// ```
 struct SignCommand: AsyncParsableCommand {
-    static let configuration = CommandConfiguration(
-        commandName: "sign",
-        abstract: "Code signing subcommands (init, sync, import, cleanup)",
-        subcommands: [
-            SignInitCommand.self,
-            SignSyncCommand.self,
-            SignImportCommand.self,
-            SignCleanupCommand.self,
-        ]
-    )
+  static let configuration = CommandConfiguration(
+    commandName: "sign",
+    abstract: "Code signing subcommands (init, sync, import, cleanup)",
+    subcommands: [
+      SignInitCommand.self,
+      SignSyncCommand.self,
+      SignImportCommand.self,
+      SignCleanupCommand.self,
+    ]
+  )
 }
 
 /// Initialize the encrypted certificate repository.
 struct SignInitCommand: AsyncParsableCommand {
-    static let configuration = CommandConfiguration(
-        commandName: "init",
-        abstract: "Initialize an encrypted certificate repository"
-    )
+  static let configuration = CommandConfiguration(
+    commandName: "init",
+    abstract: "Initialize an encrypted certificate repository"
+  )
 
-    @OptionGroup var global: GlobalOptions
+  @OptionGroup var global: GlobalOptions
 
-    @Option(name: .long, help: "Git URL of the certificate repository")
-    var gitUrl: String?
+  @Option(name: .long, help: "Git URL of the certificate repository")
+  var gitUrl: String?
 
-    func run() async throws {
-        do {
-            let config = try await resolveRequiredConfig(
-                global: global,
-                cliOptions: CLIOptions(ci: global.ci, dryRun: global.dryRun, platform: global.platform)
-            )
-            let context = try await buildActionContext(config: config)
-            let options = SignAction.Options(operation: .`init`, gitUrl: gitUrl)
+  func run() async throws {
+    do {
+      let config = try await resolveOptionalSignConfig(
+        global: global,
+        cliOptions: CLIOptions(ci: global.ci, dryRun: global.dryRun, platform: global.platform)
+      )
+      let context = try await buildActionContext(config: config)
+      let options = SignAction.Options(operation: .`init`, gitUrl: gitUrl)
 
-            let result = try await SignAction().run(with: options, context: context)
-            outputResult(action: "sign init", result: result, format: global.output, colorMode: global.effectiveColorMode)
-        } catch let error as ShipItError {
-            outputError(error: error, format: global.output, colorMode: global.effectiveColorMode)
-            throw ExitCode(error.exitCode)
-        }
+      let result = try await SignAction().run(with: options, context: context)
+      outputResult(
+        action: "sign init", result: result, format: global.output,
+        colorMode: global.effectiveColorMode)
+    } catch let error as ShipItError {
+      outputError(error: error, format: global.output, colorMode: global.effectiveColorMode)
+      throw ExitCode(error.exitCode)
     }
+  }
 }
 
 /// Sync certificates and provisioning profiles from storage.
 struct SignSyncCommand: AsyncParsableCommand {
-    static let configuration = CommandConfiguration(
-        commandName: "sync",
-        abstract: "Sync certificates and profiles from encrypted storage"
-    )
+  static let configuration = CommandConfiguration(
+    commandName: "sync",
+    abstract: "Sync certificates and profiles from encrypted storage"
+  )
 
-    @OptionGroup var global: GlobalOptions
+  @OptionGroup var global: GlobalOptions
 
-    @Option(name: .long, help: "Profile type: development | adhoc | appstore | enterprise")
-    var type: String = "development"
+  @Option(name: .long, help: "Profile type: development | adhoc | appstore | enterprise")
+  var type: String = "development"
 
-    @Option(name: .long, help: "Git URL of the certificate repository")
-    var gitUrl: String?
+  @Option(name: .long, help: "Git URL of the certificate repository")
+  var gitUrl: String?
 
-    func run() async throws {
-        do {
-            let config = try await resolveRequiredConfig(
-                global: global,
-                cliOptions: CLIOptions(ci: global.ci, dryRun: global.dryRun, platform: global.platform)
-            )
-            let context = try await buildActionContext(config: config)
-            let formatter = makeHumanFormatter(global: global)
+  func run() async throws {
+    do {
+      let config = try await resolveOptionalSignConfig(
+        global: global,
+        cliOptions: CLIOptions(ci: global.ci, dryRun: global.dryRun, platform: global.platform)
+      )
+      let context = try await buildActionContext(config: config)
+      let formatter = makeHumanFormatter(global: global)
 
-            let options = SignAction.Options(operation: .sync, type: type, ci: global.ci ? true : nil, gitUrl: gitUrl)
+      let options = SignAction.Options(
+        operation: .sync, type: type, ci: global.ci ? true : nil, gitUrl: gitUrl)
 
-            if global.dryRun {
-                formatter.print("DRY RUN: Would sync \(type) certificates")
-                return
-            }
+      if global.dryRun {
+        formatter.print("DRY RUN: Would sync \(type) certificates")
+        return
+      }
 
-            let result = try await SignAction().run(with: options, context: context)
-            outputResult(action: "sign sync", result: result, format: global.output, colorMode: global.effectiveColorMode)
-        } catch let error as ShipItError {
-            outputError(error: error, format: global.output, colorMode: global.effectiveColorMode)
-            throw ExitCode(error.exitCode)
-        }
+      let result = try await SignAction().run(with: options, context: context)
+      outputResult(
+        action: "sign sync", result: result, format: global.output,
+        colorMode: global.effectiveColorMode)
+    } catch let error as ShipItError {
+      outputError(error: error, format: global.output, colorMode: global.effectiveColorMode)
+      throw ExitCode(error.exitCode)
     }
+  }
 }
 
 /// Import an existing certificate into encrypted storage.
 struct SignImportCommand: AsyncParsableCommand {
-    static let configuration = CommandConfiguration(
-        commandName: "import",
-        abstract: "Import a .p12 certificate and .mobileprovision into storage"
-    )
+  static let configuration = CommandConfiguration(
+    commandName: "import",
+    abstract: "Import a .p12 certificate and .mobileprovision into storage"
+  )
 
-    @OptionGroup var global: GlobalOptions
+  @OptionGroup var global: GlobalOptions
 
-    @Option(name: .long, help: "Path to the .p12 certificate file")
-    var p12Path: String
+  @Option(name: .long, help: "Path to the .p12 certificate file")
+  var p12Path: String
 
-    @Option(name: .long, help: "Path to the .mobileprovision file")
-    var profilePath: String
+  @Option(name: .long, help: "Path to the .mobileprovision file")
+  var profilePath: String
 
-    @Option(name: .long, help: "Git URL of the certificate repository")
-    var gitUrl: String?
+  @Option(name: .long, help: "Git URL of the certificate repository")
+  var gitUrl: String?
 
-    func run() async throws {
-        do {
-            let config = try await resolveRequiredConfig(
-                global: global,
-                cliOptions: CLIOptions(ci: global.ci, dryRun: global.dryRun, platform: global.platform)
-            )
-            let context = try await buildActionContext(config: config)
+  func run() async throws {
+    do {
+      let config = try await resolveOptionalSignConfig(
+        global: global,
+        cliOptions: CLIOptions(ci: global.ci, dryRun: global.dryRun, platform: global.platform)
+      )
+      let context = try await buildActionContext(config: config)
 
-            let options = SignAction.Options(
-                operation: .`import`,
-                gitUrl: gitUrl,
-                p12Path: p12Path,
-                provisioningProfilePath: profilePath
-            )
+      let options = SignAction.Options(
+        operation: .`import`,
+        gitUrl: gitUrl,
+        p12Path: p12Path,
+        provisioningProfilePath: profilePath
+      )
 
-            let result = try await SignAction().run(with: options, context: context)
-            outputResult(action: "sign import", result: result, format: global.output, colorMode: global.effectiveColorMode)
-        } catch let error as ShipItError {
-            outputError(error: error, format: global.output, colorMode: global.effectiveColorMode)
-            throw ExitCode(error.exitCode)
-        }
+      let result = try await SignAction().run(with: options, context: context)
+      outputResult(
+        action: "sign import", result: result, format: global.output,
+        colorMode: global.effectiveColorMode)
+    } catch let error as ShipItError {
+      outputError(error: error, format: global.output, colorMode: global.effectiveColorMode)
+      throw ExitCode(error.exitCode)
     }
+  }
 }
 
 /// Clean up temporary keychain and installed profiles.
 struct SignCleanupCommand: AsyncParsableCommand {
-    static let configuration = CommandConfiguration(
-        commandName: "cleanup",
-        abstract: "Remove temporary keychain and profiles created during sync --ci"
-    )
+  static let configuration = CommandConfiguration(
+    commandName: "cleanup",
+    abstract: "Remove temporary keychain and profiles created during sync --ci"
+  )
 
-    @OptionGroup var global: GlobalOptions
+  @OptionGroup var global: GlobalOptions
 
-    func run() async throws {
-        do {
-            let config = try await resolveRequiredConfig(
-                global: global,
-                cliOptions: CLIOptions(ci: global.ci, dryRun: global.dryRun, platform: global.platform)
-            )
-            let context = try await buildActionContext(config: config)
-            let options = SignAction.Options(operation: .cleanup)
+  func run() async throws {
+    do {
+      let context = try await buildFallbackActionContext(platform: global.platform ?? .ios)
+      let options = SignAction.Options(operation: .cleanup)
 
-            let result = try await SignAction().run(with: options, context: context)
-            outputResult(action: "sign cleanup", result: result, format: global.output, colorMode: global.effectiveColorMode)
-        } catch let error as ShipItError {
-            outputError(error: error, format: global.output, colorMode: global.effectiveColorMode)
-            throw ExitCode(error.exitCode)
-        }
+      let result = try await SignAction().run(with: options, context: context)
+      outputResult(
+        action: "sign cleanup", result: result, format: global.output,
+        colorMode: global.effectiveColorMode)
+    } catch let error as ShipItError {
+      outputError(error: error, format: global.output, colorMode: global.effectiveColorMode)
+      throw ExitCode(error.exitCode)
     }
+  }
+}
+
+private func resolveOptionalSignConfig(global: GlobalOptions, cliOptions: CLIOptions) async throws
+  -> ResolvedConfig
+{
+  let shipfilePath = configuredShipfilePath(from: global)
+  if FileManager.default.fileExists(atPath: shipfilePath) {
+    return try await ConfigResolver().resolve(cliOptions: cliOptions, shipfilePath: shipfilePath)
+  }
+  return try await ConfigResolver().resolve(
+    cliOptions: cliOptions, shipfilePath: "/tmp/shipit-no-shipfile.yml")
 }

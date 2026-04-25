@@ -8,7 +8,7 @@ This document covers the planned feature surface, current v1 scope, the long-ter
 
 | Area | Included in v1.0 | Deferred |
 |---|---|---|
-| **CLI** | `init`, `schema`, `inspect project`, `suggest-config`, `ai-bootstrap`, `ai-session`, `validate`, `validate yml`, `validate metadata`, `validate archive`, `validate all`, `build`, `test`, `archive`, `export`, `sign sync`, `testflight`, `metadata`, `version`, `run`, `env`, `doctor` | Advanced git automation, PR creation, sales/finance reporting |
+| **CLI** | `generate`, `schema`, `inspect project`, `suggest-config`, `ai-bootstrap`, `ai-session`, `validate`, `validate yml`, `validate metadata`, `validate archive`, `validate all`, `build`, `test`, `archive`, `export`, `sign sync`, `testflight`, `metadata`, `version`, `run`, `env`, `doctor` | Advanced git automation, PR creation, sales/finance reporting |
 | **Code signing** | Vault-style sync from Git-backed encrypted storage | S3/GCS backends, certificate lifecycle beyond core sync |
 | **Distribution** | TestFlight upload, metadata push/pull, App Store submission primitives | Full review automation coverage |
 | **Screenshots** | Capture + upload basics | Framing, visual diffing, preview video processing |
@@ -24,7 +24,8 @@ This document covers the planned feature surface, current v1 scope, the long-ter
 |---|---|
 | **Schema export** | `shipit schema --output json` exposes the full Shipfile and workflow action contract. Use `--workflow <local\|beta\|release>` for a goal-scoped subset |
 | **Project inspection** | `shipit inspect project --output json` discovers workspaces, projects, schemes, bundle IDs, team IDs, and related release files |
-| **Config suggestion** | `shipit suggest-config --goal <local\|beta\|release>` produces a YAML draft plus missing-value hints |
+| **Guided Shipfile generation** | `shipit generate --goal <local\|beta\|release>` inspects iOS/Android project files, confirms inferred values, writes `Shipfile.yml`, and offers to run `doctor` |
+| **Config suggestion** | `shipit suggest-config --goal <local\|beta\|release>` produces a YAML draft plus missing-value hints without writing it |
 | **Bootstrap response** | `shipit ai-bootstrap --goal <local\|beta\|release>` always returns JSON with inspection, schema, suggestion, and validation for AI agents |
 | **AI session** | `shipit ai-session --goal <local\|beta\|release>` returns a **versioned, stable JSON contract** (v1) containing inferred config with confidence + provenance, secret descriptors, ambiguity flags, readiness diagnosis, next deterministic action, agent system prompt, and the single best follow-up question to ask the user |
 | **Validation** | `shipit validate` (default: yml) checks YAML parsing, top-level schema, workflow action options, and common semantic mistakes. `shipit validate metadata` runs precheck rules. `shipit validate archive` validates xcarchive / ipa bundle readiness for upload. `shipit validate all` runs all stages. |
