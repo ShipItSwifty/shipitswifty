@@ -320,8 +320,18 @@ struct IPAUploadServiceTests {
         executor: MockExecutor = MockExecutor { _, _ in ShellOutput(stdout: "", stderr: "", exitCode: 0) }
     ) -> ActionContext {
         let base = ActionContext.mock(executor: executor)
+        let homeURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("shipit-ipa-upload-home-\(UUID().uuidString)", isDirectory: true)
+        let shell = ShellContext(
+            executor: executor,
+            searchPaths: base.shell.searchPaths,
+            environment: base.shell.environment.merging(["HOME": homeURL.path]) { _, new in new },
+            workingDirectory: base.shell.workingDirectory,
+            defaultTimeout: base.shell.defaultTimeout,
+            defaultOutputLimit: base.shell.defaultOutputLimit
+        )
         return ActionContext(
-            shell: base.shell,
+            shell: shell,
             logger: base.logger,
             config: ResolvedConfig(
                 ascKeyID: keyID,

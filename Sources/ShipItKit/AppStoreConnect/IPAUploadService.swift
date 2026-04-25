@@ -93,14 +93,14 @@ public struct IPAUploadService: Sendable {
 
         // altool looks for the p8 key at ~/.appstoreconnect/private_keys/AuthKey_<KEY_ID>.p8.
         // Stage it there if it isn't already present.
-        let keyDir = FileManager.default.homeDirectoryForCurrentUser
+        let keyDir = context.shell.homeDirectory
             .appendingPathComponent(".appstoreconnect/private_keys", isDirectory: true)
         try FileManager.default.createDirectory(at: keyDir, withIntermediateDirectories: true)
         let standardKeyPath = keyDir.appendingPathComponent("AuthKey_\(keyID).p8")
         let wroteKey = !FileManager.default.fileExists(atPath: standardKeyPath.path)
         if wroteKey {
             logger.debug("Writing p8 key to standard altool location: \(standardKeyPath.path)")
-            try keyData.write(to: standardKeyPath, options: [.atomic, .completeFileProtection])
+            try keyData.write(to: standardKeyPath, options: [.atomic])
         }
         defer {
             if wroteKey {
@@ -113,15 +113,9 @@ public struct IPAUploadService: Sendable {
         // catch it here and convert to a domain-specific ShipItError.
         logger.info("Running xcrun altool --upload-app")
         do {
-            _ = try await Command(
-                "xcrun", "altool",
-                "--upload-app",
-                "-f", ipaURL.path,
-                "-t", "ios",
-                "--apiKey", keyID,
-                "--apiIssuer", issuerID,
-                "--output-format", "json"
-            ).run(in: context.shell)
+            _ = try await Altool(context: context.shell)
+                .uploadApp(ipaPath: ipaURL.path, platform: "ios", apiKey: keyID, apiIssuer: issuerID)
+                .run()
         } catch let ShellError.exitFailure(_, shellOutput) {
             let detail = shellOutput.stderr.isEmpty ? shellOutput.stdout : shellOutput.stderr
             throw ShipItError.uploadFailed(
@@ -175,10 +169,9 @@ public struct IPAUploadService: Sendable {
         // Single-quote the path to handle spaces; escape any embedded single quotes.
         let escapedPath = ipaURL.path.replacingOccurrences(of: "'", with: "'\\''")
         do {
-            let output = try await Command(
-                "/bin/bash", "-c",
-                "unzip -p '\(escapedPath)' 'Payload/*.app/Info.plist' | plutil -extract CFBundleVersion raw -"
-            ).run(in: shell)
+            let output = try await Bash(context: shell)
+                .script("unzip -p '\(escapedPath)' 'Payload/*.app/Info.plist' | plutil -extract CFBundleVersion raw -")
+                .run()
             let version = output.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !version.isEmpty else {
                 throw ShipItError.uploadFailed(
@@ -233,5 +226,14 @@ public struct IPAUploadService: Sendable {
             asset: buildVersion,
             reason: "Build version '\(buildVersion)' not found in App Store Connect after \(maxAttempts) attempts (\(maxAttempts * Int(delaySeconds))s)"
         )
+    }
+}
+
+private extension ShellContext {
+    var homeDirectory: URL {
+        if let home = environment["HOME"], !home.isEmpty {
+            return URL(fileURLWithPath: home, isDirectory: true)
+        }
+        return FileManager.default.homeDirectoryForCurrentUser
     }
 }

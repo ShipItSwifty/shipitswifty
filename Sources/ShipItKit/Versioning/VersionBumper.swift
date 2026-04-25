@@ -96,7 +96,7 @@ public struct VersionBumper: Sendable {
 
         // Try agvtool next (works when VERSIONING_SYSTEM = apple-generic is set).
         do {
-            let output = try await Command("xcrun", "agvtool", "what-marketing-version", "-terse").run(in: context.shell)
+            let output = try await Agvtool(context: context.shell).whatMarketingVersionTerse().run()
             let version = output.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
             if !version.isEmpty { return version }
         } catch {
@@ -126,7 +126,7 @@ public struct VersionBumper: Sendable {
         }
 
         do {
-            let output = try await Command("xcrun", "agvtool", "what-version", "-terse").run(in: context.shell)
+            let output = try await Agvtool(context: context.shell).whatVersionTerse().run()
             let build = output.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
             if !build.isEmpty { return build }
         } catch {
@@ -157,7 +157,7 @@ public struct VersionBumper: Sendable {
         }
 
         do {
-            _ = try await Command("xcrun", "agvtool", "new-marketing-version", version).run(in: context.shell)
+            _ = try await Agvtool(context: context.shell).newMarketingVersion(version).run()
         } catch {
             logger.warning("agvtool failed, falling back to plutil: \(error.localizedDescription)")
             try await writePlistValue(key: "CFBundleShortVersionString", value: version)
@@ -184,7 +184,7 @@ public struct VersionBumper: Sendable {
         }
 
         do {
-            _ = try await Command("xcrun", "agvtool", "new-version", "-all", build).run(in: context.shell)
+            _ = try await Agvtool(context: context.shell).newVersionAll(build).run()
         } catch {
             logger.warning("agvtool failed, falling back to plutil: \(error.localizedDescription)")
             try await writePlistValue(key: "CFBundleVersion", value: build)
@@ -237,7 +237,7 @@ public struct VersionBumper: Sendable {
 
         case .commitCount:
             do {
-                let output = try await Command("git", "rev-list", "--count", "HEAD").run(in: context.shell)
+                let output = try await GitCLI(context: context.shell).revisionCount().run()
                 return output.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
             } catch {
                 logger.warning("git rev-list failed, keeping current build number: \(error.localizedDescription)")
@@ -292,9 +292,10 @@ public struct VersionBumper: Sendable {
 
         let output: ShellOutput
         do {
-            output = try await Command("xcodebuild", "-showBuildSettings")
-                .args(extraArgs)
-                .run(in: context.shell)
+            output = try await XcodeBuild(context: context.shell)
+                .trailingArgument("-showBuildSettings")
+                .trailingArguments(extraArgs)
+                .run()
         } catch let ShellError.exitFailure(command, shellOutput) {
             // xcodebuild can exit non-zero (e.g. 74) when packages haven't been
             // resolved yet, when a custom TOOLCHAINS env var interferes, or when
@@ -335,9 +336,9 @@ public struct VersionBumper: Sendable {
         // Map the canonical build-setting name to the agvtool subcommand.
         switch setting {
         case "MARKETING_VERSION":
-            _ = try await Command("xcrun", "agvtool", "new-marketing-version", value).run(in: context.shell)
+            _ = try await Agvtool(context: context.shell).newMarketingVersion(value).run()
         case "CURRENT_PROJECT_VERSION":
-            _ = try await Command("xcrun", "agvtool", "new-version", "-all", value).run(in: context.shell)
+            _ = try await Agvtool(context: context.shell).newVersionAll(value).run()
         default:
             throw ShipItError.invalidConfiguration(reason: "No write strategy for build setting '\(setting)'")
         }
@@ -353,7 +354,9 @@ public struct VersionBumper: Sendable {
 
         // plutil exits 0 on success; fall through to NSDictionary on failure.
         do {
-            let output = try await Command("plutil", "-extract", key, "raw", plistPath).run(in: context.shell)
+            let output = try await Plutil(context: context.shell)
+                .extractRaw(key: key, plistPath: plistPath)
+                .run()
             return output.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
         } catch {
             logger.debug("plutil -extract failed, falling back to NSDictionary: \(error.localizedDescription)")
@@ -374,7 +377,9 @@ public struct VersionBumper: Sendable {
         }
 
         // Command.run() throws on non-zero exit; propagate plutil failures directly.
-        _ = try await Command("plutil", "-replace", key, "-string", value, plistPath).run(in: context.shell)
+        _ = try await Plutil(context: context.shell)
+            .replaceString(key: key, value: value, plistPath: plistPath)
+            .run()
     }
 
     private func findInfoPlist() -> String? {

@@ -122,7 +122,7 @@ public struct GitAction: Action {
     private func ensureClean(context: ActionContext) async throws -> Result {
         // `git status --porcelain` exits 0 on both clean and dirty trees;
         // stdout is empty only when the tree is clean.
-        let output = try await Command("git", "status", "--porcelain").run(in: context.shell)
+        let output = try await GitCLI(context: context.shell).statusPorcelain().run()
         let isClean = output.stdout.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
 
         if !isClean {
@@ -144,7 +144,9 @@ public struct GitAction: Action {
         logger.info("Creating git tag: \(tagName)")
 
         // Command.run() throws ShellError.exitFailure on non-zero exit.
-        let output = try await Command("git", "tag", "-a", tagName, "-m", message).run(in: context.shell)
+        let output = try await GitCLI(context: context.shell)
+            .annotatedTag(name: tagName, message: message)
+            .run()
         return Result(output: output.stdout)
     }
 
@@ -155,8 +157,9 @@ public struct GitAction: Action {
 
         logger.info("Creating git commit: \(message)")
 
-        _ = try await Command("git", "add", "-A").run(in: context.shell)
-        let commitOutput = try await Command("git", "commit", "-m", message).run(in: context.shell)
+        let git = GitCLI(context: context.shell)
+        _ = try await git.addAll().run()
+        let commitOutput = try await git.commit(message: message).run()
         return Result(output: commitOutput.stdout)
     }
 
@@ -164,22 +167,23 @@ public struct GitAction: Action {
         let remote = options.remote ?? "origin"
         logger.info("Pushing to \(remote)")
 
-        let pushOutput = try await Command("git", "push", remote).run(in: context.shell)
+        let git = GitCLI(context: context.shell)
+        let pushOutput = try await git.push(remote: remote).run()
 
         if options.pushTags == true {
-            _ = try await Command("git", "push", remote, "--tags").run(in: context.shell)
+            _ = try await git.pushTags(remote: remote).run()
         }
 
         return Result(output: pushOutput.stdout)
     }
 
     private func getLog(context: ActionContext) async throws -> Result {
-        let output = try await Command("git", "log", "--oneline", "-20").run(in: context.shell)
+        let output = try await GitCLI(context: context.shell).logOneline(limit: 20).run()
         return Result(output: output.stdout)
     }
 
     private func getHash(context: ActionContext) async throws -> Result {
-        let output = try await Command("git", "rev-parse", "HEAD").run(in: context.shell)
+        let output = try await GitCLI(context: context.shell).currentHEAD().run()
         return Result(output: output.stdout.trimmingCharacters(in: .whitespacesAndNewlines))
     }
 }

@@ -26,6 +26,11 @@ struct DoctorCommand: AsyncParsableCommand {
         "provision",
     ]
 
+    struct ToolCheck: Sendable {
+        let name: String
+        let command: Command
+    }
+
     @OptionGroup var global: GlobalOptions
 
     func run() async throws {
@@ -43,45 +48,15 @@ struct DoctorCommand: AsyncParsableCommand {
 
             var allPassed = true
 
-            allPassed = await check(
-                name: "Xcode installed",
-                formatter: formatter
-            ) {
-                let output = try await Command("xcode-select", "-p").run(in: shell)
-                return output.exitCode == 0
-            } && allPassed
-
-            allPassed = await check(
-                name: "xcodebuild available",
-                formatter: formatter
-            ) {
-                let output = try await Command("xcrun", "xcodebuild", "-version").run(in: shell)
-                return output.exitCode == 0
-            } && allPassed
-
-            allPassed = await check(
-                name: "git on PATH",
-                formatter: formatter
-            ) {
-                let output = try await Command("git", "--version").run(in: shell)
-                return output.exitCode == 0
-            } && allPassed
-
-            allPassed = await check(
-                name: "security CLI available",
-                formatter: formatter
-            ) {
-                let output = try await Command("security", "--version").run(in: shell)
-                return output.exitCode == 0
-            } && allPassed
-
-            allPassed = await check(
-                name: "xcrun simctl available",
-                formatter: formatter
-            ) {
-                let output = try await Command("xcrun", "simctl", "list", "--json").run(in: shell)
-                return output.exitCode == 0
-            } && allPassed
+            for toolCheck in Self.toolCheckCommands(shell: shell) {
+                allPassed = await check(
+                    name: toolCheck.name,
+                    formatter: formatter
+                ) {
+                    let output = try await toolCheck.command.run(in: shell)
+                    return output.exitCode == 0
+                } && allPassed
+            }
 
             allPassed = await check(
                 name: "Shipfile.yml parseable",
@@ -179,6 +154,16 @@ struct DoctorCommand: AsyncParsableCommand {
         formatter.print("  ASC_KEY_ID: the API key's Key ID")
         formatter.print("  ASC_ISSUER_ID: the page-level Issuer ID (not inside the .p8 file)")
         formatter.print("  ASC_PRIVATE_KEY / ASC_PRIVATE_KEY_PATH: the downloaded .p8 contents or file path")
+    }
+
+    static func toolCheckCommands(shell: ShellContext) -> [ToolCheck] {
+        [
+            ToolCheck(name: "Xcode installed", command: XcodeSelect(context: shell).printPath().command()),
+            ToolCheck(name: "xcodebuild available", command: Xcrun(context: shell).tool("xcodebuild").trailingArgument("-version").command()),
+            ToolCheck(name: "git on PATH", command: GitCLI(context: shell).version().command()),
+            ToolCheck(name: "security CLI available", command: SecurityCLI(context: shell).help().command()),
+            ToolCheck(name: "xcrun simctl available", command: Simctl(context: shell).list(json: true).command()),
+        ]
     }
 
     static func ascDiagnosticsMode(for config: ResolvedConfig) -> ASCDiagnosticsMode {

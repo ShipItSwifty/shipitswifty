@@ -79,7 +79,7 @@ public struct FrameAction: Action {
         // found, causing Command.run() to throw — catch to handle the fallback.
         let frameitAvailable: Bool
         do {
-            _ = try await Command("which", "frameit").run(in: context.shell)
+            _ = try await Which(context: context.shell).tool("frameit").run()
             frameitAvailable = true
         } catch {
             frameitAvailable = false
@@ -103,8 +103,9 @@ public struct FrameAction: Action {
         // Command.run() throws ShellError.exitFailure on non-zero exit; convert
         // to a typed ShipItError for callers.
         do {
-            _ = try await Command("frameit", "--path", screenshotsDir, "--output", outputDir)
-                .run(in: context.shell)
+            _ = try await Frameit(context: context.shell)
+                .render(screenshotsDirectory: screenshotsDir, outputDirectory: outputDir)
+                .run()
         } catch {
             logger.error("frameit failed: \(error.localizedDescription)")
             throw ShipItError.screenshotCaptureFailed(

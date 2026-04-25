@@ -1,4 +1,5 @@
 import Testing
+import SwiftyShell
 @testable import CLI
 @testable import ShipItKit
 
@@ -38,5 +39,34 @@ struct DoctorCommandTests {
     @Test("ASC diagnostics stay unknown when no workflows are defined")
     func ascDiagnosticsUnknownWithoutWorkflows() {
         #expect(DoctorCommand.ascDiagnosticsMode(for: ResolvedConfig()) == .unknown)
+    }
+
+    @Test("doctor tool checks use typed supported commands")
+    func doctorToolChecksUseTypedSupportedCommands() {
+        let commands = DoctorCommand.toolCheckCommands(shell: ShellContext())
+
+        #expect(commands.map(\.name) == [
+            "Xcode installed",
+            "xcodebuild available",
+            "git on PATH",
+            "security CLI available",
+            "xcrun simctl available",
+        ])
+
+        #expect(commands.map { $0.command.executableName } == [
+            "xcode-select",
+            "xcrun",
+            "git",
+            "security",
+            "xcrun",
+        ])
+
+        #expect(commands.map { $0.command.arguments } == [
+            ["-p"],
+            ["xcodebuild", "-version"],
+            ["--version"],
+            ["help"],
+            ["simctl", "list", "--json"],
+        ])
     }
 }

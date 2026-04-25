@@ -95,19 +95,19 @@ public struct ExportAction: Action {
             try? FileManager.default.removeItem(atPath: plistPath)
         }
 
-        var command = Command(
-            "xcodebuild",
-            "-exportArchive",
-            "-archivePath", archivePath,
-            "-exportPath", outputDirectory,
-            "-exportOptionsPlist", plistPath
-        )
+        var command = XcodeBuild(context: context.shell)
+            .trailingArguments([
+                "-exportArchive",
+                "-archivePath", archivePath,
+                "-exportPath", outputDirectory,
+                "-exportOptionsPlist", plistPath,
+            ])
 
         if context.config.automaticCodeSigning {
-            command = command.arg("-allowProvisioningUpdates")
+            command = command.trailingArgument("-allowProvisioningUpdates")
         }
 
-        let output = try await command.run(in: context.shell)
+        let output = try await command.run()
 
         if output.exitCode != 0 {
             logger.error("Export failed with exit code \(output.exitCode)")

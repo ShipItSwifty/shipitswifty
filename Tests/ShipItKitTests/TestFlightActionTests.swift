@@ -80,6 +80,7 @@ struct TestFlightActionTests {
         }
 
         let base = ActionContext.mock(executor: executor)
+        let shell = isolatedShell(from: base.shell, executor: executor)
         let client = AppStoreConnectClient(
             keyID: "TESTKEY",
             issuerID: "test-issuer",
@@ -88,7 +89,7 @@ struct TestFlightActionTests {
             tokenProvider: { "test-token" }
         )
         let context = ActionContext(
-            shell: base.shell,
+            shell: shell,
             logger: base.logger,
             config: ResolvedConfig(
                 bundleID: "com.example.app",
@@ -137,6 +138,7 @@ struct TestFlightActionTests {
         }
 
         let base = ActionContext.mock(executor: executor)
+        let shell = isolatedShell(from: base.shell, executor: executor)
         let client = AppStoreConnectClient(
             keyID: "TESTKEY",
             issuerID: "test-issuer",
@@ -145,7 +147,7 @@ struct TestFlightActionTests {
             tokenProvider: { "test-token" }
         )
         let context = ActionContext(
-            shell: base.shell,
+            shell: shell,
             logger: base.logger,
             config: ResolvedConfig(
                 bundleID: "com.example.app",
@@ -177,5 +179,18 @@ struct TestFlightActionTests {
         let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
         return url
+    }
+
+    private func isolatedShell(from shell: ShellContext, executor: MockExecutor) -> ShellContext {
+        let homeURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("shipit-testflight-home-\(UUID().uuidString)", isDirectory: true)
+        return ShellContext(
+            executor: executor,
+            searchPaths: shell.searchPaths,
+            environment: shell.environment.merging(["HOME": homeURL.path]) { _, new in new },
+            workingDirectory: shell.workingDirectory,
+            defaultTimeout: shell.defaultTimeout,
+            defaultOutputLimit: shell.defaultOutputLimit
+        )
     }
 }

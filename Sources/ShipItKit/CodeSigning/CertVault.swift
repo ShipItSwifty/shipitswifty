@@ -43,12 +43,16 @@ public struct CertVault: Sendable {
         // Command.run() throws ShellError.exitFailure on non-zero exit, so
         // catch to implement the "repo doesn't exist yet" fallback.
         do {
-            _ = try await Command("git", "clone", gitUrl, tmpDir).run(in: context.shell)
+            _ = try await GitCLI(context: context.shell)
+                .clone(url: gitUrl, into: tmpDir)
+                .run()
         } catch {
             // Repo doesn't exist yet — create a new one
             try FileManager.default.createDirectory(atPath: tmpDir, withIntermediateDirectories: true, attributes: nil)
             do {
-                _ = try await Command("git", "init", tmpDir).run(in: context.shell)
+                _ = try await GitCLI(context: context.shell)
+                    .initializeRepository(at: tmpDir)
+                    .run()
             } catch let initError {
                 throw ShipItError.invalidConfiguration(reason: "git init failed: \(initError.localizedDescription)")
             }
@@ -93,12 +97,11 @@ public struct CertVault: Sendable {
 
         // Stage and commit; push is best-effort — the repo may have no remote yet.
         do {
-            _ = try await Command("git", "-C", tmpDir, "add", "-A").run(in: context.shell)
-            _ = try await Command(
-                "git", "-C", tmpDir, "commit", "-m", "chore: initialize ShipItSwifty certificate repository"
-            ).run(in: context.shell)
+            let git = GitCLI(context: context.shell).repository(at: tmpDir)
+            _ = try await git.addAll().run()
+            _ = try await git.commit(message: "chore: initialize ShipItSwifty certificate repository").run()
             do {
-                _ = try await Command("git", "-C", tmpDir, "push", "-u", "origin", "main").run(in: context.shell)
+                _ = try await git.pushSetUpstream(remote: "origin", branch: "main").run()
             } catch {
                 logger.warning("Failed to push to remote: \(error.localizedDescription)")
             }
@@ -130,7 +133,9 @@ public struct CertVault: Sendable {
 
         // Command.run() throws ShellError.exitFailure on non-zero exit.
         do {
-            _ = try await Command("git", "clone", "--depth", "1", url, tmpDir).run(in: context.shell)
+            _ = try await GitCLI(context: context.shell)
+                .clone(url: url, into: tmpDir, depth: 1)
+                .run()
         } catch {
             throw ShipItError.signingResourceNotFound(description: "Failed to clone certificate repository: \(error.localizedDescription)")
         }

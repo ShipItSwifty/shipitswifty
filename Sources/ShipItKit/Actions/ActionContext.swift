@@ -10,7 +10,7 @@ import SwiftyShell
 /// ```swift
 /// struct MyAction: Action {
 ///     func run(with options: Options, context: ActionContext) async throws -> Result {
-///         let output = try await Command("git", "status").run(in: context.shell)
+///         let output = try await GitCLI(context: context.shell).statusPorcelain().run()
 ///         context.logger.info("Git status: \(output.stdout)")
 ///         return Result()
 ///     }
