@@ -32,6 +32,26 @@ struct AICommandParsingTests {
     #expect(command.skipDoctorPrompt)
   }
 
+  @Test("Generate prints inspection status only for human TTY output")
+  func generateInspectionStatusOutputMode() {
+    #expect(shouldPrintGenerateInspectionStatus(output: .human, isStderrTTY: true))
+    #expect(!shouldPrintGenerateInspectionStatus(output: .human, isStderrTTY: false))
+    #expect(!shouldPrintGenerateInspectionStatus(output: .json, isStderrTTY: true))
+  }
+
+  @Test("Generate prompt resolves defaults on empty answer")
+  func generatePromptResolvesDefaults() {
+    #expect(resolvedPromptValue(answer: "", defaultValue: "MyApp") == "MyApp")
+    #expect(resolvedPromptValue(answer: "CustomApp", defaultValue: "MyApp") == "CustomApp")
+    #expect(resolvedPromptValue(answer: "", defaultValue: nil) == "")
+  }
+
+  @Test("Generate confirmation default echo matches chosen answer")
+  func generateConfirmationDefaultEcho() {
+    #expect(defaultConfirmationEcho(defaultAnswer: true) == "yes")
+    #expect(defaultConfirmationEcho(defaultAnswer: false) == "no")
+  }
+
   @Test("Root parser includes generate and removes init")
   func rootParserIncludesGenerateAndRemovesInit() throws {
     let command = try ShipItCLI.parseAsRoot(["generate", "--dry-run"]) as! GenerateCommand
