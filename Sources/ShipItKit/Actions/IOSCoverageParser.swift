@@ -40,18 +40,10 @@ struct IOSCoverageParser: Sendable {
     // MARK: - Shell
 
     private func runXccov(xcresultPath: String) async throws -> ShellOutput {
-        // xcrun xccov view --report --json <path>
-        let cmd = Command("xcrun")
-            .arg("xccov")
-            .arg("view")
-            .arg("--report")
-            .arg("--json")
-            .arg(xcresultPath)
-            .stdout(.capture)
-            .stderr(.capture)
-
         do {
-            return try await cmd.run(in: shell)
+            return try await Xccov(context: shell)
+                .viewReportJSON(xcresultPath: xcresultPath)
+                .run()
         } catch let ShellError.commandNotFound(name) {
             throw ShipItError.missingTool(name: name)
         } catch let ShellError.exitFailure(_, output) {

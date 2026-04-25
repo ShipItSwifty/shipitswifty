@@ -39,9 +39,9 @@ public struct KeychainHelper: Sendable {
 
         // Throws ShipItError.keychainError on failure via do-catch below.
         do {
-            _ = try await Command(
-                "security", "create-keychain", "-p", keychainPassword, name
-            ).run(in: context.shell)
+            _ = try await SecurityCLI(context: context.shell)
+                .createKeychain(name: name, password: keychainPassword)
+                .run()
         } catch {
             throw ShipItError.keychainError(
                 underlying: ShipItError.invalidConfiguration(reason: "Failed to create keychain: \(error.localizedDescription)")
@@ -51,9 +51,9 @@ public struct KeychainHelper: Sendable {
         // Set keychain settings: no auto-lock, no timeout.
         // Non-fatal — log a warning if this fails.
         do {
-            _ = try await Command(
-                "security", "set-keychain-settings", "-lut", "21600", name
-            ).run(in: context.shell)
+            _ = try await SecurityCLI(context: context.shell)
+                .setKeychainSettings(name: name, timeout: 21600)
+                .run()
         } catch {
             logger.warning("Failed to set keychain settings: \(error.localizedDescription)")
         }
@@ -61,9 +61,9 @@ public struct KeychainHelper: Sendable {
         // Add to keychain search list.
         // Non-fatal — log a warning if this fails.
         do {
-            _ = try await Command(
-                "security", "list-keychains", "-d", "user", "-s", name, "login.keychain-db"
-            ).run(in: context.shell)
+            _ = try await SecurityCLI(context: context.shell)
+                .setUserKeychainSearchList([name, "login.keychain-db"])
+                .run()
         } catch {
             logger.warning("Failed to add keychain to search list: \(error.localizedDescription)")
         }
@@ -90,13 +90,14 @@ public struct KeychainHelper: Sendable {
         logger.info("Installing certificate from: \(p12Path)")
 
         do {
-            _ = try await Command(
-                "security", "import", p12Path,
-                "-k", keychainName,
-                "-P", password,
-                "-T", "/usr/bin/codesign",
-                "-T", "/usr/bin/security"
-            ).run(in: context.shell)
+            _ = try await SecurityCLI(context: context.shell)
+                .importCertificate(
+                    at: p12Path,
+                    keychainName: keychainName,
+                    password: password,
+                    trustedApplications: ["/usr/bin/codesign", "/usr/bin/security"]
+                )
+                .run()
         } catch {
             throw ShipItError.keychainError(
                 underlying: ShipItError.invalidConfiguration(reason: "Certificate import failed: \(error.localizedDescription)")
@@ -106,11 +107,9 @@ public struct KeychainHelper: Sendable {
         // Allow codesign to access the key without prompting.
         // Non-fatal — log a warning if this fails.
         do {
-            _ = try await Command(
-                "security", "set-key-partition-list",
-                "-S", "apple-tool:,apple:",
-                "-s", "-k", password, keychainName
-            ).run(in: context.shell)
+            _ = try await SecurityCLI(context: context.shell)
+                .setKeyPartitionList(services: "apple-tool:,apple:", password: password, keychainName: keychainName)
+                .run()
         } catch {
             logger.warning("Failed to set key partition list: \(error.localizedDescription)")
         }
@@ -151,9 +150,9 @@ public struct KeychainHelper: Sendable {
     ///   - context: Shell execution context.
     public func unlockKeychain(name: String, password: String, context: ActionContext) async throws {
         do {
-            _ = try await Command(
-                "security", "unlock-keychain", "-p", password, name
-            ).run(in: context.shell)
+            _ = try await SecurityCLI(context: context.shell)
+                .unlockKeychain(name: name, password: password)
+                .run()
         } catch {
             throw ShipItError.keychainError(
                 underlying: ShipItError.invalidConfiguration(reason: "Failed to unlock keychain: \(error.localizedDescription)")
@@ -172,9 +171,9 @@ public struct KeychainHelper: Sendable {
 
         // Non-fatal — keychain may not exist when cleanup runs.
         do {
-            _ = try await Command(
-                "security", "delete-keychain", name
-            ).run(in: context.shell)
+            _ = try await SecurityCLI(context: context.shell)
+                .deleteKeychain(name: name)
+                .run()
         } catch {
             logger.debug("delete-keychain returned non-zero (may not exist): \(error.localizedDescription)")
         }
@@ -182,9 +181,9 @@ public struct KeychainHelper: Sendable {
         // Restore default keychain list.
         // Non-fatal — log a warning if this fails.
         do {
-            _ = try await Command(
-                "security", "list-keychains", "-d", "user", "-s", "login.keychain-db"
-            ).run(in: context.shell)
+            _ = try await SecurityCLI(context: context.shell)
+                .setUserKeychainSearchList(["login.keychain-db"])
+                .run()
         } catch {
             logger.warning("Failed to restore keychain search list: \(error.localizedDescription)")
         }

@@ -140,8 +140,18 @@ struct UploadActionTests {
         session: URLSession,
         bundleID: String,
         submitForReview: Bool = false
-    ) -> ActionContext {
+        ) -> ActionContext {
         let base = ActionContext.mock(executor: executor)
+        let homeURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("shipit-upload-action-home-\(UUID().uuidString)", isDirectory: true)
+        let shell = ShellContext(
+            executor: executor,
+            searchPaths: base.shell.searchPaths,
+            environment: base.shell.environment.merging(["HOME": homeURL.path]) { _, new in new },
+            workingDirectory: base.shell.workingDirectory,
+            defaultTimeout: base.shell.defaultTimeout,
+            defaultOutputLimit: base.shell.defaultOutputLimit
+        )
         let client = AppStoreConnectClient(
             keyID: "TESTKEY",
             issuerID: "test-issuer",
@@ -150,7 +160,7 @@ struct UploadActionTests {
             tokenProvider: { "test-token" }
         )
         return ActionContext(
-            shell: base.shell,
+            shell: shell,
             logger: base.logger,
             config: ResolvedConfig(
                 bundleID: bundleID,
