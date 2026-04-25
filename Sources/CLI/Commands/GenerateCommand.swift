@@ -43,6 +43,7 @@ struct GenerateCommand: AsyncParsableCommand {
     Self.logger.info("Starting Shipfile generation for path: \(path)")
 
     let formatter = makeHumanFormatter(global: global)
+    printInspectionStatusIfNeeded()
     let inspection = try await ProjectInspector(rootPath: path).inspect()
     let platform = try resolvePlatform(from: inspection, formatter: formatter)
     let suggestion = ShipfileSuggester().suggest(goal: goal, platform: platform, from: inspection)
@@ -332,18 +333,48 @@ struct GenerateCommand: AsyncParsableCommand {
     let suffix = defaultValue.map { " [\($0)]" } ?? ""
     print("\(prompt)\(suffix): ", terminator: "")
     let answer = readLine()?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-    return answer.isEmpty ? (defaultValue ?? "") : answer
+    let value = resolvedPromptValue(answer: answer, defaultValue: defaultValue)
+    if answer.isEmpty, let defaultValue {
+      print(defaultValue)
+    }
+    return value
   }
 
   private func confirm(_ prompt: String, defaultAnswer: Bool) -> Bool {
     let suffix = defaultAnswer ? "Y/n" : "y/N"
     print("\(prompt) [\(suffix)]: ", terminator: "")
     let answer = readLine()?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() ?? ""
-    if answer.isEmpty { return defaultAnswer }
+    if answer.isEmpty {
+      print(defaultConfirmationEcho(defaultAnswer: defaultAnswer))
+      return defaultAnswer
+    }
     return ["y", "yes"].contains(answer)
+  }
+
+  private func printInspectionStatusIfNeeded() {
+    guard shouldPrintGenerateInspectionStatus(
+      output: global.output,
+      isStderrTTY: isatty(STDERR_FILENO) != 0
+    ) else {
+      return
+    }
+
+    fputs("Inspecting project and inferring defaults...\n", stderr)
   }
 
   private var isInteractiveTerminal: Bool {
     isatty(STDIN_FILENO) != 0 && isatty(STDOUT_FILENO) != 0
   }
+}
+
+func shouldPrintGenerateInspectionStatus(output: OutputFormat, isStderrTTY: Bool) -> Bool {
+  output == .human && isStderrTTY
+}
+
+func resolvedPromptValue(answer: String, defaultValue: String?) -> String {
+  answer.isEmpty ? (defaultValue ?? "") : answer
+}
+
+func defaultConfirmationEcho(defaultAnswer: Bool) -> String {
+  defaultAnswer ? "yes" : "no"
 }
