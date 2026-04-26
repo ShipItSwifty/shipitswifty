@@ -64,11 +64,11 @@ struct AICommandParsingTests {
     )
   }
 
-  @Test("Generate env var confirmation skipped when non-interactive")
-  func generateEnvConfirmSkippedNonInteractive() throws {
-    // When --non-interactive is passed, confirmEnvironmentVariables must not block.
+  @Test("Generate env var collection skipped when non-interactive")
+  func generateEnvCollectionSkippedNonInteractive() throws {
+    // When --non-interactive is passed, collectEnvironmentVariables must not block.
     // We verify the flag is parsed and respected; the gating guard in
-    // confirmEnvironmentVariables checks `nonInteractive` before prompting.
+    // collectEnvironmentVariables checks `nonInteractive` before prompting.
     let command =
       try GenerateCommand.parseAsRoot([
         "--goal", "beta",
@@ -76,6 +76,22 @@ struct AICommandParsingTests {
       ]) as! GenerateCommand
 
     #expect(command.nonInteractive)
+  }
+
+  @Test("EnvVarSpec distinguishes sensitive and non-sensitive vars")
+  func envVarSpecSensitivity() {
+    let keyID = GenerateCommand.EnvVarSpec(
+      name: "ASC_KEY_ID", isSensitive: false, description: "API key ID")
+    let privateKey = GenerateCommand.EnvVarSpec(
+      name: "ASC_PRIVATE_KEY", isSensitive: true, description: "Raw PEM content")
+    let password = GenerateCommand.EnvVarSpec(
+      name: "P12_PASSWORD", isSensitive: true, description: "Certificate password")
+
+    #expect(!keyID.isSensitive)
+    #expect(privateKey.isSensitive)
+    #expect(password.isSensitive)
+    #expect(keyID.name == "ASC_KEY_ID")
+    #expect(privateKey.description == "Raw PEM content")
   }
 
   @Test("Root parser includes generate and removes init")

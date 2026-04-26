@@ -209,9 +209,13 @@ struct GenerateCommand: AsyncParsableCommand {
     if uploadsToTestFlight {
       formatter.printHeader("App Store Connect Environment")
       formatter.print("ShipIt will reference env vars instead of storing secrets in Shipfile.yml.")
-      confirmEnvironmentVariables(
-        ["ASC_KEY_ID", "ASC_ISSUER_ID", "ASC_PRIVATE_KEY_PATH", "ASC_PRIVATE_KEY"],
-        note: "Set ASC_PRIVATE_KEY_PATH (file path) or ASC_PRIVATE_KEY (raw PEM). Only one is required.",
+      collectEnvironmentVariables(
+        [
+          EnvVarSpec(name: "ASC_KEY_ID", isSensitive: false, description: "App Store Connect API key ID"),
+          EnvVarSpec(name: "ASC_ISSUER_ID", isSensitive: false, description: "ASC issuer UUID"),
+          EnvVarSpec(name: "ASC_PRIVATE_KEY_PATH", isSensitive: false, description: "Path to .p8 key file (preferred)"),
+          EnvVarSpec(name: "ASC_PRIVATE_KEY", isSensitive: true, description: "Raw .p8 PEM content (CI fallback)"),
+        ],
         formatter: formatter)
       overrides["# app_store_connect:"] = "app_store_connect:"
       overrides["#   key_id: ${ASC_KEY_ID}"] = "  key_id: ${ASC_KEY_ID}"
@@ -227,15 +231,14 @@ struct GenerateCommand: AsyncParsableCommand {
     if usesManualSigning {
       formatter.printHeader("Manual Code Signing Environment")
       formatter.print("ShipIt will reference env vars instead of storing secrets in Shipfile.yml.")
-      confirmEnvironmentVariables(
+      collectEnvironmentVariables(
         [
-          "SHIPIT_CODE_SIGNING__P12_PATH",
-          "P12_BASE64",
-          "P12_PASSWORD",
-          "SHIPIT_CODE_SIGNING__PROVISIONING_PROFILE_PATH",
-          "PROVISIONING_PROFILE_BASE64",
+          EnvVarSpec(name: "SHIPIT_CODE_SIGNING__P12_PATH", isSensitive: false, description: "Path to .p12 certificate (preferred)"),
+          EnvVarSpec(name: "P12_BASE64", isSensitive: true, description: "Base64-encoded .p12 content (CI fallback)"),
+          EnvVarSpec(name: "P12_PASSWORD", isSensitive: true, description: "Password for the .p12 file (required)"),
+          EnvVarSpec(name: "SHIPIT_CODE_SIGNING__PROVISIONING_PROFILE_PATH", isSensitive: false, description: "Path to .mobileprovision (preferred)"),
+          EnvVarSpec(name: "PROVISIONING_PROFILE_BASE64", isSensitive: true, description: "Base64-encoded .mobileprovision (CI fallback)"),
         ],
-        note: "Set the _PATH var (local path) or the base64 var (CI fallback). P12_PASSWORD is always required.",
         formatter: formatter)
     }
 
@@ -268,14 +271,13 @@ struct GenerateCommand: AsyncParsableCommand {
     if uploadsToPlay {
       formatter.printHeader("Google Play Environment")
       formatter.print("ShipIt will reference env vars instead of storing secrets in Shipfile.yml.")
-      confirmEnvironmentVariables(
+      collectEnvironmentVariables(
         [
-          "GOOGLE_PLAY_SERVICE_ACCOUNT_JSON",
-          "GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_PATH",
-          "SHIPIT_ANDROID__KEYSTORE_PASSWORD",
-          "SHIPIT_ANDROID__KEY_PASSWORD",
+          EnvVarSpec(name: "GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_PATH", isSensitive: false, description: "Path to service account JSON (preferred)"),
+          EnvVarSpec(name: "GOOGLE_PLAY_SERVICE_ACCOUNT_JSON", isSensitive: true, description: "Raw service account JSON content (CI fallback)"),
+          EnvVarSpec(name: "SHIPIT_ANDROID__KEYSTORE_PASSWORD", isSensitive: true, description: "Keystore password"),
+          EnvVarSpec(name: "SHIPIT_ANDROID__KEY_PASSWORD", isSensitive: true, description: "Key alias password"),
         ],
-        note: "Set GOOGLE_PLAY_SERVICE_ACCOUNT_JSON (raw JSON) or GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_PATH (file path). Only one is required.",
         formatter: formatter)
       overrides["    # - action: play-store"] = "    - action: play-store"
     }
@@ -283,27 +285,100 @@ struct GenerateCommand: AsyncParsableCommand {
     return overrides
   }
 
-  private func printEnvironmentStatus(_ names: [String], formatter: HumanFormatter) {
-    let environment = ProcessInfo.processInfo.environment
-    for name in names {
-      formatter.printKV(name, environment[name] == nil ? "(not set)" : "[set]")
-    }
+  /// Describes a single environment variable that ShipIt needs.
+  struct EnvVarSpec {
+    /// The environment variable name, e.g. `ASC_KEY_ID`.
+    let name: String
+    /// When `true`, the entered value is hidden during typing and shown as `****` in export hints.
+    let isSensitive: Bool
+    /// Human-readable description shown in the prompt.
+    let description: String
   }
 
-  /// Prints env var status then asks the user to confirm they are correctly set.
-  /// If the user says no, prints a warning with `note` so they know what to fix,
-  /// but does not abort — secrets may be set later in CI.
-  private func confirmEnvironmentVariables(
-    _ names: [String], note: String? = nil, formatter: HumanFormatter
-  ) {
-    printEnvironmentStatus(names, formatter: formatter)
-    guard isInteractiveTerminal, !nonInteractive else { return }
-    if !confirm("Are these environment variables correctly set?", defaultAnswer: true) {
-      let hint = note ?? "Set the missing variables before running shipit."
-      formatter.printWarning("Environment not confirmed. \(hint)")
-      formatter.printWarning(
-        "You can re-run `shipit generate` or edit Shipfile.yml manually once they are set.")
+  /// Prompts the user to enter or confirm each environment variable in `specs`.
+  ///
+  /// - Already set vars show `[set]`; the user can press Enter to keep the existing
+  ///   value or type a new one to override.
+  /// - Missing vars are prompted inline; sensitive ones use hidden input (no echo).
+  /// - After all vars are collected, prints `export NAME=value` lines for any values
+  ///   the user typed so they can persist them in their shell / `.env`.
+  /// - In `--non-interactive` or non-TTY mode the function prints the status table and
+  ///   returns without prompting.
+  @discardableResult
+  private func collectEnvironmentVariables(
+    _ specs: [EnvVarSpec], formatter: HumanFormatter
+  ) -> [String: String] {
+    let env = ProcessInfo.processInfo.environment
+    var collected: [String: String] = [:]
+
+    for spec in specs {
+      let isSet = env[spec.name] != nil
+      let statusTag = isSet ? "[set]" : "(not set)"
+      formatter.printKV(spec.name, "\(statusTag)  \(spec.description)")
     }
+
+    guard isInteractiveTerminal, !nonInteractive else { return collected }
+
+    formatter.print("")
+    for spec in specs {
+      let isSet = env[spec.name] != nil
+      let entered: String
+      if isSet {
+        // Already set — offer keep-or-override.
+        let override = confirm("Override \(spec.name)?", defaultAnswer: false)
+        if override {
+          entered = spec.isSensitive
+            ? askSecret("New value for \(spec.name)")
+            : ask("New value for \(spec.name)", defaultValue: nil)
+        } else {
+          entered = ""
+        }
+      } else {
+        // Not set — prompt for value; empty = leave unset for now.
+        entered = spec.isSensitive
+          ? askSecret("\(spec.name) (leave blank to skip)")
+          : ask("\(spec.name) (leave blank to skip)", defaultValue: nil)
+      }
+      if !entered.isEmpty {
+        collected[spec.name] = entered
+      }
+    }
+
+    if !collected.isEmpty {
+      formatter.printHeader("Run These Exports in Your Shell")
+      formatter.print("Add these to your shell profile or CI secrets:")
+      for spec in specs {
+        guard let value = collected[spec.name] else { continue }
+        let display = spec.isSensitive ? String(repeating: "*", count: min(value.count, 8)) : value
+        formatter.print("  export \(spec.name)=\(display)")
+      }
+      formatter.print("")
+      formatter.printWarning(
+        "Sensitive values shown as **** above — copy from your input above before continuing.")
+    }
+
+    return collected
+  }
+
+  /// Reads a line from stdin with terminal echo disabled (for passwords / keys).
+  /// Falls back to plain `readLine()` when not running on a TTY.
+  private func askSecret(_ prompt: String) -> String {
+    print("\(prompt): ", terminator: "")
+    fflush(stdout)
+
+    #if canImport(Darwin)
+      var old = termios()
+      tcgetattr(STDIN_FILENO, &old)
+      var noEcho = old
+      noEcho.c_lflag &= ~tcflag_t(ECHO)
+      tcsetattr(STDIN_FILENO, TCSANOW, &noEcho)
+      let value = readLine()?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+      tcsetattr(STDIN_FILENO, TCSANOW, &old)
+      print("") // newline after hidden input
+      return value
+    #else
+      return readLine()?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+    #endif
   }
 
   private func addOverride(_ overrides: inout [String: String], placeholder: String, value: String)
