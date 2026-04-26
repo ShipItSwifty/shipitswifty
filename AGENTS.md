@@ -32,6 +32,7 @@ swift test --filter CLITests
 # Run CLI
 swift run shipit --help
 swift run shipit build --scheme MyApp
+swift run shipit sign sync --type appstore
 swift run shipit run beta --ci --output json
 
 # Android build / test / archive
@@ -136,6 +137,17 @@ Set these environment variables:
 - `ASC_KEY_ID`
 - `ASC_ISSUER_ID`
 - `ASC_PRIVATE_KEY` (raw PEM) or `ASC_PRIVATE_KEY_PATH` (file path)
+
+## iOS manual signing credentials
+
+For `code_signing.type: manual`, ShipIt can install a `.p12` certificate and provisioning profile before archive/export.
+
+Local paths are preferred when present; base64 values are used as CI fallback.
+
+Set these environment variables as needed:
+- `SHIPIT_CODE_SIGNING__P12_PATH` or `P12_BASE64`
+- `P12_PASSWORD`
+- `SHIPIT_CODE_SIGNING__PROVISIONING_PROFILE_PATH` or `PROVISIONING_PROFILE_BASE64`
 
 ## Google Play credentials (for Android-backed features)
 

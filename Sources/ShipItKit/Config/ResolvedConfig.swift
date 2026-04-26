@@ -98,6 +98,21 @@ public struct ResolvedConfig: Sendable {
     /// Passphrase for the encrypted certificate repository.
     public let vaultPassword: String?
 
+    /// Path to the resolved `.p12` certificate for manual signing.
+    public let codeSigningP12Path: String?
+
+    /// Decoded `.p12` certificate content for manual signing when provided via base64.
+    public let codeSigningP12Data: Data?
+
+    /// Password for the resolved `.p12` certificate.
+    public let codeSigningP12Password: String?
+
+    /// Path to the resolved `.mobileprovision` file for manual signing.
+    public let codeSigningProvisioningProfilePath: String?
+
+    /// Decoded `.mobileprovision` content for manual signing when provided via base64.
+    public let codeSigningProvisioningProfileData: Data?
+
     // MARK: - TestFlight
 
     /// Whether to skip waiting for build processing.
@@ -264,6 +279,11 @@ public struct ResolvedConfig: Sendable {
         codeSigningStorage: String = "git",
         codeSigningGitUrl: String? = nil,
         vaultPassword: String? = nil,
+        codeSigningP12Path: String? = nil,
+        codeSigningP12Data: Data? = nil,
+        codeSigningP12Password: String? = nil,
+        codeSigningProvisioningProfilePath: String? = nil,
+        codeSigningProvisioningProfileData: Data? = nil,
         skipWaitingForBuildProcessing: Bool = false,
         distributeExternal: Bool = false,
         testFlightGroups: [String] = [],
@@ -329,6 +349,11 @@ public struct ResolvedConfig: Sendable {
         self.codeSigningStorage = codeSigningStorage
         self.codeSigningGitUrl = codeSigningGitUrl
         self.vaultPassword = vaultPassword
+        self.codeSigningP12Path = codeSigningP12Path
+        self.codeSigningP12Data = codeSigningP12Data
+        self.codeSigningP12Password = codeSigningP12Password
+        self.codeSigningProvisioningProfilePath = codeSigningProvisioningProfilePath
+        self.codeSigningProvisioningProfileData = codeSigningProvisioningProfileData
         self.skipWaitingForBuildProcessing = skipWaitingForBuildProcessing
         self.distributeExternal = distributeExternal
         self.testFlightGroups = testFlightGroups

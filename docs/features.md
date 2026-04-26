@@ -84,6 +84,7 @@ This document covers the planned feature surface, current v1 scope, the long-ter
 | Feature | Description |
 |---|---|
 | **Sync (vault-style)** | Encrypted certs & profiles in a Git repo (v1); S3/GCS backends planned |
+| **Manual signing assets** | Install local or base64-provided `.p12` certificates and `.mobileprovision` profiles with path-first CI fallback |
 | **Certificate Create** | Generate signing certificates via ASC API |
 | **Profile Generate** | Create provisioning profiles via ASC API |
 | **Device Register** | Register new UDIDs via ASC API |

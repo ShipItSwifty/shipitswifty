@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 import SwiftyShell
 @testable import ShipItKit
@@ -174,6 +175,85 @@ struct SignActionTests {
         } catch {
             Issue.record("Wrong error type thrown: \(error)")
         }
+    }
+
+    @Test("manual sync installs certificate and provisioning profile without cloning")
+    func manualSyncInstallsConfiguredAssets() async throws {
+        let tempDirectory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: tempDirectory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+
+        let p12URL = tempDirectory.appendingPathComponent("distribution.p12")
+        let profileURL = tempDirectory.appendingPathComponent("AppStore.mobileprovision")
+        try Data("p12".utf8).write(to: p12URL)
+        try Data("profile".utf8).write(to: profileURL)
+
+        nonisolated(unsafe) var capturedArgs: [[String]] = []
+        let executor = MockExecutor { command, _ in
+            capturedArgs.append(command.arguments)
+            return ShellOutput(stdout: "", stderr: "", exitCode: 0)
+        }
+        let base = ActionContext.mock(executor: executor)
+        let context = ActionContext(
+            shell: base.shell,
+            logger: base.logger,
+            config: ResolvedConfig(
+                codeSigningType: "manual",
+                codeSigningP12Path: p12URL.path,
+                codeSigningP12Password: "p12pass",
+                codeSigningProvisioningProfilePath: profileURL.path
+            ),
+            appStoreConnect: base.appStoreConnect,
+            platform: .ios
+        )
+
+        let result = try await SignAction().run(with: .init(operation: .sync), context: context)
+
+        #expect(result.operation == "sync")
+        #expect(result.success)
+        #expect(!capturedArgs.contains(where: { $0.first == "clone" }), "Manual sync should not clone vault storage")
+        #expect(capturedArgs.contains(where: { $0.first == "import" && $0.contains(p12URL.path) }))
+
+        let installedProfile = URL(fileURLWithPath: NSHomeDirectory())
+            .appendingPathComponent("Library/MobileDevice/Provisioning Profiles/AppStore.mobileprovision")
+        defer { try? FileManager.default.removeItem(at: installedProfile) }
+        #expect(FileManager.default.fileExists(atPath: installedProfile.path))
+    }
+
+    @Test("manual sync writes base64 assets to temporary files before installing")
+    func manualSyncInstallsBase64Assets() async throws {
+        nonisolated(unsafe) var importArgs: [String] = []
+        let executor = MockExecutor { command, _ in
+            if command.arguments.first == "import" {
+                importArgs = command.arguments
+            }
+            return ShellOutput(stdout: "", stderr: "", exitCode: 0)
+        }
+        let base = ActionContext.mock(executor: executor)
+        let context = ActionContext(
+            shell: base.shell,
+            logger: base.logger,
+            config: ResolvedConfig(
+                codeSigningType: "manual",
+                codeSigningP12Data: Data("p12".utf8),
+                codeSigningP12Password: "p12pass",
+                codeSigningProvisioningProfileData: Data("profile".utf8)
+            ),
+            appStoreConnect: base.appStoreConnect,
+            platform: .ios
+        )
+
+        let result = try await SignAction().run(with: .init(operation: .sync), context: context)
+
+        #expect(result.success)
+        let installedP12Path = try #require(importArgs.first(where: { $0.hasSuffix("certificate.p12") }))
+        #expect(!FileManager.default.fileExists(atPath: installedP12Path), "Temporary decoded p12 should be cleaned up after install")
+
+        let installedProfile = URL(fileURLWithPath: NSHomeDirectory())
+            .appendingPathComponent("Library/MobileDevice/Provisioning Profiles/profile.mobileprovision")
+        defer { try? FileManager.default.removeItem(at: installedProfile) }
+        let profileData = try Data(contentsOf: installedProfile)
+        #expect(profileData == Data("profile".utf8))
     }
 
     // MARK: - .init

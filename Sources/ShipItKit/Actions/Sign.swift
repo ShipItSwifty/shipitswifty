@@ -119,6 +119,10 @@ public struct SignAction: Action {
     // MARK: - Operations
 
     private func performSync(options: Options, context: ActionContext) async throws -> Result {
+        if context.config.codeSigningType == "manual" {
+            return try await performManualSync(options: options, context: context)
+        }
+
         let gitUrl = options.gitUrl ?? context.config.codeSigningGitUrl
         guard let gitUrl else {
             throw ShipItError.invalidConfiguration(reason: "sign sync requires code_signing.git_url. Set it in Shipfile.yml or export SHIPIT_CODE_SIGNING__GIT_URL.")
@@ -141,6 +145,79 @@ public struct SignAction: Action {
             success: true,
             message: "Successfully synced \(profileType) certificates and profiles"
         )
+    }
+
+    private func performManualSync(options: Options, context: ActionContext) async throws -> Result {
+        let p12Password = context.config.codeSigningP12Password ?? context.config.vaultPassword
+        guard let p12Password, !p12Password.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            throw ShipItError.invalidConfiguration(reason: "manual signing requires code_signing.p12_password or P12_PASSWORD.")
+        }
+
+        let keychain = KeychainHelper()
+        if options.ci ?? false {
+            try await keychain.createTemporaryKeychain(context: context)
+        }
+
+        let tempDirectory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("shipit-manual-signing-\(UUID().uuidString)", isDirectory: true)
+        var createdTempDirectory = false
+        defer {
+            if createdTempDirectory {
+                try? FileManager.default.removeItem(at: tempDirectory)
+            }
+        }
+
+        let p12Path = try writeManualSigningAssetIfNeeded(
+            path: context.config.codeSigningP12Path,
+            data: context.config.codeSigningP12Data,
+            filename: "certificate.p12",
+            tempDirectory: tempDirectory,
+            createdTempDirectory: &createdTempDirectory,
+            missingDescription: "manual signing requires code_signing.p12_path or code_signing.p12_base64."
+        )
+        let profilePath = try writeManualSigningAssetIfNeeded(
+            path: context.config.codeSigningProvisioningProfilePath,
+            data: context.config.codeSigningProvisioningProfileData,
+            filename: "profile.mobileprovision",
+            tempDirectory: tempDirectory,
+            createdTempDirectory: &createdTempDirectory,
+            missingDescription: "manual signing requires code_signing.provisioning_profile_path or code_signing.provisioning_profile_base64."
+        )
+
+        try await keychain.installCertificate(p12Path: p12Path, password: p12Password, context: context)
+        try await keychain.installProvisioningProfile(profilePath: profilePath, context: context)
+
+        return Result(
+            operation: "sync",
+            success: true,
+            message: "Successfully installed manual signing certificate and provisioning profile"
+        )
+    }
+
+    private func writeManualSigningAssetIfNeeded(
+        path: String?,
+        data: Data?,
+        filename: String,
+        tempDirectory: URL,
+        createdTempDirectory: inout Bool,
+        missingDescription: String
+    ) throws -> String {
+        if let path, FileManager.default.fileExists(atPath: path) {
+            return path
+        }
+
+        guard let data else {
+            throw ShipItError.invalidConfiguration(reason: missingDescription)
+        }
+
+        if !createdTempDirectory {
+            try FileManager.default.createDirectory(at: tempDirectory, withIntermediateDirectories: true)
+            createdTempDirectory = true
+        }
+
+        let fileURL = tempDirectory.appendingPathComponent(filename)
+        try data.write(to: fileURL, options: .atomic)
+        return fileURL.path
     }
 
     private func performInit(options: Options, context: ActionContext) async throws -> Result {
