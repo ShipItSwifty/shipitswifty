@@ -118,8 +118,6 @@ public struct ConfigResolver: Sendable {
       base: shipfile?.build, platform: platform, shipfile: shipfile)
 
     let privateKeyResolution = try resolvePrivateKeyData(shipfile: shipfile)
-    let processedFiles = [shipfileLoadResult.loadedPath, privateKeyResolution.loadedPath].compactMap
-    { $0 }
     let autoDetectedAppConfig = try await autoDetectAppConfig(
       shipfile: shipfile,
       effectiveApp: effectiveApp,
@@ -140,6 +138,25 @@ public struct ConfigResolver: Sendable {
 
     // Android config (from android: block merged with env vars)
     let androidConfig = shipfile?.android
+
+    let p12Resolution = try resolveSigningAsset(
+      path: environment.codeSigningP12Path ?? shipfile?.codeSigning?.p12Path,
+      base64: environment.codeSigningP12Base64 ?? shipfile?.codeSigning?.p12Base64,
+      missingPathDescription: "Code signing .p12 file"
+    )
+    let provisioningProfileResolution = try resolveSigningAsset(
+      path: environment.codeSigningProvisioningProfilePath
+        ?? shipfile?.codeSigning?.provisioningProfilePath,
+      base64: environment.codeSigningProvisioningProfileBase64
+        ?? shipfile?.codeSigning?.provisioningProfileBase64,
+      missingPathDescription: "Code signing provisioning profile"
+    )
+    let processedFiles = [
+      shipfileLoadResult.loadedPath,
+      privateKeyResolution.loadedPath,
+      p12Resolution.loadedPath,
+      provisioningProfileResolution.loadedPath,
+    ].compactMap { $0 }
 
     // Project generation config
     let projGen = shipfile?.projectGeneration
@@ -185,6 +202,12 @@ public struct ConfigResolver: Sendable {
       codeSigningStorage: shipfile?.codeSigning?.storage ?? "git",
       codeSigningGitUrl: environment.codeSigningGitUrl ?? shipfile?.codeSigning?.gitUrl,
       vaultPassword: environment.vaultPassword,
+      codeSigningP12Path: p12Resolution.path,
+      codeSigningP12Data: p12Resolution.data,
+      codeSigningP12Password: environment.codeSigningP12Password
+        ?? shipfile?.codeSigning?.p12Password,
+      codeSigningProvisioningProfilePath: provisioningProfileResolution.path,
+      codeSigningProvisioningProfileData: provisioningProfileResolution.data,
       skipWaitingForBuildProcessing: shipfile?.testflight?.skipWaitingForBuildProcessing ?? false,
       distributeExternal: shipfile?.testflight?.distributeExternal ?? false,
       testFlightGroups: shipfile?.testflight?.groups ?? [],
@@ -309,6 +332,37 @@ public struct ConfigResolver: Sendable {
     }
 
     return nil
+  }
+
+  private func resolveSigningAsset(
+    path: String?,
+    base64: String?,
+    missingPathDescription: String
+  ) throws -> (path: String?, data: Data?, loadedPath: String?) {
+    if let path = nonEmpty(path) {
+      let url = URL(fileURLWithPath: path)
+      if FileManager.default.fileExists(atPath: url.path) {
+        return (url.path, nil, url.path)
+      }
+      logger.warning("\(missingPathDescription) not found at: \(path)")
+    }
+
+    guard let encoded = nonEmpty(base64) else {
+      return (nil, nil, nil)
+    }
+
+    guard let data = Data(base64Encoded: encoded, options: .ignoreUnknownCharacters) else {
+      throw ShipItError.invalidConfiguration(
+        reason: "\(missingPathDescription) base64 content is not valid base64")
+    }
+
+    return (nil, data, nil)
+  }
+
+  private func nonEmpty(_ value: String?) -> String? {
+    guard let value else { return nil }
+    let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+    return trimmed.isEmpty ? nil : trimmed
   }
 
   private func loadShipfile(from path: String) async throws -> ShipfileLoadResult {

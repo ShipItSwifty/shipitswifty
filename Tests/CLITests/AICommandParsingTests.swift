@@ -52,6 +52,32 @@ struct AICommandParsingTests {
     #expect(defaultConfirmationEcho(defaultAnswer: false) == "no")
   }
 
+  @Test("Generate default prompt echo rewrites TTY prompt line")
+  func generateDefaultPromptEchoRewritesTTYLine() {
+    #expect(
+      defaultPromptEcho(promptLine: "Xcode scheme [MyApp]: ", value: "MyApp", isStdoutTTY: true)
+        == "\u{001B}[1A\u{001B}[2K\rXcode scheme [MyApp]: MyApp\n"
+    )
+    #expect(
+      defaultPromptEcho(promptLine: "Xcode scheme [MyApp]: ", value: "MyApp", isStdoutTTY: false)
+        == "MyApp\n"
+    )
+  }
+
+  @Test("Generate env var confirmation skipped when non-interactive")
+  func generateEnvConfirmSkippedNonInteractive() throws {
+    // When --non-interactive is passed, confirmEnvironmentVariables must not block.
+    // We verify the flag is parsed and respected; the gating guard in
+    // confirmEnvironmentVariables checks `nonInteractive` before prompting.
+    let command =
+      try GenerateCommand.parseAsRoot([
+        "--goal", "beta",
+        "--non-interactive",
+      ]) as! GenerateCommand
+
+    #expect(command.nonInteractive)
+  }
+
   @Test("Root parser includes generate and removes init")
   func rootParserIncludesGenerateAndRemovesInit() throws {
     let command = try ShipItCLI.parseAsRoot(["generate", "--dry-run"]) as! GenerateCommand

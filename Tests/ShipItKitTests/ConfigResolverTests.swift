@@ -267,6 +267,86 @@ struct ConfigResolverTests {
     #expect(config.automaticCodeSigning)
   }
 
+  @Test("Manual signing paths are preferred over base64 fallbacks")
+  func manualSigningPathsPreferredOverBase64() async throws {
+    let tempDirectory = try makeTempDirectory()
+    defer { try? FileManager.default.removeItem(at: tempDirectory) }
+
+    let p12URL = tempDirectory.appendingPathComponent("distribution.p12")
+    let profileURL = tempDirectory.appendingPathComponent("AppStore.mobileprovision")
+    try Data("local-p12".utf8).write(to: p12URL)
+    try Data("local-profile".utf8).write(to: profileURL)
+
+    let shipfileURL = tempDirectory.appendingPathComponent("Shipfile.yml")
+    try """
+    app:
+      project: Example.xcodeproj
+      scheme: Example
+    code_signing:
+      type: manual
+      p12_path: \(p12URL.path)
+      p12_base64: \(Data("ci-p12".utf8).base64EncodedString())
+      p12_password: local-password
+      provisioning_profile_path: \(profileURL.path)
+      provisioning_profile_base64: \(Data("ci-profile".utf8).base64EncodedString())
+    """.write(to: shipfileURL, atomically: true, encoding: .utf8)
+
+    let config = try await ConfigResolver(environment: Environment(env: [:]))
+      .resolve(shipfilePath: shipfileURL.path)
+
+    #expect(config.codeSigningType == "manual")
+    #expect(config.codeSigningP12Path == p12URL.path)
+    #expect(config.codeSigningP12Data == nil)
+    #expect(config.codeSigningP12Password == "local-password")
+    #expect(config.codeSigningProvisioningProfilePath == profileURL.path)
+    #expect(config.codeSigningProvisioningProfileData == nil)
+  }
+
+  @Test("Manual signing falls back to base64 when paths are missing")
+  func manualSigningFallsBackToBase64() async throws {
+    let tempDirectory = try makeTempDirectory()
+    defer { try? FileManager.default.removeItem(at: tempDirectory) }
+
+    let shipfileURL = tempDirectory.appendingPathComponent("Shipfile.yml")
+    try """
+    app:
+      project: Example.xcodeproj
+      scheme: Example
+    code_signing:
+      type: manual
+      p12_path: \(tempDirectory.appendingPathComponent("missing.p12").path)
+      provisioning_profile_path: \(tempDirectory.appendingPathComponent("missing.mobileprovision").path)
+    """.write(to: shipfileURL, atomically: true, encoding: .utf8)
+
+    let environment = Environment(env: [
+      "P12_BASE64": Data("ci-p12".utf8).base64EncodedString(),
+      "P12_PASSWORD": "ci-password",
+      "PROVISIONING_PROFILE_BASE64": Data("ci-profile".utf8).base64EncodedString(),
+    ])
+
+    let config = try await ConfigResolver(environment: environment).resolve(shipfilePath: shipfileURL.path)
+
+    #expect(config.codeSigningP12Path == nil)
+    #expect(config.codeSigningP12Data == Data("ci-p12".utf8))
+    #expect(config.codeSigningP12Password == "ci-password")
+    #expect(config.codeSigningProvisioningProfilePath == nil)
+    #expect(config.codeSigningProvisioningProfileData == Data("ci-profile".utf8))
+  }
+
+  @Test("Invalid manual signing base64 throws invalid configuration")
+  func invalidManualSigningBase64Throws() async throws {
+    let resolver = ConfigResolver(environment: Environment(env: [
+      "P12_BASE64": "not-valid-base64"
+    ]))
+
+    await #expect {
+      _ = try await resolver.resolve(shipfilePath: "/tmp/does-not-exist.yml")
+    } throws: { error in
+      guard case ShipItError.invalidConfiguration(let reason) = error else { return false }
+      return reason.contains("base64")
+    }
+  }
+
   private func makeTempDirectory() throws -> URL {
     let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
     try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)

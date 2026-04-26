@@ -334,19 +334,44 @@ public struct CodeSigningConfig: Codable, Sendable {
   /// Provisioning profile type.
   public var profileType: String?
 
+  /// Path to a local `.p12` certificate file for manual signing.
+  public var p12Path: String?
+
+  /// Base64-encoded `.p12` certificate content for CI/manual signing.
+  public var p12Base64: String?
+
+  /// Password for the `.p12` certificate.
+  public var p12Password: String?
+
+  /// Path to a local `.mobileprovision` file for manual signing.
+  public var provisioningProfilePath: String?
+
+  /// Base64-encoded `.mobileprovision` content for CI/manual signing.
+  public var provisioningProfileBase64: String?
+
   /// Creates a `CodeSigningConfig`.
   public init(
     type: String? = nil,
     storage: String? = nil,
     gitUrl: String? = nil,
     appIdentifier: String? = nil,
-    profileType: String? = nil
+    profileType: String? = nil,
+    p12Path: String? = nil,
+    p12Base64: String? = nil,
+    p12Password: String? = nil,
+    provisioningProfilePath: String? = nil,
+    provisioningProfileBase64: String? = nil
   ) {
     self.type = type
     self.storage = storage
     self.gitUrl = gitUrl
     self.appIdentifier = appIdentifier
     self.profileType = profileType
+    self.p12Path = p12Path
+    self.p12Base64 = p12Base64
+    self.p12Password = p12Password
+    self.provisioningProfilePath = provisioningProfilePath
+    self.provisioningProfileBase64 = provisioningProfileBase64
   }
 
   private enum CodingKeys: String, CodingKey {
@@ -355,6 +380,11 @@ public struct CodeSigningConfig: Codable, Sendable {
     case gitUrl = "git_url"
     case appIdentifier = "app_identifier"
     case profileType = "profile_type"
+    case p12Path = "p12_path"
+    case p12Base64 = "p12_base64"
+    case p12Password = "p12_password"
+    case provisioningProfilePath = "provisioning_profile_path"
+    case provisioningProfileBase64 = "provisioning_profile_base64"
   }
 }
 

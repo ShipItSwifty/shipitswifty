@@ -228,7 +228,7 @@ public struct AISessionBuilder: Sendable {
         value: .string("automatic"),
         source: .assumed,
         confidence: .medium,
-        why: "Automatic signing is the lowest-friction default; switch to vault for CI environments"
+            why: "Automatic signing is the lowest-friction default; switch to manual or vault for CI environments"
       ))
 
     return entries
@@ -406,7 +406,7 @@ public struct AISessionBuilder: Sendable {
       signingRisk = "high"
       blockers.append("CI environment detected — Xcode automatic signing is unlikely to work in CI")
       unblockSteps.append(
-        "Configure code_signing.type: vault and set up a certificates repository: shipit sign init --git-url <repo>"
+        "Configure code_signing.type: manual with p12/provisioning profile assets, or use vault with shipit sign init --git-url <repo>"
       )
     } else if app.teamID != nil {
       signingRisk = "low"

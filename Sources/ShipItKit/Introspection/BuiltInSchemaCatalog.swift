@@ -83,6 +83,22 @@ public enum BuiltInSchemaCatalog {
             "profile_type", description: "Provisioning profile type.",
             allowedValues: ["appstore", "adhoc", "development", "enterprise"],
             example: .string("appstore")),
+          .string(
+            "p12_path", description: "Path to a local .p12 certificate for manual signing. Preferred over p12_base64 when the file exists.",
+            example: .string("./.secrets/distribution.p12"), envVar: "SHIPIT_CODE_SIGNING__P12_PATH"),
+          .string(
+            "p12_base64", description: "Base64-encoded .p12 certificate for CI/manual signing. Used when p12_path is absent or missing.",
+            envVar: "P12_BASE64", isSecret: true),
+          .string(
+            "p12_password", description: "Password for the .p12 certificate.",
+            envVar: "P12_PASSWORD", isSecret: true),
+          .string(
+            "provisioning_profile_path", description: "Path to a local .mobileprovision file for manual signing. Preferred over provisioning_profile_base64 when the file exists.",
+            example: .string("./.secrets/AppStore.mobileprovision"),
+            envVar: "SHIPIT_CODE_SIGNING__PROVISIONING_PROFILE_PATH"),
+          .string(
+            "provisioning_profile_base64", description: "Base64-encoded .mobileprovision content for CI/manual signing. Used when provisioning_profile_path is absent or missing.",
+            envVar: "PROVISIONING_PROFILE_BASE64", isSecret: true),
         ]
       ),
       .object(
@@ -707,6 +723,12 @@ public enum BuiltInSchemaCatalog {
       .string(
         "provisioning_profile_path", description: "Path to the .mobileprovision file for import.",
         example: .string("./profiles/AppStore.mobileprovision")),
+      .string(
+        "p12_base64", description: "Base64-encoded .p12 certificate for manual sync via code_signing.p12_base64.",
+        envVar: "P12_BASE64", isSecret: true),
+      .string(
+        "provisioning_profile_base64", description: "Base64-encoded .mobileprovision content for manual sync via code_signing.provisioning_profile_base64.",
+        envVar: "PROVISIONING_PROFILE_BASE64", isSecret: true),
     ]
   }
 

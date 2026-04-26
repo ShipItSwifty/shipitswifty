@@ -22,6 +22,9 @@ import Foundation
 /// - `ASC_ISSUER_ID`
 /// - `ASC_PRIVATE_KEY`
 /// - `VAULT_PASSWORD`
+/// - `P12_BASE64`
+/// - `P12_PASSWORD`
+/// - `PROVISIONING_PROFILE_BASE64`
 /// - `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON`
 /// - `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_PATH`
 /// - `SHIPIT_ANDROID__KEYSTORE_PASSWORD`
@@ -100,6 +103,29 @@ public struct Environment: Sendable {
     /// `SHIPIT_CODE_SIGNING__GIT_URL`
     public var codeSigningGitUrl: String? { env["SHIPIT_CODE_SIGNING__GIT_URL"] }
 
+    /// `SHIPIT_CODE_SIGNING__P12_PATH`
+    public var codeSigningP12Path: String? { env["SHIPIT_CODE_SIGNING__P12_PATH"] }
+
+    /// `SHIPIT_CODE_SIGNING__P12_BASE64` or bare `P12_BASE64`
+    public var codeSigningP12Base64: String? {
+        env["SHIPIT_CODE_SIGNING__P12_BASE64"] ?? env["P12_BASE64"]
+    }
+
+    /// `SHIPIT_CODE_SIGNING__P12_PASSWORD` or bare `P12_PASSWORD`
+    public var codeSigningP12Password: String? {
+        env["SHIPIT_CODE_SIGNING__P12_PASSWORD"] ?? env["P12_PASSWORD"]
+    }
+
+    /// `SHIPIT_CODE_SIGNING__PROVISIONING_PROFILE_PATH`
+    public var codeSigningProvisioningProfilePath: String? {
+        env["SHIPIT_CODE_SIGNING__PROVISIONING_PROFILE_PATH"]
+    }
+
+    /// `SHIPIT_CODE_SIGNING__PROVISIONING_PROFILE_BASE64` or bare `PROVISIONING_PROFILE_BASE64`
+    public var codeSigningProvisioningProfileBase64: String? {
+        env["SHIPIT_CODE_SIGNING__PROVISIONING_PROFILE_BASE64"] ?? env["PROVISIONING_PROFILE_BASE64"]
+    }
+
     /// `VAULT_PASSWORD` — passphrase for the encrypted certificate repository
     public var vaultPassword: String? { env["VAULT_PASSWORD"] }
 
@@ -158,4 +184,3 @@ public struct Environment: Sendable {
         env[key]
     }
 }
-

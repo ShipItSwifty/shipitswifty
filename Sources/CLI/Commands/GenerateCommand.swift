@@ -43,8 +43,7 @@ struct GenerateCommand: AsyncParsableCommand {
     Self.logger.info("Starting Shipfile generation for path: \(path)")
 
     let formatter = makeHumanFormatter(global: global)
-    printInspectionStatusIfNeeded()
-    let inspection = try await ProjectInspector(rootPath: path).inspect()
+    let inspection = try await inspectProject()
     let platform = try resolvePlatform(from: inspection, formatter: formatter)
     let suggestion = ShipfileSuggester().suggest(goal: goal, platform: platform, from: inspection)
     let outputPath = resolvedOutputPath()
@@ -210,8 +209,9 @@ struct GenerateCommand: AsyncParsableCommand {
     if uploadsToTestFlight {
       formatter.printHeader("App Store Connect Environment")
       formatter.print("ShipIt will reference env vars instead of storing secrets in Shipfile.yml.")
-      printEnvironmentStatus(
+      confirmEnvironmentVariables(
         ["ASC_KEY_ID", "ASC_ISSUER_ID", "ASC_PRIVATE_KEY_PATH", "ASC_PRIVATE_KEY"],
+        note: "Set ASC_PRIVATE_KEY_PATH (file path) or ASC_PRIVATE_KEY (raw PEM). Only one is required.",
         formatter: formatter)
       overrides["# app_store_connect:"] = "app_store_connect:"
       overrides["#   key_id: ${ASC_KEY_ID}"] = "  key_id: ${ASC_KEY_ID}"
@@ -220,6 +220,23 @@ struct GenerateCommand: AsyncParsableCommand {
       overrides["    # - action: testflight"] = "    - action: testflight"
       overrides["    #   options:"] = "      options:"
       overrides["    #     groups: [\"Internal QA\"]"] = "        groups: [\"Internal QA\"]"
+    }
+
+    let usesManualSigning = confirm(
+      "Are you using manual code signing (.p12 + provisioning profile)?", defaultAnswer: false)
+    if usesManualSigning {
+      formatter.printHeader("Manual Code Signing Environment")
+      formatter.print("ShipIt will reference env vars instead of storing secrets in Shipfile.yml.")
+      confirmEnvironmentVariables(
+        [
+          "SHIPIT_CODE_SIGNING__P12_PATH",
+          "P12_BASE64",
+          "P12_PASSWORD",
+          "SHIPIT_CODE_SIGNING__PROVISIONING_PROFILE_PATH",
+          "PROVISIONING_PROFILE_BASE64",
+        ],
+        note: "Set the _PATH var (local path) or the base64 var (CI fallback). P12_PASSWORD is always required.",
+        formatter: formatter)
     }
 
     return overrides
@@ -251,13 +268,15 @@ struct GenerateCommand: AsyncParsableCommand {
     if uploadsToPlay {
       formatter.printHeader("Google Play Environment")
       formatter.print("ShipIt will reference env vars instead of storing secrets in Shipfile.yml.")
-      printEnvironmentStatus(
+      confirmEnvironmentVariables(
         [
           "GOOGLE_PLAY_SERVICE_ACCOUNT_JSON",
           "GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_PATH",
           "SHIPIT_ANDROID__KEYSTORE_PASSWORD",
           "SHIPIT_ANDROID__KEY_PASSWORD",
-        ], formatter: formatter)
+        ],
+        note: "Set GOOGLE_PLAY_SERVICE_ACCOUNT_JSON (raw JSON) or GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_PATH (file path). Only one is required.",
+        formatter: formatter)
       overrides["    # - action: play-store"] = "    - action: play-store"
     }
 
@@ -268,6 +287,22 @@ struct GenerateCommand: AsyncParsableCommand {
     let environment = ProcessInfo.processInfo.environment
     for name in names {
       formatter.printKV(name, environment[name] == nil ? "(not set)" : "[set]")
+    }
+  }
+
+  /// Prints env var status then asks the user to confirm they are correctly set.
+  /// If the user says no, prints a warning with `note` so they know what to fix,
+  /// but does not abort — secrets may be set later in CI.
+  private func confirmEnvironmentVariables(
+    _ names: [String], note: String? = nil, formatter: HumanFormatter
+  ) {
+    printEnvironmentStatus(names, formatter: formatter)
+    guard isInteractiveTerminal, !nonInteractive else { return }
+    if !confirm("Are these environment variables correctly set?", defaultAnswer: true) {
+      let hint = note ?? "Set the missing variables before running shipit."
+      formatter.printWarning("Environment not confirmed. \(hint)")
+      formatter.printWarning(
+        "You can re-run `shipit generate` or edit Shipfile.yml manually once they are set.")
     }
   }
 
@@ -331,35 +366,59 @@ struct GenerateCommand: AsyncParsableCommand {
 
   private func ask(_ prompt: String, defaultValue: String?) -> String {
     let suffix = defaultValue.map { " [\($0)]" } ?? ""
-    print("\(prompt)\(suffix): ", terminator: "")
+    let promptLine = "\(prompt)\(suffix): "
+    print(promptLine, terminator: "")
     let answer = readLine()?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
     let value = resolvedPromptValue(answer: answer, defaultValue: defaultValue)
     if answer.isEmpty, let defaultValue {
-      print(defaultValue)
+      print(
+        defaultPromptEcho(promptLine: promptLine, value: defaultValue, isStdoutTTY: isatty(STDOUT_FILENO) != 0),
+        terminator: ""
+      )
     }
     return value
   }
 
   private func confirm(_ prompt: String, defaultAnswer: Bool) -> Bool {
     let suffix = defaultAnswer ? "Y/n" : "y/N"
-    print("\(prompt) [\(suffix)]: ", terminator: "")
+    let promptLine = "\(prompt) [\(suffix)]: "
+    print(promptLine, terminator: "")
     let answer = readLine()?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() ?? ""
     if answer.isEmpty {
-      print(defaultConfirmationEcho(defaultAnswer: defaultAnswer))
+      print(
+        defaultPromptEcho(
+          promptLine: promptLine,
+          value: defaultConfirmationEcho(defaultAnswer: defaultAnswer),
+          isStdoutTTY: isatty(STDOUT_FILENO) != 0
+        ),
+        terminator: ""
+      )
       return defaultAnswer
     }
     return ["y", "yes"].contains(answer)
   }
 
-  private func printInspectionStatusIfNeeded() {
+  private func inspectProject() async throws -> ProjectInspection {
     guard shouldPrintGenerateInspectionStatus(
       output: global.output,
       isStderrTTY: isatty(STDERR_FILENO) != 0
     ) else {
-      return
+      return try await ProjectInspector(rootPath: path).inspect()
     }
 
-    fputs("Inspecting project and inferring defaults...\n", stderr)
+    let spinner = TerminalSpinner(message: "Inspecting project and inferring defaults")
+    async let animation: Void = spinner.run()
+
+    do {
+      let inspection = try await ProjectInspector(rootPath: path).inspect()
+      await spinner.finish()
+      await animation
+      return inspection
+    } catch {
+      await spinner.finish()
+      await animation
+      throw error
+    }
   }
 
   private var isInteractiveTerminal: Bool {
@@ -377,4 +436,37 @@ func resolvedPromptValue(answer: String, defaultValue: String?) -> String {
 
 func defaultConfirmationEcho(defaultAnswer: Bool) -> String {
   defaultAnswer ? "yes" : "no"
+}
+
+func defaultPromptEcho(promptLine: String, value: String, isStdoutTTY: Bool) -> String {
+  if isStdoutTTY {
+    return "\u{001B}[1A\u{001B}[2K\r\(promptLine)\(value)\n"
+  }
+  return "\(value)\n"
+}
+
+private actor TerminalSpinner {
+  private let frames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
+  private let message: String
+  private var isRunning = true
+
+  init(message: String) {
+    self.message = message
+  }
+
+  func run() async {
+    var index = 0
+    while isRunning {
+      fputs("\r\(frames[index % frames.count]) \(message)", stderr)
+      fflush(stderr)
+      index += 1
+      try? await Task.sleep(for: .milliseconds(100))
+    }
+  }
+
+  func finish() {
+    isRunning = false
+    fputs("\r\u{001B}[2K", stderr)
+    fflush(stderr)
+  }
 }

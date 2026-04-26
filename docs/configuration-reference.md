@@ -93,10 +93,17 @@ Find these values in App Store Connect:
 | `git_url` | string | — | URL of the certificate repo |
 | `app_identifier` | string | — | Bundle ID for matching |
 | `profile_type` | string | — | `appstore`, `adhoc`, `development` |
+| `p12_path` | string | — | Local `.p12` certificate path for manual signing |
+| `p12_base64` | string | — | Base64-encoded `.p12` certificate for CI/manual signing |
+| `p12_password` | string | — | `.p12` certificate password |
+| `provisioning_profile_path` | string | — | Local `.mobileprovision` path for manual signing |
+| `provisioning_profile_base64` | string | — | Base64-encoded `.mobileprovision` for CI/manual signing |
 
 Set `VAULT_PASSWORD` env var for the encrypted repo passphrase.
 
 With `type: automatic`, ShipIt passes `-allowProvisioningUpdates` to Xcode build/export operations and writes `signingStyle=automatic` into export options.
+
+With `type: manual`, `shipit sign sync` installs the configured `.p12` certificate and provisioning profile. Local paths are preferred when they exist; base64 values are used as a CI fallback.
 
 ## `build`
 
