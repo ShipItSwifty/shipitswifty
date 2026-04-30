@@ -125,7 +125,9 @@ Enable GitHub Pages in your repo settings:
 1. Go to **Settings → Pages**
 2. Set **Source** to **GitHub Actions**
 
-The docs will be available at `https://<org>.github.io/ShipItSwifty/documentation/shipitkit/`.
+The docs will be available at `https://<org>.github.io/shipitswifty/documentation/shipitkit/`.
+
+GitHub Pages uses the repository slug in the path. Use the lowercase `shipitswifty` segment shown above; `ShipItSwifty` returns a 404.
 
 ## Xcode Version
 
