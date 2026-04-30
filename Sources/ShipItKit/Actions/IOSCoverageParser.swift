@@ -83,8 +83,8 @@ struct IOSCoverageParser: Sendable {
             root = try JSONDecoder().decode(XccovRoot.self, from: data)
         } catch {
             throw ShipItError.invalidConfiguration(
-                reason: "Failed to decode xccov JSON output: \(error.localizedDescription). " +
-                "Run `xcrun xccov view --report --json <path>` manually to inspect the output."
+                reason: "Failed to decode xccov JSON output: \(error.localizedDescription). "
+                    + "Run `xcrun xccov view --report --json <path>` manually to inspect the output."
             )
         }
 
@@ -142,8 +142,8 @@ private struct XccovFile: Decodable {
 
 // MARK: - Double helper
 
-private extension Double {
-    func rounded(toDecimalPlaces places: Int) -> Double {
+extension Double {
+    fileprivate func rounded(toDecimalPlaces places: Int) -> Double {
         let multiplier = pow(10.0, Double(places))
         return (self * multiplier).rounded() / multiplier
     }

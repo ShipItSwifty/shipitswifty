@@ -151,7 +151,8 @@ public struct DsymAction: Action {
 
         let uploadUrl = options.uploadUrl
         guard let uploadUrl else {
-            throw ShipItError.invalidConfiguration(reason: "dsym upload requires an upload URL. Set upload_url in the workflow step options.")
+            throw ShipItError.invalidConfiguration(
+                reason: "dsym upload requires an upload URL. Set upload_url in the workflow step options.")
         }
 
         logger.info("Uploading dSYMs from \(dsymPath) to \(uploadUrl)")
@@ -168,7 +169,8 @@ public struct DsymAction: Action {
 
         let (_, response) = try await URLSession.shared.data(for: request)
         guard let httpResponse = response as? HTTPURLResponse,
-              (200..<300).contains(httpResponse.statusCode) else {
+            (200..<300).contains(httpResponse.statusCode)
+        else {
             throw ShipItError.uploadFailed(asset: dsymPath, reason: "Upload failed with unexpected response")
         }
 

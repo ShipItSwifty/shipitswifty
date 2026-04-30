@@ -151,17 +151,19 @@ public struct ValidateBundleAction: Action {
 
         // 2. Extension check
         if isAAB && !targetPath.hasSuffix(".aab") {
-            issues.append(.init(
-                code: "BUNDLE_INVALID_EXTENSION",
-                message: "Expected a .aab file extension, got: \(targetPath)",
-                severity: .warning
-            ))
+            issues.append(
+                .init(
+                    code: "BUNDLE_INVALID_EXTENSION",
+                    message: "Expected a .aab file extension, got: \(targetPath)",
+                    severity: .warning
+                ))
         } else if !isAAB && !targetPath.hasSuffix(".apk") {
-            issues.append(.init(
-                code: "BUNDLE_INVALID_EXTENSION",
-                message: "Expected a .apk file extension, got: \(targetPath)",
-                severity: .warning
-            ))
+            issues.append(
+                .init(
+                    code: "BUNDLE_INVALID_EXTENSION",
+                    message: "Expected a .apk file extension, got: \(targetPath)",
+                    severity: .warning
+                ))
         }
 
         // 3. Size sanity check
@@ -195,52 +197,59 @@ public struct ValidateBundleAction: Action {
 
     private func validateZipFormat(at path: String, isAAB: Bool, issues: inout [BundleIssue]) {
         guard let fileHandle = FileHandle(forReadingAtPath: path),
-              let header = try? fileHandle.read(upToCount: 4) else {
-            issues.append(.init(
-                code: "BUNDLE_UNREADABLE",
-                message: "Cannot read artifact at \(path)",
-                severity: .error
-            ))
+            let header = try? fileHandle.read(upToCount: 4)
+        else {
+            issues.append(
+                .init(
+                    code: "BUNDLE_UNREADABLE",
+                    message: "Cannot read artifact at \(path)",
+                    severity: .error
+                ))
             return
         }
         fileHandle.closeFile()
 
         // ZIP magic: PK\x03\x04
-        let isZip = header.count >= 4
+        let isZip =
+            header.count >= 4
             && header[0] == 0x50 && header[1] == 0x4B
             && header[2] == 0x03 && header[3] == 0x04
         if !isZip {
             let kind = isAAB ? "AAB" : "APK"
-            issues.append(.init(
-                code: "BUNDLE_NOT_ZIP",
-                message: "\(kind) file does not appear to be a valid ZIP archive (incorrect file header).",
-                severity: .error
-            ))
+            issues.append(
+                .init(
+                    code: "BUNDLE_NOT_ZIP",
+                    message: "\(kind) file does not appear to be a valid ZIP archive (incorrect file header).",
+                    severity: .error
+                ))
         }
     }
 
     private func validateFileSize(at path: String, issues: inout [BundleIssue]) {
         guard let attrs = try? FileManager.default.attributesOfItem(atPath: path),
-              let size = attrs[.size] as? Int else { return }
+            let size = attrs[.size] as? Int
+        else { return }
 
         // Warn if suspiciously small (likely empty / malformed)
         if size < 1024 {
-            issues.append(.init(
-                code: "BUNDLE_SUSPICIOUSLY_SMALL",
-                message: "Artifact is only \(size) bytes — this is likely empty or malformed.",
-                severity: .error
-            ))
+            issues.append(
+                .init(
+                    code: "BUNDLE_SUSPICIOUSLY_SMALL",
+                    message: "Artifact is only \(size) bytes — this is likely empty or malformed.",
+                    severity: .error
+                ))
         }
 
         // Warn if AAB exceeds the Google Play 200 MB limit
         let maxBytes = 200 * 1024 * 1024
         if size > maxBytes {
             let mb = size / (1024 * 1024)
-            issues.append(.init(
-                code: "BUNDLE_EXCEEDS_PLAY_LIMIT",
-                message: "Artifact is \(mb) MB which exceeds the Google Play 200 MB limit.",
-                severity: .error
-            ))
+            issues.append(
+                .init(
+                    code: "BUNDLE_EXCEEDS_PLAY_LIMIT",
+                    message: "Artifact is \(mb) MB which exceeds the Google Play 200 MB limit.",
+                    severity: .error
+                ))
         }
     }
 
@@ -259,24 +268,28 @@ public struct ValidateBundleAction: Action {
         let bundletool = Bundletool(context: context.shell)
 
         // Run bundletool validate
-        let validateOutput = try? await bundletool
+        let validateOutput =
+            try? await bundletool
             .validate(bundle: path)
             .run()
 
         if let output = validateOutput, output.exitCode != 0 {
             let stderr = output.stderr.isEmpty ? output.stdout : output.stderr
-            issues.append(.init(
-                code: "BUNDLETOOL_VALIDATION_FAILED",
-                message: "bundletool validate reported errors: \(stderr.trimmingCharacters(in: .whitespacesAndNewlines))",
-                severity: .error
-            ))
+            issues.append(
+                .init(
+                    code: "BUNDLETOOL_VALIDATION_FAILED",
+                    message: "bundletool validate reported errors: \(stderr.trimmingCharacters(in: .whitespacesAndNewlines))",
+                    severity: .error
+                ))
         } else if validateOutput == nil {
             // bundletool not installed or not on PATH
-            issues.append(.init(
-                code: "BUNDLETOOL_NOT_AVAILABLE",
-                message: "bundletool is not installed or not on PATH. Deep AAB validation skipped. Install via: brew install bundletool",
-                severity: .warning
-            ))
+            issues.append(
+                .init(
+                    code: "BUNDLETOOL_NOT_AVAILABLE",
+                    message:
+                        "bundletool is not installed or not on PATH. Deep AAB validation skipped. Install via: brew install bundletool",
+                    severity: .warning
+                ))
         }
     }
 }

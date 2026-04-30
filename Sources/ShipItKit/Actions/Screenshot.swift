@@ -90,11 +90,13 @@ public struct SnapshotAction: Action {
         let scheme = options.scheme ?? context.config.screenshotScheme ?? context.config.appScheme
 
         guard let scheme else {
-            throw ShipItError.invalidConfiguration(reason: "Snapshot requires a scheme. Set screenshots.scheme or app.scheme in Shipfile.yml, or pass --scheme.")
+            throw ShipItError.invalidConfiguration(
+                reason: "Snapshot requires a scheme. Set screenshots.scheme or app.scheme in Shipfile.yml, or pass --scheme.")
         }
 
         guard !devices.isEmpty else {
-            throw ShipItError.invalidConfiguration(reason: "Snapshot requires at least one device. Pass --devices or configure screenshots.devices in Shipfile.yml.")
+            throw ShipItError.invalidConfiguration(
+                reason: "Snapshot requires at least one device. Pass --devices or configure screenshots.devices in Shipfile.yml.")
         }
 
         let outputDirectory = options.outputDirectory ?? context.config.screenshotOutputDirectory

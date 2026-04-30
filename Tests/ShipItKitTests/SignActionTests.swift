@@ -1,6 +1,7 @@
 import Foundation
-import Testing
 import SwiftyShell
+import Testing
+
 @testable import ShipItKit
 
 @Suite("SignAction")
@@ -76,7 +77,7 @@ struct SignActionTests {
         let context = ActionContext(
             shell: base.shell,
             logger: base.logger,
-            config: ResolvedConfig(),   // no codeSigningGitUrl
+            config: ResolvedConfig(),  // no codeSigningGitUrl
             appStoreConnect: base.appStoreConnect,
             platform: .ios
         )
@@ -265,7 +266,7 @@ struct SignActionTests {
         let context = ActionContext(
             shell: base.shell,
             logger: base.logger,
-            config: ResolvedConfig(),   // no codeSigningGitUrl
+            config: ResolvedConfig(),  // no codeSigningGitUrl
             appStoreConnect: base.appStoreConnect,
             platform: .ios
         )
@@ -347,7 +348,7 @@ struct SignActionTests {
         let context = ActionContext(
             shell: base.shell,
             logger: base.logger,
-            config: ResolvedConfig(),   // no codeSigningGitUrl
+            config: ResolvedConfig(),  // no codeSigningGitUrl
             appStoreConnect: base.appStoreConnect,
             platform: .ios
         )

@@ -59,9 +59,11 @@ public struct ProfileManager: Sendable {
                     certificates: .init(
                         data: certificateIds.map { .init(type: "certificates", id: $0) }
                     ),
-                    devices: deviceIds.isEmpty ? nil : .init(
-                        data: deviceIds.map { .init(type: "devices", id: $0) }
-                    )
+                    devices: deviceIds.isEmpty
+                        ? nil
+                        : .init(
+                            data: deviceIds.map { .init(type: "devices", id: $0) }
+                        )
                 )
             )
         )

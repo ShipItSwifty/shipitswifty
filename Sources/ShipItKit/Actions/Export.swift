@@ -70,15 +70,18 @@ public struct ExportAction: Action {
         guard context.platform == .ios else {
             throw ShipItError.invalidConfiguration(reason: "ExportAction requires iOS platform")
         }
-        let archivePath = options.archivePath
+        let archivePath =
+            options.archivePath
             ?? context.config.exportArchivePath
             ?? context.config.archiveOutputPath
 
         guard let archivePath else {
-            throw ShipItError.invalidConfiguration(reason: "Export requires an archive path. Pass --archive or set export.archive_path / archive.output_path in Shipfile.yml.")
+            throw ShipItError.invalidConfiguration(
+                reason: "Export requires an archive path. Pass --archive or set export.archive_path / archive.output_path in Shipfile.yml.")
         }
 
-        let outputDirectory = options.outputDirectory
+        let outputDirectory =
+            options.outputDirectory
             ?? context.config.exportOutputDirectory
             ?? "./build/export"
 
@@ -131,30 +134,30 @@ public struct ExportAction: Action {
         let tmpPath = NSTemporaryDirectory() + "ExportOptions_\(UUID().uuidString).plist"
 
         var plistContent = """
-        <?xml version="1.0" encoding="UTF-8"?>
-        <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-        <plist version="1.0">
-        <dict>
-            <key>method</key>
-            <string>\(exportMethod)</string>
-        """
+            <?xml version="1.0" encoding="UTF-8"?>
+            <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+            <plist version="1.0">
+            <dict>
+                <key>method</key>
+                <string>\(exportMethod)</string>
+            """
 
         if let teamID = context.config.teamID {
             plistContent += """
 
-            <key>teamID</key>
-            <string>\(teamID)</string>
-        """
+                    <key>teamID</key>
+                    <string>\(teamID)</string>
+                """
         }
 
         plistContent += """
 
-            <key>signingStyle</key>
-            <string>\(context.config.automaticCodeSigning ? "automatic" : "manual")</string>
+                <key>signingStyle</key>
+                <string>\(context.config.automaticCodeSigning ? "automatic" : "manual")</string>
 
-        </dict>
-        </plist>
-        """
+            </dict>
+            </plist>
+            """
 
         try plistContent.write(toFile: tmpPath, atomically: true, encoding: .utf8)
         return tmpPath

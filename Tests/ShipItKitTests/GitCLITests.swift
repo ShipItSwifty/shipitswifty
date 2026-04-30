@@ -1,4 +1,5 @@
 import Testing
+
 @testable import ShipItKit
 
 struct GitCLITests {
@@ -25,12 +26,13 @@ struct GitCLITests {
             .clone(url: "git@example.com:team/certs.git", into: "/tmp/certs", depth: 1)
             .command()
 
-        #expect(command.arguments == [
-            "clone",
-            "--depth", "1",
-            "git@example.com:team/certs.git",
-            "/tmp/certs"
-        ])
+        #expect(
+            command.arguments == [
+                "clone",
+                "--depth", "1",
+                "git@example.com:team/certs.git",
+                "/tmp/certs",
+            ])
     }
 
     @Test func buildsRevisionCountCommand() {

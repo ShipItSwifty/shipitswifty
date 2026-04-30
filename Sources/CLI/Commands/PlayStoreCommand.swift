@@ -42,14 +42,17 @@ struct PlayStoreCommand: AsyncParsableCommand {
             let formatter = makeHumanFormatter(global: global)
 
             // Parse "lang=text" entries into a dictionary
-            let releaseNotes: [String: String]? = notes.isEmpty ? nil : Dictionary(
-                uniqueKeysWithValues: notes.compactMap { entry -> (String, String)? in
-                    guard let eq = entry.firstIndex(of: "=") else { return nil }
-                    let lang = String(entry[entry.startIndex..<eq])
-                    let text = String(entry[entry.index(after: eq)...])
-                    return (lang, text)
-                }
-            )
+            let releaseNotes: [String: String]? =
+                notes.isEmpty
+                ? nil
+                : Dictionary(
+                    uniqueKeysWithValues: notes.compactMap { entry -> (String, String)? in
+                        guard let eq = entry.firstIndex(of: "=") else { return nil }
+                        let lang = String(entry[entry.startIndex..<eq])
+                        let text = String(entry[entry.index(after: eq)...])
+                        return (lang, text)
+                    }
+                )
 
             let options = PlayStoreAction.Options(
                 aabPath: aab,

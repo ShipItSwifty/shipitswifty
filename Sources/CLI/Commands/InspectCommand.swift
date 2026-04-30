@@ -28,7 +28,9 @@ extension InspectCommand {
             switch global.output {
             case .json:
                 let reporter = JSONReporter()
-                print(try reporter.encode(ActionResultEnvelope(action: "inspect", status: "success", payload: projectInspectionJSON(inspection))))
+                print(
+                    try reporter.encode(
+                        ActionResultEnvelope(action: "inspect", status: "success", payload: projectInspectionJSON(inspection))))
             case .human:
                 let formatter = makeHumanFormatter(global: global)
                 formatter.printHeader("Project Inspection")

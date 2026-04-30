@@ -1,10 +1,11 @@
 import ArgumentParser
+import Foundation
+
 #if canImport(Darwin)
 import Darwin
 #elseif canImport(Glibc)
 import Glibc
 #endif
-import Foundation
 
 enum ConsoleColorMode: String, ExpressibleByArgument, Sendable {
     case auto
@@ -78,7 +79,8 @@ public struct HumanFormatter: Sendable {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         if let data = try? encoder.encode(result),
-           let json = String(data: data, encoding: .utf8) {
+            let json = String(data: data, encoding: .utf8)
+        {
             Swift.print("\n\(green("✓")) \(green(bold(action))) completed\n\(json)")
         } else {
             Swift.print("\n\(green("✓")) \(green(bold(action))) completed")

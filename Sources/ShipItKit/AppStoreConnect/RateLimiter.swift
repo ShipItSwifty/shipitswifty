@@ -47,7 +47,8 @@ public actor RateLimiter {
         let usageFraction = Double(limit - remaining) / Double(limit)
         if usageFraction >= throttleThreshold {
             let backoffSeconds: Double = 5.0
-            logger.warning("Rate limit at \(Int(usageFraction * 100))% (\(remaining)/\(limit) remaining). Throttling for \(backoffSeconds)s.")
+            logger.warning(
+                "Rate limit at \(Int(usageFraction * 100))% (\(remaining)/\(limit) remaining). Throttling for \(backoffSeconds)s.")
             try? await Task.sleep(for: .seconds(backoffSeconds))
         } else {
             logger.debug("Rate limit OK: \(remaining)/\(limit) remaining (\(Int(usageFraction * 100))% used)")

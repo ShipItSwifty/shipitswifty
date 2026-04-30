@@ -31,7 +31,9 @@ public struct ShipfileValidator: Sendable {
         return await validate(shipfileContents: contents, shipfilePath: absolutePath, actionDescriptors: actionDescriptors)
     }
 
-    public func validate(shipfileContents: String, shipfilePath: String = "<generated>", actionDescriptors: [ActionDescriptor]) async -> ValidationReport {
+    public func validate(
+        shipfileContents: String, shipfilePath: String = "<generated>", actionDescriptors: [ActionDescriptor]
+    ) async -> ValidationReport {
         var issues: [ValidationIssue] = []
         let normalizedPath = shipfilePath
 
@@ -82,10 +84,11 @@ public struct ShipfileValidator: Sendable {
 
         // Validate custom actions themselves, then inject pseudo-descriptors so
         // workflow steps referencing them aren't flagged as unknown.
-        issues.append(contentsOf: customActionIssues(
-            customActions: resolvedConfig.customActions,
-            builtInNames: builtInNames
-        ))
+        issues.append(
+            contentsOf: customActionIssues(
+                customActions: resolvedConfig.customActions,
+                builtInNames: builtInNames
+            ))
 
         for (compositeName, config) in resolvedConfig.customActions {
             let compositeSchema = CompositeAction.parameterSchema(for: config)
@@ -111,25 +114,33 @@ public struct ShipfileValidator: Sendable {
                 let optionValue = step.options ?? .object([:])
                 if !descriptor.optionSchema.isEmpty {
                     if optionValue.objectValue == nil {
-                        issues.append(.init(severity: .error, path: stepPath + ".options", message: "Expected an object of workflow options."))
+                        issues.append(
+                            .init(severity: .error, path: stepPath + ".options", message: "Expected an object of workflow options."))
                     } else {
-                        issues.append(contentsOf: SchemaValidator.validate(value: .object(["options": optionValue]), against: [
-                            .object("options", description: "Action options.", properties: descriptor.optionSchema)
-                        ]).map {
-                            ValidationIssue(severity: $0.severity, path: $0.path.replacingOccurrences(of: "$.options", with: stepPath + ".options"), message: $0.message)
-                        })
+                        issues.append(
+                            contentsOf: SchemaValidator.validate(
+                                value: .object(["options": optionValue]),
+                                against: [
+                                    .object("options", description: "Action options.", properties: descriptor.optionSchema)
+                                ]
+                            ).map {
+                                ValidationIssue(
+                                    severity: $0.severity, path: $0.path.replacingOccurrences(of: "$.options", with: stepPath + ".options"),
+                                    message: $0.message)
+                            })
                     }
                 }
 
-                issues.append(contentsOf: semanticIssues(
-                    workflowName: workflowName,
-                    stepIndex: index,
-                    step: step,
-                    allSteps: steps,
-                    config: resolvedConfig
-                ).map {
-                    ValidationIssue(severity: $0.severity, path: stepPath + ($0.path == "$" ? "" : $0.path), message: $0.message)
-                })
+                issues.append(
+                    contentsOf: semanticIssues(
+                        workflowName: workflowName,
+                        stepIndex: index,
+                        step: step,
+                        allSteps: steps,
+                        config: resolvedConfig
+                    ).map {
+                        ValidationIssue(severity: $0.severity, path: stepPath + ($0.path == "$" ? "" : $0.path), message: $0.message)
+                    })
             }
         }
 
@@ -149,12 +160,16 @@ public struct ShipfileValidator: Sendable {
         let action = step.action.lowercased()
 
         if ["build", "test", "archive"].contains(action), stringOption("scheme", in: options) == nil, config.appScheme == nil {
-            issues.append(.init(severity: .error, path: ".options.scheme", message: "This action requires a scheme or app.scheme in config."))
+            issues.append(
+                .init(severity: .error, path: ".options.scheme", message: "This action requires a scheme or app.scheme in config."))
         }
 
         if action == "snapshot" {
             if stringOption("scheme", in: options) == nil, config.screenshotScheme == nil, config.appScheme == nil {
-                issues.append(.init(severity: .error, path: ".options.scheme", message: "Snapshot requires screenshots.scheme, app.scheme, or a step-level scheme."))
+                issues.append(
+                    .init(
+                        severity: .error, path: ".options.scheme",
+                        message: "Snapshot requires screenshots.scheme, app.scheme, or a step-level scheme."))
             }
             if arrayOption("devices", in: options).isEmpty && config.screenshotDevices.isEmpty {
                 issues.append(.init(severity: .error, path: ".options.devices", message: "Snapshot requires at least one device."))
@@ -162,10 +177,12 @@ public struct ShipfileValidator: Sendable {
         }
 
         if action == "export",
-           stringOption("archive_path", in: options) == nil,
-           config.exportArchivePath == nil,
-           config.archiveOutputPath == nil {
-            issues.append(.init(severity: .error, path: ".options.archive_path", message: "Export requires an archive path or archive.output_path."))
+            stringOption("archive_path", in: options) == nil,
+            config.exportArchivePath == nil,
+            config.archiveOutputPath == nil
+        {
+            issues.append(
+                .init(severity: .error, path: ".options.archive_path", message: "Export requires an archive path or archive.output_path."))
         }
 
         if ["upload", "testflight", "metadata"].contains(action), config.bundleID == nil {
@@ -175,28 +192,43 @@ public struct ShipfileValidator: Sendable {
         if action == "upload" {
             let hasExplicitIPA = stringOption("ipa_path", in: options) != nil
             if !hasExplicitIPA && !hasExportContext(before: stepIndex, in: allSteps, config: config) {
-                issues.append(.init(severity: .error, path: ".options.ipa_path", message: "Upload needs `ipa_path`, a previous export step, or an IPA already present in the export output directory."))
+                issues.append(
+                    .init(
+                        severity: .error, path: ".options.ipa_path",
+                        message:
+                            "Upload needs `ipa_path`, a previous export step, or an IPA already present in the export output directory."))
             }
         }
 
         if action == "testflight" {
             let hasExplicitIPA = stringOption("ipa", in: options) != nil
             if !hasExplicitIPA && !hasExportContext(before: stepIndex, in: allSteps, config: config) {
-                issues.append(.init(severity: .error, path: ".options.ipa", message: "TestFlight needs `ipa`, a previous export step, or an IPA already present in the export output directory."))
+                issues.append(
+                    .init(
+                        severity: .error, path: ".options.ipa",
+                        message: "TestFlight needs `ipa`, a previous export step, or an IPA already present in the export output directory."
+                    ))
             }
         }
 
         if action == "sign" {
             let operation = stringOption("operation", in: options) ?? ""
-            if ["sync", "import", "init"].contains(operation), stringOption("git_url", in: options) == nil, config.codeSigningGitUrl == nil {
-                issues.append(.init(severity: .error, path: ".options.git_url", message: "This sign operation requires git_url or code_signing.git_url."))
+            if ["sync", "import", "init"].contains(operation), stringOption("git_url", in: options) == nil, config.codeSigningGitUrl == nil
+            {
+                issues.append(
+                    .init(
+                        severity: .error, path: ".options.git_url", message: "This sign operation requires git_url or code_signing.git_url."
+                    ))
             }
             if operation == "import" {
                 if stringOption("p12_path", in: options) == nil {
                     issues.append(.init(severity: .error, path: ".options.p12_path", message: "sign import requires p12_path."))
                 }
                 if stringOption("provisioning_profile_path", in: options) == nil {
-                    issues.append(.init(severity: .error, path: ".options.provisioning_profile_path", message: "sign import requires provisioning_profile_path."))
+                    issues.append(
+                        .init(
+                            severity: .error, path: ".options.provisioning_profile_path",
+                            message: "sign import requires provisioning_profile_path."))
                 }
             }
         }
@@ -212,16 +244,19 @@ public struct ShipfileValidator: Sendable {
         }
 
         if action == "version", stringOption("bump", in: options) == "set", stringOption("version", in: options) == nil {
-            issues.append(.init(severity: .error, path: ".options.version", message: "version bump `set` requires an explicit version value."))
+            issues.append(
+                .init(severity: .error, path: ".options.version", message: "version bump `set` requires an explicit version value."))
         }
 
         if action == "provision" {
             let operation = stringOption("operation", in: options) ?? ""
             if operation == "createAppId", stringOption("bundle_id", in: options) == nil, config.bundleID == nil {
-                issues.append(.init(severity: .error, path: ".options.bundle_id", message: "createAppId requires bundle_id or app.bundle_id."))
+                issues.append(
+                    .init(severity: .error, path: ".options.bundle_id", message: "createAppId requires bundle_id or app.bundle_id."))
             }
             if operation == "registerDevices", arrayOption("device_udids", in: options).isEmpty {
-                issues.append(.init(severity: .error, path: ".options.device_udids", message: "registerDevices requires at least one device UDID."))
+                issues.append(
+                    .init(severity: .error, path: ".options.device_udids", message: "registerDevices requires at least one device UDID."))
             }
         }
 
@@ -257,7 +292,8 @@ public struct ShipfileValidator: Sendable {
             .init(
                 severity: .warning,
                 path: "$",
-                message: "ASC-backed workflows are configured, but ASC credentials are not fully resolved in the current environment. Validation assumes they may be supplied by CI environment variables."
+                message:
+                    "ASC-backed workflows are configured, but ASC credentials are not fully resolved in the current environment. Validation assumes they may be supplied by CI environment variables."
             )
         ]
     }
@@ -283,20 +319,22 @@ public struct ShipfileValidator: Sendable {
 
         // Collision with built-ins.
         for name in customActions.keys.sorted() where builtInNames.contains(name) {
-            issues.append(.init(
-                severity: .error,
-                path: "$.custom_actions.\(name)",
-                message: "Custom action '\(name)' collides with a built-in action. Rename the custom action."
-            ))
+            issues.append(
+                .init(
+                    severity: .error,
+                    path: "$.custom_actions.\(name)",
+                    message: "Custom action '\(name)' collides with a built-in action. Rename the custom action."
+                ))
         }
 
         // Cycle detection.
         if let cycle = ActionRegistry.detectCycle(in: customActions) {
-            issues.append(.init(
-                severity: .error,
-                path: "$.custom_actions",
-                message: "Custom action cycle detected: \(cycle.joined(separator: " -> "))."
-            ))
+            issues.append(
+                .init(
+                    severity: .error,
+                    path: "$.custom_actions",
+                    message: "Custom action cycle detected: \(cycle.joined(separator: " -> "))."
+                ))
         }
 
         let compositeNames = Set(customActions.keys)
@@ -305,11 +343,12 @@ public struct ShipfileValidator: Sendable {
             let pathPrefix = "$.custom_actions.\(compositeName)"
 
             if config.steps.isEmpty {
-                issues.append(.init(
-                    severity: .error,
-                    path: pathPrefix + ".steps",
-                    message: "Custom action '\(compositeName)' must declare at least one step."
-                ))
+                issues.append(
+                    .init(
+                        severity: .error,
+                        path: pathPrefix + ".steps",
+                        message: "Custom action '\(compositeName)' must declare at least one step."
+                    ))
             }
 
             for (index, step) in config.steps.enumerated() {
@@ -317,20 +356,23 @@ public struct ShipfileValidator: Sendable {
 
                 // Referenced action must be a built-in or another composite.
                 if !builtInNames.contains(step.action), !compositeNames.contains(step.action) {
-                    issues.append(.init(
-                        severity: .error,
-                        path: stepPath + ".action",
-                        message: "Unknown action '\(step.action)' referenced in custom action '\(compositeName)'."
-                    ))
+                    issues.append(
+                        .init(
+                            severity: .error,
+                            path: stepPath + ".action",
+                            message: "Unknown action '\(step.action)' referenced in custom action '\(compositeName)'."
+                        ))
                 }
 
                 // `{{param.X}}` references must match a declared parameter.
                 for ref in parameterReferences(in: step.options) where !declared.contains(ref) {
-                    issues.append(.init(
-                        severity: .error,
-                        path: stepPath + ".options",
-                        message: "Custom action '\(compositeName)' references undeclared parameter '\(ref)'. Add it under custom_actions.\(compositeName).parameters."
-                    ))
+                    issues.append(
+                        .init(
+                            severity: .error,
+                            path: stepPath + ".options",
+                            message:
+                                "Custom action '\(compositeName)' references undeclared parameter '\(ref)'. Add it under custom_actions.\(compositeName).parameters."
+                        ))
                 }
             }
         }
@@ -349,9 +391,9 @@ public struct ShipfileValidator: Sendable {
         switch value {
         case .string(let s):
             var cursor = s.startIndex
-            while let open = s.range(of: "{{param.", range: cursor ..< s.endIndex) {
-                guard let close = s.range(of: "}}", range: open.upperBound ..< s.endIndex) else { break }
-                let key = String(s[open.upperBound ..< close.lowerBound]).trimmingCharacters(in: .whitespaces)
+            while let open = s.range(of: "{{param.", range: cursor..<s.endIndex) {
+                guard let close = s.range(of: "}}", range: open.upperBound..<s.endIndex) else { break }
+                let key = String(s[open.upperBound..<close.lowerBound]).trimmingCharacters(in: .whitespaces)
                 if !key.isEmpty, !key.contains("{{"), !key.contains("}}") {
                     out.insert(key)
                 }

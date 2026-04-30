@@ -1,6 +1,7 @@
 import Foundation
-import Testing
 import SwiftyShell
+import Testing
+
 @testable import ShipItKit
 
 @Suite("ProjectSpecVersionSource")
@@ -39,7 +40,9 @@ struct ProjectSpecVersionSourceTests {
             versioningBuildKey: buildKey,
             versioningMarketingKey: marketingKey
         )
-        let dummyKeyData = Data("-----BEGIN EC PRIVATE KEY-----\nMHQCAQEEIBkg4DUVQ1fIFUHBABCLRrFwNVm7MAkGByqGSM49AgEFoWQDYgAE\n-----END EC PRIVATE KEY-----".utf8)
+        let dummyKeyData = Data(
+            "-----BEGIN EC PRIVATE KEY-----\nMHQCAQEEIBkg4DUVQ1fIFUHBABCLRrFwNVm7MAkGByqGSM49AgEFoWQDYgAE\n-----END EC PRIVATE KEY-----"
+                .utf8)
         let ascClient = AppStoreConnectClient(keyID: "K", issuerID: "I", privateKeyData: dummyKeyData)
         return ActionContext(
             shell: ShellContext(executor: executor),
@@ -54,11 +57,11 @@ struct ProjectSpecVersionSourceTests {
     @Test("readVersion extracts quoted marketing version from YAML")
     func readVersionQuoted() throws {
         let yaml = """
-        name: MyApp
-        settings:
-          MARKETING_VERSION: "1.2.3"
-          CURRENT_PROJECT_VERSION: "42"
-        """
+            name: MyApp
+            settings:
+              MARKETING_VERSION: "1.2.3"
+              CURRENT_PROJECT_VERSION: "42"
+            """
 
         try withTempSpec(content: yaml) { path in
             let context = makeContext(specPath: path)
@@ -71,11 +74,11 @@ struct ProjectSpecVersionSourceTests {
     @Test("readVersion extracts unquoted marketing version from YAML")
     func readVersionUnquoted() throws {
         let yaml = """
-        name: MyApp
-        settings:
-          MARKETING_VERSION: 2.0.0
-          CURRENT_PROJECT_VERSION: 10
-        """
+            name: MyApp
+            settings:
+              MARKETING_VERSION: 2.0.0
+              CURRENT_PROJECT_VERSION: 10
+            """
 
         try withTempSpec(content: yaml) { path in
             let context = makeContext(specPath: path)
@@ -88,11 +91,11 @@ struct ProjectSpecVersionSourceTests {
     @Test("readBuildNumber extracts build number from YAML")
     func readBuildNumber() throws {
         let yaml = """
-        name: MyApp
-        settings:
-          MARKETING_VERSION: "1.0.0"
-          CURRENT_PROJECT_VERSION: "99"
-        """
+            name: MyApp
+            settings:
+              MARKETING_VERSION: "1.0.0"
+              CURRENT_PROJECT_VERSION: "99"
+            """
 
         try withTempSpec(content: yaml) { path in
             let context = makeContext(specPath: path)
@@ -105,11 +108,11 @@ struct ProjectSpecVersionSourceTests {
     @Test("readVersion works with custom key names")
     func readVersionCustomKeys() throws {
         let yaml = """
-        name: MyApp
-        settings:
-          MY_VERSION: "3.5.1"
-          MY_BUILD: "77"
-        """
+            name: MyApp
+            settings:
+              MY_VERSION: "3.5.1"
+              MY_BUILD: "77"
+            """
 
         try withTempSpec(content: yaml) { path in
             let context = makeContext(specPath: path, buildKey: "MY_BUILD", marketingKey: "MY_VERSION")
@@ -124,10 +127,10 @@ struct ProjectSpecVersionSourceTests {
     @Test("readVersion throws when key is missing from spec")
     func readVersionThrowsWhenKeyMissing() throws {
         let yaml = """
-        name: MyApp
-        settings:
-          CURRENT_PROJECT_VERSION: "42"
-        """
+            name: MyApp
+            settings:
+              CURRENT_PROJECT_VERSION: "42"
+            """
 
         try withTempSpec(content: yaml) { path in
             let context = makeContext(specPath: path)
@@ -141,10 +144,10 @@ struct ProjectSpecVersionSourceTests {
     @Test("readBuildNumber throws when build key is missing from spec")
     func readBuildNumberThrowsWhenKeyMissing() throws {
         let yaml = """
-        name: MyApp
-        settings:
-          MARKETING_VERSION: "1.0.0"
-        """
+            name: MyApp
+            settings:
+              MARKETING_VERSION: "1.0.0"
+            """
 
         try withTempSpec(content: yaml) { path in
             let context = makeContext(specPath: path)
@@ -169,14 +172,14 @@ struct ProjectSpecVersionSourceTests {
     @Test("writeVersion updates quoted value preserving formatting")
     func writeVersionQuoted() throws {
         let yaml = """
-        name: MyApp
-        settings:
-          MARKETING_VERSION: "1.2.3"
-          CURRENT_PROJECT_VERSION: "42"
-        targets:
-          MyApp:
-            type: application
-        """
+            name: MyApp
+            settings:
+              MARKETING_VERSION: "1.2.3"
+              CURRENT_PROJECT_VERSION: "42"
+            targets:
+              MyApp:
+                type: application
+            """
 
         try withTempSpec(content: yaml) { path in
             let context = makeContext(specPath: path)
@@ -197,11 +200,11 @@ struct ProjectSpecVersionSourceTests {
     @Test("writeVersion updates unquoted value without adding quotes")
     func writeVersionUnquoted() throws {
         let yaml = """
-        name: MyApp
-        settings:
-          MARKETING_VERSION: 1.2.3
-          CURRENT_PROJECT_VERSION: 42
-        """
+            name: MyApp
+            settings:
+              MARKETING_VERSION: 1.2.3
+              CURRENT_PROJECT_VERSION: 42
+            """
 
         try withTempSpec(content: yaml) { path in
             let context = makeContext(specPath: path)
@@ -218,11 +221,11 @@ struct ProjectSpecVersionSourceTests {
     @Test("writeBuildNumber updates build number preserving indentation")
     func writeBuildNumber() throws {
         let yaml = """
-        name: MyApp
-        settings:
-          MARKETING_VERSION: "1.0.0"
-          CURRENT_PROJECT_VERSION: "5"
-        """
+            name: MyApp
+            settings:
+              MARKETING_VERSION: "1.0.0"
+              CURRENT_PROJECT_VERSION: "5"
+            """
 
         try withTempSpec(content: yaml) { path in
             let context = makeContext(specPath: path)
@@ -239,11 +242,11 @@ struct ProjectSpecVersionSourceTests {
     @Test("writeVersion preserves indentation of deeply nested keys")
     func writeVersionPreservesDeepIndentation() throws {
         let yaml = """
-        name: MyApp
-        settings:
-          base:
-            MARKETING_VERSION: "1.0.0"
-        """
+            name: MyApp
+            settings:
+              base:
+                MARKETING_VERSION: "1.0.0"
+            """
 
         // Note: the current implementation matches any line with the key prefix,
         // so this tests that the original indentation is preserved in the replacement.
@@ -261,10 +264,10 @@ struct ProjectSpecVersionSourceTests {
     @Test("writeVersion throws when key not found in spec")
     func writeVersionThrowsWhenKeyNotFound() throws {
         let yaml = """
-        name: MyApp
-        settings:
-          CURRENT_PROJECT_VERSION: "42"
-        """
+            name: MyApp
+            settings:
+              CURRENT_PROJECT_VERSION: "42"
+            """
 
         try withTempSpec(content: yaml) { path in
             let context = makeContext(specPath: path)
@@ -278,12 +281,12 @@ struct ProjectSpecVersionSourceTests {
     @Test("readVersion then writeVersion round-trips correctly")
     func roundTrip() throws {
         let yaml = """
-        name: MyApp
-        # Project settings
-        settings:
-          MARKETING_VERSION: "1.0.0"
-          CURRENT_PROJECT_VERSION: "1"
-        """
+            name: MyApp
+            # Project settings
+            settings:
+              MARKETING_VERSION: "1.0.0"
+              CURRENT_PROJECT_VERSION: "1"
+            """
 
         try withTempSpec(content: yaml) { path in
             let context = makeContext(specPath: path)
@@ -311,10 +314,10 @@ struct ProjectSpecVersionSourceTests {
     @Test("uses projectGenerationSpecPath when versioningSpecPath is nil")
     func fallsBackToProjectGenerationSpecPath() throws {
         let yaml = """
-        settings:
-          MARKETING_VERSION: "4.0.0"
-          CURRENT_PROJECT_VERSION: "1"
-        """
+            settings:
+              MARKETING_VERSION: "4.0.0"
+              CURRENT_PROJECT_VERSION: "1"
+            """
 
         try withTempSpec(content: yaml) { path in
             let executor = MockExecutor { _, _ in
@@ -326,7 +329,9 @@ struct ProjectSpecVersionSourceTests {
                 versioningSpecPath: nil,
                 projectGenerationSpecPath: path
             )
-            let dummyKeyData = Data("-----BEGIN EC PRIVATE KEY-----\nMHQCAQEEIBkg4DUVQ1fIFUHBABCLRrFwNVm7MAkGByqGSM49AgEFoWQDYgAE\n-----END EC PRIVATE KEY-----".utf8)
+            let dummyKeyData = Data(
+                "-----BEGIN EC PRIVATE KEY-----\nMHQCAQEEIBkg4DUVQ1fIFUHBABCLRrFwNVm7MAkGByqGSM49AgEFoWQDYgAE\n-----END EC PRIVATE KEY-----"
+                    .utf8)
             let ascClient = AppStoreConnectClient(keyID: "K", issuerID: "I", privateKeyData: dummyKeyData)
             let context = ActionContext(
                 shell: ShellContext(executor: executor),

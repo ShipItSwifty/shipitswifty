@@ -1,5 +1,5 @@
-import ShipItKit
 import BuildTimingPlugin
+import ShipItKit
 
 let registry = ActionRegistry()
 try await registerBuiltInActions(into: registry)

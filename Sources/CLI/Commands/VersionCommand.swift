@@ -29,7 +29,8 @@ struct VersionCommand: AsyncParsableCommand {
             let formatter = makeHumanFormatter(global: global)
 
             guard let bumpType = VersionAction.BumpType(rawValue: bump) else {
-                throw ShipItError.invalidConfiguration(reason: "Invalid bump type '\(bump)'. Valid values: build, patch, minor, major, set.")
+                throw ShipItError.invalidConfiguration(
+                    reason: "Invalid bump type '\(bump)'. Valid values: build, patch, minor, major, set.")
             }
 
             let options = VersionAction.Options(

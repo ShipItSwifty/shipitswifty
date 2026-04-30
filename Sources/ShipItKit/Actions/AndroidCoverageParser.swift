@@ -45,8 +45,7 @@ struct AndroidCoverageParser: Sendable {
 
         guard let data = FileManager.default.contents(atPath: reportPath) else {
             throw ShipItError.invalidConfiguration(
-                reason: "Could not read JaCoCo report at \(reportPath). " +
-                "Run `./gradlew jacocoTestReport` to generate it first."
+                reason: "Could not read JaCoCo report at \(reportPath). " + "Run `./gradlew jacocoTestReport` to generate it first."
             )
         }
 
@@ -97,7 +96,8 @@ struct AndroidCoverageParser: Sendable {
         }
 
         return moduleMap.map { name, data in
-            let coverage = data.executableLines > 0
+            let coverage =
+                data.executableLines > 0
                 ? (Double(data.coveredLines) / Double(data.executableLines)) * 100.0
                 : 0.0
             return CoverageTarget(
@@ -208,7 +208,7 @@ private final class JacocoXMLParser: NSObject, XMLParserDelegate, @unchecked Sen
                 currentPackage?.packageCoveredLines += covered
                 currentPackage?.packageExecutableLines += covered + missed
             }
-            // Ignore report-level counters (outside any package)
+        // Ignore report-level counters (outside any package)
 
         default:
             break
@@ -224,22 +224,24 @@ private final class JacocoXMLParser: NSObject, XMLParserDelegate, @unchecked Sen
         switch elementName {
         case "sourcefile":
             if let sf = currentSourceFile {
-                currentPackage?.sourceFiles.append(JacocoSourceFile(
-                    name: sf.name,
-                    coveredLines: sf.coveredLines,
-                    executableLines: sf.executableLines
-                ))
+                currentPackage?.sourceFiles.append(
+                    JacocoSourceFile(
+                        name: sf.name,
+                        coveredLines: sf.coveredLines,
+                        executableLines: sf.executableLines
+                    ))
             }
             currentSourceFile = nil
 
         case "package":
             if let pkg = currentPackage {
-                packages.append(JacocoPackage(
-                    name: pkg.name,
-                    coveredLines: pkg.packageCoveredLines,
-                    executableLines: pkg.packageExecutableLines,
-                    sourceFiles: pkg.sourceFiles
-                ))
+                packages.append(
+                    JacocoPackage(
+                        name: pkg.name,
+                        coveredLines: pkg.packageCoveredLines,
+                        executableLines: pkg.packageExecutableLines,
+                        sourceFiles: pkg.sourceFiles
+                    ))
             }
             currentPackage = nil
 
@@ -289,8 +291,8 @@ private struct JacocoSourceFile: Sendable {
 
 // MARK: - Double helper
 
-private extension Double {
-    func rounded(toDecimalPlaces places: Int) -> Double {
+extension Double {
+    fileprivate func rounded(toDecimalPlaces places: Int) -> Double {
         let multiplier = pow(10.0, Double(places))
         return (self * multiplier).rounded() / multiplier
     }

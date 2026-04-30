@@ -1,6 +1,7 @@
 import Foundation
-import Testing
 import SwiftyShell
+import Testing
+
 @testable import ShipItKit
 
 @Suite("TestAction")
@@ -98,7 +99,7 @@ struct TestActionTests {
             with: .init(
                 scheme: "MockApp",
                 destinations: ["platform=iOS Simulator,name=iPhone 16 Pro"],
-                destination: "platform=iOS Simulator,name=iPhone 14"   // should be ignored
+                destination: "platform=iOS Simulator,name=iPhone 14"  // should be ignored
             ),
             context: context
         )
@@ -221,9 +222,9 @@ struct TestActionTests {
         let executor = MockExecutor { _, _ in
             ShellOutput(
                 stdout: """
-                MyTests.testFoo: FAILED
-                MyTests.testBar: FAILED
-                """,
+                    MyTests.testFoo: FAILED
+                    MyTests.testBar: FAILED
+                    """,
                 stderr: "",
                 exitCode: 65
             )
@@ -477,11 +478,11 @@ struct TestActionTests {
             if desc.contains("-showdestinations") || desc.contains("showDestinations") {
                 return ShellOutput(
                     stdout: """
-                    Available destinations for the "MockApp" scheme:
-                        { platform:iOS Simulator, id:SIM-1, OS:18.2, name:iPhone 16 Pro }
-                        { platform:iOS Simulator, id:SIM-2, OS:18.2, name:iPhone 16 }
-                        { platform:iOS Simulator, id:SIM-3, OS:17.5, name:iPhone 15 }
-                    """,
+                        Available destinations for the "MockApp" scheme:
+                            { platform:iOS Simulator, id:SIM-1, OS:18.2, name:iPhone 16 Pro }
+                            { platform:iOS Simulator, id:SIM-2, OS:18.2, name:iPhone 16 }
+                            { platform:iOS Simulator, id:SIM-3, OS:17.5, name:iPhone 15 }
+                        """,
                     stderr: "",
                     exitCode: 0
                 )
@@ -512,10 +513,10 @@ struct TestActionTests {
             if desc.contains("-showdestinations") || desc.contains("showDestinations") {
                 return ShellOutput(
                     stdout: """
-                        { platform:iOS Simulator, id:SIM-1, OS:17.5, name:iPhone 15 Pro }
-                        { platform:iOS Simulator, id:SIM-2, OS:18.2, name:iPhone 16 }
-                        { platform:iOS Simulator, id:SIM-3, OS:18.2, name:iPhone 16 Pro }
-                    """,
+                            { platform:iOS Simulator, id:SIM-1, OS:17.5, name:iPhone 15 Pro }
+                            { platform:iOS Simulator, id:SIM-2, OS:18.2, name:iPhone 16 }
+                            { platform:iOS Simulator, id:SIM-3, OS:18.2, name:iPhone 16 Pro }
+                        """,
                     stderr: "",
                     exitCode: 0
                 )
@@ -542,9 +543,9 @@ struct TestActionTests {
             if desc.contains("-showdestinations") || desc.contains("showDestinations") {
                 return ShellOutput(
                     stdout: """
-                        { platform:iOS Simulator, id:SIM-1, OS:18.2, name:Apple Watch Series 9 }
-                        { platform:macOS, id:MAC-1, name:My Mac }
-                    """,
+                            { platform:iOS Simulator, id:SIM-1, OS:18.2, name:Apple Watch Series 9 }
+                            { platform:macOS, id:MAC-1, name:My Mac }
+                        """,
                     stderr: "",
                     exitCode: 0
                 )
@@ -598,7 +599,9 @@ struct TestActionTests {
         let executor = MockExecutor { _, _ in ShellOutput(stdout: "", stderr: "", exitCode: 0) }
         let shell = ShellContext(executor: executor)
         let config = ResolvedConfig(appScheme: nil, bundleID: "com.example.mock", teamID: "T123")
-        let dummyKeyData = Data("-----BEGIN EC PRIVATE KEY-----\nMHQCAQEEIBkg4DUVQ1fIFUHBABCLRrFwNVm7MAkGByqGSM49AgEFoWQDYgAE\n-----END EC PRIVATE KEY-----".utf8)
+        let dummyKeyData = Data(
+            "-----BEGIN EC PRIVATE KEY-----\nMHQCAQEEIBkg4DUVQ1fIFUHBABCLRrFwNVm7MAkGByqGSM49AgEFoWQDYgAE\n-----END EC PRIVATE KEY-----"
+                .utf8)
         let ascClient = AppStoreConnectClient(keyID: "K", issuerID: "I", privateKeyData: dummyKeyData)
         let context = ActionContext(
             shell: shell,
@@ -630,10 +633,10 @@ struct DestinationDiscoveryTests {
     func parsesSimulatorDestination() {
         let discoverer = DestinationDiscovery(shell: .init())
         let output = """
-        Available destinations for the "MyApp" scheme:
-            { platform:iOS Simulator, id:ABCD-1234, OS:18.2, name:iPhone 16 Pro }
-            { platform:iOS Simulator, id:EFGH-5678, OS:18.2, name:iPhone 16 }
-        """
+            Available destinations for the "MyApp" scheme:
+                { platform:iOS Simulator, id:ABCD-1234, OS:18.2, name:iPhone 16 Pro }
+                { platform:iOS Simulator, id:EFGH-5678, OS:18.2, name:iPhone 16 }
+            """
 
         let destinations = discoverer.parseDestinations(from: output)
 
@@ -651,8 +654,8 @@ struct DestinationDiscoveryTests {
     func parsesPhysicalDeviceDestination() {
         let discoverer = DestinationDiscovery(shell: .init())
         let output = """
-            { platform:iOS, id:00008110-0012345600AA001E, name:My iPhone }
-        """
+                { platform:iOS, id:00008110-0012345600AA001E, name:My iPhone }
+            """
 
         let destinations = discoverer.parseDestinations(from: output)
 
@@ -668,9 +671,9 @@ struct DestinationDiscoveryTests {
     func simulatorsAppearBeforeDevices() {
         let discoverer = DestinationDiscovery(shell: .init())
         let output = """
-            { platform:iOS, id:PHONE-ID, name:My iPhone }
-            { platform:iOS Simulator, id:SIM-ID, OS:18.0, name:iPhone 16 }
-        """
+                { platform:iOS, id:PHONE-ID, name:My iPhone }
+                { platform:iOS Simulator, id:SIM-ID, OS:18.0, name:iPhone 16 }
+            """
 
         let destinations = discoverer.parseDestinations(from: output)
 
@@ -683,9 +686,9 @@ struct DestinationDiscoveryTests {
     func skipsErrorBlocks() {
         let discoverer = DestinationDiscovery(shell: .init())
         let output = """
-            { platform:iOS Simulator, id:VALID-ID, OS:18.2, name:iPhone 16 }
-            { platform:iOS Simulator, id:BAD-ID, OS:17.0, name:iPhone 15, error:device unavailable }
-        """
+                { platform:iOS Simulator, id:VALID-ID, OS:18.2, name:iPhone 16 }
+                { platform:iOS Simulator, id:BAD-ID, OS:17.0, name:iPhone 15, error:device unavailable }
+            """
 
         let destinations = discoverer.parseDestinations(from: output)
 

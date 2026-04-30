@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+
 @testable import ShipItKit
 
 struct XcodeBuildTests {
@@ -13,13 +14,14 @@ struct XcodeBuildTests {
             .command()
 
         #expect(command.executableName == "xcodebuild")
-        #expect(command.arguments == [
-            "-project", "App.xcodeproj",
-            "-scheme", "App",
-            "-sdk", "iphonesimulator",
-            "SWIFT_VERSION=6.1",
-            "build"
-        ])
+        #expect(
+            command.arguments == [
+                "-project", "App.xcodeproj",
+                "-scheme", "App",
+                "-sdk", "iphonesimulator",
+                "SWIFT_VERSION=6.1",
+                "build",
+            ])
     }
 
     @Test func supportsRecursiveCreateXCFrameworkOptions() {
@@ -31,13 +33,14 @@ struct XcodeBuildTests {
             .option(.allowInternalDistribution)
             .command()
 
-        #expect(command.arguments == [
-            "-create-xcframework",
-            "-framework", "/tmp/Foo.framework",
-            "-debug-symbols", "/tmp/Foo.framework.dSYM",
-            "-output", "/tmp/Foo.xcframework",
-            "-allow-internal-distribution"
-        ])
+        #expect(
+            command.arguments == [
+                "-create-xcframework",
+                "-framework", "/tmp/Foo.framework",
+                "-debug-symbols", "/tmp/Foo.framework.dSYM",
+                "-output", "/tmp/Foo.xcframework",
+                "-allow-internal-distribution",
+            ])
     }
 
     @Test func runsVersionCommand() async throws {

@@ -116,7 +116,8 @@ public struct GooglePlayClient: Sendable {
         logger.info("Uploading \(data.count) bytes to \(path)")
         let (responseData, response) = try await session.data(for: request)
         guard let httpResponse = response as? HTTPURLResponse,
-              (200...299).contains(httpResponse.statusCode) else {
+            (200...299).contains(httpResponse.statusCode)
+        else {
             let status = (response as? HTTPURLResponse)?.statusCode ?? 0
             let msg = String(data: responseData, encoding: .utf8) ?? ""
             throw ShipItError.uploadFailed(asset: path, reason: "HTTP \(status): \(msg)")

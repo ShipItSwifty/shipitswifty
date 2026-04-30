@@ -26,8 +26,7 @@ struct SigningTests {
         let result = try await CLI.run("sign", "sync")
         #expect(result.exitCode != 0, "sign sync without --git-url must fail")
         #expect(
-            result.output.lowercased().contains("git_url") ||
-            result.output.lowercased().contains("git-url"),
+            result.output.lowercased().contains("git_url") || result.output.lowercased().contains("git-url"),
             "Error message should mention git_url:\n\(result.output)"
         )
     }
@@ -41,7 +40,8 @@ struct SigningTests {
     func signImportRoundTripWithP12() async throws {
         let env = ProcessInfo.processInfo.environment
         guard let p12Base64 = env["SHIPIT_TEST_P12_BASE64"],
-              env["SHIPIT_TEST_P12_PASSWORD"] != nil else {
+            env["SHIPIT_TEST_P12_PASSWORD"] != nil
+        else {
             Issue.record("Missing required environment variables — trait should have skipped this test")
             return
         }

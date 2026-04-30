@@ -1,6 +1,6 @@
 import Foundation
-import Synchronization
 import SwiftyShell
+import Synchronization
 
 @testable import ShipItKit
 
@@ -125,18 +125,21 @@ final class MockURLProtocol: URLProtocol {
 
     override func startLoading() {
         guard let sessionID = request.value(forHTTPHeaderField: "X-Mock-Session-ID"),
-              let handler = Self.handler(for: sessionID) else {
+            let handler = Self.handler(for: sessionID)
+        else {
             client?.urlProtocol(self, didFailWithError: URLError(.badServerResponse))
             return
         }
 
         let response = handler(request)
-        guard let http = HTTPURLResponse(
-            url: request.url!,
-            statusCode: response.statusCode,
-            httpVersion: nil,
-            headerFields: response.headers
-        ) else {
+        guard
+            let http = HTTPURLResponse(
+                url: request.url!,
+                statusCode: response.statusCode,
+                httpVersion: nil,
+                headerFields: response.headers
+            )
+        else {
             client?.urlProtocol(self, didFailWithError: URLError(.badServerResponse))
             return
         }
@@ -149,22 +152,22 @@ final class MockURLProtocol: URLProtocol {
     override func stopLoading() {}
 }
 
-private extension MockHTTPResponse {
-    var statusCode: Int {
+extension MockHTTPResponse {
+    fileprivate var statusCode: Int {
         switch self {
         case .response(let statusCode, _, _):
             statusCode
         }
     }
 
-    var headers: [String: String] {
+    fileprivate var headers: [String: String] {
         switch self {
         case .response(_, let headers, _):
             headers
         }
     }
 
-    var body: Data {
+    fileprivate var body: Data {
         switch self {
         case .response(_, _, let body):
             body

@@ -304,11 +304,13 @@ public struct VersionBumper: Sendable {
             // agvtool / plutil.
             let stderr = shellOutput.stderr.trimmingCharacters(in: .whitespacesAndNewlines)
             let detail = stderr.isEmpty ? "(no stderr)" : stderr
-            logger.warning("xcodebuild -showBuildSettings exited with status \(shellOutput.exitCode) for '\(command)'; falling back to agvtool/plutil")
+            logger.warning(
+                "xcodebuild -showBuildSettings exited with status \(shellOutput.exitCode) for '\(command)'; falling back to agvtool/plutil")
             logger.warning("xcodebuild -showBuildSettings stderr: \(detail)")
             return nil
         } catch {
-            logger.warning("xcodebuild -showBuildSettings failed unexpectedly: \(error.localizedDescription); falling back to agvtool/plutil")
+            logger.warning(
+                "xcodebuild -showBuildSettings failed unexpectedly: \(error.localizedDescription); falling back to agvtool/plutil")
             return nil
         }
 
@@ -364,7 +366,8 @@ public struct VersionBumper: Sendable {
 
         // Fall back to NSDictionary parsing
         guard let dict = NSDictionary(contentsOfFile: plistPath),
-              let value = dict[key] as? String else {
+            let value = dict[key] as? String
+        else {
             throw ShipItError.invalidConfiguration(reason: "Key '\(key)' not found in Info.plist")
         }
         return value

@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+
 @testable import ShipItKit
 
 struct XcrunTests {
@@ -11,11 +12,12 @@ struct XcrunTests {
             .command()
 
         #expect(command.executableName == "xcrun")
-        #expect(command.arguments == [
-            "--sdk", "iphonesimulator",
-            "--find",
-            "simctl"
-        ])
+        #expect(
+            command.arguments == [
+                "--sdk", "iphonesimulator",
+                "--find",
+                "simctl",
+            ])
     }
 
     @Test func buildsSimctlListCommand() {
@@ -25,12 +27,13 @@ struct XcrunTests {
             .buildCommand()
 
         #expect(command.executableName == "xcrun")
-        #expect(command.arguments == [
-            "simctl",
-            "list",
-            "devices",
-            "--json"
-        ])
+        #expect(
+            command.arguments == [
+                "simctl",
+                "list",
+                "devices",
+                "--json",
+            ])
     }
 
     @Test func buildsSimctlRuntimeAndIOCommands() {

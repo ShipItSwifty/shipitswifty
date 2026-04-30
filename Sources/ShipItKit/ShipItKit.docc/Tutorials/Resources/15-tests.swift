@@ -1,7 +1,8 @@
 import Foundation
-import Testing
-import SwiftyShell
 import ShipItKit
+import SwiftyShell
+import Testing
+
 @testable import BuildTimingPlugin
 
 @Test

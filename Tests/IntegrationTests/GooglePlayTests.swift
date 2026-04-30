@@ -1,5 +1,5 @@
-import Testing
 import Foundation
+import Testing
 
 /// Integration tests for Google Play API calls.
 ///

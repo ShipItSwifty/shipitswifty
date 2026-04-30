@@ -1,5 +1,5 @@
-import Testing
 import Foundation
+import Testing
 
 /// Integration tests for the Android build pipeline against the fixture project.
 ///
@@ -34,8 +34,7 @@ struct AndroidIntegrationTests {
         )
         #expect(result.exitCode == 0, "stderr: \(result.stderr)")
         #expect(
-            result.stdout.lowercased().contains("dry run") ||
-            result.stdout.lowercased().contains("would"),
+            result.stdout.lowercased().contains("dry run") || result.stdout.lowercased().contains("would"),
             "Expected dry-run message, got: \(result.stdout)"
         )
     }
@@ -98,8 +97,9 @@ struct AndroidIntegrationTests {
                 workingDirectory: tmpFixture,
                 timeout: 300
             )
-            #expect(result.exitCode == 0 || result.stdout.contains("lint"),
-                    "Lint did not run as expected:\n\(result.output)")
+            #expect(
+                result.exitCode == 0 || result.stdout.contains("lint"),
+                "Lint did not run as expected:\n\(result.output)")
         }
     }
 

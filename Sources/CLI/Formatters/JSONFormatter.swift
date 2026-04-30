@@ -23,7 +23,8 @@ public struct JSONFormatter: Sendable {
 
         let payload: JSONValue
         if let data = try? encoder.encode(result),
-           let jsonValue = try? JSONDecoder().decode(JSONValue.self, from: data) {
+            let jsonValue = try? JSONDecoder().decode(JSONValue.self, from: data)
+        {
             payload = jsonValue
         } else {
             payload = .null

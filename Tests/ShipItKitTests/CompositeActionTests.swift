@@ -1,7 +1,8 @@
 import Foundation
+import SwiftyShell
 import Synchronization
 import Testing
-import SwiftyShell
+
 @testable import ShipItKit
 
 // MARK: - Composite Action Tests
@@ -25,7 +26,10 @@ struct CompositeActionTests {
         ])
         let output = CompositeAction.substitute(value: input, params: params, compositeName: "x", stepIndex: 0)
 
-        guard case .object(let dict) = output else { Issue.record("expected object"); return }
+        guard case .object(let dict) = output else {
+            Issue.record("expected object")
+            return
+        }
         #expect(dict["enabled"] == .bool(true))
         #expect(dict["count"] == .int(7))
         #expect(dict["items"] == .array([.string("a"), .string("b")]))
@@ -95,7 +99,7 @@ struct CompositeActionTests {
     @Test("detectCycle finds direct self-reference")
     func detectsSelfCycle() {
         let actions: [String: CustomActionConfig] = [
-            "a": CustomActionConfig(steps: [WorkflowStepConfig(action: "a")]),
+            "a": CustomActionConfig(steps: [WorkflowStepConfig(action: "a")])
         ]
         #expect(ActionRegistry.detectCycle(in: actions) != nil)
     }
@@ -115,7 +119,7 @@ struct CompositeActionTests {
             "a": CustomActionConfig(steps: [
                 WorkflowStepConfig(action: "test"),
                 WorkflowStepConfig(action: "archive"),
-            ]),
+            ])
         ]
         #expect(ActionRegistry.detectCycle(in: actions) == nil)
     }
@@ -123,15 +127,16 @@ struct CompositeActionTests {
     @Test("registry rejects composites that collide with built-ins")
     func rejectsBuiltInCollision() async throws {
         let registry = ActionRegistry()
-        try await registry.register(ActionDescriptor(
-            name: "archive",
-            description: "dummy",
-            runJSON: { _, _ in ActionResultEnvelope(action: "archive", status: "success", payload: nil) }
-        ))
+        try await registry.register(
+            ActionDescriptor(
+                name: "archive",
+                description: "dummy",
+                runJSON: { _, _ in ActionResultEnvelope(action: "archive", status: "success", payload: nil) }
+            ))
 
         do {
             try await registry.registerCustomActions([
-                "archive": CustomActionConfig(steps: [WorkflowStepConfig(action: "test")]),
+                "archive": CustomActionConfig(steps: [WorkflowStepConfig(action: "test")])
             ])
             Issue.record("expected collision error")
         } catch let error as ShipItError {
@@ -150,14 +155,15 @@ struct CompositeActionTests {
         // A recording action that captures the options it was called with.
         let recorder = OptionsRecorder()
         let registry = ActionRegistry()
-        try await registry.register(ActionDescriptor(
-            name: "record",
-            description: "test-only action",
-            runJSON: { options, _ in
-                recorder.record(options)
-                return ActionResultEnvelope(action: "record", status: "success", payload: options)
-            }
-        ))
+        try await registry.register(
+            ActionDescriptor(
+                name: "record",
+                description: "test-only action",
+                runJSON: { options, _ in
+                    recorder.record(options)
+                    return ActionResultEnvelope(action: "record", status: "success", payload: options)
+                }
+            ))
 
         let config = CustomActionConfig(
             description: "test composite",
@@ -241,121 +247,126 @@ struct CompositeActionTests {
     @Test("validator flags custom action colliding with built-in name")
     func validatorRejectsBuiltInCollision() async {
         let yml = """
-        app: { scheme: X, bundle_id: com.example.x }
-        custom_actions:
-          archive:
-            steps:
-              - action: test
-        """
+            app: { scheme: X, bundle_id: com.example.x }
+            custom_actions:
+              archive:
+                steps:
+                  - action: test
+            """
         let report = await ShipfileValidator().validate(
             shipfileContents: yml,
             actionDescriptors: Self.descriptorsForValidator()
         )
         #expect(report.isValid == false)
-        #expect(report.issues.contains {
-            $0.severity == .error && $0.message.contains("collides")
-        })
+        #expect(
+            report.issues.contains {
+                $0.severity == .error && $0.message.contains("collides")
+            })
     }
 
     @Test("validator flags undeclared {{param.X}} references")
     func validatorRejectsUndeclaredParamRef() async {
         let yml = """
-        app: { scheme: X, bundle_id: com.example.x }
-        custom_actions:
-          ship:
-            parameters:
-              method:
-                type: string
-            steps:
-              - action: export
-                options:
-                  method: "{{param.method}}"
-                  track: "{{param.missing}}"
-        """
+            app: { scheme: X, bundle_id: com.example.x }
+            custom_actions:
+              ship:
+                parameters:
+                  method:
+                    type: string
+                steps:
+                  - action: export
+                    options:
+                      method: "{{param.method}}"
+                      track: "{{param.missing}}"
+            """
         let report = await ShipfileValidator().validate(
             shipfileContents: yml,
             actionDescriptors: Self.descriptorsForValidator()
         )
         #expect(report.isValid == false)
-        #expect(report.issues.contains {
-            $0.severity == .error && $0.message.contains("undeclared parameter 'missing'")
-        })
+        #expect(
+            report.issues.contains {
+                $0.severity == .error && $0.message.contains("undeclared parameter 'missing'")
+            })
     }
 
     @Test("validator flags unknown sub-step action names")
     func validatorRejectsUnknownSubAction() async {
         let yml = """
-        app: { scheme: X, bundle_id: com.example.x }
-        custom_actions:
-          ship:
-            steps:
-              - action: not_a_real_action
-        """
+            app: { scheme: X, bundle_id: com.example.x }
+            custom_actions:
+              ship:
+                steps:
+                  - action: not_a_real_action
+            """
         let report = await ShipfileValidator().validate(
             shipfileContents: yml,
             actionDescriptors: Self.descriptorsForValidator()
         )
         #expect(report.isValid == false)
-        #expect(report.issues.contains {
-            $0.severity == .error && $0.message.contains("Unknown action 'not_a_real_action'")
-        })
+        #expect(
+            report.issues.contains {
+                $0.severity == .error && $0.message.contains("Unknown action 'not_a_real_action'")
+            })
     }
 
     @Test("validator flags cycles between composites")
     func validatorRejectsCycle() async {
         let yml = """
-        app: { scheme: X, bundle_id: com.example.x }
-        custom_actions:
-          a:
-            steps:
-              - action: b
-          b:
-            steps:
-              - action: a
-        """
+            app: { scheme: X, bundle_id: com.example.x }
+            custom_actions:
+              a:
+                steps:
+                  - action: b
+              b:
+                steps:
+                  - action: a
+            """
         let report = await ShipfileValidator().validate(
             shipfileContents: yml,
             actionDescriptors: Self.descriptorsForValidator()
         )
         #expect(report.isValid == false)
-        #expect(report.issues.contains {
-            $0.severity == .error && $0.message.contains("cycle detected")
-        })
+        #expect(
+            report.issues.contains {
+                $0.severity == .error && $0.message.contains("cycle detected")
+            })
     }
 
     @Test("validator flags empty steps list")
     func validatorRejectsEmptySteps() async {
         let yml = """
-        app: { scheme: X, bundle_id: com.example.x }
-        custom_actions:
-          ship:
-            steps: []
-        """
+            app: { scheme: X, bundle_id: com.example.x }
+            custom_actions:
+              ship:
+                steps: []
+            """
         let report = await ShipfileValidator().validate(
             shipfileContents: yml,
             actionDescriptors: Self.descriptorsForValidator()
         )
         #expect(report.isValid == false)
-        #expect(report.issues.contains {
-            $0.severity == .error && $0.message.contains("must declare at least one step")
-        })
+        #expect(
+            report.issues.contains {
+                $0.severity == .error && $0.message.contains("must declare at least one step")
+            })
     }
 
     @Test("validator accepts a well-formed custom action")
     func validatorAcceptsValidCompositie() async {
         let yml = """
-        app: { scheme: X, bundle_id: com.example.x }
-        custom_actions:
-          build_and_sign:
-            parameters:
-              method: { type: string, required: true }
-            steps:
-              - action: test
-              - action: archive
-              - action: export
-                options:
-                  method: "{{param.method}}"
-        """
+            app: { scheme: X, bundle_id: com.example.x }
+            custom_actions:
+              build_and_sign:
+                parameters:
+                  method: { type: string, required: true }
+                steps:
+                  - action: test
+                  - action: archive
+                  - action: export
+                    options:
+                      method: "{{param.method}}"
+            """
         let report = await ShipfileValidator().validate(
             shipfileContents: yml,
             actionDescriptors: Self.descriptorsForValidator()
@@ -396,14 +407,15 @@ struct CompositeActionTests {
     func workflowRunExpandsComposite() async throws {
         let recorder = OptionsRecorder()
         let registry = ActionRegistry()
-        try await registry.register(ActionDescriptor(
-            name: "record",
-            description: "test-only action",
-            runJSON: { options, _ in
-                recorder.record(options)
-                return ActionResultEnvelope(action: "record", status: "success", payload: options)
-            }
-        ))
+        try await registry.register(
+            ActionDescriptor(
+                name: "record",
+                description: "test-only action",
+                runJSON: { options, _ in
+                    recorder.record(options)
+                    return ActionResultEnvelope(action: "record", status: "success", payload: options)
+                }
+            ))
 
         let composite = CustomActionConfig(
             parameters: ["method": CustomActionParameter(type: "string", required: true)],
@@ -414,9 +426,11 @@ struct CompositeActionTests {
         )
         try await registry.registerCustomActions(["ship": composite])
 
-        let workflow = Workflow("beta", steps: [
-            WorkflowStep(action: "ship", options: .object(["method": .string("app-store")])),
-        ])
+        let workflow = Workflow(
+            "beta",
+            steps: [
+                WorkflowStep(action: "ship", options: .object(["method": .string("app-store")]))
+            ])
 
         let executor = MockExecutor { _, _ in ShellOutput(stdout: "", stderr: "", exitCode: 0) }
         let context = ActionContext.mock(executor: executor)
@@ -437,27 +451,28 @@ struct CompositeActionTests {
     func nestedCompositeForwardsParameters() async throws {
         let recorder = OptionsRecorder()
         let registry = ActionRegistry()
-        try await registry.register(ActionDescriptor(
-            name: "record",
-            description: "test-only action",
-            runJSON: { options, _ in
-                recorder.record(options)
-                return ActionResultEnvelope(action: "record", status: "success", payload: options)
-            }
-        ))
+        try await registry.register(
+            ActionDescriptor(
+                name: "record",
+                description: "test-only action",
+                runJSON: { options, _ in
+                    recorder.record(options)
+                    return ActionResultEnvelope(action: "record", status: "success", payload: options)
+                }
+            ))
 
         // inner takes `track`, forwards to record.
         let inner = CustomActionConfig(
             parameters: ["track": CustomActionParameter(type: "string", required: true)],
             steps: [
-                WorkflowStepConfig(action: "record", options: .object(["track": .string("{{param.track}}")])),
+                WorkflowStepConfig(action: "record", options: .object(["track": .string("{{param.track}}")]))
             ]
         )
         // outer takes `method`, calls inner with a literal track derived from `method`.
         let outer = CustomActionConfig(
             parameters: ["method": CustomActionParameter(type: "string", required: true)],
             steps: [
-                WorkflowStepConfig(action: "inner", options: .object(["track": .string("via-{{param.method}}")])),
+                WorkflowStepConfig(action: "inner", options: .object(["track": .string("via-{{param.method}}")]))
             ]
         )
         try await registry.registerCustomActions(["inner": inner, "outer": outer])
@@ -484,7 +499,7 @@ struct CompositeActionTests {
                     "track": CustomActionParameter(type: "string", defaultValue: .string("internal")),
                 ],
                 steps: [WorkflowStepConfig(action: "archive")]
-            ),
+            )
         ]
 
         let payload = AISessionBuilder().build(
@@ -526,7 +541,7 @@ struct CompositeActionTests {
             xcodeContainers: [.init(kind: "workspace", path: "App.xcworkspace")],
             preferredContainer: .init(kind: "workspace", path: "App.xcworkspace"),
             schemes: [
-                .init(name: "App", containerPath: "App.xcworkspace", bundleID: "com.example.app", teamID: "TEAM12345", likelyRunnable: true),
+                .init(name: "App", containerPath: "App.xcworkspace", bundleID: "com.example.app", teamID: "TEAM12345", likelyRunnable: true)
             ],
             suggestedAppConfig: .init(workspace: "App.xcworkspace", scheme: "App", bundleID: "com.example.app", teamID: "TEAM12345"),
             existingShipfiles: [],
@@ -541,7 +556,8 @@ struct CompositeActionTests {
             TestAction.descriptor(for: TestAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: TestAction.name)),
             ArchiveAction.descriptor(for: ArchiveAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: ArchiveAction.name)),
             ExportAction.descriptor(for: ExportAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: ExportAction.name)),
-            TestFlightAction.descriptor(for: TestFlightAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: TestFlightAction.name)),
+            TestFlightAction.descriptor(
+                for: TestFlightAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: TestFlightAction.name)),
         ]
     }
 }

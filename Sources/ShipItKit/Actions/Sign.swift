@@ -125,7 +125,8 @@ public struct SignAction: Action {
 
         let gitUrl = options.gitUrl ?? context.config.codeSigningGitUrl
         guard let gitUrl else {
-            throw ShipItError.invalidConfiguration(reason: "sign sync requires code_signing.git_url. Set it in Shipfile.yml or export SHIPIT_CODE_SIGNING__GIT_URL.")
+            throw ShipItError.invalidConfiguration(
+                reason: "sign sync requires code_signing.git_url. Set it in Shipfile.yml or export SHIPIT_CODE_SIGNING__GIT_URL.")
         }
 
         let profileType = options.type ?? "development"
@@ -181,7 +182,8 @@ public struct SignAction: Action {
             filename: "profile.mobileprovision",
             tempDirectory: tempDirectory,
             createdTempDirectory: &createdTempDirectory,
-            missingDescription: "manual signing requires code_signing.provisioning_profile_path or code_signing.provisioning_profile_base64."
+            missingDescription:
+                "manual signing requires code_signing.provisioning_profile_path or code_signing.provisioning_profile_base64."
         )
 
         try await keychain.installCertificate(p12Path: p12Path, password: p12Password, context: context)
@@ -243,12 +245,15 @@ public struct SignAction: Action {
         }
 
         guard let profilePath = options.provisioningProfilePath else {
-            throw ShipItError.invalidConfiguration(reason: "sign import requires --provisioning-profile-path. Pass --provisioning-profile-path /path/to/profile.mobileprovision.")
+            throw ShipItError.invalidConfiguration(
+                reason:
+                    "sign import requires --provisioning-profile-path. Pass --provisioning-profile-path /path/to/profile.mobileprovision.")
         }
 
         let gitUrl = options.gitUrl ?? context.config.codeSigningGitUrl
         guard let gitUrl else {
-            throw ShipItError.invalidConfiguration(reason: "sign import requires code_signing.git_url. Set it in Shipfile.yml or export SHIPIT_CODE_SIGNING__GIT_URL.")
+            throw ShipItError.invalidConfiguration(
+                reason: "sign import requires code_signing.git_url. Set it in Shipfile.yml or export SHIPIT_CODE_SIGNING__GIT_URL.")
         }
 
         logger.info("Importing certificate from \(p12Path) and profile from \(profilePath)")

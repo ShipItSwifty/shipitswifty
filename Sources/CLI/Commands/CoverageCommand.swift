@@ -1,6 +1,6 @@
 import ArgumentParser
-import ShipItKit
 import Foundation
+import ShipItKit
 
 /// Read and summarize native coverage artifacts produced by a prior test run.
 ///
@@ -152,7 +152,8 @@ struct CoverageCommand: AsyncParsableCommand {
 
         // Overall line (shared by summary and full modes)
         let overallBar = coverageBar(result.overallLineCoverage)
-        let overallLine = "Overall  \(overallBar)  \(String(format: "%.1f", result.overallLineCoverage))%  (\(result.coveredLines)/\(result.executableLines) lines)"
+        let overallLine =
+            "Overall  \(overallBar)  \(String(format: "%.1f", result.overallLineCoverage))%  (\(result.coveredLines)/\(result.executableLines) lines)"
 
         // --summary: single line only
         if options.summary == true {
@@ -181,20 +182,24 @@ struct CoverageCommand: AsyncParsableCommand {
 
         for target in limited {
             let lineInfo = "\(target.coveredLines)/\(target.executableLines)"
-            formatter.print(String(format: "%-48@  %6.1f%%  %@",
-                                   trimName(target.name, maxLength: 48) as NSString,
-                                   target.lineCoverage,
-                                   lineInfo as NSString))
+            formatter.print(
+                String(
+                    format: "%-48@  %6.1f%%  %@",
+                    trimName(target.name, maxLength: 48) as NSString,
+                    target.lineCoverage,
+                    lineInfo as NSString))
 
             // Per-file breakdown
             if options.showFiles == true && !target.files.isEmpty {
                 let sortedFiles = target.files.sorted { $0.lineCoverage < $1.lineCoverage }
                 for file in sortedFiles {
                     let shortPath = URL(fileURLWithPath: file.path).lastPathComponent
-                    formatter.print(String(format: "  %-46@  %6.1f%%  %@",
-                                          trimName(shortPath, maxLength: 46) as NSString,
-                                          file.lineCoverage,
-                                          "\(file.coveredLines)/\(file.executableLines)" as NSString))
+                    formatter.print(
+                        String(
+                            format: "  %-46@  %6.1f%%  %@",
+                            trimName(shortPath, maxLength: 46) as NSString,
+                            file.lineCoverage,
+                            "\(file.coveredLines)/\(file.executableLines)" as NSString))
                 }
             }
         }
@@ -211,7 +216,9 @@ struct CoverageCommand: AsyncParsableCommand {
 
         print("## \(platformLabel) Coverage\(filterNote)")
         print("")
-        print("> **\(String(format: "%.1f", result.overallLineCoverage))%** overall — \(result.coveredLines)/\(result.executableLines) lines covered")
+        print(
+            "> **\(String(format: "%.1f", result.overallLineCoverage))%** overall — \(result.coveredLines)/\(result.executableLines) lines covered"
+        )
         print("> Source: `\(result.source)`")
         print("")
 
@@ -230,7 +237,9 @@ struct CoverageCommand: AsyncParsableCommand {
                 let sortedFiles = target.files.sorted { $0.lineCoverage < $1.lineCoverage }
                 for file in sortedFiles {
                     let shortPath = URL(fileURLWithPath: file.path).lastPathComponent
-                    print("| &nbsp;&nbsp;`\(shortPath)` | \(String(format: "%.1f", file.lineCoverage))% | \(file.coveredLines)/\(file.executableLines) |")
+                    print(
+                        "| &nbsp;&nbsp;`\(shortPath)` | \(String(format: "%.1f", file.lineCoverage))% | \(file.coveredLines)/\(file.executableLines) |"
+                    )
                 }
             }
         }

@@ -1,6 +1,7 @@
-import Testing
-import SwiftyShell
 import Foundation
+import SwiftyShell
+import Testing
+
 @testable import CLI
 @testable import ShipItKit
 
@@ -35,12 +36,13 @@ struct CLIBuildTests {
 
     @Test("Metadata command parses review submission flags")
     func metadataCommandParsesReviewFlags() throws {
-        let command = try MetadataCommand.parseAsRoot([
-            "--push",
-            "--submit-for-review",
-            "--automatic-release",
-            "--phased-release",
-        ]) as! MetadataCommand
+        let command =
+            try MetadataCommand.parseAsRoot([
+                "--push",
+                "--submit-for-review",
+                "--automatic-release",
+                "--phased-release",
+            ]) as! MetadataCommand
 
         #expect(command.push)
         #expect(command.submitForReview)
@@ -50,20 +52,22 @@ struct CLIBuildTests {
 
     @Test("Env command preserves explicit shipfile path")
     func envCommandParsesShipfileOption() throws {
-        let command = try EnvCommand.parseAsRoot([
-            "--shipfile",
-            "/tmp/MissingShipfile.yml",
-        ]) as! EnvCommand
+        let command =
+            try EnvCommand.parseAsRoot([
+                "--shipfile",
+                "/tmp/MissingShipfile.yml",
+            ]) as! EnvCommand
 
         #expect(command.global.shipfile == "/tmp/MissingShipfile.yml")
     }
 
     @Test("Global options parse explicit color mode")
     func globalOptionsParseColorMode() throws {
-        let command = try BuildCommand.parseAsRoot([
-            "--color",
-            "always",
-        ]) as! BuildCommand
+        let command =
+            try BuildCommand.parseAsRoot([
+                "--color",
+                "always",
+            ]) as! BuildCommand
 
         #expect(command.global.color == .always)
         #expect(command.global.effectiveColorMode == .always)
@@ -71,11 +75,12 @@ struct CLIBuildTests {
 
     @Test("Global options let no-color override color mode")
     func globalOptionsParseNoColorOverride() throws {
-        let command = try BuildCommand.parseAsRoot([
-            "--color",
-            "always",
-            "--no-color",
-        ]) as! BuildCommand
+        let command =
+            try BuildCommand.parseAsRoot([
+                "--color",
+                "always",
+                "--no-color",
+            ]) as! BuildCommand
 
         #expect(command.global.color == .always)
         #expect(command.global.noColor)

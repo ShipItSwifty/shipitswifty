@@ -1,6 +1,7 @@
-import Testing
 import Foundation
 import OSLog
+import Testing
+
 @testable import ShipItKit
 
 /// Integration tests for coverage parsing against pre-recorded fixture files.

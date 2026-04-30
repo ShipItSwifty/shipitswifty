@@ -94,7 +94,9 @@ public struct ActionContext: Sendable {
             platform: platform
         )
         // Create a placeholder client — tests that need ASC API calls should mock at a higher level
-        let dummyKeyData = Data("-----BEGIN EC PRIVATE KEY-----\nMHQCAQEEIBkg4DUVQ1fIFUHBABCLRrFwNVm7MAkGByqGSM49AgEFoWQDYgAE\n-----END EC PRIVATE KEY-----".utf8)
+        let dummyKeyData = Data(
+            "-----BEGIN EC PRIVATE KEY-----\nMHQCAQEEIBkg4DUVQ1fIFUHBABCLRrFwNVm7MAkGByqGSM49AgEFoWQDYgAE\n-----END EC PRIVATE KEY-----"
+                .utf8)
         let ascClient = AppStoreConnectClient(
             keyID: "MOCKKEY",
             issuerID: "mock-issuer-id",

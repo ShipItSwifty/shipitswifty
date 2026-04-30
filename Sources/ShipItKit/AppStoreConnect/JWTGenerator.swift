@@ -107,8 +107,9 @@ public actor JWTGenerator {
     public func cachedOrNewToken() async throws -> String {
         let bufferSeconds: TimeInterval = 60
         if let token = cachedToken,
-           let expiry = tokenExpiresAt,
-           Date().addingTimeInterval(bufferSeconds) < expiry {
+            let expiry = tokenExpiresAt,
+            Date().addingTimeInterval(bufferSeconds) < expiry
+        {
             logger.debug("Returning cached JWT token")
             return token
         }
@@ -168,7 +169,8 @@ public actor JWTGenerator {
     ///
     /// The 32 bytes that follow are the raw big-endian private scalar.
     static func rawPrivateScalar(fromPKCS8PEM pem: String) throws -> Data {
-        let b64 = pem
+        let b64 =
+            pem
             .split(separator: "\n", omittingEmptySubsequences: true)
             .filter { !$0.hasPrefix("-") }
             .joined()

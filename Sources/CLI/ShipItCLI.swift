@@ -19,122 +19,122 @@ import ShipItKit
 /// ```
 @main
 struct ShipItCLI: AsyncParsableCommand {
-  static let configuration = CommandConfiguration(
-    commandName: "shipit",
-    abstract: "Swift-native CLI for iOS and Android app release automation.",
-    subcommands: [
-      GenerateCommand.self,
-      SchemaCommand.self,
-      InspectCommand.self,
-      SuggestConfigCommand.self,
-      AIBootstrapCommand.self,
-      AISessionCommand.self,
-      ValidateCommand.self,
-      BuildCommand.self,
-      TestCommand.self,
-      CoverageCommand.self,
-      ArchiveCommand.self,
-      ExportCommand.self,
-      UploadCommand.self,
-      TestFlightCommand.self,
-      LintCommand.self,
-      PlayStoreCommand.self,
-      SnapshotCommand.self,
-      FrameCommand.self,
-      SignCommand.self,
-      VersionCommand.self,
-      MetadataCommand.self,
-      PrecheckCommand.self,  // backwards-compat alias for: validate metadata
-      ProvisionCommand.self,
-      NotifyCommand.self,
-      RunCommand.self,
-      EnvCommand.self,
-      DoctorCommand.self,
-    ],
-    defaultSubcommand: nil
-  )
+    static let configuration = CommandConfiguration(
+        commandName: "shipit",
+        abstract: "Swift-native CLI for iOS and Android app release automation.",
+        subcommands: [
+            GenerateCommand.self,
+            SchemaCommand.self,
+            InspectCommand.self,
+            SuggestConfigCommand.self,
+            AIBootstrapCommand.self,
+            AISessionCommand.self,
+            ValidateCommand.self,
+            BuildCommand.self,
+            TestCommand.self,
+            CoverageCommand.self,
+            ArchiveCommand.self,
+            ExportCommand.self,
+            UploadCommand.self,
+            TestFlightCommand.self,
+            LintCommand.self,
+            PlayStoreCommand.self,
+            SnapshotCommand.self,
+            FrameCommand.self,
+            SignCommand.self,
+            VersionCommand.self,
+            MetadataCommand.self,
+            PrecheckCommand.self,  // backwards-compat alias for: validate metadata
+            ProvisionCommand.self,
+            NotifyCommand.self,
+            RunCommand.self,
+            EnvCommand.self,
+            DoctorCommand.self,
+        ],
+        defaultSubcommand: nil
+    )
 
-  static let versionString = "0.0.1 (build 12)"
+    static let versionString = "0.0.1 (build 12)"
 
-  static func main(_ arguments: [String]?) async {
-    let arguments = arguments ?? Array(CommandLine.arguments.dropFirst())
-    if arguments == ["--version"] {
-      print(versionString)
-      return
+    static func main(_ arguments: [String]?) async {
+        let arguments = arguments ?? Array(CommandLine.arguments.dropFirst())
+        if arguments == ["--version"] {
+            print(versionString)
+            return
+        }
+
+        do {
+            var command = try parseAsRoot(arguments)
+            if var asyncCommand = command as? AsyncParsableCommand {
+                try await asyncCommand.run()
+            } else {
+                try command.run()
+            }
+        } catch {
+            exit(withError: error)
+        }
     }
 
-    do {
-      var command = try parseAsRoot(arguments)
-      if var asyncCommand = command as? AsyncParsableCommand {
-        try await asyncCommand.run()
-      } else {
-        try command.run()
-      }
-    } catch {
-      exit(withError: error)
+    static func main() async {
+        await main(nil)
     }
-  }
-
-  static func main() async {
-    await main(nil)
-  }
 }
 
 // MARK: - Global Options Mixin
 
 /// Shared options available on every `shipit` subcommand.
 struct GlobalOptions: ParsableArguments {
-  @Option(
-    name: .long,
-    help:
-      "Path to config file. Defaults to ./Shipfile.yml and must exist for config-backed commands")
-  var shipfile: String = "./Shipfile.yml"
+    @Option(
+        name: .long,
+        help:
+            "Path to config file. Defaults to ./Shipfile.yml and must exist for config-backed commands")
+    var shipfile: String = "./Shipfile.yml"
 
-  @Option(name: .long, help: "Output format: human | json")
-  var output: OutputFormat = .human
+    @Option(name: .long, help: "Output format: human | json")
+    var output: OutputFormat = .human
 
-  @Option(name: .long, help: "Color output: auto | always | never")
-  var color: ConsoleColorMode = .auto
+    @Option(name: .long, help: "Color output: auto | always | never")
+    var color: ConsoleColorMode = .auto
 
-  @Flag(name: .customLong("no-color"), help: "Disable color in human output")
-  var noColor: Bool = false
+    @Flag(name: .customLong("no-color"), help: "Disable color in human output")
+    var noColor: Bool = false
 
-  @Flag(name: .long, help: "Enable debug logging")
-  var verbose: Bool = false
+    @Flag(name: .long, help: "Enable debug logging")
+    var verbose: Bool = false
 
-  @Flag(name: .long, help: "Enable CI mode (non-interactive, strict errors)")
-  var ci: Bool = false
+    @Flag(name: .long, help: "Enable CI mode (non-interactive, strict errors)")
+    var ci: Bool = false
 
-  @Flag(name: .long, help: "Preview actions without executing")
-  var dryRun: Bool = false
+    @Flag(name: .long, help: "Preview actions without executing")
+    var dryRun: Bool = false
 
-  @Option(name: .long, help: "Target platform: ios | android (auto-detected if omitted)")
-  var platform: Platform?
+    @Option(name: .long, help: "Target platform: ios | android (auto-detected if omitted)")
+    var platform: Platform?
 
-  var effectiveColorMode: ConsoleColorMode {
-    noColor ? .never : color
-  }
+    var effectiveColorMode: ConsoleColorMode {
+        noColor ? .never : color
+    }
 }
 
 /// Narrow option set for JSON-only AI bootstrap flows.
 struct AIBootstrapOptions: ParsableArguments {
-  @Option(
-    name: .long,
-    help: "Path to config file. Defaults to ./Shipfile.yml when checking for an existing Shipfile")
-  var shipfile: String = "./Shipfile.yml"
+    @Option(
+        name: .long,
+        help: "Path to config file. Defaults to ./Shipfile.yml when checking for an existing Shipfile")
+    var shipfile: String = "./Shipfile.yml"
 
-  @Flag(name: .long, help: "Enable debug logging")
-  var verbose: Bool = false
+    @Flag(name: .long, help: "Enable debug logging")
+    var verbose: Bool = false
 
-  @Flag(name: .long, help: "Enable CI mode (non-interactive, strict errors)")
-  var ci: Bool = false
+    @Flag(name: .long, help: "Enable CI mode (non-interactive, strict errors)")
+    var ci: Bool = false
 
-  @Option(name: .long, help: "Target platform: ios | android (auto-detected if omitted)")
-  var platform: Platform?
+    @Option(name: .long, help: "Target platform: ios | android (auto-detected if omitted)")
+    var platform: Platform?
 }
 
 /// Output format selection.
 enum OutputFormat: String, ExpressibleByArgument, Sendable {
-  case human
-  case json
+    case human
+    case json
 }

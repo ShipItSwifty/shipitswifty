@@ -31,7 +31,8 @@ public enum CompositeAction {
         public var description: String {
             switch self {
             case .unknownParameter(let composite, let parameter, let stepIndex):
-                return "Custom action '\(composite)' step \(stepIndex + 1) references undeclared parameter '\(parameter)'. Add it under custom_actions.\(composite).parameters."
+                return
+                    "Custom action '\(composite)' step \(stepIndex + 1) references undeclared parameter '\(parameter)'. Add it under custom_actions.\(composite).parameters."
             case .missingRequiredParameter(let composite, let parameter):
                 return "Custom action '\(composite)' is missing required parameter '\(parameter)'."
             case .unknownStepAction(let composite, let stepIndex, let action):
@@ -145,9 +146,10 @@ public enum CompositeAction {
         case .string(let s):
             return substituteString(s, params: params, compositeName: compositeName, stepIndex: stepIndex)
         case .array(let items):
-            return .array(items.map {
-                substitute(value: $0, params: params, compositeName: compositeName, stepIndex: stepIndex)
-            })
+            return .array(
+                items.map {
+                    substitute(value: $0, params: params, compositeName: compositeName, stepIndex: stepIndex)
+                })
         case .object(let dict):
             var out: [String: JSONValue] = [:]
             for (k, v) in dict {
@@ -172,7 +174,8 @@ public enum CompositeAction {
     ) -> JSONValue {
         // Whole-string typed substitution.
         if let key = wholeStringParameterKey(input),
-           let value = params[key] {
+            let value = params[key]
+        {
             return value
         }
 
@@ -180,19 +183,19 @@ public enum CompositeAction {
         var result = ""
         var cursor = input.startIndex
         while cursor < input.endIndex {
-            guard let openRange = input.range(of: "{{param.", range: cursor ..< input.endIndex) else {
-                result.append(contentsOf: input[cursor ..< input.endIndex])
+            guard let openRange = input.range(of: "{{param.", range: cursor..<input.endIndex) else {
+                result.append(contentsOf: input[cursor..<input.endIndex])
                 break
             }
-            result.append(contentsOf: input[cursor ..< openRange.lowerBound])
+            result.append(contentsOf: input[cursor..<openRange.lowerBound])
 
-            guard let closeRange = input.range(of: "}}", range: openRange.upperBound ..< input.endIndex) else {
+            guard let closeRange = input.range(of: "}}", range: openRange.upperBound..<input.endIndex) else {
                 // Unterminated — leave the rest as-is.
-                result.append(contentsOf: input[openRange.lowerBound ..< input.endIndex])
+                result.append(contentsOf: input[openRange.lowerBound..<input.endIndex])
                 break
             }
 
-            let key = String(input[openRange.upperBound ..< closeRange.lowerBound])
+            let key = String(input[openRange.upperBound..<closeRange.lowerBound])
                 .trimmingCharacters(in: .whitespaces)
 
             if let value = params[key] {
@@ -200,7 +203,7 @@ public enum CompositeAction {
             } else {
                 // Preserve the literal reference so callers get a deterministic
                 // error downstream rather than a silent empty expansion.
-                result.append(contentsOf: input[openRange.lowerBound ..< closeRange.upperBound])
+                result.append(contentsOf: input[openRange.lowerBound..<closeRange.upperBound])
             }
             cursor = closeRange.upperBound
         }
@@ -231,7 +234,8 @@ public enum CompositeAction {
             let encoder = JSONEncoder()
             encoder.outputFormatting = [.sortedKeys]
             if let data = try? encoder.encode(value),
-               let str = String(data: data, encoding: .utf8) {
+                let str = String(data: data, encoding: .utf8)
+            {
                 return str
             }
             return ""

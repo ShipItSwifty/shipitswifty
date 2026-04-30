@@ -1,5 +1,5 @@
-import Foundation
 import Crypto
+import Foundation
 import OSLog
 import SwiftyShell
 
@@ -71,27 +71,27 @@ public struct CertVault: Sendable {
 
         // Write README
         let readme = """
-        # ShipItSwifty Encrypted Certificate Repository
+            # ShipItSwifty Encrypted Certificate Repository
 
-        This repository stores encrypted code signing certificates and provisioning profiles
-        managed by ShipItSwifty.
+            This repository stores encrypted code signing certificates and provisioning profiles
+            managed by ShipItSwifty.
 
-        ## Contents
-        - `certs/development/` — Development signing certificates (AES-256-GCM encrypted)
-        - `certs/distribution/` — Distribution signing certificates (AES-256-GCM encrypted)
-        - `profiles/development/` — Development provisioning profiles (AES-256-GCM encrypted)
-        - `profiles/appstore/` — App Store provisioning profiles (AES-256-GCM encrypted)
-        - `profiles/adhoc/` — Ad-hoc provisioning profiles (AES-256-GCM encrypted)
+            ## Contents
+            - `certs/development/` — Development signing certificates (AES-256-GCM encrypted)
+            - `certs/distribution/` — Distribution signing certificates (AES-256-GCM encrypted)
+            - `profiles/development/` — Development provisioning profiles (AES-256-GCM encrypted)
+            - `profiles/appstore/` — App Store provisioning profiles (AES-256-GCM encrypted)
+            - `profiles/adhoc/` — Ad-hoc provisioning profiles (AES-256-GCM encrypted)
 
-        ## Access
-        Use `shipit sign sync` to install these on a developer machine or CI.
-        The passphrase is required and should be stored in `VAULT_PASSWORD`.
+            ## Access
+            Use `shipit sign sync` to install these on a developer machine or CI.
+            The passphrase is required and should be stored in `VAULT_PASSWORD`.
 
-        ## Security
-        - All files are encrypted with AES-256-GCM using the team passphrase
-        - Never store the passphrase in this repository
-        - Use CI secrets management for the passphrase
-        """
+            ## Security
+            - All files are encrypted with AES-256-GCM using the team passphrase
+            - Never store the passphrase in this repository
+            - Use CI secrets management for the passphrase
+            """
 
         try readme.write(toFile: "\(tmpDir)/README.md", atomically: true, encoding: .utf8)
 
@@ -181,7 +181,8 @@ public struct CertVault: Sendable {
         context: ActionContext
     ) async throws {
         guard FileManager.default.fileExists(atPath: directory),
-              let files = try? FileManager.default.contentsOfDirectory(atPath: directory) else {
+            let files = try? FileManager.default.contentsOfDirectory(atPath: directory)
+        else {
             logger.debug("No certificates found in \(directory)")
             return
         }
@@ -217,7 +218,8 @@ public struct CertVault: Sendable {
         context: ActionContext
     ) async throws {
         guard FileManager.default.fileExists(atPath: directory),
-              let files = try? FileManager.default.contentsOfDirectory(atPath: directory) else {
+            let files = try? FileManager.default.contentsOfDirectory(atPath: directory)
+        else {
             logger.debug("No profiles found in \(directory)")
             return
         }
@@ -249,7 +251,7 @@ public struct CertVault: Sendable {
 
         // Derive key from password using PBKDF2 (placeholder: use a proper KDF in production)
         let passwordData = Data(password.utf8)
-        let salt = Data(repeating: 0x53, count: 32) // In production: store salt with the encrypted file
+        let salt = Data(repeating: 0x53, count: 32)  // In production: store salt with the encrypted file
 
         // Derive key using HKDF as a placeholder (real impl should use PBKDF2)
         let keyMaterial = HKDF<SHA256>.deriveKey(

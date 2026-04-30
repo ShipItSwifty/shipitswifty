@@ -1,6 +1,7 @@
-import Testing
-@testable import ShipItKit
 import Foundation
+import Testing
+
+@testable import ShipItKit
 
 @Suite("JSONValue")
 struct JSONValueTests {
@@ -152,8 +153,8 @@ struct JSONValueTests {
     @Test("decodes from raw JSON string")
     func decodeFromRawJSON() throws {
         let json = """
-        {"name": "MyApp", "version": 42, "active": true, "tags": ["ios", "swift"]}
-        """
+            {"name": "MyApp", "version": 42, "active": true, "tags": ["ios", "swift"]}
+            """
         let data = Data(json.utf8)
         let value = try JSONDecoder().decode(JSONValue.self, from: data)
 

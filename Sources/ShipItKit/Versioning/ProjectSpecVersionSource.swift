@@ -114,7 +114,8 @@ struct ProjectSpecVersionSource: Sendable {
             guard trimmed.hasPrefix("\(key):") else { continue }
             let afterColon = String(trimmed.dropFirst(key.count + 1)).trimmingCharacters(in: .whitespaces)
             // Strip quotes if present
-            let unquoted = afterColon
+            let unquoted =
+                afterColon
                 .trimmingCharacters(in: .init(charactersIn: "\"'"))
             if !unquoted.isEmpty {
                 return unquoted

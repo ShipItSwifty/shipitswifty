@@ -1,6 +1,6 @@
 import ArgumentParser
-import ShipItKit
 import Foundation
+import ShipItKit
 
 /// Compile the app using `xcodebuild build` (iOS) or `./gradlew assembleRelease` (Android).
 ///
@@ -53,7 +53,8 @@ struct BuildCommand: AsyncParsableCommand {
 
             if global.dryRun {
                 if config.platform == .android {
-                    formatter.print("DRY RUN: Would run gradlew assemble\(config.androidBuildVariant.capitalized) in module '\(config.androidModule)'")
+                    formatter.print(
+                        "DRY RUN: Would run gradlew assemble\(config.androidBuildVariant.capitalized) in module '\(config.androidModule)'")
                 } else {
                     formatter.print("DRY RUN: Would build scheme '\(scheme ?? config.appScheme ?? "unknown")'")
                 }

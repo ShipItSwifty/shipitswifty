@@ -1,6 +1,7 @@
 import Foundation
-import Testing
 import SwiftyShell
+import Testing
+
 @testable import ShipItKit
 
 // MARK: - ValidateArchiveAction Tests
@@ -25,7 +26,8 @@ struct ValidateArchiveActionTests {
             .appendingPathComponent("ShipItTest-\(UUID().uuidString)")
         let archivePath = tmp.path
 
-        let productsApps = tmp
+        let productsApps =
+            tmp
             .appendingPathComponent("Products")
             .appendingPathComponent("Applications")
 
@@ -42,19 +44,23 @@ struct ValidateArchiveActionTests {
             let appBundle = productsApps.appendingPathComponent("MyApp.app")
             try FileManager.default.createDirectory(at: appBundle, withIntermediateDirectories: true)
 
-            let defaultPlist: [String: Any] = infoPlistContents ?? [
-                "CFBundleIdentifier": "com.example.myapp",
-                "CFBundleShortVersionString": "1.0.0",
-                "CFBundleVersion": "42",
-                "UIMainStoryboardFile": "Main",
-                "CFBundleIcons": ["CFBundlePrimaryIcon": ["CFBundleIconFiles": ["AppIcon"]]],
-            ]
+            let defaultPlist: [String: Any] =
+                infoPlistContents ?? [
+                    "CFBundleIdentifier": "com.example.myapp",
+                    "CFBundleShortVersionString": "1.0.0",
+                    "CFBundleVersion": "42",
+                    "UIMainStoryboardFile": "Main",
+                    "CFBundleIcons": ["CFBundlePrimaryIcon": ["CFBundleIconFiles": ["AppIcon"]]],
+                ]
             try (defaultPlist as NSDictionary).write(to: appBundle.appendingPathComponent("Info.plist"))
         }
 
-        return (archivePath, {
-            try? FileManager.default.removeItem(at: tmp)
-        })
+        return (
+            archivePath,
+            {
+                try? FileManager.default.removeItem(at: tmp)
+            }
+        )
     }
 
     // MARK: - Missing path
@@ -266,7 +272,7 @@ struct ValidateArchiveActionTests {
             "CFBundleVersion": "1",
             "UIMainStoryboardFile": "Main",
             "UISupportedInterfaceOrientations~ipad": [
-                "UIInterfaceOrientationPortrait",
+                "UIInterfaceOrientationPortrait"
                 // Missing the other three
             ],
         ])
@@ -292,7 +298,7 @@ struct ValidateArchiveActionTests {
             "UIMainStoryboardFile": "Main",
             "CFBundleIcons": ["CFBundlePrimaryIcon": ["CFBundleIconFiles": ["AppIcon"]]],
             "UISupportedInterfaceOrientations~ipad": [
-                "UIInterfaceOrientationPortrait",
+                "UIInterfaceOrientationPortrait"
             ],
             "UIRequiresFullScreen": true,
         ])

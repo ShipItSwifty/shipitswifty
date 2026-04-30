@@ -1,6 +1,7 @@
 import Foundation
-import Testing
 import SwiftyShell
+import Testing
+
 @testable import ShipItKit
 
 @Suite("GenerateProjectAction")
@@ -22,7 +23,9 @@ struct GenerateProjectActionTests {
             projectGenerationOutputProject: nil,
             projectGenerationAutoGenerate: true
         )
-        let dummyKeyData = Data("-----BEGIN EC PRIVATE KEY-----\nMHQCAQEEIBkg4DUVQ1fIFUHBABCLRrFwNVm7MAkGByqGSM49AgEFoWQDYgAE\n-----END EC PRIVATE KEY-----".utf8)
+        let dummyKeyData = Data(
+            "-----BEGIN EC PRIVATE KEY-----\nMHQCAQEEIBkg4DUVQ1fIFUHBABCLRrFwNVm7MAkGByqGSM49AgEFoWQDYgAE\n-----END EC PRIVATE KEY-----"
+                .utf8)
         let ascClient = AppStoreConnectClient(keyID: "K", issuerID: "I", privateKeyData: dummyKeyData)
         let context = ActionContext(
             shell: ShellContext(executor: executor),
@@ -49,7 +52,9 @@ struct GenerateProjectActionTests {
             projectGenerationTool: nil,
             projectGenerationCommand: nil
         )
-        let dummyKeyData = Data("-----BEGIN EC PRIVATE KEY-----\nMHQCAQEEIBkg4DUVQ1fIFUHBABCLRrFwNVm7MAkGByqGSM49AgEFoWQDYgAE\n-----END EC PRIVATE KEY-----".utf8)
+        let dummyKeyData = Data(
+            "-----BEGIN EC PRIVATE KEY-----\nMHQCAQEEIBkg4DUVQ1fIFUHBABCLRrFwNVm7MAkGByqGSM49AgEFoWQDYgAE\n-----END EC PRIVATE KEY-----"
+                .utf8)
         let ascClient = AppStoreConnectClient(keyID: "K", issuerID: "I", privateKeyData: dummyKeyData)
         let context = ActionContext(
             shell: ShellContext(executor: executor),
@@ -74,7 +79,9 @@ struct GenerateProjectActionTests {
             projectGenerationTool: "xcodegen",
             projectGenerationCommand: "xcodegen generate"
         )
-        let dummyKeyData = Data("-----BEGIN EC PRIVATE KEY-----\nMHQCAQEEIBkg4DUVQ1fIFUHBABCLRrFwNVm7MAkGByqGSM49AgEFoWQDYgAE\n-----END EC PRIVATE KEY-----".utf8)
+        let dummyKeyData = Data(
+            "-----BEGIN EC PRIVATE KEY-----\nMHQCAQEEIBkg4DUVQ1fIFUHBABCLRrFwNVm7MAkGByqGSM49AgEFoWQDYgAE\n-----END EC PRIVATE KEY-----"
+                .utf8)
         let ascClient = AppStoreConnectClient(keyID: "K", issuerID: "I", privateKeyData: dummyKeyData)
         let context = ActionContext(
             shell: ShellContext(executor: executor),
@@ -99,7 +106,9 @@ struct GenerateProjectActionTests {
             projectGenerationTool: "xcodegen",
             projectGenerationCommand: "xcodegen generate"
         )
-        let dummyKeyData = Data("-----BEGIN EC PRIVATE KEY-----\nMHQCAQEEIBkg4DUVQ1fIFUHBABCLRrFwNVm7MAkGByqGSM49AgEFoWQDYgAE\n-----END EC PRIVATE KEY-----".utf8)
+        let dummyKeyData = Data(
+            "-----BEGIN EC PRIVATE KEY-----\nMHQCAQEEIBkg4DUVQ1fIFUHBABCLRrFwNVm7MAkGByqGSM49AgEFoWQDYgAE\n-----END EC PRIVATE KEY-----"
+                .utf8)
         let ascClient = AppStoreConnectClient(keyID: "K", issuerID: "I", privateKeyData: dummyKeyData)
         let context = ActionContext(
             shell: ShellContext(executor: executor),
@@ -131,7 +140,9 @@ struct GenerateProjectActionTests {
             projectGenerationCommand: "xcodegen generate",
             projectGenerationSpecPath: "/nonexistent/path/project.yml"
         )
-        let dummyKeyData = Data("-----BEGIN EC PRIVATE KEY-----\nMHQCAQEEIBkg4DUVQ1fIFUHBABCLRrFwNVm7MAkGByqGSM49AgEFoWQDYgAE\n-----END EC PRIVATE KEY-----".utf8)
+        let dummyKeyData = Data(
+            "-----BEGIN EC PRIVATE KEY-----\nMHQCAQEEIBkg4DUVQ1fIFUHBABCLRrFwNVm7MAkGByqGSM49AgEFoWQDYgAE\n-----END EC PRIVATE KEY-----"
+                .utf8)
         let ascClient = AppStoreConnectClient(keyID: "K", issuerID: "I", privateKeyData: dummyKeyData)
         let context = ActionContext(
             shell: ShellContext(executor: executor),
@@ -157,7 +168,9 @@ struct GenerateProjectActionTests {
             projectGenerationCommand: "xcodegen generate",
             projectGenerationSpecPath: nil  // no config path
         )
-        let dummyKeyData = Data("-----BEGIN EC PRIVATE KEY-----\nMHQCAQEEIBkg4DUVQ1fIFUHBABCLRrFwNVm7MAkGByqGSM49AgEFoWQDYgAE\n-----END EC PRIVATE KEY-----".utf8)
+        let dummyKeyData = Data(
+            "-----BEGIN EC PRIVATE KEY-----\nMHQCAQEEIBkg4DUVQ1fIFUHBABCLRrFwNVm7MAkGByqGSM49AgEFoWQDYgAE\n-----END EC PRIVATE KEY-----"
+                .utf8)
         let ascClient = AppStoreConnectClient(keyID: "K", issuerID: "I", privateKeyData: dummyKeyData)
         let context = ActionContext(
             shell: ShellContext(executor: executor),
@@ -193,7 +206,9 @@ struct GenerateProjectActionTests {
             projectGenerationCommand: "xcodegen generate",
             projectGenerationOutputProject: outputProject
         )
-        let dummyKeyData = Data("-----BEGIN EC PRIVATE KEY-----\nMHQCAQEEIBkg4DUVQ1fIFUHBABCLRrFwNVm7MAkGByqGSM49AgEFoWQDYgAE\n-----END EC PRIVATE KEY-----".utf8)
+        let dummyKeyData = Data(
+            "-----BEGIN EC PRIVATE KEY-----\nMHQCAQEEIBkg4DUVQ1fIFUHBABCLRrFwNVm7MAkGByqGSM49AgEFoWQDYgAE\n-----END EC PRIVATE KEY-----"
+                .utf8)
         let ascClient = AppStoreConnectClient(keyID: "K", issuerID: "I", privateKeyData: dummyKeyData)
         let context = ActionContext(
             shell: ShellContext(executor: executor),
@@ -228,7 +243,9 @@ struct GenerateProjectActionTests {
             projectGenerationCommand: "xcodegen generate",
             projectGenerationOutputProject: "/nonexistent/output/MockApp.xcodeproj"
         )
-        let dummyKeyData = Data("-----BEGIN EC PRIVATE KEY-----\nMHQCAQEEIBkg4DUVQ1fIFUHBABCLRrFwNVm7MAkGByqGSM49AgEFoWQDYgAE\n-----END EC PRIVATE KEY-----".utf8)
+        let dummyKeyData = Data(
+            "-----BEGIN EC PRIVATE KEY-----\nMHQCAQEEIBkg4DUVQ1fIFUHBABCLRrFwNVm7MAkGByqGSM49AgEFoWQDYgAE\n-----END EC PRIVATE KEY-----"
+                .utf8)
         let ascClient = AppStoreConnectClient(keyID: "K", issuerID: "I", privateKeyData: dummyKeyData)
         let context = ActionContext(
             shell: ShellContext(executor: executor),
@@ -265,7 +282,9 @@ struct GenerateProjectActionTests {
             projectGenerationCommand: "xcodegen generate",
             projectGenerationAutoGenerate: false
         )
-        let dummyKeyData = Data("-----BEGIN EC PRIVATE KEY-----\nMHQCAQEEIBkg4DUVQ1fIFUHBABCLRrFwNVm7MAkGByqGSM49AgEFoWQDYgAE\n-----END EC PRIVATE KEY-----".utf8)
+        let dummyKeyData = Data(
+            "-----BEGIN EC PRIVATE KEY-----\nMHQCAQEEIBkg4DUVQ1fIFUHBABCLRrFwNVm7MAkGByqGSM49AgEFoWQDYgAE\n-----END EC PRIVATE KEY-----"
+                .utf8)
         let ascClient = AppStoreConnectClient(keyID: "K", issuerID: "I", privateKeyData: dummyKeyData)
         let context = ActionContext(
             shell: ShellContext(executor: executor),
@@ -296,7 +315,9 @@ struct GenerateProjectActionTests {
             projectGenerationOutputProject: outputProject,
             projectGenerationAutoGenerate: true
         )
-        let dummyKeyData = Data("-----BEGIN EC PRIVATE KEY-----\nMHQCAQEEIBkg4DUVQ1fIFUHBABCLRrFwNVm7MAkGByqGSM49AgEFoWQDYgAE\n-----END EC PRIVATE KEY-----".utf8)
+        let dummyKeyData = Data(
+            "-----BEGIN EC PRIVATE KEY-----\nMHQCAQEEIBkg4DUVQ1fIFUHBABCLRrFwNVm7MAkGByqGSM49AgEFoWQDYgAE\n-----END EC PRIVATE KEY-----"
+                .utf8)
         let ascClient = AppStoreConnectClient(keyID: "K", issuerID: "I", privateKeyData: dummyKeyData)
         let context = ActionContext(
             shell: ShellContext(executor: executor),

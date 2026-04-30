@@ -328,7 +328,8 @@ public struct ProjectInspection: Codable, Sendable, Hashable {
         public let bundleID: String?
         public let teamID: String?
 
-        public init(workspace: String? = nil, project: String? = nil, scheme: String? = nil, bundleID: String? = nil, teamID: String? = nil) {
+        public init(workspace: String? = nil, project: String? = nil, scheme: String? = nil, bundleID: String? = nil, teamID: String? = nil)
+        {
             self.workspace = workspace
             self.project = project
             self.scheme = scheme

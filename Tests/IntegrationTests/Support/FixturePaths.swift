@@ -21,17 +21,20 @@ enum FixturePaths {
     static let jacocoReport: URL = fixturesRoot.appendingPathComponent("jacoco-sample.xml")
 
     /// Shipfile pointing at the iOS fixture scheme.
-    static let iosBetaShipfile: URL = fixturesRoot
+    static let iosBetaShipfile: URL =
+        fixturesRoot
         .appendingPathComponent("Shipfiles")
         .appendingPathComponent("ios-beta.yml")
 
     /// Shipfile pointing at the Android fixture module (release variant — archive/bundle).
-    static let androidReleaseShipfile: URL = fixturesRoot
+    static let androidReleaseShipfile: URL =
+        fixturesRoot
         .appendingPathComponent("Shipfiles")
         .appendingPathComponent("android-release.yml")
 
     /// Shipfile pointing at the Android fixture module (debug variant — build/test).
-    static let androidDebugShipfile: URL = fixturesRoot
+    static let androidDebugShipfile: URL =
+        fixturesRoot
         .appendingPathComponent("Shipfiles")
         .appendingPathComponent("android-debug.yml")
 

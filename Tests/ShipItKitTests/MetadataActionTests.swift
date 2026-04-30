@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+
 @testable import ShipItKit
 
 @Suite("MetadataAction", .serialized)
@@ -12,37 +13,45 @@ struct MetadataActionTests {
 
         let client = makeClient(responses: [
             .json([
-                "data": [[
-                    "id": "app-1",
-                    "attributes": ["bundleId": "com.example.app", "name": "Example"]
-                ]]
-            ]),
-            .json([
-                "data": [[
-                    "id": "version-1",
-                    "attributes": ["versionString": "1.2.3"]
-                ]]
-            ]),
-            .json([
-                "data": [[
-                    "id": "loc-1",
-                    "attributes": [
-                        "locale": "en-US",
-                        "name": "Example App",
-                        "subtitle": "Ship faster"
+                "data": [
+                    [
+                        "id": "app-1",
+                        "attributes": ["bundleId": "com.example.app", "name": "Example"],
                     ]
-                ]]
+                ]
             ]),
             .json([
-                "data": [[
-                    "id": "version-loc-1",
-                    "attributes": [
-                        "locale": "en-US",
-                        "description": "Long description",
-                        "keywords": "swift,ios,shipit",
-                        "whatsNew": "Fresh release notes"
+                "data": [
+                    [
+                        "id": "version-1",
+                        "attributes": ["versionString": "1.2.3"],
                     ]
-                ]]
+                ]
+            ]),
+            .json([
+                "data": [
+                    [
+                        "id": "loc-1",
+                        "attributes": [
+                            "locale": "en-US",
+                            "name": "Example App",
+                            "subtitle": "Ship faster",
+                        ],
+                    ]
+                ]
+            ]),
+            .json([
+                "data": [
+                    [
+                        "id": "version-loc-1",
+                        "attributes": [
+                            "locale": "en-US",
+                            "description": "Long description",
+                            "keywords": "swift,ios,shipit",
+                            "whatsNew": "Fresh release notes",
+                        ],
+                    ]
+                ]
             ]),
         ])
 
@@ -60,9 +69,12 @@ struct MetadataActionTests {
         #expect(result.localesProcessed == 1)
         #expect(try String(contentsOf: tempDirectory.appendingPathComponent("en-US/name.txt"), encoding: .utf8) == "Example App")
         #expect(try String(contentsOf: tempDirectory.appendingPathComponent("en-US/subtitle.txt"), encoding: .utf8) == "Ship faster")
-        #expect(try String(contentsOf: tempDirectory.appendingPathComponent("en-US/description.txt"), encoding: .utf8) == "Long description")
+        #expect(
+            try String(contentsOf: tempDirectory.appendingPathComponent("en-US/description.txt"), encoding: .utf8) == "Long description")
         #expect(try String(contentsOf: tempDirectory.appendingPathComponent("en-US/keywords.txt"), encoding: .utf8) == "swift,ios,shipit")
-        #expect(try String(contentsOf: tempDirectory.appendingPathComponent("en-US/release_notes.txt"), encoding: .utf8) == "Fresh release notes")
+        #expect(
+            try String(contentsOf: tempDirectory.appendingPathComponent("en-US/release_notes.txt"), encoding: .utf8)
+                == "Fresh release notes")
     }
 
     @Test("MetadataAction push updates existing locale metadata")
@@ -80,32 +92,40 @@ struct MetadataActionTests {
 
         let client = makeClient(responses: [
             .json([
-                "data": [[
-                    "id": "app-1",
-                    "attributes": ["bundleId": "com.example.app", "name": "Example"]
-                ]]
+                "data": [
+                    [
+                        "id": "app-1",
+                        "attributes": ["bundleId": "com.example.app", "name": "Example"],
+                    ]
+                ]
             ]),
             .json([
-                "data": [[
-                    "id": "version-1",
-                    "attributes": ["versionString": "1.2.3"]
-                ]]
+                "data": [
+                    [
+                        "id": "version-1",
+                        "attributes": ["versionString": "1.2.3"],
+                    ]
+                ]
             ]),
             .json([
-                "data": [[
-                    "id": "app-info-1"
-                ]]
+                "data": [
+                    [
+                        "id": "app-info-1"
+                    ]
+                ]
             ]),
             .json([
-                "data": [[
-                    "id": "loc-1",
-                    "attributes": ["locale": "en-US", "name": "Old", "subtitle": "Old"]
-                ]]
+                "data": [
+                    [
+                        "id": "loc-1",
+                        "attributes": ["locale": "en-US", "name": "Old", "subtitle": "Old"],
+                    ]
+                ]
             ]),
             .json([
                 "data": [
                     "id": "loc-1",
-                    "attributes": ["locale": "en-US", "name": "New Name", "subtitle": "New Subtitle"]
+                    "attributes": ["locale": "en-US", "name": "New Name", "subtitle": "New Subtitle"],
                 ]
             ]),
             .json(["data": []]),
@@ -116,8 +136,8 @@ struct MetadataActionTests {
                         "locale": "en-US",
                         "description": "New Description",
                         "keywords": "swift,release",
-                        "whatsNew": "Bug fixes"
-                    ]
+                        "whatsNew": "Bug fixes",
+                    ],
                 ]
             ]),
         ])
@@ -148,27 +168,33 @@ struct MetadataActionTests {
 
         let client = makeClient(responses: [
             .json([
-                "data": [[
-                    "id": "app-1",
-                    "attributes": ["bundleId": "com.example.app", "name": "Example"]
-                ]]
+                "data": [
+                    [
+                        "id": "app-1",
+                        "attributes": ["bundleId": "com.example.app", "name": "Example"],
+                    ]
+                ]
             ]),
             .json([
-                "data": [[
-                    "id": "version-1",
-                    "attributes": ["versionString": "1.2.3"]
-                ]]
+                "data": [
+                    [
+                        "id": "version-1",
+                        "attributes": ["versionString": "1.2.3"],
+                    ]
+                ]
             ]),
             .json([
-                "data": [[
-                    "id": "app-info-1"
-                ]]
+                "data": [
+                    [
+                        "id": "app-info-1"
+                    ]
+                ]
             ]),
             .json(["data": []]),
             .json([
                 "data": [
                     "id": "loc-new",
-                    "attributes": ["locale": "fr-FR", "name": "Nom", "subtitle": "Sous-titre"]
+                    "attributes": ["locale": "fr-FR", "name": "Nom", "subtitle": "Sous-titre"],
                 ]
             ]),
         ])
@@ -199,63 +225,75 @@ struct MetadataActionTests {
 
         let client = makeClient(responses: [
             .json([
-                "data": [[
-                    "id": "app-1",
-                    "attributes": ["bundleId": "com.example.app", "name": "Example"]
-                ]]
+                "data": [
+                    [
+                        "id": "app-1",
+                        "attributes": ["bundleId": "com.example.app", "name": "Example"],
+                    ]
+                ]
             ]),
             .json([
-                "data": [[
-                    "id": "version-1",
-                    "attributes": ["versionString": "1.2.3"]
-                ]]
+                "data": [
+                    [
+                        "id": "version-1",
+                        "attributes": ["versionString": "1.2.3"],
+                    ]
+                ]
             ]),
             .json([
-                "data": [[
-                    "id": "app-info-1"
-                ]]
+                "data": [
+                    [
+                        "id": "app-info-1"
+                    ]
+                ]
             ]),
             .json([
-                "data": [[
-                    "id": "info-loc-1",
-                    "attributes": ["locale": "en-US", "name": "Old"]
-                ]]
+                "data": [
+                    [
+                        "id": "info-loc-1",
+                        "attributes": ["locale": "en-US", "name": "Old"],
+                    ]
+                ]
             ]),
             .json([
                 "data": [
                     "id": "info-loc-1",
-                    "attributes": ["locale": "en-US", "name": "Release Name"]
+                    "attributes": ["locale": "en-US", "name": "Release Name"],
                 ]
             ]),
             .json(["data": []]),
             .json([
                 "data": [
                     "id": "version-loc-1",
-                    "attributes": ["locale": "en-US", "description": "Ready to ship"]
-                ]
-            ]),
-            .json([
-                "data": [[
-                    "id": "app-1",
-                    "attributes": ["bundleId": "com.example.app", "name": "Example"]
-                ]]
-            ]),
-            .json([
-                "data": [[
-                    "id": "version-1",
-                    "attributes": ["versionString": "1.2.3"]
-                ]]
-            ]),
-            .json([
-                "data": [
-                    "id": "version-1",
-                    "attributes": ["versionString": "1.2.3"]
+                    "attributes": ["locale": "en-US", "description": "Ready to ship"],
                 ]
             ]),
             .json([
                 "data": [
+                    [
+                        "id": "app-1",
+                        "attributes": ["bundleId": "com.example.app", "name": "Example"],
+                    ]
+                ]
+            ]),
+            .json([
+                "data": [
+                    [
+                        "id": "version-1",
+                        "attributes": ["versionString": "1.2.3"],
+                    ]
+                ]
+            ]),
+            .json([
+                "data": [
                     "id": "version-1",
-                    "attributes": ["versionString": "1.2.3"]
+                    "attributes": ["versionString": "1.2.3"],
+                ]
+            ]),
+            .json([
+                "data": [
+                    "id": "version-1",
+                    "attributes": ["versionString": "1.2.3"],
                 ]
             ]),
             .json([

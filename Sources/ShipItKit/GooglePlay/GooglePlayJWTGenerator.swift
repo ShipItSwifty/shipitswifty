@@ -1,6 +1,6 @@
-import Foundation
 import Crypto
 import CryptoExtras
+import Foundation
 import OSLog
 
 /// Generates and caches Google OAuth2 access tokens for service account authentication.
@@ -31,8 +31,9 @@ public actor GooglePlayJWTGenerator: Sendable {
     public func cachedOrNewToken() async throws -> String {
         let now = Date()
         if let token = cachedToken,
-           let expiry = tokenExpiresAt,
-           expiry.timeIntervalSince(now) > 60 {
+            let expiry = tokenExpiresAt,
+            expiry.timeIntervalSince(now) > 60
+        {
             return token
         }
         let token = try await fetchNewToken()
@@ -64,14 +65,14 @@ public actor GooglePlayJWTGenerator: Sendable {
 
         // Payload
         let payload = """
-        {
-          "iss": "\(credentials.clientEmail)",
-          "scope": "https://www.googleapis.com/auth/androidpublisher",
-          "aud": "\(credentials.tokenUri)",
-          "iat": \(now),
-          "exp": \(expiry)
-        }
-        """
+            {
+              "iss": "\(credentials.clientEmail)",
+              "scope": "https://www.googleapis.com/auth/androidpublisher",
+              "aud": "\(credentials.tokenUri)",
+              "iat": \(now),
+              "exp": \(expiry)
+            }
+            """
         let payloadB64 = base64URLEncode(Data(payload.utf8))
 
         let signingInput = "\(headerB64).\(payloadB64)"

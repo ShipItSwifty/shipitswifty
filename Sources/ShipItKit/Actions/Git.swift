@@ -152,7 +152,8 @@ public struct GitAction: Action {
 
     private func createCommit(options: Options, context: ActionContext) async throws -> Result {
         guard let message = options.commitMessage else {
-            throw ShipItError.invalidConfiguration(reason: "git commit requires a commit message. Set commit_message in the workflow step options.")
+            throw ShipItError.invalidConfiguration(
+                reason: "git commit requires a commit message. Set commit_message in the workflow step options.")
         }
 
         logger.info("Creating git commit: \(message)")

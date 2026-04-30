@@ -281,11 +281,12 @@ public struct Simctl: RunnableCommandFamily {
         operation: SimctlCommand?? = nil,
         trailingArguments: [String]? = nil
     ) -> Self {
-        Self(state: State(
-            xcrun: xcrun ?? state.xcrun,
-            operation: operation ?? state.operation,
-            trailingArguments: trailingArguments ?? state.trailingArguments
-        ))
+        Self(
+            state: State(
+                xcrun: xcrun ?? state.xcrun,
+                operation: operation ?? state.operation,
+                trailingArguments: trailingArguments ?? state.trailingArguments
+            ))
     }
 }
 
