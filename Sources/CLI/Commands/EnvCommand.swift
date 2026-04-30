@@ -28,19 +28,26 @@ struct EnvCommand: AsyncParsableCommand {
             case .human:
                 formatter.printHeader("Resolved Configuration")
                 formatter.printKV("Shipfile", "\(requestedShipfilePath) [loaded]")
-                formatter.printKV("Processed Files", config.processedFiles.isEmpty ? "(none)" : config.processedFiles.joined(separator: ", "))
+                formatter.printKV(
+                    "Processed Files", config.processedFiles.isEmpty ? "(none)" : config.processedFiles.joined(separator: ", "))
                 formatter.printKV("App Scheme", config.appScheme ?? "(not set)")
-                formatter.printKV("Bundle ID", resolvedValueDisplay(config.bundleID, fromTargetBuildSettings: config.bundleIDFromTargetBuildSettings))
-                formatter.printKV("Team ID", resolvedValueDisplay(config.teamID, fromTargetBuildSettings: config.teamIDFromTargetBuildSettings))
+                formatter.printKV(
+                    "Bundle ID", resolvedValueDisplay(config.bundleID, fromTargetBuildSettings: config.bundleIDFromTargetBuildSettings))
+                formatter.printKV(
+                    "Team ID", resolvedValueDisplay(config.teamID, fromTargetBuildSettings: config.teamIDFromTargetBuildSettings))
                 formatter.printKV("ASC Key ID", redact ? redactValue(config.ascKeyID) : (config.ascKeyID ?? "(not set)"))
                 formatter.printKV("ASC Issuer ID", redact ? redactValue(config.ascIssuerID) : (config.ascIssuerID ?? "(not set)"))
-                formatter.printKV("ASC Private Key", config.ascPrivateKeyData != nil ? (redact ? "[REDACTED]" : "[loaded, \(config.ascPrivateKeyData!.count) bytes]") : "(not set)")
+                formatter.printKV(
+                    "ASC Private Key",
+                    config.ascPrivateKeyData != nil
+                        ? (redact ? "[REDACTED]" : "[loaded, \(config.ascPrivateKeyData!.count) bytes]") : "(not set)")
                 formatter.printKV("Build Config", config.buildConfiguration)
                 formatter.printKV("Archive Method", config.archiveExportMethod)
                 formatter.printKV("Code Signing Type", config.codeSigningType)
                 formatter.printKV("Code Signing Storage", config.codeSigningStorage)
                 formatter.printKV("Code Signing Git URL", config.codeSigningGitUrl ?? "(not set)")
-                formatter.printKV("Slack Webhook", config.slackWebhookUrl != nil ? (redact ? "[REDACTED]" : config.slackWebhookUrl!) : "(not set)")
+                formatter.printKV(
+                    "Slack Webhook", config.slackWebhookUrl != nil ? (redact ? "[REDACTED]" : config.slackWebhookUrl!) : "(not set)")
 
                 if !config.workflows.isEmpty {
                     formatter.printHeader("Workflows")
@@ -64,9 +71,10 @@ struct EnvCommand: AsyncParsableCommand {
                             "path": .string(requestedShipfilePath),
                             "loaded": .bool(true),
                         ]),
-                        "environment": .object(envEntries(from: environment, config: config).reduce(into: [String: JSONValue]()) { result, entry in
-                            result[entry.key] = .string(entry.displayValue(redacted: redact))
-                        }),
+                        "environment": .object(
+                            envEntries(from: environment, config: config).reduce(into: [String: JSONValue]()) { result, entry in
+                                result[entry.key] = .string(entry.displayValue(redacted: redact))
+                            }),
                         "processedFiles": .array(config.processedFiles.map { .string($0) }),
                         "scheme": config.appScheme.map { .string($0) } ?? .null,
                         "bundleId": config.bundleID.map { .string($0) } ?? .null,
@@ -116,9 +124,13 @@ struct EnvCommand: AsyncParsableCommand {
                 fallbackValue: config.teamIDFromTargetBuildSettings ? config.teamID : nil,
                 fallbackSource: config.teamIDFromTargetBuildSettings ? "Xcode target build settings" : nil
             ),
-            EnvEntry(key: "SHIPIT_APP_STORE_CONNECT__KEY_ID", value: environment.value(for: "SHIPIT_APP_STORE_CONNECT__KEY_ID"), isSensitive: true),
+            EnvEntry(
+                key: "SHIPIT_APP_STORE_CONNECT__KEY_ID", value: environment.value(for: "SHIPIT_APP_STORE_CONNECT__KEY_ID"),
+                isSensitive: true),
             EnvEntry(key: "ASC_KEY_ID", value: environment.value(for: "ASC_KEY_ID"), isSensitive: true),
-            EnvEntry(key: "SHIPIT_APP_STORE_CONNECT__ISSUER_ID", value: environment.value(for: "SHIPIT_APP_STORE_CONNECT__ISSUER_ID"), isSensitive: true),
+            EnvEntry(
+                key: "SHIPIT_APP_STORE_CONNECT__ISSUER_ID", value: environment.value(for: "SHIPIT_APP_STORE_CONNECT__ISSUER_ID"),
+                isSensitive: true),
             EnvEntry(key: "ASC_ISSUER_ID", value: environment.value(for: "ASC_ISSUER_ID"), isSensitive: true),
             EnvEntry(key: "SHIPIT_APP_STORE_CONNECT__KEY_PATH", value: environment.value(for: "SHIPIT_APP_STORE_CONNECT__KEY_PATH")),
             EnvEntry(key: "ASC_PRIVATE_KEY_PATH", value: environment.value(for: "ASC_PRIVATE_KEY_PATH")),

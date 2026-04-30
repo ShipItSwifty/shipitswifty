@@ -26,7 +26,8 @@ struct ArchiveCommand: AsyncParsableCommand {
         do {
             let config = try await resolveRequiredConfig(
                 global: global,
-                cliOptions: CLIOptions(scheme: scheme, configuration: configuration, ci: global.ci, dryRun: global.dryRun, platform: global.platform)
+                cliOptions: CLIOptions(
+                    scheme: scheme, configuration: configuration, ci: global.ci, dryRun: global.dryRun, platform: global.platform)
             )
             let context = try await buildActionContext(config: config)
             let formatter = makeHumanFormatter(global: global)

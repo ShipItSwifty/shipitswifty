@@ -1,6 +1,7 @@
 import Foundation
-import Testing
 import SwiftyShell
+import Testing
+
 @testable import ShipItKit
 
 // MARK: - BuildAction Tests
@@ -69,10 +70,10 @@ struct BuildActionTests {
     @Test("BuildAction counts warnings in output")
     func buildActionWarningCount() async throws {
         let warningOutput = """
-        /MyApp/Sources/File.swift:10:5: warning: unused variable 'x'
-        /MyApp/Sources/Other.swift:20:3: warning: deprecated API usage
-        Build Succeeded
-        """
+            /MyApp/Sources/File.swift:10:5: warning: unused variable 'x'
+            /MyApp/Sources/Other.swift:20:3: warning: deprecated API usage
+            Build Succeeded
+            """
         let executor = MockExecutor { _, _ in
             ShellOutput(stdout: warningOutput, stderr: "", exitCode: 0)
         }

@@ -80,10 +80,10 @@ public struct GenerateProjectAction: Action {
         guard let command, !command.isEmpty else {
             throw ShipItError.invalidConfiguration(
                 reason: """
-                No project generation command configured. \
-                Set project_generation.command in Shipfile.yml (e.g. "xcodegen generate") \
-                or pass it as an option to the generate_project action.
-                """
+                    No project generation command configured. \
+                    Set project_generation.command in Shipfile.yml (e.g. "xcodegen generate") \
+                    or pass it as an option to the generate_project action.
+                    """
             )
         }
 
@@ -93,10 +93,10 @@ public struct GenerateProjectAction: Action {
             guard FileManager.default.fileExists(atPath: specPath) else {
                 throw ShipItError.invalidConfiguration(
                     reason: """
-                    Project spec file not found at '\(specPath)'. \
-                    Ensure the spec_path in project_generation config points to an existing file \
-                    (e.g. project.yml for XcodeGen).
-                    """
+                        Project spec file not found at '\(specPath)'. \
+                        Ensure the spec_path in project_generation config points to an existing file \
+                        (e.g. project.yml for XcodeGen).
+                        """
                 )
             }
         }
@@ -141,10 +141,10 @@ public struct GenerateProjectAction: Action {
             guard FileManager.default.fileExists(atPath: outputProject) else {
                 throw ShipItError.invalidConfiguration(
                     reason: """
-                    Project generation command succeeded but the expected output \
-                    '\(outputProject)' was not found. Check that the command produces \
-                    output at the configured output_project path.
-                    """
+                        Project generation command succeeded but the expected output \
+                        '\(outputProject)' was not found. Check that the command produces \
+                        output at the configured output_project path.
+                        """
                 )
             }
             logger.info("Project generated successfully at '\(outputProject)'")
@@ -183,7 +183,8 @@ extension ActionContext {
 
         // Check if the output project already exists
         if let outputProject = config.projectGenerationOutputProject,
-           FileManager.default.fileExists(atPath: outputProject) {
+            FileManager.default.fileExists(atPath: outputProject)
+        {
             return
         }
 

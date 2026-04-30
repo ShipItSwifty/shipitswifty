@@ -27,8 +27,7 @@ extension BuildTimingAction {
         let outcome = try await command.run(in: context.shell)
         let elapsed = ContinuousClock.now - start
 
-        let seconds = Double(elapsed.components.seconds) +
-            Double(elapsed.components.attoseconds) / 1e18
+        let seconds = Double(elapsed.components.seconds) + Double(elapsed.components.attoseconds) / 1e18
         Self.logger.info("\(options.command) took \(seconds, format: .fixed(precision: 2))s")
 
         return Result(

@@ -141,7 +141,8 @@ public struct ArchiveAction: Action {
         }
 
         let configuration = options.configuration ?? context.config.buildConfiguration
-        let archivePath = options.outputPath
+        let archivePath =
+            options.outputPath
             ?? context.config.archiveOutputPath
             ?? "./build/\(scheme).xcarchive"
 

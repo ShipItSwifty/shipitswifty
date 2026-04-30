@@ -41,7 +41,8 @@ public struct Notifier: Sendable {
 
         let (_, response) = try await session.data(for: request)
         guard let httpResponse = response as? HTTPURLResponse,
-              (200..<300).contains(httpResponse.statusCode) else {
+            (200..<300).contains(httpResponse.statusCode)
+        else {
             throw ShipItError.uploadFailed(asset: "slack", reason: "Slack webhook returned non-2xx response")
         }
 
@@ -69,7 +70,8 @@ public struct Notifier: Sendable {
 
         let (_, response) = try await session.data(for: request)
         guard let httpResponse = response as? HTTPURLResponse,
-              (200..<300).contains(httpResponse.statusCode) else {
+            (200..<300).contains(httpResponse.statusCode)
+        else {
             throw ShipItError.uploadFailed(asset: webhookURL, reason: "Webhook returned non-2xx response")
         }
 

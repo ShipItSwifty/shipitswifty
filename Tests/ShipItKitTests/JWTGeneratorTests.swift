@@ -1,6 +1,7 @@
 import Crypto
 import Foundation
 import Testing
+
 @testable import ShipItKit
 
 /// Regression tests for ``JWTGenerator`` covering:
@@ -27,7 +28,7 @@ struct JWTGeneratorTests {
         // Build a PKCS#8 DER that mirrors Apple's format.
         // ECPrivateKey inner SEQUENCE includes [0] (curve OID) and [1] (public point).
         let realKey = P256.Signing.PrivateKey()
-        let scalar = realKey.rawRepresentation          // 32-byte private scalar
+        let scalar = realKey.rawRepresentation  // 32-byte private scalar
         let pubPoint = realKey.publicKey.x963Representation  // 65 bytes: 04 || X || Y
 
         // ECPrivateKey ::= SEQUENCE {
@@ -37,7 +38,7 @@ struct JWTGeneratorTests {
         //   [1] EXPLICIT BIT STRING (uncompressed point)
         // }
         let p256OID: [UInt8] = [0x06, 0x08, 0x2a, 0x86, 0x48, 0xce, 0x3d, 0x03, 0x01, 0x07]
-        let ecOID:   [UInt8] = [0x06, 0x07, 0x2a, 0x86, 0x48, 0xce, 0x3d, 0x02, 0x01]
+        let ecOID: [UInt8] = [0x06, 0x07, 0x2a, 0x86, 0x48, 0xce, 0x3d, 0x02, 0x01]
 
         // [0] EXPLICIT: a0 0a 06 08 <P-256 OID>
         let tag0: [UInt8] = [0xa0, UInt8(p256OID.count)] + p256OID
@@ -47,9 +48,9 @@ struct JWTGeneratorTests {
         let tag1: [UInt8] = [0xa1, UInt8(bitString.count)] + bitString
 
         let ecPrivateKeyBody: [UInt8] =
-            [0x02, 0x01, 0x01] +                        // version INTEGER 1
-            [0x04, 0x20] + scalar +                     // privateKey OCTET STRING
-            tag0 + tag1
+            [0x02, 0x01, 0x01]  // version INTEGER 1
+            + [0x04, 0x20] + scalar  // privateKey OCTET STRING
+            + tag0 + tag1
 
         let ecPrivateKeySeq: [UInt8] = [0x30, UInt8(ecPrivateKeyBody.count)] + ecPrivateKeyBody
         let octetString: [UInt8] = [0x04, UInt8(ecPrivateKeySeq.count)] + ecPrivateKeySeq
@@ -63,9 +64,7 @@ struct JWTGeneratorTests {
         let pki: [UInt8] = [0x30, UInt8(pkiBody.count)] + pkiBody
 
         let pem =
-            "-----BEGIN PRIVATE KEY-----\n" +
-            Data(pki).base64EncodedString() + "\n" +
-            "-----END PRIVATE KEY-----"
+            "-----BEGIN PRIVATE KEY-----\n" + Data(pki).base64EncodedString() + "\n" + "-----END PRIVATE KEY-----"
 
         // ES256PrivateKey(pem:) will throw CryptoKitASN1Error.unhandledEncoding here.
         // loadES256Key must succeed via the scalar-extraction fallback.
@@ -93,17 +92,17 @@ struct JWTGeneratorTests {
         let body: [UInt8] = marker + originalScalar + dummy
         let seq: [UInt8] = [0x30, UInt8(body.count)] + body
         // Wrap in outer PKCS#8 shell
-        let algId: [UInt8] = [0x30, 0x13,
+        let algId: [UInt8] = [
+            0x30, 0x13,
             0x06, 0x07, 0x2a, 0x86, 0x48, 0xce, 0x3d, 0x02, 0x01,
-            0x06, 0x08, 0x2a, 0x86, 0x48, 0xce, 0x3d, 0x03, 0x01, 0x07]
+            0x06, 0x08, 0x2a, 0x86, 0x48, 0xce, 0x3d, 0x03, 0x01, 0x07,
+        ]
         let octet: [UInt8] = [0x04, UInt8(seq.count)] + seq
         let pkiBody: [UInt8] = [0x02, 0x01, 0x00] + algId + octet
         let pki: [UInt8] = [0x30, UInt8(pkiBody.count)] + pkiBody
 
         let pem =
-            "-----BEGIN PRIVATE KEY-----\n" +
-            Data(pki).base64EncodedString() + "\n" +
-            "-----END PRIVATE KEY-----"
+            "-----BEGIN PRIVATE KEY-----\n" + Data(pki).base64EncodedString() + "\n" + "-----END PRIVATE KEY-----"
 
         let extracted = try JWTGenerator.rawPrivateScalar(fromPKCS8PEM: pem)
         #expect(extracted == originalScalar, "Extracted scalar must match the original 32-byte key")
@@ -257,7 +256,8 @@ struct JWTGeneratorTests {
         let payload = try jwtPayload(from: token)
 
         guard case .number(let iat) = payload["iat"],
-              case .number(let exp) = payload["exp"] else {
+            case .number(let exp) = payload["exp"]
+        else {
             Issue.record("iat/exp are missing or wrong type")
             return
         }
@@ -366,7 +366,7 @@ private func jwtPayload(from token: String) throws -> [String: ClaimValue] {
 
 private func decodeBase64URLJSON(_ base64url: String) throws -> [String: ClaimValue] {
     guard let data = base64URLDecode(base64url),
-          let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+        let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
     else { throw TestError.malformedJSON }
 
     var result: [String: ClaimValue] = [:]
@@ -388,7 +388,8 @@ private func decodeBase64URLJSON(_ base64url: String) throws -> [String: ClaimVa
 }
 
 private func base64URLDecode(_ base64url: String) -> Data? {
-    var base64 = base64url
+    var base64 =
+        base64url
         .replacingOccurrences(of: "-", with: "+")
         .replacingOccurrences(of: "_", with: "/")
     let remainder = base64.count % 4

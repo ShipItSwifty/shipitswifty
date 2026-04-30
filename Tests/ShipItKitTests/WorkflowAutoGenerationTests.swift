@@ -1,6 +1,7 @@
 import Foundation
-import Testing
 import SwiftyShell
+import Testing
+
 @testable import ShipItKit
 
 @Suite("Workflow auto-generation")
@@ -40,9 +41,11 @@ struct WorkflowAutoGenerationTests {
             projectGenerationTool: "xcodegen",
             projectGenerationCommand: "xcodegen generate",
             projectGenerationAutoGenerate: true
-            // Note: no projectGenerationOutputProject — so FileManager check for existence is skipped
+                // Note: no projectGenerationOutputProject — so FileManager check for existence is skipped
         )
-        let dummyKeyData = Data("-----BEGIN EC PRIVATE KEY-----\nMHQCAQEEIBkg4DUVQ1fIFUHBABCLRrFwNVm7MAkGByqGSM49AgEFoWQDYgAE\n-----END EC PRIVATE KEY-----".utf8)
+        let dummyKeyData = Data(
+            "-----BEGIN EC PRIVATE KEY-----\nMHQCAQEEIBkg4DUVQ1fIFUHBABCLRrFwNVm7MAkGByqGSM49AgEFoWQDYgAE\n-----END EC PRIVATE KEY-----"
+                .utf8)
         let ascClient = AppStoreConnectClient(keyID: "K", issuerID: "I", privateKeyData: dummyKeyData)
         let context = ActionContext(
             shell: ShellContext(executor: executor),
@@ -53,9 +56,11 @@ struct WorkflowAutoGenerationTests {
 
         let registry = try await makeRegistry(actionNames: ["build"])
 
-        let workflow = Workflow("test-workflow", steps: [
-            WorkflowStep(action: "build"),
-        ])
+        let workflow = Workflow(
+            "test-workflow",
+            steps: [
+                WorkflowStep(action: "build")
+            ])
 
         let result = try await workflow.run(context: context, registry: registry)
 
@@ -74,7 +79,9 @@ struct WorkflowAutoGenerationTests {
             projectGenerationCommand: "xcodegen generate",
             projectGenerationAutoGenerate: true
         )
-        let dummyKeyData = Data("-----BEGIN EC PRIVATE KEY-----\nMHQCAQEEIBkg4DUVQ1fIFUHBABCLRrFwNVm7MAkGByqGSM49AgEFoWQDYgAE\n-----END EC PRIVATE KEY-----".utf8)
+        let dummyKeyData = Data(
+            "-----BEGIN EC PRIVATE KEY-----\nMHQCAQEEIBkg4DUVQ1fIFUHBABCLRrFwNVm7MAkGByqGSM49AgEFoWQDYgAE\n-----END EC PRIVATE KEY-----"
+                .utf8)
         let ascClient = AppStoreConnectClient(keyID: "K", issuerID: "I", privateKeyData: dummyKeyData)
         let context = ActionContext(
             shell: ShellContext(executor: executor),
@@ -86,9 +93,11 @@ struct WorkflowAutoGenerationTests {
         // Register a non-Xcode action (e.g. "testflight", "notify")
         let registry = try await makeRegistry(actionNames: ["notify"])
 
-        let workflow = Workflow("notify-only", steps: [
-            WorkflowStep(action: "notify"),
-        ])
+        let workflow = Workflow(
+            "notify-only",
+            steps: [
+                WorkflowStep(action: "notify")
+            ])
 
         let result = try await workflow.run(context: context, registry: registry)
 
@@ -109,9 +118,11 @@ struct WorkflowAutoGenerationTests {
         let context = ActionContext.mock(executor: executor)
         let registry = try await makeRegistry(actionNames: ["build"])
 
-        let workflow = Workflow("basic-build", steps: [
-            WorkflowStep(action: "build"),
-        ])
+        let workflow = Workflow(
+            "basic-build",
+            steps: [
+                WorkflowStep(action: "build")
+            ])
 
         let result = try await workflow.run(context: context, registry: registry)
 
@@ -130,7 +141,9 @@ struct WorkflowAutoGenerationTests {
             projectGenerationCommand: "xcodegen generate",
             projectGenerationAutoGenerate: false  // disabled
         )
-        let dummyKeyData = Data("-----BEGIN EC PRIVATE KEY-----\nMHQCAQEEIBkg4DUVQ1fIFUHBABCLRrFwNVm7MAkGByqGSM49AgEFoWQDYgAE\n-----END EC PRIVATE KEY-----".utf8)
+        let dummyKeyData = Data(
+            "-----BEGIN EC PRIVATE KEY-----\nMHQCAQEEIBkg4DUVQ1fIFUHBABCLRrFwNVm7MAkGByqGSM49AgEFoWQDYgAE\n-----END EC PRIVATE KEY-----"
+                .utf8)
         let ascClient = AppStoreConnectClient(keyID: "K", issuerID: "I", privateKeyData: dummyKeyData)
         let context = ActionContext(
             shell: ShellContext(executor: executor),
@@ -141,9 +154,11 @@ struct WorkflowAutoGenerationTests {
 
         let registry = try await makeRegistry(actionNames: ["build"])
 
-        let workflow = Workflow("build-no-autogen", steps: [
-            WorkflowStep(action: "build"),
-        ])
+        let workflow = Workflow(
+            "build-no-autogen",
+            steps: [
+                WorkflowStep(action: "build")
+            ])
 
         let result = try await workflow.run(context: context, registry: registry)
 
@@ -160,10 +175,12 @@ struct WorkflowAutoGenerationTests {
 
         let registry = try await makeRegistry(actionNames: ["build", "archive"])
 
-        let workflow = Workflow("multi-step", steps: [
-            WorkflowStep(action: "build"),
-            WorkflowStep(action: "archive"),
-        ])
+        let workflow = Workflow(
+            "multi-step",
+            steps: [
+                WorkflowStep(action: "build"),
+                WorkflowStep(action: "archive"),
+            ])
 
         let result = try await workflow.run(context: context, registry: registry)
 
@@ -182,9 +199,11 @@ struct WorkflowAutoGenerationTests {
         let context = ActionContext.mock(executor: executor)
         let registry = ActionRegistry()
 
-        let workflow = Workflow("bad-workflow", steps: [
-            WorkflowStep(action: "nonexistent_action"),
-        ])
+        let workflow = Workflow(
+            "bad-workflow",
+            steps: [
+                WorkflowStep(action: "nonexistent_action")
+            ])
 
         await #expect(throws: ShipItError.self) {
             _ = try await workflow.run(context: context, registry: registry)
@@ -219,7 +238,9 @@ struct EnsureProjectGeneratedTests {
             projectGenerationCommand: "xcodegen generate",
             projectGenerationAutoGenerate: false
         )
-        let dummyKeyData = Data("-----BEGIN EC PRIVATE KEY-----\nMHQCAQEEIBkg4DUVQ1fIFUHBABCLRrFwNVm7MAkGByqGSM49AgEFoWQDYgAE\n-----END EC PRIVATE KEY-----".utf8)
+        let dummyKeyData = Data(
+            "-----BEGIN EC PRIVATE KEY-----\nMHQCAQEEIBkg4DUVQ1fIFUHBABCLRrFwNVm7MAkGByqGSM49AgEFoWQDYgAE\n-----END EC PRIVATE KEY-----"
+                .utf8)
         let ascClient = AppStoreConnectClient(keyID: "K", issuerID: "I", privateKeyData: dummyKeyData)
         let context = ActionContext(
             shell: ShellContext(executor: executor),
@@ -244,7 +265,9 @@ struct EnsureProjectGeneratedTests {
             projectGenerationOutputProject: "/nonexistent/MyApp.xcodeproj",
             projectGenerationAutoGenerate: true
         )
-        let dummyKeyData = Data("-----BEGIN EC PRIVATE KEY-----\nMHQCAQEEIBkg4DUVQ1fIFUHBABCLRrFwNVm7MAkGByqGSM49AgEFoWQDYgAE\n-----END EC PRIVATE KEY-----".utf8)
+        let dummyKeyData = Data(
+            "-----BEGIN EC PRIVATE KEY-----\nMHQCAQEEIBkg4DUVQ1fIFUHBABCLRrFwNVm7MAkGByqGSM49AgEFoWQDYgAE\n-----END EC PRIVATE KEY-----"
+                .utf8)
         let ascClient = AppStoreConnectClient(keyID: "K", issuerID: "I", privateKeyData: dummyKeyData)
         let context = ActionContext(
             shell: ShellContext(executor: executor),
@@ -283,7 +306,9 @@ struct EnsureProjectGeneratedTests {
             projectGenerationOutputProject: projectPath,
             projectGenerationAutoGenerate: true
         )
-        let dummyKeyData = Data("-----BEGIN EC PRIVATE KEY-----\nMHQCAQEEIBkg4DUVQ1fIFUHBABCLRrFwNVm7MAkGByqGSM49AgEFoWQDYgAE\n-----END EC PRIVATE KEY-----".utf8)
+        let dummyKeyData = Data(
+            "-----BEGIN EC PRIVATE KEY-----\nMHQCAQEEIBkg4DUVQ1fIFUHBABCLRrFwNVm7MAkGByqGSM49AgEFoWQDYgAE\n-----END EC PRIVATE KEY-----"
+                .utf8)
         let ascClient = AppStoreConnectClient(keyID: "K", issuerID: "I", privateKeyData: dummyKeyData)
         let context = ActionContext(
             shell: ShellContext(executor: executor),

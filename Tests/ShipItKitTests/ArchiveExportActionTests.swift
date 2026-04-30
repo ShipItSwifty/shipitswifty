@@ -1,6 +1,7 @@
 import Foundation
-import Testing
 import SwiftyShell
+import Testing
+
 @testable import ShipItKit
 
 @Suite("Archive and Export Actions")
@@ -50,7 +51,8 @@ struct ArchiveExportActionTests {
         let executor = MockExecutor { command, _ in
             capturedCommand = command
             if let plistIndex = command.arguments.firstIndex(of: "-exportOptionsPlist"),
-               plistIndex + 1 < command.arguments.count {
+                plistIndex + 1 < command.arguments.count
+            {
                 plistContents = try String(
                     contentsOfFile: command.arguments[plistIndex + 1],
                     encoding: .utf8
@@ -124,8 +126,9 @@ struct ArchiveExportActionTests {
 
         _ = try await ExportAction().run(with: .init(), context: context)
 
-        #expect(capturedCommand?.arguments.contains("-allowProvisioningUpdates") != true,
-                "Manual signing should NOT pass -allowProvisioningUpdates")
+        #expect(
+            capturedCommand?.arguments.contains("-allowProvisioningUpdates") != true,
+            "Manual signing should NOT pass -allowProvisioningUpdates")
     }
 
     @Test("ExportAction omits teamID key from plist when teamID is not configured")
@@ -143,7 +146,8 @@ struct ArchiveExportActionTests {
 
         let executor = MockExecutor { command, _ in
             if let plistIndex = command.arguments.firstIndex(of: "-exportOptionsPlist"),
-               plistIndex + 1 < command.arguments.count {
+                plistIndex + 1 < command.arguments.count
+            {
                 plistContents = try String(
                     contentsOfFile: command.arguments[plistIndex + 1],
                     encoding: .utf8
@@ -156,7 +160,7 @@ struct ArchiveExportActionTests {
         let config = ResolvedConfig(
             archiveOutputPath: archivePath,
             exportOutputDirectory: exportDirectory.path
-            // teamID intentionally omitted
+                // teamID intentionally omitted
         )
         let context = ActionContext(
             shell: baseContext.shell,
@@ -191,7 +195,8 @@ struct ArchiveExportActionTests {
 
         let executor = MockExecutor { command, _ in
             if let plistIndex = command.arguments.firstIndex(of: "-exportOptionsPlist"),
-               plistIndex + 1 < command.arguments.count {
+                plistIndex + 1 < command.arguments.count
+            {
                 plistContents = try String(
                     contentsOfFile: command.arguments[plistIndex + 1],
                     encoding: .utf8

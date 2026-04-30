@@ -95,7 +95,8 @@ public struct TestFlightAction: Action {
             throw ShipItError.invalidConfiguration(reason: "TestFlight requires an IPA path. Pass --ipa /path/to/App.ipa.")
         }
         guard let bundleID = context.config.bundleID else {
-            throw ShipItError.invalidConfiguration(reason: "TestFlight requires app.bundle_id. Set app.bundle_id in Shipfile.yml or export SHIPIT_APP__BUNDLE_ID.")
+            throw ShipItError.invalidConfiguration(
+                reason: "TestFlight requires app.bundle_id. Set app.bundle_id in Shipfile.yml or export SHIPIT_APP__BUNDLE_ID.")
         }
 
         let ipaURL = URL(fileURLWithPath: ipaPath)
@@ -103,7 +104,8 @@ public struct TestFlightAction: Action {
             throw ShipItError.uploadFailed(asset: ipaPath, reason: "IPA not found: \(ipaPath)")
         }
 
-        let skipWaiting = options.skipWaitingForBuildProcessing
+        let skipWaiting =
+            options.skipWaitingForBuildProcessing
             ?? context.config.skipWaitingForBuildProcessing
         let groups = options.groups ?? context.config.testFlightGroups
         let needsBuildID = !skipWaiting || !groups.isEmpty

@@ -14,8 +14,27 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  lint:
+    name: Format Lint
+    runs-on: macos-26
+
+    steps:
+      - name: Checkout ShipItSwifty
+        uses: actions/checkout@v6
+        with:
+          path: ShipItSwifty
+          persist-credentials: false
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_26.4.app
+
+      - name: swift-format lint
+        working-directory: ShipItSwifty
+        run: swift-format lint --recursive --strict --configuration .swift-format Sources Tests
+
   build-and-test:
     name: Build & Test
+    needs: lint
     runs-on: macos-26
 
     steps:

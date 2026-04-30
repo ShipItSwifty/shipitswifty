@@ -1,6 +1,7 @@
 import Foundation
-import Testing
 import SwiftyShell
+import Testing
+
 @testable import ShipItKit
 
 // MARK: - Gradle command builder tests
@@ -312,9 +313,10 @@ struct PlatformGuardTests {
     // MARK: - Helpers
 
     private func makeAndroidContext() -> ActionContext {
-        let base = ActionContext.mock(executor: MockExecutor { _, _ in
-            ShellOutput(stdout: "", stderr: "", exitCode: 0)
-        })
+        let base = ActionContext.mock(
+            executor: MockExecutor { _, _ in
+                ShellOutput(stdout: "", stderr: "", exitCode: 0)
+            })
         return ActionContext(
             shell: base.shell,
             logger: base.logger,

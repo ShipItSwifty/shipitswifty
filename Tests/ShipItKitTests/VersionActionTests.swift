@@ -1,6 +1,7 @@
 import Foundation
-import Testing
 import SwiftyShell
+import Testing
+
 @testable import ShipItKit
 
 @Suite("VersionAction")
@@ -192,9 +193,9 @@ struct VersionActionTests {
             if description.contains("xcodebuild") && description.contains("showBuildSettings") {
                 return ShellOutput(
                     stdout: """
-                        MARKETING_VERSION = 2.5.0
-                        CURRENT_PROJECT_VERSION = 77
-                    """,
+                            MARKETING_VERSION = 2.5.0
+                            CURRENT_PROJECT_VERSION = 77
+                        """,
                     stderr: "",
                     exitCode: 0
                 )
@@ -380,7 +381,9 @@ struct VersionActionTests {
             versioningSource: "project_spec",
             versioningSpecPath: specPath
         )
-        let dummyKeyData = Data("-----BEGIN EC PRIVATE KEY-----\nMHQCAQEEIBkg4DUVQ1fIFUHBABCLRrFwNVm7MAkGByqGSM49AgEFoWQDYgAE\n-----END EC PRIVATE KEY-----".utf8)
+        let dummyKeyData = Data(
+            "-----BEGIN EC PRIVATE KEY-----\nMHQCAQEEIBkg4DUVQ1fIFUHBABCLRrFwNVm7MAkGByqGSM49AgEFoWQDYgAE\n-----END EC PRIVATE KEY-----"
+                .utf8)
         let ascClient = AppStoreConnectClient(keyID: "K", issuerID: "I", privateKeyData: dummyKeyData)
         return ActionContext(
             shell: ShellContext(executor: executor),
@@ -393,11 +396,11 @@ struct VersionActionTests {
     @Test("VersionAction project_spec source reads and bumps build number in YAML")
     func projectSpecBumpsBuild() async throws {
         let yaml = """
-        name: MyApp
-        settings:
-          MARKETING_VERSION: "1.0.0"
-          CURRENT_PROJECT_VERSION: "10"
-        """
+            name: MyApp
+            settings:
+              MARKETING_VERSION: "1.0.0"
+              CURRENT_PROJECT_VERSION: "10"
+            """
         let (path, cleanup) = try makeTempSpec(content: yaml)
         defer { cleanup() }
 
@@ -420,11 +423,11 @@ struct VersionActionTests {
     @Test("VersionAction project_spec source bumps patch version in YAML")
     func projectSpecBumpsPatch() async throws {
         let yaml = """
-        name: MyApp
-        settings:
-          MARKETING_VERSION: "2.3.4"
-          CURRENT_PROJECT_VERSION: "50"
-        """
+            name: MyApp
+            settings:
+              MARKETING_VERSION: "2.3.4"
+              CURRENT_PROJECT_VERSION: "50"
+            """
         let (path, cleanup) = try makeTempSpec(content: yaml)
         defer { cleanup() }
 
@@ -444,10 +447,10 @@ struct VersionActionTests {
     @Test("VersionAction project_spec source sets explicit version and build")
     func projectSpecSetsExplicit() async throws {
         let yaml = """
-        settings:
-          MARKETING_VERSION: "1.0.0"
-          CURRENT_PROJECT_VERSION: "1"
-        """
+            settings:
+              MARKETING_VERSION: "1.0.0"
+              CURRENT_PROJECT_VERSION: "1"
+            """
         let (path, cleanup) = try makeTempSpec(content: yaml)
         defer { cleanup() }
 
@@ -471,10 +474,10 @@ struct VersionActionTests {
     @Test("VersionAction does not invoke agvtool or xcodebuild for project_spec source")
     func projectSpecDoesNotCallShell() async throws {
         let yaml = """
-        settings:
-          MARKETING_VERSION: "1.0.0"
-          CURRENT_PROJECT_VERSION: "1"
-        """
+            settings:
+              MARKETING_VERSION: "1.0.0"
+              CURRENT_PROJECT_VERSION: "1"
+            """
         let (path, cleanup) = try makeTempSpec(content: yaml)
         defer { cleanup() }
 
@@ -491,10 +494,10 @@ struct VersionActionTests {
     @Test("VersionAction target: source_of_truth overrides xcodeproj config to use project_spec")
     func targetOverridesToProjectSpec() async throws {
         let yaml = """
-        settings:
-          MARKETING_VERSION: "1.0.0"
-          CURRENT_PROJECT_VERSION: "5"
-        """
+            settings:
+              MARKETING_VERSION: "1.0.0"
+              CURRENT_PROJECT_VERSION: "5"
+            """
         let (path, cleanup) = try makeTempSpec(content: yaml)
         defer { cleanup() }
 
@@ -507,7 +510,9 @@ struct VersionActionTests {
             versioningSource: "xcodeproj",
             versioningSpecPath: path
         )
-        let dummyKeyData = Data("-----BEGIN EC PRIVATE KEY-----\nMHQCAQEEIBkg4DUVQ1fIFUHBABCLRrFwNVm7MAkGByqGSM49AgEFoWQDYgAE\n-----END EC PRIVATE KEY-----".utf8)
+        let dummyKeyData = Data(
+            "-----BEGIN EC PRIVATE KEY-----\nMHQCAQEEIBkg4DUVQ1fIFUHBABCLRrFwNVm7MAkGByqGSM49AgEFoWQDYgAE\n-----END EC PRIVATE KEY-----"
+                .utf8)
         let ascClient = AppStoreConnectClient(keyID: "K", issuerID: "I", privateKeyData: dummyKeyData)
         let context = ActionContext(
             shell: ShellContext(executor: executor),
@@ -532,10 +537,10 @@ struct VersionActionTests {
     @Test("VersionAction target: project_spec is equivalent to source_of_truth")
     func targetProjectSpecAlias() async throws {
         let yaml = """
-        settings:
-          MARKETING_VERSION: "1.0.0"
-          CURRENT_PROJECT_VERSION: "7"
-        """
+            settings:
+              MARKETING_VERSION: "1.0.0"
+              CURRENT_PROJECT_VERSION: "7"
+            """
         let (path, cleanup) = try makeTempSpec(content: yaml)
         defer { cleanup() }
 
@@ -547,7 +552,9 @@ struct VersionActionTests {
             versioningSource: "xcodeproj",
             versioningSpecPath: path
         )
-        let dummyKeyData = Data("-----BEGIN EC PRIVATE KEY-----\nMHQCAQEEIBkg4DUVQ1fIFUHBABCLRrFwNVm7MAkGByqGSM49AgEFoWQDYgAE\n-----END EC PRIVATE KEY-----".utf8)
+        let dummyKeyData = Data(
+            "-----BEGIN EC PRIVATE KEY-----\nMHQCAQEEIBkg4DUVQ1fIFUHBABCLRrFwNVm7MAkGByqGSM49AgEFoWQDYgAE\n-----END EC PRIVATE KEY-----"
+                .utf8)
         let ascClient = AppStoreConnectClient(keyID: "K", issuerID: "I", privateKeyData: dummyKeyData)
         let context = ActionContext(
             shell: ShellContext(executor: executor),
@@ -588,7 +595,9 @@ struct VersionActionTests {
             versioningSource: "project_spec",
             versioningSpecPath: "/some/path/project.yml"
         )
-        let dummyKeyData = Data("-----BEGIN EC PRIVATE KEY-----\nMHQCAQEEIBkg4DUVQ1fIFUHBABCLRrFwNVm7MAkGByqGSM49AgEFoWQDYgAE\n-----END EC PRIVATE KEY-----".utf8)
+        let dummyKeyData = Data(
+            "-----BEGIN EC PRIVATE KEY-----\nMHQCAQEEIBkg4DUVQ1fIFUHBABCLRrFwNVm7MAkGByqGSM49AgEFoWQDYgAE\n-----END EC PRIVATE KEY-----"
+                .utf8)
         let ascClient = AppStoreConnectClient(keyID: "K", issuerID: "I", privateKeyData: dummyKeyData)
         let context = ActionContext(
             shell: ShellContext(executor: executor),
@@ -611,10 +620,10 @@ struct VersionActionTests {
     @Test("VersionAction with no target option uses config versioningSource")
     func noTargetUsesConfigSource() async throws {
         let yaml = """
-        settings:
-          MARKETING_VERSION: "1.0.0"
-          CURRENT_PROJECT_VERSION: "3"
-        """
+            settings:
+              MARKETING_VERSION: "1.0.0"
+              CURRENT_PROJECT_VERSION: "3"
+            """
         let (path, cleanup) = try makeTempSpec(content: yaml)
         defer { cleanup() }
 

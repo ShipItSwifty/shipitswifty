@@ -1,6 +1,7 @@
 import Foundation
-import Testing
 import SwiftyShell
+import Testing
+
 @testable import ShipItKit
 
 @Suite("UploadAction", .serialized)
@@ -33,10 +34,12 @@ struct UploadActionTests {
 
             if path == "/v1/apps" {
                 return .json([
-                    "data": [[
-                        "id": "app-1",
-                        "attributes": ["bundleId": "com.example.app", "name": "Example"]
-                    ]]
+                    "data": [
+                        [
+                            "id": "app-1",
+                            "attributes": ["bundleId": "com.example.app", "name": "Example"],
+                        ]
+                    ]
                 ])
             }
             // Build lookup after altool upload
@@ -82,10 +85,12 @@ struct UploadActionTests {
 
             if path == "/v1/apps" {
                 return .json([
-                    "data": [[
-                        "id": "app-1",
-                        "attributes": ["bundleId": "com.example.app", "name": "Example"]
-                    ]]
+                    "data": [
+                        [
+                            "id": "app-1",
+                            "attributes": ["bundleId": "com.example.app", "name": "Example"],
+                        ]
+                    ]
                 ])
             }
             if path == "/v1/builds", query["filter[version]"] == "2" {
@@ -95,10 +100,12 @@ struct UploadActionTests {
             }
             if path == "/v1/apps/app-1/appStoreVersions" {
                 return .json([
-                    "data": [[
-                        "id": "version-1",
-                        "attributes": ["versionString": "1.2.3"]
-                    ]]
+                    "data": [
+                        [
+                            "id": "version-1",
+                            "attributes": ["versionString": "1.2.3"],
+                        ]
+                    ]
                 ])
             }
             if path == "/v1/appStoreVersions/version-1", request.httpMethod == "PATCH" {
@@ -140,7 +147,7 @@ struct UploadActionTests {
         session: URLSession,
         bundleID: String,
         submitForReview: Bool = false
-        ) -> ActionContext {
+    ) -> ActionContext {
         let base = ActionContext.mock(executor: executor)
         let homeURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("shipit-upload-action-home-\(UUID().uuidString)", isDirectory: true)

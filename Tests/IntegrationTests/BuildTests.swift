@@ -1,5 +1,5 @@
-import Testing
 import Foundation
+import Testing
 
 /// Integration tests for the iOS build/archive pipeline against the fixture project.
 ///
@@ -24,8 +24,7 @@ struct BuildIntegrationTests {
         )
         #expect(result.exitCode == 0, "stderr: \(result.stderr)")
         #expect(
-            result.stdout.lowercased().contains("dry run") ||
-            result.stdout.lowercased().contains("would"),
+            result.stdout.lowercased().contains("dry run") || result.stdout.lowercased().contains("would"),
             "Expected dry-run message, got: \(result.stdout)"
         )
     }

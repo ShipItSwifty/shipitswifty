@@ -180,7 +180,8 @@ public struct DestinationDiscovery: Sendable {
         }
 
         guard let platform = kvPairs["platform"], !platform.isEmpty,
-              let name = kvPairs["name"], !name.isEmpty else { return nil }
+            let name = kvPairs["name"], !name.isEmpty
+        else { return nil }
 
         // Skip destinations that have an error marker (invalid/unavailable)
         if kvPairs["error"] != nil { return nil }

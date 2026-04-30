@@ -10,7 +10,9 @@ public enum SchemaValidator {
         return validateObject(object, fields: fields, path: "$")
     }
 
-    public static func jsonValue(fromYAML text: String, environment: [String: String] = ProcessInfo.processInfo.environment) throws -> JSONValue {
+    public static func jsonValue(
+        fromYAML text: String, environment: [String: String] = ProcessInfo.processInfo.environment
+    ) throws -> JSONValue {
         let expanded = expandEnvironmentVariables(in: text, environment: environment)
         let loaded = try Yams.load(yaml: expanded)
         return try jsonValue(fromYAMLObject: loaded as Any)

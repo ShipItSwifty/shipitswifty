@@ -1,5 +1,6 @@
-import Testing
 import SwiftyShell
+import Testing
+
 @testable import ShipItKit
 
 @Suite("KeychainHelper")

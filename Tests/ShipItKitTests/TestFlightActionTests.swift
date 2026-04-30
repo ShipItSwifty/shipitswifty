@@ -1,6 +1,7 @@
 import Foundation
-import Testing
 import SwiftyShell
+import Testing
+
 @testable import ShipItKit
 
 @Suite("TestFlightAction", .serialized)
@@ -36,10 +37,12 @@ struct TestFlightActionTests {
             // App lookup
             if path == "/v1/apps", query["filter[bundleId]"] == "com.example.app" {
                 return .json([
-                    "data": [[
-                        "id": "app-1",
-                        "attributes": ["bundleId": "com.example.app", "name": "Example"]
-                    ]]
+                    "data": [
+                        [
+                            "id": "app-1",
+                            "attributes": ["bundleId": "com.example.app", "name": "Example"],
+                        ]
+                    ]
                 ])
             }
 
@@ -55,7 +58,7 @@ struct TestFlightActionTests {
                 return .json([
                     "data": [
                         "id": "build-123",
-                        "attributes": ["processingState": "VALID", "version": "1"]
+                        "attributes": ["processingState": "VALID", "version": "1"],
                     ]
                 ])
             }
@@ -64,10 +67,12 @@ struct TestFlightActionTests {
             if path == "/v1/betaGroups", request.httpMethod == "GET" {
                 betaGroupQuery = query
                 return .json([
-                    "data": [[
-                        "id": "group-1",
-                        "attributes": ["name": "Internal QA"]
-                    ]]
+                    "data": [
+                        [
+                            "id": "group-1",
+                            "attributes": ["name": "Internal QA"],
+                        ]
+                    ]
                 ])
             }
 

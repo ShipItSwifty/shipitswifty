@@ -1,5 +1,5 @@
-import Testing
 import Foundation
+import Testing
 
 // MARK: - CredentialTrait
 //
@@ -81,11 +81,11 @@ extension Trait where Self == CredentialTrait {
     static var requiresGooglePlayCredentials: CredentialTrait {
         let env = ProcessInfo.processInfo.environment
         let hasCredentials =
-            env["GOOGLE_PLAY_SERVICE_ACCOUNT_JSON"] != nil ||
-            env["GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_PATH"] != nil
+            env["GOOGLE_PLAY_SERVICE_ACCOUNT_JSON"] != nil || env["GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_PATH"] != nil
         return CredentialTrait(
             conditionMet: hasCredentials,
-            message: "Google Play credentials not configured — set GOOGLE_PLAY_SERVICE_ACCOUNT_JSON or GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_PATH. See CONTRIBUTING.md."
+            message:
+                "Google Play credentials not configured — set GOOGLE_PLAY_SERVICE_ACCOUNT_JSON or GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_PATH. See CONTRIBUTING.md."
         )
     }
 
@@ -99,7 +99,8 @@ extension Trait where Self == CredentialTrait {
         let hasGradlew = FileManager.default.fileExists(atPath: gradlew)
         return CredentialTrait(
             conditionMet: hasSDK && hasGradlew,
-            message: "Android SDK not found or gradlew not bootstrapped — set ANDROID_HOME and run `gradle wrapper --gradle-version 8.7` in the android-sample fixture."
+            message:
+                "Android SDK not found or gradlew not bootstrapped — set ANDROID_HOME and run `gradle wrapper --gradle-version 8.7` in the android-sample fixture."
         )
     }
 
@@ -111,7 +112,8 @@ extension Trait where Self == CredentialTrait {
         let output = (try? shellOutput("security", "find-identity", "-v", "-p", "codesigning")) ?? ""
         return CredentialTrait(
             conditionMet: output.contains("Apple Development"),
-            message: "No 'Apple Development' code signing identity found in the default keychain. Add one via Xcode Preferences > Accounts, or import a development certificate."
+            message:
+                "No 'Apple Development' code signing identity found in the default keychain. Add one via Xcode Preferences > Accounts, or import a development certificate."
         )
     }
 
@@ -125,7 +127,8 @@ extension Trait where Self == CredentialTrait {
         let hasPassword = env["SHIPIT_TEST_P12_PASSWORD"] != nil
         return CredentialTrait(
             conditionMet: hasP12 && hasPassword,
-            message: "P12 signing credentials not configured — set SHIPIT_TEST_P12_BASE64 and SHIPIT_TEST_P12_PASSWORD. See CONTRIBUTING.md."
+            message:
+                "P12 signing credentials not configured — set SHIPIT_TEST_P12_BASE64 and SHIPIT_TEST_P12_PASSWORD. See CONTRIBUTING.md."
         )
     }
 
@@ -134,8 +137,7 @@ extension Trait where Self == CredentialTrait {
     /// Tests that only build or archive do NOT need this trait.
     static var requiresSimulator: CredentialTrait {
         let result = try? shellOutput("xcrun", "simctl", "list", "devices", "booted", "--json")
-        let hasBooted = result?.contains("\"state\" : \"Booted\"") == true ||
-                        result?.contains("\"state\":\"Booted\"") == true
+        let hasBooted = result?.contains("\"state\" : \"Booted\"") == true || result?.contains("\"state\":\"Booted\"") == true
         return CredentialTrait(
             conditionMet: hasBooted,
             message: "No booted iOS simulator — boot one with: xcrun simctl boot <device-uuid> && open -a Simulator"

@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+
 @testable import CLI
 @testable import ShipItKit
 
@@ -50,7 +51,8 @@ struct CLIErrorSuggestionAuditTests {
     func keychainImportSuggestions() {
         let suggestions = errorSuggestions(
             for: .keychainError(
-                underlying: ShipItError.invalidConfiguration(reason: "Certificate import failed: SecKeychainItemImport: Unknown format in import.")
+                underlying: ShipItError.invalidConfiguration(
+                    reason: "Certificate import failed: SecKeychainItemImport: Unknown format in import.")
             )
         )
 

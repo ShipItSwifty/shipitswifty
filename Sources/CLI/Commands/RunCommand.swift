@@ -28,7 +28,10 @@ struct RunCommand: AsyncParsableCommand {
             let context = try await buildActionContext(config: config)
 
             guard let workflowConfig = config.workflows[workflow] else {
-                throw ShipItError.invalidConfiguration(reason: "Workflow '\(workflow)' not found in Shipfile. Available workflows: \(config.workflows.keys.sorted().joined(separator: ", "))")
+                throw ShipItError.invalidConfiguration(
+                    reason:
+                        "Workflow '\(workflow)' not found in Shipfile. Available workflows: \(config.workflows.keys.sorted().joined(separator: ", "))"
+                )
             }
 
             let registry = ActionRegistry()
@@ -112,7 +115,8 @@ func builtInActionDescriptors() -> [ActionDescriptor] {
         ArchiveAction.descriptor(for: ArchiveAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: ArchiveAction.name)),
         LintAction.descriptor(for: LintAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: LintAction.name)),
         PlayStoreAction.descriptor(for: PlayStoreAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: PlayStoreAction.name)),
-        ValidateBundleAction.descriptor(for: ValidateBundleAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: ValidateBundleAction.name)),
+        ValidateBundleAction.descriptor(
+            for: ValidateBundleAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: ValidateBundleAction.name)),
         ExportAction.descriptor(for: ExportAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: ExportAction.name)),
         SignAction.descriptor(for: SignAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: SignAction.name)),
         UploadAction.descriptor(for: UploadAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: UploadAction.name)),
@@ -122,11 +126,13 @@ func builtInActionDescriptors() -> [ActionDescriptor] {
         VersionAction.descriptor(for: VersionAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: VersionAction.name)),
         MetadataAction.descriptor(for: MetadataAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: MetadataAction.name)),
         PrecheckAction.descriptor(for: PrecheckAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: PrecheckAction.name)),
-        ValidateArchiveAction.descriptor(for: ValidateArchiveAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: ValidateArchiveAction.name)),
+        ValidateArchiveAction.descriptor(
+            for: ValidateArchiveAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: ValidateArchiveAction.name)),
         ProvisionAction.descriptor(for: ProvisionAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: ProvisionAction.name)),
         NotifyAction.descriptor(for: NotifyAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: NotifyAction.name)),
         GitAction.descriptor(for: GitAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: GitAction.name)),
         DsymAction.descriptor(for: DsymAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: DsymAction.name)),
-        GenerateProjectAction.descriptor(for: GenerateProjectAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: GenerateProjectAction.name)),
+        GenerateProjectAction.descriptor(
+            for: GenerateProjectAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: GenerateProjectAction.name)),
     ]
 }

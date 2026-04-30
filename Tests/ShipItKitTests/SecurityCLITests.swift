@@ -1,4 +1,5 @@
 import Testing
+
 @testable import ShipItKit
 
 struct SecurityCLITests {
@@ -29,12 +30,13 @@ struct SecurityCLITests {
             )
             .command()
 
-        #expect(command.arguments == [
-            "import", "/tmp/cert.p12",
-            "-k", "ci.keychain",
-            "-P", "p12pass",
-            "-T", "/usr/bin/codesign",
-            "-T", "/usr/bin/security"
-        ])
+        #expect(
+            command.arguments == [
+                "import", "/tmp/cert.p12",
+                "-k", "ci.keychain",
+                "-P", "p12pass",
+                "-T", "/usr/bin/codesign",
+                "-T", "/usr/bin/security",
+            ])
     }
 }

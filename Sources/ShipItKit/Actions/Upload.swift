@@ -75,7 +75,8 @@ public struct UploadAction: Action {
             throw ShipItError.invalidConfiguration(reason: "Upload requires an IPA path. Pass --ipa /path/to/App.ipa.")
         }
         guard let bundleID = context.config.bundleID else {
-            throw ShipItError.invalidConfiguration(reason: "Upload requires app.bundle_id. Set app.bundle_id in Shipfile.yml or export SHIPIT_APP__BUNDLE_ID.")
+            throw ShipItError.invalidConfiguration(
+                reason: "Upload requires app.bundle_id. Set app.bundle_id in Shipfile.yml or export SHIPIT_APP__BUNDLE_ID.")
         }
 
         logger.info("Uploading IPA: \(ipaPath)")

@@ -102,11 +102,13 @@ private final class DataBox: @unchecked Sendable {
     private let lock = NSLock()
     private var _data = Data()
     var data: Data {
-        lock.lock(); defer { lock.unlock() }
+        lock.lock()
+        defer { lock.unlock() }
         return _data
     }
     func append(_ d: Data) {
-        lock.lock(); defer { lock.unlock() }
+        lock.lock()
+        defer { lock.unlock() }
         _data.append(d)
     }
 }
@@ -117,12 +119,14 @@ private final class TimeoutState: @unchecked Sendable {
     private var didTimeOut = false
 
     func markTimedOut() {
-        lock.lock(); defer { lock.unlock() }
+        lock.lock()
+        defer { lock.unlock() }
         didTimeOut = true
     }
 
     func timedOut() -> Bool {
-        lock.lock(); defer { lock.unlock() }
+        lock.lock()
+        defer { lock.unlock() }
         return didTimeOut
     }
 }
@@ -203,11 +207,13 @@ private final class ProcessRunner: @unchecked Sendable {
                 if timeoutState.timedOut() {
                     completion(.failure(CLIHarnessError.timedOut(timeout: self.timeout, command: [self.binaryPath] + self.arguments)))
                 } else {
-                    completion(.success(CLIResult(
-                        stdout: stdout,
-                        stderr: stderr,
-                        exitCode: status
-                    )))
+                    completion(
+                        .success(
+                            CLIResult(
+                                stdout: stdout,
+                                stderr: stderr,
+                                exitCode: status
+                            )))
                 }
             }
         }

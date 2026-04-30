@@ -433,14 +433,16 @@ public struct TestAction: Action {
 
             let words = line.components(separatedBy: " ")
             guard let executedIdx = words.firstIndex(of: "Executed"),
-                  words.indices.contains(executedIdx + 1),
-                  let total = Int(words[executedIdx + 1]) else { continue }
+                words.indices.contains(executedIdx + 1),
+                let total = Int(words[executedIdx + 1])
+            else { continue }
 
             // "X skipped" appears before "Y failures" in the summary
             var skipped = 0
             if let skippedIdx = words.firstIndex(of: "skipped"),
-               skippedIdx > 0,
-               let s = Int(words[skippedIdx - 1]) {
+                skippedIdx > 0,
+                let s = Int(words[skippedIdx - 1])
+            {
                 skipped = s
             }
 
@@ -551,20 +553,21 @@ public struct TestAction: Action {
         guard !iPhoneSimulators.isEmpty else {
             // Build a helpful error message listing what we found
             let found = allDestinations.map { "\($0.platform): \($0.name)" }.joined(separator: "\n  - ")
-            let foundSummary = allDestinations.isEmpty
+            let foundSummary =
+                allDestinations.isEmpty
                 ? "No destinations were found."
                 : "Found \(allDestinations.count) destination(s), but none are iPhone simulators:\n  - \(found)"
             throw ShipItError.invalidConfiguration(
                 reason: """
-                Could not auto-discover a suitable iPhone simulator for scheme '\(scheme)'. \
-                \(foundSummary)
+                    Could not auto-discover a suitable iPhone simulator for scheme '\(scheme)'. \
+                    \(foundSummary)
 
-                To fix this:
-                  1. Install an iOS Simulator runtime: Xcode > Settings > Platforms
-                  2. Create a simulator: xcrun simctl create "iPhone 16 Pro" "com.apple.CoreSimulator.SimDeviceType.iPhone-16-Pro"
-                  3. Or set destinations explicitly in your test step options:
-                     destinations: ["platform=iOS Simulator,name=iPhone 16 Pro,OS=18.2"]
-                """
+                    To fix this:
+                      1. Install an iOS Simulator runtime: Xcode > Settings > Platforms
+                      2. Create a simulator: xcrun simctl create "iPhone 16 Pro" "com.apple.CoreSimulator.SimDeviceType.iPhone-16-Pro"
+                      3. Or set destinations explicitly in your test step options:
+                         destinations: ["platform=iOS Simulator,name=iPhone 16 Pro,OS=18.2"]
+                    """
             )
         }
 

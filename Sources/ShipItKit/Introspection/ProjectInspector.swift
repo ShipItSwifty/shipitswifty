@@ -38,7 +38,9 @@ public struct ProjectInspector: Sendable {
             preferredContainer: preferredContainer,
             schemes: schemes,
             suggestedAppConfig: suggestedAppConfig,
-            existingShipfiles: discoverFiles(named: ["Shipfile.yml", "Shipfile.example.yml"], suffixes: ["yml", "yaml"], matcher: { $0.lastPathComponent.hasPrefix("Shipfile") }, fileManager: fileManager),
+            existingShipfiles: discoverFiles(
+                named: ["Shipfile.yml", "Shipfile.example.yml"], suffixes: ["yml", "yaml"],
+                matcher: { $0.lastPathComponent.hasPrefix("Shipfile") }, fileManager: fileManager),
             fastlaneFiles: discoverKnownFiles(["fastlane/Fastfile", "fastlane/Appfile"], fileManager: fileManager),
             ciFiles: discoverKnownFiles([".github/workflows", "bitrise.yml", ".gitlab-ci.yml"], fileManager: fileManager),
             warnings: warnings,
@@ -48,7 +50,8 @@ public struct ProjectInspector: Sendable {
     }
 
     private func discoverXcodeContainers(fileManager: FileManager) -> [ProjectInspection.XcodeContainer] {
-        let enumerator = fileManager.enumerator(at: URL(fileURLWithPath: rootPath), includingPropertiesForKeys: [.isDirectoryKey], options: [.skipsHiddenFiles])
+        let enumerator = fileManager.enumerator(
+            at: URL(fileURLWithPath: rootPath), includingPropertiesForKeys: [.isDirectoryKey], options: [.skipsHiddenFiles])
         var containers: [ProjectInspection.XcodeContainer] = []
 
         while let url = enumerator?.nextObject() as? URL {
@@ -132,7 +135,8 @@ public struct ProjectInspector: Sendable {
 
     private func xcodebuild(for container: ProjectInspection.XcodeContainer) -> XcodeBuild {
         let absoluteContainerPath = URL(fileURLWithPath: rootPath).appendingPathComponent(container.path).path
-        let option: XcodeBuildOption = container.kind == "workspace"
+        let option: XcodeBuildOption =
+            container.kind == "workspace"
             ? .workspace(absoluteContainerPath)
             : .project(absoluteContainerPath)
         return XcodeBuild(context: shell).option(option)
@@ -179,7 +183,8 @@ public struct ProjectInspector: Sendable {
         }
 
         let baseName = URL(fileURLWithPath: container.path).deletingPathExtension().lastPathComponent
-        let preferredScheme = schemes.first(where: { $0.name == baseName && $0.likelyRunnable })
+        let preferredScheme =
+            schemes.first(where: { $0.name == baseName && $0.likelyRunnable })
             ?? schemes.first(where: { $0.likelyRunnable })
             ?? schemes.first
 
@@ -222,7 +227,8 @@ public struct ProjectInspector: Sendable {
         matcher: (URL) -> Bool,
         fileManager: FileManager
     ) -> [String] {
-        let enumerator = fileManager.enumerator(at: URL(fileURLWithPath: rootPath), includingPropertiesForKeys: [.isDirectoryKey], options: [.skipsHiddenFiles])
+        let enumerator = fileManager.enumerator(
+            at: URL(fileURLWithPath: rootPath), includingPropertiesForKeys: [.isDirectoryKey], options: [.skipsHiddenFiles])
         var matches: [String] = []
 
         while let url = enumerator?.nextObject() as? URL {

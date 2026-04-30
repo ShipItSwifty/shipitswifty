@@ -107,7 +107,8 @@ public struct MetadataAction: Action {
         logger.info("Pulling metadata to '\(directory)'")
 
         guard let bundleID = context.config.bundleID else {
-            throw ShipItError.invalidConfiguration(reason: "Metadata pull requires app.bundle_id. Set app.bundle_id in Shipfile.yml or export SHIPIT_APP__BUNDLE_ID.")
+            throw ShipItError.invalidConfiguration(
+                reason: "Metadata pull requires app.bundle_id. Set app.bundle_id in Shipfile.yml or export SHIPIT_APP__BUNDLE_ID.")
         }
 
         let syncResult = try await AppStoreReleaseService(client: context.appStoreConnect).pullMetadata(
@@ -128,7 +129,8 @@ public struct MetadataAction: Action {
         }
 
         guard let bundleID = context.config.bundleID else {
-            throw ShipItError.invalidConfiguration(reason: "Metadata push requires app.bundle_id. Set app.bundle_id in Shipfile.yml or export SHIPIT_APP__BUNDLE_ID.")
+            throw ShipItError.invalidConfiguration(
+                reason: "Metadata push requires app.bundle_id. Set app.bundle_id in Shipfile.yml or export SHIPIT_APP__BUNDLE_ID.")
         }
 
         let releaseService = AppStoreReleaseService(client: context.appStoreConnect)

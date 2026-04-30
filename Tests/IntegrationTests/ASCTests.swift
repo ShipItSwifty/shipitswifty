@@ -1,5 +1,5 @@
-import Testing
 import Foundation
+import Testing
 
 /// Integration tests for App Store Connect API calls.
 ///
@@ -29,8 +29,9 @@ struct ASCIntegrationTests {
             environment: ascEnvironment()
         )
         // Precheck may warn but should not crash
-        #expect(result.exitCode == 0 || result.exitCode == 1,
-                "Unexpected exit code \(result.exitCode):\n\(result.stderr)")
+        #expect(
+            result.exitCode == 0 || result.exitCode == 1,
+            "Unexpected exit code \(result.exitCode):\n\(result.stderr)")
         // Must not error on authentication
         #expect(!result.stderr.contains("401"), "Auth failure: \(result.stderr)")
         #expect(!result.stderr.contains("403"), "Permission failure: \(result.stderr)")

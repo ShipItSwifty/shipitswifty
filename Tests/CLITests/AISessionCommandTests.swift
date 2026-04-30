@@ -1,4 +1,5 @@
 import Testing
+
 @testable import CLI
 @testable import ShipItKit
 
@@ -25,10 +26,11 @@ struct AISessionCommandTests {
 
     @Test("ai-session uses bootstrap options for shipfile")
     func usesBootstrapOptionsForShipfile() throws {
-        let command = try AISessionCommand.parseAsRoot([
-            "--shipfile", "./config/Shipfile.yml",
-            "--verbose",
-        ]) as! AISessionCommand
+        let command =
+            try AISessionCommand.parseAsRoot([
+                "--shipfile", "./config/Shipfile.yml",
+                "--verbose",
+            ]) as! AISessionCommand
         #expect(command.options.shipfile == "./config/Shipfile.yml")
         #expect(command.options.verbose)
     }

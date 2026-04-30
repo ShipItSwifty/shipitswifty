@@ -1,6 +1,6 @@
 import ArgumentParser
-import ShipItKit
 import Foundation
+import ShipItKit
 import SwiftyShell
 
 /// Diagnose common setup issues with the ShipItSwifty environment.
@@ -49,21 +49,23 @@ struct DoctorCommand: AsyncParsableCommand {
             var allPassed = true
 
             for toolCheck in Self.toolCheckCommands(shell: shell) {
-                allPassed = await check(
-                    name: toolCheck.name,
-                    formatter: formatter
-                ) {
-                    let output = try await toolCheck.command.run(in: shell)
-                    return output.exitCode == 0
-                } && allPassed
+                allPassed =
+                    await check(
+                        name: toolCheck.name,
+                        formatter: formatter
+                    ) {
+                        let output = try await toolCheck.command.run(in: shell)
+                        return output.exitCode == 0
+                    } && allPassed
             }
 
-            allPassed = await check(
-                name: "Shipfile.yml parseable",
-                formatter: formatter
-            ) {
-                true
-            } && allPassed
+            allPassed =
+                await check(
+                    name: "Shipfile.yml parseable",
+                    formatter: formatter
+                ) {
+                    true
+                } && allPassed
 
             let ascCredentialsPresent = hasCompleteASCCredentials(config: config)
             switch ascDiagnosticsMode {
@@ -73,7 +75,9 @@ struct DoctorCommand: AsyncParsableCommand {
                 } else {
                     formatter.printWarning("App Store Connect credentials not configured (ok for local-only workflows)")
                     formatter.print("  Configured workflows only use local actions, so ASC setup can be skipped.")
-                    formatter.print("  If you later add upload, testflight, metadata, or provision, set ASC_KEY_ID + ASC_ISSUER_ID + exactly one of ASC_PRIVATE_KEY or ASC_PRIVATE_KEY_PATH.")
+                    formatter.print(
+                        "  If you later add upload, testflight, metadata, or provision, set ASC_KEY_ID + ASC_ISSUER_ID + exactly one of ASC_PRIVATE_KEY or ASC_PRIVATE_KEY_PATH."
+                    )
                     formatter.print("  Find them in App Store Connect > Users and Access > Integrations > App Store Connect API")
                 }
             case .required, .unknown:
@@ -88,7 +92,8 @@ struct DoctorCommand: AsyncParsableCommand {
                 if !credentialsCheckPassed {
                     printASCCredentialsGuidance(formatter: formatter)
                     if ascDiagnosticsMode == .unknown {
-                        formatter.print("  No workflows clearly indicate whether ASC is optional, so doctor keeps this as a required check.")
+                        formatter.print(
+                            "  No workflows clearly indicate whether ASC is optional, so doctor keeps this as a required check.")
                     }
                 }
             }
@@ -97,17 +102,18 @@ struct DoctorCommand: AsyncParsableCommand {
             case .optionalForLocalOnlyWorkflows:
                 formatter.printWarning("Skipping App Store Connect reachability check for local-only workflows")
             case .required, .unknown:
-                allPassed = await check(
-                    name: "Network: api.appstoreconnect.apple.com reachable",
-                    formatter: formatter
-                ) {
-                    guard let url = URL(string: "https://api.appstoreconnect.apple.com/v1/apps") else { return false }
-                    var request = URLRequest(url: url)
-                    request.timeoutInterval = 5
-                    let (_, response) = try await URLSession.shared.data(for: request)
-                    let statusCode = (response as? HTTPURLResponse)?.statusCode ?? 0
-                    return statusCode > 0
-                } && allPassed
+                allPassed =
+                    await check(
+                        name: "Network: api.appstoreconnect.apple.com reachable",
+                        formatter: formatter
+                    ) {
+                        guard let url = URL(string: "https://api.appstoreconnect.apple.com/v1/apps") else { return false }
+                        var request = URLRequest(url: url)
+                        request.timeoutInterval = 5
+                        let (_, response) = try await URLSession.shared.data(for: request)
+                        let statusCode = (response as? HTTPURLResponse)?.statusCode ?? 0
+                        return statusCode > 0
+                    } && allPassed
             }
 
             formatter.printDivider()
@@ -147,7 +153,8 @@ struct DoctorCommand: AsyncParsableCommand {
     }
 
     func printASCCredentialsGuidance(formatter: HumanFormatter) {
-        formatter.printWarning("App Store Connect credentials are only required for ASC-backed actions like upload, testflight, metadata, and provision.")
+        formatter.printWarning(
+            "App Store Connect credentials are only required for ASC-backed actions like upload, testflight, metadata, and provision.")
         formatter.print("  If you only use build, test, archive, or export locally, you can ignore this check.")
         formatter.print("  Required values: ASC_KEY_ID + ASC_ISSUER_ID + exactly one of ASC_PRIVATE_KEY or ASC_PRIVATE_KEY_PATH")
         formatter.print("  Find them in App Store Connect > Users and Access > Integrations > App Store Connect API")
@@ -159,7 +166,8 @@ struct DoctorCommand: AsyncParsableCommand {
     static func toolCheckCommands(shell: ShellContext) -> [ToolCheck] {
         [
             ToolCheck(name: "Xcode installed", command: XcodeSelect(context: shell).printPath().command()),
-            ToolCheck(name: "xcodebuild available", command: Xcrun(context: shell).tool("xcodebuild").trailingArgument("-version").command()),
+            ToolCheck(
+                name: "xcodebuild available", command: Xcrun(context: shell).tool("xcodebuild").trailingArgument("-version").command()),
             ToolCheck(name: "git on PATH", command: GitCLI(context: shell).version().command()),
             ToolCheck(name: "security CLI available", command: SecurityCLI(context: shell).help().command()),
             ToolCheck(name: "xcrun simctl available", command: Simctl(context: shell).list(json: true).command()),

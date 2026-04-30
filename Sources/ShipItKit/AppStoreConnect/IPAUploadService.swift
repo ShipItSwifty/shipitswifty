@@ -224,13 +224,14 @@ public struct IPAUploadService: Sendable {
 
         throw ShipItError.uploadFailed(
             asset: buildVersion,
-            reason: "Build version '\(buildVersion)' not found in App Store Connect after \(maxAttempts) attempts (\(maxAttempts * Int(delaySeconds))s)"
+            reason:
+                "Build version '\(buildVersion)' not found in App Store Connect after \(maxAttempts) attempts (\(maxAttempts * Int(delaySeconds))s)"
         )
     }
 }
 
-private extension ShellContext {
-    var homeDirectory: URL {
+extension ShellContext {
+    fileprivate var homeDirectory: URL {
         if let home = environment["HOME"], !home.isEmpty {
             return URL(fileURLWithPath: home, isDirectory: true)
         }

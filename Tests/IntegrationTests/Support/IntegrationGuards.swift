@@ -1,5 +1,5 @@
-import Testing
 import Foundation
+import Testing
 
 // MARK: - Bundle ID guard
 
@@ -21,8 +21,10 @@ let integrationBundleID = "com.shipitswifty.integration"
 /// }
 /// ```
 func assertIntegrationScope(bundleID: String) throws {
-    #expect(bundleID == integrationBundleID,
-        "Integration tests may only target '\(integrationBundleID)' — got '\(bundleID)'. This guard prevents leaked credentials from touching production apps.")
+    #expect(
+        bundleID == integrationBundleID,
+        "Integration tests may only target '\(integrationBundleID)' — got '\(bundleID)'. This guard prevents leaked credentials from touching production apps."
+    )
     guard bundleID == integrationBundleID else {
         throw IntegrationScopeError.wrongBundleID(expected: integrationBundleID, got: bundleID)
     }
@@ -65,7 +67,8 @@ func assertAndroidFixtureExists() throws {
         .path
     guard FileManager.default.fileExists(atPath: gradlewPath) else {
         throw IntegrationScopeError.fixtureMissing(
-            "Android fixture gradlew not found at \(gradlewPath) — run `gradle wrapper --gradle-version 8.7` in the android-sample fixture.")
+            "Android fixture gradlew not found at \(gradlewPath) — run `gradle wrapper --gradle-version 8.7` in the android-sample fixture."
+        )
     }
 }
 

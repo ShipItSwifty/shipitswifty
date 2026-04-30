@@ -1,7 +1,8 @@
 import Foundation
-import Testing
-import SwiftyShell
 import OSLog
+import SwiftyShell
+import Testing
+
 @testable import ShipItKit
 
 // MARK: - CoverageAction Tests
@@ -45,33 +46,33 @@ struct CoverageActionTests {
     @Test("iOS: parses xccov JSON and returns CoverageTargets")
     func iosParseXccovOutput() async throws {
         let xccovJSON = """
-        {
-          "targets": [
             {
-              "name": "MyApp.app",
-              "lineCoverage": 0.784,
-              "coveredLines": 1240,
-              "executableLines": 1580,
-              "files": [
+              "targets": [
                 {
-                  "name": "ViewController.swift",
-                  "path": "/src/MyApp/ViewController.swift",
-                  "lineCoverage": 0.9,
-                  "coveredLines": 45,
-                  "executableLines": 50
+                  "name": "MyApp.app",
+                  "lineCoverage": 0.784,
+                  "coveredLines": 1240,
+                  "executableLines": 1580,
+                  "files": [
+                    {
+                      "name": "ViewController.swift",
+                      "path": "/src/MyApp/ViewController.swift",
+                      "lineCoverage": 0.9,
+                      "coveredLines": 45,
+                      "executableLines": 50
+                    }
+                  ]
+                },
+                {
+                  "name": "MyAppTests.xctest",
+                  "lineCoverage": 1.0,
+                  "coveredLines": 200,
+                  "executableLines": 200,
+                  "files": []
                 }
               ]
-            },
-            {
-              "name": "MyAppTests.xctest",
-              "lineCoverage": 1.0,
-              "coveredLines": 200,
-              "executableLines": 200,
-              "files": []
             }
-          ]
-        }
-        """
+            """
         let executor = MockExecutor { _, _ in
             ShellOutput(stdout: xccovJSON, stderr: "", exitCode: 0)
         }
@@ -98,15 +99,15 @@ struct CoverageActionTests {
     @Test("iOS: target name suffix stripping")
     func iosTargetNameSuffixStripping() async throws {
         let xccovJSON = """
-        {
-          "targets": [
-            { "name": "MyApp.app", "lineCoverage": 0.5, "coveredLines": 50, "executableLines": 100, "files": [] },
-            { "name": "MyLib.framework", "lineCoverage": 0.6, "coveredLines": 60, "executableLines": 100, "files": [] },
-            { "name": "MyTests.xctest", "lineCoverage": 1.0, "coveredLines": 100, "executableLines": 100, "files": [] },
-            { "name": "MyExtension.appex", "lineCoverage": 0.7, "coveredLines": 70, "executableLines": 100, "files": [] }
-          ]
-        }
-        """
+            {
+              "targets": [
+                { "name": "MyApp.app", "lineCoverage": 0.5, "coveredLines": 50, "executableLines": 100, "files": [] },
+                { "name": "MyLib.framework", "lineCoverage": 0.6, "coveredLines": 60, "executableLines": 100, "files": [] },
+                { "name": "MyTests.xctest", "lineCoverage": 1.0, "coveredLines": 100, "executableLines": 100, "files": [] },
+                { "name": "MyExtension.appex", "lineCoverage": 0.7, "coveredLines": 70, "executableLines": 100, "files": [] }
+              ]
+            }
+            """
         let executor = MockExecutor { _, _ in
             ShellOutput(stdout: xccovJSON, stderr: "", exitCode: 0)
         }
@@ -126,13 +127,13 @@ struct CoverageActionTests {
     @Test("iOS: 0/0 targets are suppressed")
     func iosZeroExecutableLinesFiltered() async throws {
         let xccovJSON = """
-        {
-          "targets": [
-            { "name": "MyApp.app", "lineCoverage": 0.5, "coveredLines": 50, "executableLines": 100, "files": [] },
-            { "name": "EmptyTarget.framework", "lineCoverage": 0.0, "coveredLines": 0, "executableLines": 0, "files": [] }
-          ]
-        }
-        """
+            {
+              "targets": [
+                { "name": "MyApp.app", "lineCoverage": 0.5, "coveredLines": 50, "executableLines": 100, "files": [] },
+                { "name": "EmptyTarget.framework", "lineCoverage": 0.0, "coveredLines": 0, "executableLines": 0, "files": [] }
+              ]
+            }
+            """
         let executor = MockExecutor { _, _ in
             ShellOutput(stdout: xccovJSON, stderr: "", exitCode: 0)
         }
@@ -148,13 +149,13 @@ struct CoverageActionTests {
     @Test("iOS: include-target overrides first-party filter")
     func iosIncludeTargetOverride() async throws {
         let xccovJSON = """
-        {
-          "targets": [
-            { "name": "MyApp.app", "lineCoverage": 0.5, "coveredLines": 50, "executableLines": 100, "files": [] },
-            { "name": "GoogleSignIn.framework", "lineCoverage": 0.8, "coveredLines": 80, "executableLines": 100, "files": [] }
-          ]
-        }
-        """
+            {
+              "targets": [
+                { "name": "MyApp.app", "lineCoverage": 0.5, "coveredLines": 50, "executableLines": 100, "files": [] },
+                { "name": "GoogleSignIn.framework", "lineCoverage": 0.8, "coveredLines": 80, "executableLines": 100, "files": [] }
+              ]
+            }
+            """
         let executor = MockExecutor { _, _ in
             ShellOutput(stdout: xccovJSON, stderr: "", exitCode: 0)
         }
@@ -175,13 +176,13 @@ struct CoverageActionTests {
     @Test("iOS: exclude-target removes specific targets")
     func iosExcludeTarget() async throws {
         let xccovJSON = """
-        {
-          "targets": [
-            { "name": "MyApp.app", "lineCoverage": 0.5, "coveredLines": 50, "executableLines": 100, "files": [] },
-            { "name": "FeatureKit.framework", "lineCoverage": 0.7, "coveredLines": 70, "executableLines": 100, "files": [] }
-          ]
-        }
-        """
+            {
+              "targets": [
+                { "name": "MyApp.app", "lineCoverage": 0.5, "coveredLines": 50, "executableLines": 100, "files": [] },
+                { "name": "FeatureKit.framework", "lineCoverage": 0.7, "coveredLines": 70, "executableLines": 100, "files": [] }
+              ]
+            }
+            """
         let executor = MockExecutor { _, _ in
             ShellOutput(stdout: xccovJSON, stderr: "", exitCode: 0)
         }
@@ -204,13 +205,13 @@ struct CoverageActionTests {
         // Target B: 90/100 = 90%
         // Combined: 140/200 = 70%
         let xccovJSON = """
-        {
-          "targets": [
-            { "name": "TargetA.framework", "lineCoverage": 0.5, "coveredLines": 50, "executableLines": 100, "files": [] },
-            { "name": "TargetB.framework", "lineCoverage": 0.9, "coveredLines": 90, "executableLines": 100, "files": [] }
-          ]
-        }
-        """
+            {
+              "targets": [
+                { "name": "TargetA.framework", "lineCoverage": 0.5, "coveredLines": 50, "executableLines": 100, "files": [] },
+                { "name": "TargetB.framework", "lineCoverage": 0.9, "coveredLines": 90, "executableLines": 100, "files": [] }
+              ]
+            }
+            """
         let executor = MockExecutor { _, _ in
             ShellOutput(stdout: xccovJSON, stderr: "", exitCode: 0)
         }
@@ -229,41 +230,41 @@ struct CoverageActionTests {
     @Test("iOS: SPM package target excluded via SourcePackages path")
     func iosFirstPartyExcludesSPMBySourcePackagesPath() async throws {
         let xccovJSON = """
-        {
-          "targets": [
             {
-              "name": "APITraceDebug.framework",
-              "lineCoverage": 0.5,
-              "coveredLines": 50,
-              "executableLines": 100,
-              "files": [
+              "targets": [
                 {
-                  "name": "APITrace.swift",
-                  "path": "/Users/developer/Library/Developer/Xcode/DerivedData/MyApp-abc123/SourcePackages/checkouts/APITrace/Sources/APITrace.swift",
+                  "name": "APITraceDebug.framework",
                   "lineCoverage": 0.5,
                   "coveredLines": 50,
-                  "executableLines": 100
-                }
-              ]
-            },
-            {
-              "name": "Sample.app",
-              "lineCoverage": 0.8,
-              "coveredLines": 80,
-              "executableLines": 100,
-              "files": [
+                  "executableLines": 100,
+                  "files": [
+                    {
+                      "name": "APITrace.swift",
+                      "path": "/Users/developer/Library/Developer/Xcode/DerivedData/MyApp-abc123/SourcePackages/checkouts/APITrace/Sources/APITrace.swift",
+                      "lineCoverage": 0.5,
+                      "coveredLines": 50,
+                      "executableLines": 100
+                    }
+                  ]
+                },
                 {
-                  "name": "AppDelegate.swift",
-                  "path": "/Users/developer/Developer/Sample/Sources/AppDelegate.swift",
+                  "name": "Sample.app",
                   "lineCoverage": 0.8,
                   "coveredLines": 80,
-                  "executableLines": 100
+                  "executableLines": 100,
+                  "files": [
+                    {
+                      "name": "AppDelegate.swift",
+                      "path": "/Users/developer/Developer/Sample/Sources/AppDelegate.swift",
+                      "lineCoverage": 0.8,
+                      "coveredLines": 80,
+                      "executableLines": 100
+                    }
+                  ]
                 }
               ]
             }
-          ]
-        }
-        """
+            """
         let executor = MockExecutor { _, _ in
             ShellOutput(stdout: xccovJSON, stderr: "", exitCode: 0)
         }
@@ -282,41 +283,41 @@ struct CoverageActionTests {
     @Test("iOS: SPM target excluded via .build/checkouts path")
     func iosFirstPartyExcludesSPMByBuildCheckoutsPath() async throws {
         let xccovJSON = """
-        {
-          "targets": [
             {
-              "name": "SomePackage.framework",
-              "lineCoverage": 0.6,
-              "coveredLines": 60,
-              "executableLines": 100,
-              "files": [
+              "targets": [
                 {
-                  "name": "SomeFile.swift",
-                  "path": "/path/to/project/.build/checkouts/SomePackage/Sources/SomeFile.swift",
+                  "name": "SomePackage.framework",
                   "lineCoverage": 0.6,
                   "coveredLines": 60,
-                  "executableLines": 100
-                }
-              ]
-            },
-            {
-              "name": "MyApp.app",
-              "lineCoverage": 0.7,
-              "coveredLines": 70,
-              "executableLines": 100,
-              "files": [
+                  "executableLines": 100,
+                  "files": [
+                    {
+                      "name": "SomeFile.swift",
+                      "path": "/path/to/project/.build/checkouts/SomePackage/Sources/SomeFile.swift",
+                      "lineCoverage": 0.6,
+                      "coveredLines": 60,
+                      "executableLines": 100
+                    }
+                  ]
+                },
                 {
-                  "name": "ViewController.swift",
-                  "path": "/path/to/project/Sources/ViewController.swift",
+                  "name": "MyApp.app",
                   "lineCoverage": 0.7,
                   "coveredLines": 70,
-                  "executableLines": 100
+                  "executableLines": 100,
+                  "files": [
+                    {
+                      "name": "ViewController.swift",
+                      "path": "/path/to/project/Sources/ViewController.swift",
+                      "lineCoverage": 0.7,
+                      "coveredLines": 70,
+                      "executableLines": 100
+                    }
+                  ]
                 }
               ]
             }
-          ]
-        }
-        """
+            """
         let executor = MockExecutor { _, _ in
             ShellOutput(stdout: xccovJSON, stderr: "", exitCode: 0)
         }
@@ -333,41 +334,41 @@ struct CoverageActionTests {
     @Test("iOS: target with all files in DerivedData (non-SPM) excluded")
     func iosFirstPartyExcludesAllDerivedDataTarget() async throws {
         let xccovJSON = """
-        {
-          "targets": [
             {
-              "name": "GeneratedStubs.framework",
-              "lineCoverage": 0.3,
-              "coveredLines": 30,
-              "executableLines": 100,
-              "files": [
+              "targets": [
                 {
-                  "name": "GeneratedStub.swift",
-                  "path": "/Users/developer/Library/Developer/Xcode/DerivedData/MyApp-abc123/Build/Products/Debug/GeneratedStubs.framework/GeneratedStub.swift",
+                  "name": "GeneratedStubs.framework",
                   "lineCoverage": 0.3,
                   "coveredLines": 30,
-                  "executableLines": 100
-                }
-              ]
-            },
-            {
-              "name": "MyKit.framework",
-              "lineCoverage": 0.9,
-              "coveredLines": 90,
-              "executableLines": 100,
-              "files": [
+                  "executableLines": 100,
+                  "files": [
+                    {
+                      "name": "GeneratedStub.swift",
+                      "path": "/Users/developer/Library/Developer/Xcode/DerivedData/MyApp-abc123/Build/Products/Debug/GeneratedStubs.framework/GeneratedStub.swift",
+                      "lineCoverage": 0.3,
+                      "coveredLines": 30,
+                      "executableLines": 100
+                    }
+                  ]
+                },
                 {
-                  "name": "MyKit.swift",
-                  "path": "/Users/developer/Developer/MyApp/Sources/MyKit/MyKit.swift",
+                  "name": "MyKit.framework",
                   "lineCoverage": 0.9,
                   "coveredLines": 90,
-                  "executableLines": 100
+                  "executableLines": 100,
+                  "files": [
+                    {
+                      "name": "MyKit.swift",
+                      "path": "/Users/developer/Developer/MyApp/Sources/MyKit/MyKit.swift",
+                      "lineCoverage": 0.9,
+                      "coveredLines": 90,
+                      "executableLines": 100
+                    }
+                  ]
                 }
               ]
             }
-          ]
-        }
-        """
+            """
         let executor = MockExecutor { _, _ in
             ShellOutput(stdout: xccovJSON, stderr: "", exitCode: 0)
         }
@@ -387,14 +388,14 @@ struct CoverageActionTests {
     func iosFirstPartyNameHeuristicFallback() async throws {
         // Targets with empty files array fall back to name-based classification
         let xccovJSON = """
-        {
-          "targets": [
-            { "name": "SampleCore.framework", "lineCoverage": 0.75, "coveredLines": 75, "executableLines": 100, "files": [] },
-            { "name": "GoogleSignIn.framework", "lineCoverage": 0.9, "coveredLines": 90, "executableLines": 100, "files": [] },
-            { "name": "SampleTests.xctest", "lineCoverage": 1.0, "coveredLines": 100, "executableLines": 100, "files": [] }
-          ]
-        }
-        """
+            {
+              "targets": [
+                { "name": "SampleCore.framework", "lineCoverage": 0.75, "coveredLines": 75, "executableLines": 100, "files": [] },
+                { "name": "GoogleSignIn.framework", "lineCoverage": 0.9, "coveredLines": 90, "executableLines": 100, "files": [] },
+                { "name": "SampleTests.xctest", "lineCoverage": 1.0, "coveredLines": 100, "executableLines": 100, "files": [] }
+              ]
+            }
+            """
         let executor = MockExecutor { _, _ in
             ShellOutput(stdout: xccovJSON, stderr: "", exitCode: 0)
         }
@@ -415,41 +416,41 @@ struct CoverageActionTests {
     @Test("iOS: first-party-only false with SPM path still includes all non-zero targets")
     func iosFirstPartyFalseIncludesSPMTargets() async throws {
         let xccovJSON = """
-        {
-          "targets": [
             {
-              "name": "APITraceDebug.framework",
-              "lineCoverage": 0.5,
-              "coveredLines": 50,
-              "executableLines": 100,
-              "files": [
+              "targets": [
                 {
-                  "name": "APITrace.swift",
-                  "path": "/Users/developer/Library/Developer/Xcode/DerivedData/MyApp-abc123/SourcePackages/checkouts/APITrace/Sources/APITrace.swift",
+                  "name": "APITraceDebug.framework",
                   "lineCoverage": 0.5,
                   "coveredLines": 50,
-                  "executableLines": 100
-                }
-              ]
-            },
-            {
-              "name": "Sample.app",
-              "lineCoverage": 0.8,
-              "coveredLines": 80,
-              "executableLines": 100,
-              "files": [
+                  "executableLines": 100,
+                  "files": [
+                    {
+                      "name": "APITrace.swift",
+                      "path": "/Users/developer/Library/Developer/Xcode/DerivedData/MyApp-abc123/SourcePackages/checkouts/APITrace/Sources/APITrace.swift",
+                      "lineCoverage": 0.5,
+                      "coveredLines": 50,
+                      "executableLines": 100
+                    }
+                  ]
+                },
                 {
-                  "name": "AppDelegate.swift",
-                  "path": "/Users/developer/Developer/Sample/Sources/AppDelegate.swift",
+                  "name": "Sample.app",
                   "lineCoverage": 0.8,
                   "coveredLines": 80,
-                  "executableLines": 100
+                  "executableLines": 100,
+                  "files": [
+                    {
+                      "name": "AppDelegate.swift",
+                      "path": "/Users/developer/Developer/Sample/Sources/AppDelegate.swift",
+                      "lineCoverage": 0.8,
+                      "coveredLines": 80,
+                      "executableLines": 100
+                    }
+                  ]
                 }
               ]
             }
-          ]
-        }
-        """
+            """
         let executor = MockExecutor { _, _ in
             ShellOutput(stdout: xccovJSON, stderr: "", exitCode: 0)
         }
@@ -469,33 +470,33 @@ struct CoverageActionTests {
         // A target that has one file under DerivedData and one under the project
         // should be considered first-party (project-owned)
         let xccovJSON = """
-        {
-          "targets": [
             {
-              "name": "MyFeature.framework",
-              "lineCoverage": 0.6,
-              "coveredLines": 60,
-              "executableLines": 100,
-              "files": [
+              "targets": [
                 {
-                  "name": "MyFeature.swift",
-                  "path": "/Users/developer/Developer/MyApp/Sources/MyFeature/MyFeature.swift",
-                  "lineCoverage": 0.7,
-                  "coveredLines": 35,
-                  "executableLines": 50
-                },
-                {
-                  "name": "Generated.swift",
-                  "path": "/Users/developer/Library/Developer/Xcode/DerivedData/MyApp-abc123/Build/Products/Generated.swift",
-                  "lineCoverage": 0.5,
-                  "coveredLines": 25,
-                  "executableLines": 50
+                  "name": "MyFeature.framework",
+                  "lineCoverage": 0.6,
+                  "coveredLines": 60,
+                  "executableLines": 100,
+                  "files": [
+                    {
+                      "name": "MyFeature.swift",
+                      "path": "/Users/developer/Developer/MyApp/Sources/MyFeature/MyFeature.swift",
+                      "lineCoverage": 0.7,
+                      "coveredLines": 35,
+                      "executableLines": 50
+                    },
+                    {
+                      "name": "Generated.swift",
+                      "path": "/Users/developer/Library/Developer/Xcode/DerivedData/MyApp-abc123/Build/Products/Generated.swift",
+                      "lineCoverage": 0.5,
+                      "coveredLines": 25,
+                      "executableLines": 50
+                    }
+                  ]
                 }
               ]
             }
-          ]
-        }
-        """
+            """
         let executor = MockExecutor { _, _ in
             ShellOutput(stdout: xccovJSON, stderr: "", exitCode: 0)
         }
@@ -517,23 +518,23 @@ struct AndroidCoverageParserTests {
     @Test("Parses JaCoCo XML and returns modules")
     func parsesBasicJacocoXML() async throws {
         let xmlContent = """
-        <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-        <report name="MyApp">
-          <package name="com/example/feature">
-            <sourcefile name="ViewModel.kt">
-              <counter type="LINE" covered="42" missed="8"/>
-            </sourcefile>
-            <counter type="LINE" covered="42" missed="8"/>
-          </package>
-          <package name="com/example/ui">
-            <sourcefile name="Fragment.kt">
-              <counter type="LINE" covered="30" missed="10"/>
-            </sourcefile>
-            <counter type="LINE" covered="30" missed="10"/>
-          </package>
-          <counter type="LINE" covered="72" missed="18"/>
-        </report>
-        """
+            <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+            <report name="MyApp">
+              <package name="com/example/feature">
+                <sourcefile name="ViewModel.kt">
+                  <counter type="LINE" covered="42" missed="8"/>
+                </sourcefile>
+                <counter type="LINE" covered="42" missed="8"/>
+              </package>
+              <package name="com/example/ui">
+                <sourcefile name="Fragment.kt">
+                  <counter type="LINE" covered="30" missed="10"/>
+                </sourcefile>
+                <counter type="LINE" covered="30" missed="10"/>
+              </package>
+              <counter type="LINE" covered="72" missed="18"/>
+            </report>
+            """
 
         let tempURL = URL(fileURLWithPath: NSTemporaryDirectory())
             .appendingPathComponent("jacocoTestReport-\(UUID().uuidString).xml")
@@ -572,16 +573,16 @@ struct AndroidCoverageParserTests {
     @Test("Parser returns all packages including zero-executable ones")
     func zeroExecutableLinesReturnedByParser() async throws {
         let xmlContent = """
-        <?xml version="1.0" encoding="UTF-8"?>
-        <report name="MyApp">
-          <package name="com/example/feature">
-            <counter type="LINE" covered="50" missed="50"/>
-          </package>
-          <package name="com/example/generated">
-            <counter type="LINE" covered="0" missed="0"/>
-          </package>
-        </report>
-        """
+            <?xml version="1.0" encoding="UTF-8"?>
+            <report name="MyApp">
+              <package name="com/example/feature">
+                <counter type="LINE" covered="50" missed="50"/>
+              </package>
+              <package name="com/example/generated">
+                <counter type="LINE" covered="0" missed="0"/>
+              </package>
+            </report>
+            """
         let tempURL = URL(fileURLWithPath: NSTemporaryDirectory())
             .appendingPathComponent("jacoco-zero-\(UUID().uuidString).xml")
         try xmlContent.write(to: tempURL, atomically: true, encoding: .utf8)
@@ -599,16 +600,16 @@ struct AndroidCoverageParserTests {
     @Test("Android: overall coverage computed correctly")
     func androidOverallCoverage() async throws {
         let xmlContent = """
-        <?xml version="1.0" encoding="UTF-8"?>
-        <report name="MyApp">
-          <package name="com/example/featureA">
-            <counter type="LINE" covered="60" missed="40"/>
-          </package>
-          <package name="com/example/featureB">
-            <counter type="LINE" covered="80" missed="20"/>
-          </package>
-        </report>
-        """
+            <?xml version="1.0" encoding="UTF-8"?>
+            <report name="MyApp">
+              <package name="com/example/featureA">
+                <counter type="LINE" covered="60" missed="40"/>
+              </package>
+              <package name="com/example/featureB">
+                <counter type="LINE" covered="80" missed="20"/>
+              </package>
+            </report>
+            """
         let tempURL = URL(fileURLWithPath: NSTemporaryDirectory())
             .appendingPathComponent("jacoco-agg-\(UUID().uuidString).xml")
         try xmlContent.write(to: tempURL, atomically: true, encoding: .utf8)

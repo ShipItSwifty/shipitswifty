@@ -182,10 +182,10 @@ public struct CoverageAction: Action {
         guard let xcresultPath else {
             throw ShipItError.invalidConfiguration(
                 reason: """
-                No .xcresult bundle found. Provide --xcresult <path>, or run \
-                `shipit test` with enable_code_coverage: true first. \
-                ShipIt auto-discovers ./build/<scheme>-tests.xcresult when app.scheme is set.
-                """
+                    No .xcresult bundle found. Provide --xcresult <path>, or run \
+                    `shipit test` with enable_code_coverage: true first. \
+                    ShipIt auto-discovers ./build/<scheme>-tests.xcresult when app.scheme is set.
+                    """
             )
         }
 
@@ -224,12 +224,12 @@ public struct CoverageAction: Action {
         guard let reportPath else {
             throw ShipItError.invalidConfiguration(
                 reason: """
-                No JaCoCo XML report found. Provide --report <path>, or run \
-                `./gradlew jacocoTestReport` first. \
-                ShipIt searches common paths: \
-                app/build/reports/jacoco/test/jacocoTestReport.xml and \
-                build/reports/jacoco/test/jacocoTestReport.xml.
-                """
+                    No JaCoCo XML report found. Provide --report <path>, or run \
+                    `./gradlew jacocoTestReport` first. \
+                    ShipIt searches common paths: \
+                    app/build/reports/jacoco/test/jacocoTestReport.xml and \
+                    build/reports/jacoco/test/jacocoTestReport.xml.
+                    """
             )
         }
 
@@ -328,7 +328,8 @@ public struct CoverageAction: Action {
             // Only apply first-party classification when no explicit include list is given.
             result = result.filter { target in
                 let verdict = classifyTarget(target)
-                logger.debug("[\(target.name)] first-party classification: \(verdict.isFirstParty ? "included" : "excluded") (\(verdict.reason))")
+                logger.debug(
+                    "[\(target.name)] first-party classification: \(verdict.isFirstParty ? "included" : "excluded") (\(verdict.reason))")
                 return verdict.isFirstParty
             }
         }
@@ -507,8 +508,8 @@ public enum CoverageSort: String, Codable, Sendable {
 
 // MARK: - Double Rounding Helper
 
-private extension Double {
-    func rounded(toDecimalPlaces places: Int) -> Double {
+extension Double {
+    fileprivate func rounded(toDecimalPlaces places: Int) -> Double {
         let multiplier = pow(10.0, Double(places))
         return (self * multiplier).rounded() / multiplier
     }

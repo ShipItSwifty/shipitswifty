@@ -85,7 +85,8 @@ public struct NotifyAction: Action {
 
         // Send Slack notification
         if let slack = options.slack {
-            let webhookUrl = slack.webhookUrl
+            let webhookUrl =
+                slack.webhookUrl
                 ?? context.config.slackWebhookUrl
 
             if let webhookUrl {
