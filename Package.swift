@@ -12,12 +12,7 @@ let package = Package(
     ],
     dependencies: [
         // Shell execution
-        // Pinned to an exact revision because SwiftyShell does not yet publish
-        // semver tags. Replace with `from: "x.y.z"` once a tag exists upstream.
-        .package(
-            url: "https://github.com/maniramezan/swiftyshell",
-            revision: "439abeecbfa9409f1ec1fb76714a15ca99798ecd"
-        ),
+        .package(url: "https://github.com/maniramezan/swiftyshell", from: "0.1.0"),
         // DocC generation command plugin
         .package(url: "https://github.com/swiftlang/swift-docc-plugin", exact: "1.4.5"),
         // CLI argument parsing
