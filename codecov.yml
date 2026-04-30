@@ -1,0 +1,26 @@
+coverage:
+  precision: 2
+  round: down
+  range: "55...85"
+  status:
+    project:
+      default:
+        target: 55%
+        threshold: 1%
+        if_no_uploads: error
+    patch:
+      default:
+        target: 70%
+        threshold: 5%
+
+comment:
+  layout: "header, diff, files, footer"
+  behavior: default
+  require_changes: true
+
+ignore:
+  - "Tests/**/*"
+  - ".build/**/*"
+  - "docs/**/*"
+  - "docs-output/**/*"
+  - "Package.swift"

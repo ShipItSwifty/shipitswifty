@@ -3,18 +3,18 @@ name: Build DocC
 on:
   push:
     branches: [main]
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 
-# Allow deploying to GitHub Pages
 permissions:
   contents: read
   pages: write
   id-token: write
 
-# Only one deployment at a time
 concurrency:
-  group: pages
-  cancel-in-progress: true
+  group: docc-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   build-docs:
@@ -26,6 +26,7 @@ jobs:
         uses: actions/checkout@v6
         with:
           path: ShipItSwifty
+          persist-credentials: false
 
       - name: Select Xcode
         run: sudo xcode-select -s /Applications/Xcode_26.4.app
@@ -51,6 +52,7 @@ jobs:
             --output-path ./docs-output
 
       - name: Redirect site root to DocC homepage
+        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
         working-directory: ShipItSwifty
         run: |
           cat > ./docs-output/index.html <<'EOF'
@@ -72,6 +74,7 @@ jobs:
           EOF
 
       - name: Upload Pages artifact
+        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
         uses: actions/upload-pages-artifact@v5
         with:
           path: ShipItSwifty/docs-output
@@ -79,6 +82,7 @@ jobs:
 
   deploy-docs:
     name: Deploy to GitHub Pages
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     needs: build-docs
     runs-on: ubuntu-latest
     environment:

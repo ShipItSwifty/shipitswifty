@@ -14,7 +14,7 @@ let package = Package(
         // Shell execution
         .package(url: "https://github.com/maniramezan/swiftyshell", from: "0.1.0"),
         // DocC generation command plugin
-        .package(url: "https://github.com/swiftlang/swift-docc-plugin", exact: "1.4.5"),
+        .package(url: "https://github.com/swiftlang/swift-docc-plugin", from: "1.5.0"),
         // CLI argument parsing
         .package(url: "https://github.com/apple/swift-argument-parser", from: "1.7.1"),
         // JWT for App Store Connect auth

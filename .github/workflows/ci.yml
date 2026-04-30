@@ -6,6 +6,13 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   build-and-test:
     name: Build & Test
@@ -16,6 +23,7 @@ jobs:
         uses: actions/checkout@v6
         with:
           path: ShipItSwifty
+          persist-credentials: false
 
       - name: Select Xcode
         run: sudo xcode-select -s /Applications/Xcode_26.4.app
@@ -37,15 +45,15 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Cache Gradle dependencies
+      - name: Cache Android SDK
         uses: actions/cache@v5
         with:
           path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle.kts', '**/gradle-wrapper.properties') }}
+            ${{ env.ANDROID_HOME }}/platforms
+            ${{ env.ANDROID_HOME }}/build-tools
+          key: ${{ runner.os }}-android-sdk-platform-35-buildtools-35.0.0
           restore-keys: |
-            ${{ runner.os }}-gradle-
+            ${{ runner.os }}-android-sdk-
 
       - name: Install Android SDK components
         run: |
@@ -57,23 +65,29 @@ jobs:
         working-directory: ShipItSwifty
         run: swift build
 
-      - name: Test
+      - name: Test (unit + CLI)
         working-directory: ShipItSwifty
-        run: swift test --enable-code-coverage
+        run: swift test --enable-code-coverage --skip IntegrationTests
+
+      - name: Test (integration, non-blocking, no credentials)
+        working-directory: ShipItSwifty
+        run: swift test --filter IntegrationTests --enable-code-coverage
+        continue-on-error: true
 
       - name: Generate coverage report
         working-directory: ShipItSwifty
         run: |
+          XCTEST_BIN=$(find .build -name "ShipItSwiftyPackageTests.xctest" -type d | head -1)
           xcrun llvm-cov export \
-            .build/debug/ShipItSwiftyPackageTests.xctest/Contents/MacOS/ShipItSwiftyPackageTests \
+            "$XCTEST_BIN/Contents/MacOS/ShipItSwiftyPackageTests" \
             -instr-profile .build/debug/codecov/default.profdata \
+            -ignore-filename-regex='Tests/|.build/' \
             -format lcov \
             > coverage.lcov
-        continue-on-error: true
 
       - name: Upload coverage
         uses: codecov/codecov-action@v6
         with:
           files: ShipItSwifty/coverage.lcov
           working-directory: ShipItSwifty
-        continue-on-error: true
+          fail_ci_if_error: false
