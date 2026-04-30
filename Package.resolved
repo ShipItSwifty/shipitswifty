@@ -1,5 +1,5 @@
 {
-  "originHash" : "d87d92d932aa75e3feedbbbd1bc8207acd52fd44663cc188702bb782541a80fe",
+  "originHash" : "9542cfd91fa77de7a353733584aeaf53917cc37f860e487a2b9226aa2a61d633",
   "pins" : [
     {
       "identity" : "jwt-kit",
@@ -78,7 +78,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/maniramezan/swiftyshell",
       "state" : {
-        "revision" : "439abeecbfa9409f1ec1fb76714a15ca99798ecd"
+        "revision" : "16b3f5176c5dd81e2e881ae03d2b24fce6ef7358",
+        "version" : "0.1.0"
       }
     },
     {
