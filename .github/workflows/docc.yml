@@ -50,6 +50,27 @@ jobs:
             --hosting-base-path shipitswifty \
             --output-path ./docs-output
 
+      - name: Redirect site root to DocC homepage
+        working-directory: ShipItSwifty
+        run: |
+          cat > ./docs-output/index.html <<'EOF'
+          <!doctype html>
+          <html lang="en">
+          <head>
+            <meta charset="utf-8">
+            <meta http-equiv="refresh" content="0; url=/shipitswifty/documentation/shipitkit/">
+            <meta name="viewport" content="width=device-width, initial-scale=1">
+            <title>ShipItKit Documentation</title>
+            <script>
+              window.location.replace('/shipitswifty/documentation/shipitkit/');
+            </script>
+          </head>
+          <body>
+            <p>Redirecting to <a href="/shipitswifty/documentation/shipitkit/">ShipItKit documentation</a>...</p>
+          </body>
+          </html>
+          EOF
+
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v5
         with:
