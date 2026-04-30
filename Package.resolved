@@ -1,13 +1,13 @@
 {
-  "originHash" : "9542cfd91fa77de7a353733584aeaf53917cc37f860e487a2b9226aa2a61d633",
+  "originHash" : "a4129cffd311ce44fe11ae266f240b89dd7162748836533aa2af506170ce69b7",
   "pins" : [
     {
       "identity" : "jwt-kit",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/vapor/jwt-kit",
       "state" : {
-        "revision" : "aa60a211797306bfb05b752ad7b4bf9f0b50d898",
-        "version" : "5.4.0"
+        "revision" : "94a8b96d0ab5aae91324b68f100e3670cd908b51",
+        "version" : "5.4.1"
       }
     },
     {
@@ -33,8 +33,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-certificates.git",
       "state" : {
-        "revision" : "5aa1c0d1bc204908df47c2075bdbb39573d05e8d",
-        "version" : "1.19.0"
+        "revision" : "bde8ca32a096825dfce37467137c903418c1893d",
+        "version" : "1.19.1"
       }
     },
     {
@@ -42,8 +42,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-crypto",
       "state" : {
-        "revision" : "476538ccb827f2dd18efc5de754cc87d77127a47",
-        "version" : "4.4.0"
+        "revision" : "1b6b2e274e85105bfa155183145a1dcfd63331f1",
+        "version" : "4.5.0"
       }
     },
     {
@@ -51,8 +51,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/swiftlang/swift-docc-plugin",
       "state" : {
-        "revision" : "3e4f133a77e644a5812911a0513aeb7288b07d06",
-        "version" : "1.4.5"
+        "revision" : "647c708be89f834fa6a6d4945442793a77ddf5b6",
+        "version" : "1.5.0"
       }
     },
     {

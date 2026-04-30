@@ -1,63 +1,67 @@
 # Contributing to ShipItSwifty
 
-## Building
+Thanks for your interest in contributing! This project is an open-source Swift CLI for iOS and Android release automation, and contributions of all sizes are welcome.
+
+## How to contribute
+
+The flow is intentionally lightweight:
+
+1. **File an issue first.** Open one describing the bug, the feature, or the question. This gives us a chance to align on scope before you invest time in code, and gives others visibility into what's being worked on.
+2. **Fork and branch.** Branch from `main` with a short descriptive name (e.g. `fix/coverage-windows`, `feat/play-store-staged-rollout`).
+3. **Make your changes.** Keep PRs focused — one concern per PR is easier to review and merge.
+4. **Add or fix tests.**
+   - New behavior → add a test.
+   - Bug fix → add a regression test that fails without your change.
+   - Refactor → make sure the existing tests still cover the affected code.
+5. **Open a PR.** Reference the issue (`Fixes #123`). Describe what changed and why. Don't worry about polishing the description — we'll iterate on it together if needed.
+
+That's it. CI will run build, tests, and DocC validation on every PR. If a check fails, push a fix to the same branch — no need to open a new PR.
+
+## Building and testing
 
 ```bash
 swift build
-swift test          # unit + CLI tests
+swift test                                  # unit + CLI tests
+swift test --enable-code-coverage           # with coverage
+swift test --filter ShipItKitTests          # one target
+swift test --filter ShipItKitTests.BuildActionTests  # one suite
 ```
 
-## Test tiers
+`swift test` runs **unit tests only** by default. Integration tests live in a separate target and skip cleanly without credentials — see [Integration tests](#integration-tests) below if you want to run them locally.
 
-There are three test tiers with different requirements:
+## Project conventions (light-touch)
 
-### Tier 1 — Unit tests (no setup needed)
+A few things that keep the codebase consistent — not hard rules, but good defaults:
+
+- **Swift 6 strict concurrency.** All public types are `Sendable`, all async work is structured. The compiler enforces most of this for you.
+- **Shell execution goes through SwiftyShell**, not `Foundation.Process`.
+- **App Store Connect calls go through `AppStoreConnectClient`**, not raw `URLSession`.
+- **One `Action` per file** in `Sources/ShipItKit/Actions/`; one `Command` per file in `Sources/CLI/Commands/`.
+- **Tests use Swift Testing** (`@Test`, `#expect`, `#require`) where possible.
+
+When you add a new action or change an existing one, the [`AGENTS.md`](AGENTS.md) checklist lists the touchpoints (schema catalog, `docs/features.md`, AI session builder, etc.). It's there to keep the agent-facing surfaces in sync — skim it when relevant, ignore it when not.
+
+## Integration tests
+
+`Tests/IntegrationTests/` exercises real flows: `xcodebuild`, the App Store Connect API, the Google Play API, code-signing keychains. Tests that need credentials skip silently when the env vars are absent, so you can run the whole target without any setup:
 
 ```bash
-swift test --filter ShipItKitTests
-swift test --filter CLITests
+swift build
+swift test --filter IntegrationTests
 ```
 
-No credentials, simulators, or SDKs required.
-
-### Tier 2 — Integration tests (requires pre-built binary)
-
-```bash
-swift build                              # build shipit binary first
-swift test --filter IntegrationTests     # credential tests auto-skip
-```
-
-This runs:
-- Real `shipit` CLI invocations (schema, validate, dry-run paths)
-- Real `xcodebuild build/archive` against `Tests/IntegrationTests/Fixtures/ios-sample/`
-- Coverage parsing against a pre-recorded JaCoCo XML fixture
-- Android dry-run paths (no SDK needed)
-
-Tests requiring credentials silently skip when the env vars are absent.
-The archive validation test archives the `ios-sample` fixture and validates the result inline.
-
-### Tier 3 — Integration tests with credentials
-
-Source your credential file then run the same command:
+If you want to run the credentialed tests:
 
 ```bash
 cp .env.integration.example .env.integration
-# Fill in your values (see sections below)
+# Fill in the values you need (see sections below)
 source .env.integration
 swift build && swift test --filter IntegrationTests
 ```
 
----
+All credentialed tests target a dedicated dummy app (`com.shipitswifty.integration`) that is never published, and assert this scope as their first line. Misconfigured environments cannot accidentally hit a production app.
 
-## iOS / App Store Connect credentials
-
-All ASC integration tests target **`com.shipitswifty.integration`** — a dedicated dummy app
-that is never published. Tests refuse to run against any other bundle ID.
-
-1. Request access to the **integration Apple Developer account** from a maintainer.
-   Do **not** use your personal or production developer account.
-2. In App Store Connect → Users and Access → Integrations → Keys, create a key with **App Manager** role.
-3. Set these environment variables:
+### iOS / App Store Connect credentials
 
 ```bash
 export ASC_KEY_ID=XXXXXXXXXX
@@ -67,119 +71,61 @@ export ASC_PRIVATE_KEY="$(cat ~/path/to/AuthKey_XXXXXXXXXX.p8)"
 export ASC_PRIVATE_KEY_PATH=~/path/to/AuthKey_XXXXXXXXXX.p8
 ```
 
----
+Request access to the integration Apple Developer account from a maintainer — please don't use your personal or production account.
 
-## Android / Google Play credentials
-
-All Google Play integration tests target **`com.shipitswifty.integration`** — a dedicated dummy
-app on the internal track. The service account is **scoped to this single app** in Play Console;
-it cannot reach any other app even if credentials leak.
-
-1. Request the `play-service-account.json` file from a maintainer.
-2. Set:
+### Android / Google Play credentials
 
 ```bash
 export GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_PATH=~/path/to/play-service-account.json
 ```
 
----
+Request the `play-service-account.json` from a maintainer. The service account is scoped to the integration app only.
 
-## Android SDK setup (for real Gradle builds)
-
-Real Android builds require `ANDROID_HOME` and a bootstrapped `gradlew`:
+### Android SDK setup (for real Gradle builds)
 
 ```bash
-# Install Android SDK (via Android Studio or command-line tools)
 export ANDROID_HOME=~/Library/Android/sdk
-
-# Bootstrap the Gradle wrapper in the fixture project
 cd Tests/IntegrationTests/Fixtures/android-sample
 gradle wrapper --gradle-version 8.7
 cd -
 ```
 
-Without this setup, Android build tests skip automatically with a descriptive message.
+Without this, Android build tests skip with a descriptive message.
 
----
-
-## iOS Simulator setup (for `xcodebuild test`)
-
-Tests that run the full test suite on a simulator require a booted device:
+### iOS Simulator setup (for `xcodebuild test`)
 
 ```bash
 xcrun simctl boot "iPhone 16"
 open -a Simulator
 ```
 
-`xcodebuild build` and `xcodebuild archive` do **not** need a booted simulator.
+`xcodebuild build` and `xcodebuild archive` don't need a booted simulator.
 
----
+### Signing credentials (for P12 round-trip tests)
 
-## Signing credentials (for P12 round-trip tests)
-
-The `.requiresP12Credentials` trait gates a CI signing round-trip test that installs a real
-certificate into a temporary keychain and verifies the full keychain layer end-to-end.
-
-You need a **development** `.p12` exported from Keychain Access or Xcode — not a distribution
-certificate. The test creates and destroys a temporary keychain; it never touches your login
-keychain or any production identity.
-
-### Get the base64 value
-
-```bash
-base64 -i MyCert.p12 | pbcopy    # copies to clipboard — paste into GitHub secret
-```
-
-Verify the round-trip before using it in CI:
-
-```bash
-base64 -i MyCert.p12 | base64 -d -o /tmp/verify.p12
-security pkcs12 -in /tmp/verify.p12 -noout   # prompts for export password; exits 0 if valid
-```
-
-### Set the environment variables
+The `.requiresP12Credentials` trait gates a CI signing round-trip test. You need a **development** `.p12` (not a distribution certificate). The test creates and destroys a temporary keychain — it never touches your login keychain.
 
 ```bash
 export SHIPIT_TEST_P12_BASE64="$(base64 -i MyCert.p12)"
 export SHIPIT_TEST_P12_PASSWORD=your-p12-export-password
-```
-
-Then run:
-
-```bash
 swift build && swift test --filter IntegrationTests.SigningTests
 ```
 
-### Why base64?
-
-GitHub Actions secrets only accept text values. Base64 encodes the binary `.p12` as plain ASCII
-so it survives the secret store and environment variable injection. The test decodes it back to a
-temp file at runtime.
-
-For local development you have the file on disk, so you can skip the base64 step and just set
-`SHIPIT_TEST_P12_BASE64` via the command above.
-
----
-
-## Binary ID guard
-
-Every credentialed test calls `assertIntegrationScope()` as the first line. This is a
-hard assertion that the active bundle ID matches `com.shipitswifty.integration`. It exists
-to ensure that even a misconfigured environment cannot accidentally operate against a
-production app.
-
----
+GitHub Actions secrets only accept text, so the binary `.p12` is base64-encoded for transport and decoded back to a temp file at runtime.
 
 ## Adding a new integration test
 
-1. Add your test to the appropriate file in `Tests/IntegrationTests/`.
+1. Add it to the appropriate file in `Tests/IntegrationTests/`.
 2. If it needs credentials, decorate with the relevant trait:
    - `.requiresASCCredentials`
    - `.requiresGooglePlayCredentials`
    - `.requiresAndroid`
    - `.requiresSimulator`
-   - `.requiresSigningIdentity` — local "Apple Development" cert in the default keychain
-   - `.requiresP12Credentials` — `SHIPIT_TEST_P12_BASE64` + `SHIPIT_TEST_P12_PASSWORD`
+   - `.requiresSigningIdentity`
+   - `.requiresP12Credentials`
 3. Call `assertIntegrationScope(shipfile: ...)` before any credentialed API call.
-4. Run `swift test --filter IntegrationTests` locally to verify the test skips cleanly
-   without credentials, then verify it passes with credentials sourced from `.env.integration`.
+4. Run `swift test --filter IntegrationTests` locally — verify it skips cleanly without credentials, then verify it passes with credentials sourced from `.env.integration`.
+
+## Questions
+
+Open an issue. We're happy to help.
