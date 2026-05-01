@@ -1,5 +1,4 @@
 import Foundation
-import SwiftyShell
 
 /// A typed Gradle task name.
 ///

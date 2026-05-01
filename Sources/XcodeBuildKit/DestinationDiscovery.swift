@@ -49,7 +49,7 @@ public struct XcodebuildDestination: Codable, Sendable, Hashable {
 /// ```
 public struct DestinationDiscovery: Sendable {
     private let shell: ShellContext
-    private let logger = Logger.forType(subsystem: "ShipItSwifty", DestinationDiscovery.self)
+    private let logger = Logger(subsystem: "XcodeBuildKit", category: "DestinationDiscovery")
 
     public init(shell: ShellContext) {
         self.shell = shell
