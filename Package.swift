@@ -9,6 +9,9 @@ let package = Package(
     products: [
         .executable(name: "shipit", targets: ["CLI"]),
         .library(name: "ShipItKit", targets: ["ShipItKit"]),
+        .library(name: "XcodeBuildKit", targets: ["XcodeBuildKit"]),
+        .library(name: "GradleKit", targets: ["GradleKit"]),
+        .library(name: "XcodeGenKit", targets: ["XcodeGenKit"]),
     ],
     dependencies: [
         // Shell execution
@@ -27,9 +30,35 @@ let package = Package(
         .package(url: "https://github.com/apple/swift-log", from: "1.12.0"),
     ],
     targets: [
+        // MARK: - Reusable tool libraries
+
+        .target(
+            name: "XcodeBuildKit",
+            dependencies: [
+                .product(name: "SwiftyShell", package: "SwiftyShell"),
+            ]
+        ),
+        .target(
+            name: "GradleKit",
+            dependencies: [
+                .product(name: "SwiftyShell", package: "SwiftyShell"),
+            ]
+        ),
+        .target(
+            name: "XcodeGenKit",
+            dependencies: [
+                .product(name: "SwiftyShell", package: "SwiftyShell"),
+            ]
+        ),
+
+        // MARK: - ShipItKit (depends on tool libraries)
+
         .target(
             name: "ShipItKit",
             dependencies: [
+                "XcodeBuildKit",
+                "GradleKit",
+                "XcodeGenKit",
                 .product(name: "SwiftyShell", package: "SwiftyShell"),
                 .product(name: "JWTKit", package: "jwt-kit"),
                 .product(name: "Yams", package: "Yams"),
@@ -38,11 +67,38 @@ let package = Package(
                 .product(name: "Logging", package: "swift-log"),
             ]
         ),
+
+        // MARK: - CLI
+
         .executableTarget(
             name: "CLI",
             dependencies: [
                 "ShipItKit",
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
+            ]
+        ),
+
+        // MARK: - Tests
+
+        .testTarget(
+            name: "XcodeBuildKitTests",
+            dependencies: [
+                "XcodeBuildKit",
+                .product(name: "SwiftyShell", package: "SwiftyShell"),
+            ]
+        ),
+        .testTarget(
+            name: "GradleKitTests",
+            dependencies: [
+                "GradleKit",
+                .product(name: "SwiftyShell", package: "SwiftyShell"),
+            ]
+        ),
+        .testTarget(
+            name: "XcodeGenKitTests",
+            dependencies: [
+                "XcodeGenKit",
+                .product(name: "SwiftyShell", package: "SwiftyShell"),
             ]
         ),
         .testTarget(

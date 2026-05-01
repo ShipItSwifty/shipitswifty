@@ -1,7 +1,8 @@
 import Foundation
+import SwiftyShell
 import Testing
 
-@testable import ShipItKit
+@testable import XcodeBuildKit
 
 struct XcodeBuildTests {
     @Test func buildsTypedCommandWithTrailingArgumentsAndSettings() {

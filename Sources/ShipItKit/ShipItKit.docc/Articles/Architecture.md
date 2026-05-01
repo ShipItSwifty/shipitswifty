@@ -122,13 +122,14 @@ These are enforced by the codebase and reviewed for in every PR:
 
 ```
 Sources/
+  XcodeBuildKit/      Typed xcodebuild builder, xcode-select, destination discovery
+  GradleKit/          Typed Gradle, adb, emulator, and bundletool wrappers
+  XcodeGenKit/        Typed xcodegen builder
   ShipItKit/
     Actions/          One file per Action type
     AppStoreConnect/  Client, JWT, upload service, models
-    AndroidSDK/       adb, emulator, bundletool wrappers
     GooglePlay/       Client, upload service, models, JWT
-    Gradle/           Typed Gradle command builder
-    XcodeBuild/       Typed xcodebuild builder + destination discovery
+    ReExports/        Re-exports XcodeBuildKit, GradleKit, and XcodeGenKit
     Xcrun/            xcrun + simctl wrappers
     CodeSigning/      Keychain, certs, profiles, vault
     Config/           Shipfile model, ConfigResolver, Platform

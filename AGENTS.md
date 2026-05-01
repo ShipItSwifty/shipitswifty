@@ -28,6 +28,9 @@ swift test --filter ShipItKitTests.BuildActionTests
 
 # Run specific test target
 swift test --filter CLITests
+swift test --filter XcodeBuildKitTests
+swift test --filter GradleKitTests
+swift test --filter XcodeGenKitTests
 
 # Run CLI
 swift run shipit --help
@@ -157,10 +160,15 @@ Set one of these environment variables:
 
 ## Architecture
 
-ShipItSwifty is a Swift 6 CLI toolkit for iOS and Android app release automation. There are two products:
+ShipItSwifty is a Swift 6 CLI toolkit for iOS and Android app release automation. There are five products:
 
-- **`ShipItKit`** — reusable library; all domain logic lives here
+- **`XcodeBuildKit`** — standalone library; typed `xcodebuild` wrapper, options, destination discovery, `xcode-select`. Depends only on SwiftyShell.
+- **`GradleKit`** — standalone library; typed Gradle wrapper (tasks, flags, properties), plus `adb`, `bundletool`, and `emulator` wrappers. Depends only on SwiftyShell.
+- **`XcodeGenKit`** — standalone library; typed `xcodegen` wrapper and options. Depends only on SwiftyShell.
+- **`ShipItKit`** — reusable library; all domain logic lives here. Depends on the three tool libraries above.
 - **`shipit`** (CLI) — thin argument-parsing layer over `ShipItKit`
+
+`XcodeBuildKit`, `GradleKit`, and `XcodeGenKit` are independently consumable via SwiftPM — users who only need build tool wrappers can depend on them without pulling in ShipItKit or any of its heavier dependencies. `ShipItKit` re-exports all three via `@_exported import`, so existing consumers see no API change.
 
 ### Core execution model
 
@@ -201,6 +209,9 @@ CLI flags > `SHIPIT_*` env vars > `Shipfile.yml` > built-in defaults. Shipfile s
 
 ```
 Sources/
+  XcodeBuildKit/      # Standalone: xcodebuild wrapper, options, xcode-select, destination discovery
+  GradleKit/          # Standalone: gradlew wrapper, tasks, flags, properties, adb, bundletool, emulator
+  XcodeGenKit/        # Standalone: xcodegen wrapper and options
   ShipItKit/
     Actions/          # One file per action (Build, Archive, TestFlight, …)
     AppStoreConnect/  # ASC client, JWT, upload service, models
@@ -210,10 +221,10 @@ Sources/
                       # SchemaTypes, SchemaValidator, ShipfileValidator,
                       # AISessionTypes, AISessionBuilder
     Plugin/           # ShipItPlugin protocol, ActionRegistry, PluginRegistry
+    ReExports/        # @_exported import for XcodeBuildKit, GradleKit, XcodeGenKit
     Utilities/        # JSONValue, Logger, ShipItError, RetryPolicy, JSONReporter
     Versioning/       # VersionBumper, BuildNumberSource
     Notifications/    # Notifier
-    XcodeBuild/       # xcodebuild wrapper + options
     Xcrun/            # xcrun / simctl wrappers
   CLI/
     Commands/         # One file per shipit subcommand
