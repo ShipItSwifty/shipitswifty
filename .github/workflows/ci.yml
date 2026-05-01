@@ -30,7 +30,7 @@ jobs:
 
       - name: swift-format lint
         working-directory: ShipItSwifty
-        run: swift-format lint --recursive --strict --configuration .swift-format Sources Tests
+        run: xcrun swift-format lint --recursive --strict --configuration .swift-format Sources Tests
 
   build-and-test:
     name: Build & Test
