@@ -621,5 +621,3 @@ struct TestActionTests {
         }
     }
 }
-
-
