@@ -1,4 +1,5 @@
-import OSLog
+import Foundation
+import Logging
 import SwiftyShell
 
 /// Shared context passed to every action during execution.
@@ -26,8 +27,10 @@ public struct ActionContext: Sendable {
     /// Merged configuration from Shipfile + env + CLI.
     public let config: ResolvedConfig
 
-    /// App Store Connect API client (iOS).
+    #if os(macOS)
+    /// App Store Connect API client (iOS, macOS only).
     public let appStoreConnect: AppStoreConnectClient
+    #endif
 
     /// Google Play API client (Android). `nil` when Google Play credentials are not configured.
     public let googlePlay: GooglePlayClient?
@@ -35,7 +38,8 @@ public struct ActionContext: Sendable {
     /// Target platform for this run.
     public let platform: Platform
 
-    /// Creates an `ActionContext`.
+    #if os(macOS)
+    /// Creates an `ActionContext` (macOS).
     ///
     /// - Parameters:
     ///   - shell: Shell execution context.
@@ -59,6 +63,22 @@ public struct ActionContext: Sendable {
         self.googlePlay = googlePlay
         self.platform = platform
     }
+    #else
+    /// Creates an `ActionContext` (Linux). App Store Connect features are unavailable on Linux.
+    public init(
+        shell: ShellContext,
+        logger: Logger,
+        config: ResolvedConfig,
+        googlePlay: GooglePlayClient? = nil,
+        platform: Platform = .android
+    ) {
+        self.shell = shell
+        self.logger = logger
+        self.config = config
+        self.googlePlay = googlePlay
+        self.platform = platform
+    }
+    #endif
 
     /// Creates a mock `ActionContext` for use in tests.
     ///
@@ -93,6 +113,7 @@ public struct ActionContext: Sendable {
             versioningSource: versioningSource,
             platform: platform
         )
+        #if os(macOS)
         // Create a placeholder client — tests that need ASC API calls should mock at a higher level
         let dummyKeyData = Data(
             "-----BEGIN EC PRIVATE KEY-----\nMHQCAQEEIBkg4DUVQ1fIFUHBABCLRrFwNVm7MAkGByqGSM49AgEFoWQDYgAE\n-----END EC PRIVATE KEY-----"
@@ -110,5 +131,14 @@ public struct ActionContext: Sendable {
             googlePlay: nil,
             platform: platform
         )
+        #else
+        return ActionContext(
+            shell: shell,
+            logger: Logger.forType(subsystem: "ShipItSwiftyTests", ActionContext.self),
+            config: config,
+            googlePlay: nil,
+            platform: platform
+        )
+        #endif
     }
 }

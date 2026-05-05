@@ -1,4 +1,5 @@
-import OSLog
+import Foundation
+import Logging
 import SwiftyShell
 
 /// Runs static analysis and lint checks on the codebase.
@@ -124,7 +125,11 @@ public struct LintAction: Action {
     public func run(with options: Options, context: ActionContext) async throws -> Result {
         switch context.platform {
         case .ios:
+            #if os(macOS)
             return try await runIOS(options: options, context: context)
+            #else
+            throw ShipItError.invalidConfiguration(reason: "iOS linting requires macOS.")
+            #endif
         case .android:
             return try await runAndroid(options: options, context: context)
         }
@@ -132,6 +137,7 @@ public struct LintAction: Action {
 
     // MARK: - iOS Lint (xcodebuild analyze)
 
+    #if os(macOS)
     private func runIOS(options: Options, context: ActionContext) async throws -> Result {
         let scheme = options.scheme ?? context.config.appScheme
         guard let scheme else {
@@ -182,6 +188,8 @@ public struct LintAction: Action {
             exitCode: Int(output.exitCode)
         )
     }
+
+    #endif
 
     // MARK: - Android Lint (gradlew lint)
 

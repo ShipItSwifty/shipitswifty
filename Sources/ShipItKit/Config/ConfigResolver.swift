@@ -1,5 +1,5 @@
 import Foundation
-import OSLog
+import Logging
 import SwiftyShell
 import Yams
 
@@ -432,7 +432,8 @@ public struct ConfigResolver: Sendable {
         let project = environment.appProject ?? effectiveApp?.project
         let scheme = cliOptions.scheme ?? environment.appScheme ?? effectiveApp?.scheme
 
-        // Skip xcodebuild auto-detection for Android
+        // Skip xcodebuild auto-detection for Android or non-macOS hosts
+        #if os(macOS)
         guard platform == .ios else {
             return AutoDetectedAppConfig(workspace: workspace, project: project, scheme: scheme)
         }
@@ -475,8 +476,12 @@ public struct ConfigResolver: Sendable {
             logger.warning("Skipping build settings auto-detection: \(error.localizedDescription)")
             return AutoDetectedAppConfig(workspace: workspace, project: project, scheme: scheme)
         }
+        #else
+        return AutoDetectedAppConfig(workspace: workspace, project: project, scheme: scheme)
+        #endif
     }
 
+    #if os(macOS)
     private func xcodeContainerOption(workspace: String?, project: String?) -> XcodeBuildOption? {
         if let workspace {
             return .workspace(workspace)
@@ -488,6 +493,7 @@ public struct ConfigResolver: Sendable {
 
         return nil
     }
+    #endif
 
     private func parseBuildSettings(from output: String) -> [String: String] {
         output.split(separator: "\n").reduce(into: [String: String]()) { settings, line in

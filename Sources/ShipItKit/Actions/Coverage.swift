@@ -1,5 +1,5 @@
 import Foundation
-import OSLog
+import Logging
 import SwiftyShell
 
 /// Reads and summarizes native coverage artifacts produced by a prior test run.
@@ -169,7 +169,11 @@ public struct CoverageAction: Action {
     public func run(with options: Options, context: ActionContext) async throws -> Result {
         switch context.platform {
         case .ios:
+            #if os(macOS)
             return try await runIOS(options: options, context: context)
+            #else
+            throw ShipItError.invalidConfiguration(reason: "iOS coverage requires macOS.")
+            #endif
         case .android:
             return try await runAndroid(options: options, context: context)
         }
@@ -177,6 +181,7 @@ public struct CoverageAction: Action {
 
     // MARK: - iOS
 
+    #if os(macOS)
     private func runIOS(options: Options, context: ActionContext) async throws -> Result {
         let xcresultPath = resolveXCResultPath(options: options, config: context.config)
         guard let xcresultPath else {
@@ -216,6 +221,8 @@ public struct CoverageAction: Action {
             firstPartyOnly: firstPartyOnly
         )
     }
+
+    #endif
 
     // MARK: - Android
 

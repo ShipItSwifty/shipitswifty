@@ -14,7 +14,11 @@ public struct ProjectInspector: Sendable {
         let fileManager = FileManager.default
         let containers = discoverXcodeContainers(fileManager: fileManager)
         let preferredContainer = preferredContainer(from: containers)
+        #if os(macOS)
         let schemes = try await inspectSchemes(in: preferredContainer)
+        #else
+        let schemes: [ProjectInspection.SchemeSummary] = []
+        #endif
         let suggestedAppConfig = suggestedAppConfig(from: preferredContainer, schemes: schemes)
         let gradleFiles = discoverGradleFiles(fileManager: fileManager)
         let detectedPlatform: Platform = !gradleFiles.isEmpty ? .android : (containers.isEmpty ? .ios : .ios)
@@ -81,6 +85,7 @@ public struct ProjectInspector: Sendable {
         containers.first(where: { $0.kind == "workspace" }) ?? containers.first
     }
 
+    #if os(macOS)
     private func inspectSchemes(in container: ProjectInspection.XcodeContainer?) async throws -> [ProjectInspection.SchemeSummary] {
         guard let container else { return [] }
 
@@ -141,6 +146,7 @@ public struct ProjectInspector: Sendable {
             : .project(absoluteContainerPath)
         return XcodeBuild(context: shell).option(option)
     }
+    #endif
 
     private func parseSchemes(from output: String) -> [String] {
         let lines = output.components(separatedBy: .newlines)

@@ -1,4 +1,5 @@
-import OSLog
+import Foundation
+import Logging
 import SwiftyShell
 
 /// Runs unit and UI tests.
@@ -199,12 +200,17 @@ public struct TestAction: Action {
     public func run(with options: Options, context: ActionContext) async throws -> Result {
         switch context.platform {
         case .ios:
+            #if os(macOS)
             return try await runIOS(options: options, context: context)
+            #else
+            throw ShipItError.invalidConfiguration(reason: "iOS tests require macOS.")
+            #endif
         case .android:
             return try await runAndroid(options: options, context: context)
         }
     }
 
+    #if os(macOS)
     // MARK: - iOS Test (xcodebuild test)
 
     private func runIOS(options: Options, context: ActionContext) async throws -> Result {
@@ -363,6 +369,8 @@ public struct TestAction: Action {
         return (pass: pass, fail: 0, skip: skip)
     }
 
+    #endif
+
     // MARK: - Android Test (gradlew test / connectedAndroidTest)
 
     private func runAndroid(options: Options, context: ActionContext) async throws -> Result {
@@ -417,6 +425,7 @@ public struct TestAction: Action {
 
     // MARK: - Private Helpers
 
+    #if os(macOS)
     /// Parses `(pass, skip)` from xcodebuild summary output.
     ///
     /// xcodebuild prints a summary line like:
@@ -486,6 +495,8 @@ public struct TestAction: Action {
         return perTestFailures > 0 ? perTestFailures : 0
     }
 
+    #endif
+
     /// Parses Gradle test output for pass/fail/skip counts.
     ///
     /// Gradle prints a summary like:
@@ -526,6 +537,7 @@ public struct TestAction: Action {
 
     // MARK: - Automatic Destination Discovery
 
+    #if os(macOS)
     /// Auto-discovers a suitable iPhone simulator destination for test runs.
     ///
     /// Uses `DestinationDiscovery` to enumerate available destinations, then selects
@@ -586,4 +598,5 @@ public struct TestAction: Action {
         logger.info("Auto-selected simulator: '\(selected.name)' (OS \(selected.os ?? "?"))")
         return selected.destinationString
     }
+    #endif
 }
