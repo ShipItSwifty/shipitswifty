@@ -32,11 +32,12 @@ struct AICommandParsingTests {
         #expect(command.skipDoctorPrompt)
     }
 
-    @Test("Generate prints inspection status only for human TTY output")
+    @Test("Generate prints inspection status when stderr is a TTY")
     func generateInspectionStatusOutputMode() {
         #expect(shouldPrintGenerateInspectionStatus(output: .human, isStderrTTY: true))
         #expect(!shouldPrintGenerateInspectionStatus(output: .human, isStderrTTY: false))
-        #expect(!shouldPrintGenerateInspectionStatus(output: .json, isStderrTTY: true))
+        #expect(shouldPrintGenerateInspectionStatus(output: .json, isStderrTTY: true))
+        #expect(!shouldPrintGenerateInspectionStatus(output: .json, isStderrTTY: false))
     }
 
     @Test("Generate prompt resolves defaults on empty answer")

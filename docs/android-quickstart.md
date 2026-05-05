@@ -39,7 +39,7 @@ The generated setup includes:
 ## 3. Create a Shipfile
 
 ```bash
-shipit generate --goal beta --platform android --non-interactive --output json
+shipit generate --goal beta --platform android --non-interactive
 ```
 
 Or write one manually:

@@ -79,29 +79,23 @@ struct GenerateCommand: AsyncParsableCommand {
         )
         try yaml.write(toFile: outputPath, atomically: true, encoding: .utf8)
 
-        switch global.output {
-        case .json:
-            let payload: JSONValue = .object([
-                "path": .string(outputPath),
-                "goal": .string(goal.rawValue),
-                "platform": .string(platform.rawValue),
-                "missing": .array(
-                    suggestion.missingValues.map { missing in
-                        .object([
-                            "keyPath": .string(missing.keyPath),
-                            "reason": .string(missing.reason),
-                            "envVar": missing.envVar.map(JSONValue.string) ?? .null,
-                        ])
-                    }),
-                "warnings": .array(suggestion.warnings.map(JSONValue.string)),
-            ])
-            print(
-                try JSONReporter().encode(
-                    ActionResultEnvelope(action: "generate", status: "success", payload: payload)))
-        case .human:
-            formatter.printSuccess("Created Shipfile.yml at \(outputPath)")
-            printGenerationSummary(suggestion: suggestion, platform: platform, formatter: formatter)
-        }
+        let payload: JSONValue = .object([
+            "path": .string(outputPath),
+            "goal": .string(goal.rawValue),
+            "platform": .string(platform.rawValue),
+            "missing": .array(
+                suggestion.missingValues.map { missing in
+                    .object([
+                        "keyPath": .string(missing.keyPath),
+                        "reason": .string(missing.reason),
+                        "envVar": missing.envVar.map(JSONValue.string) ?? .null,
+                    ])
+                }),
+            "warnings": .array(suggestion.warnings.map(JSONValue.string)),
+        ])
+        print(
+            try JSONReporter().encode(
+                ActionResultEnvelope(action: "generate", status: "success", payload: payload)))
 
         Self.logger.info("Shipfile generation completed")
         try await offerDoctor(outputPath: outputPath, formatter: formatter)
@@ -119,7 +113,7 @@ struct GenerateCommand: AsyncParsableCommand {
         let hasIOS = !inspection.xcodeContainers.isEmpty
         let hasAndroid = !inspection.gradleFiles.isEmpty
 
-        if hasIOS && hasAndroid && !nonInteractive && global.output == .human {
+        if hasIOS && hasAndroid && !nonInteractive {
             formatter.printHeader("Detected Platforms")
             formatter.print("This project appears to contain both iOS and Android files.")
             return choosePlatform(defaultPlatform: inspection.detectedPlatform)
@@ -133,7 +127,7 @@ struct GenerateCommand: AsyncParsableCommand {
         platform: Platform,
         formatter: HumanFormatter
     ) throws -> String {
-        guard !nonInteractive, global.output == .human else {
+        guard !nonInteractive else {
             return suggestion.yaml
         }
 
@@ -403,23 +397,9 @@ struct GenerateCommand: AsyncParsableCommand {
         overrides[placeholder] = value
     }
 
-    private func printGenerationSummary(
-        suggestion: SuggestedShipfile, platform: Platform, formatter: HumanFormatter
-    ) {
-        formatter.printKV("Platform", platform.rawValue)
-        formatter.printKV("Goal", suggestion.goal.rawValue)
-        if !suggestion.missingValues.isEmpty {
-            formatter.printHeader("Values To Review")
-            for missing in suggestion.missingValues {
-                let envHint = missing.envVar.map { " (or set \($0))" } ?? ""
-                formatter.printKV(missing.keyPath, missing.reason + envHint)
-            }
-        }
-    }
-
     private func offerDoctor(outputPath: String, formatter: HumanFormatter) async throws {
         #if os(macOS)
-        guard !skipDoctorPrompt, !nonInteractive, global.output == .human, isInteractiveTerminal else {
+        guard !skipDoctorPrompt, !nonInteractive, isInteractiveTerminal else {
             return
         }
         guard confirm("Run shipit doctor now to check this configuration?", defaultAnswer: true) else {
@@ -522,7 +502,7 @@ struct GenerateCommand: AsyncParsableCommand {
 }
 
 func shouldPrintGenerateInspectionStatus(output: OutputFormat, isStderrTTY: Bool) -> Bool {
-    output == .human && isStderrTTY
+    isStderrTTY
 }
 
 func resolvedPromptValue(answer: String, defaultValue: String?) -> String {

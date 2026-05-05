@@ -72,7 +72,7 @@ swift run shipit ai-session --goal beta --platform android   # Android-specific 
 
 # Guided Shipfile generation
 swift run shipit generate --goal beta
-swift run shipit generate --goal beta --non-interactive --output json
+swift run shipit generate --goal beta --non-interactive
 
 # Goal-scoped schema slice
 swift run shipit schema --workflow beta --output json
