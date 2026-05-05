@@ -5,6 +5,9 @@ import PackageDescription
 
 let package = Package(
     name: "ShipItSwifty",
+    // macOS 15+ required for full functionality (Xcode toolchain, Security framework, etc.)
+    // Linux is also supported for GradleKit, ShipItKit core, and CLI targets.
+    // XcodeBuildKit and XcodeGenKit are macOS-only (wrap xcodebuild / xcodegen).
     platforms: [.macOS(.v15)],
     products: [
         .executable(name: "shipit", targets: ["CLI"]),
@@ -75,6 +78,7 @@ let package = Package(
             dependencies: [
                 "ShipItKit",
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
+                .product(name: "Logging", package: "swift-log"),
             ]
         ),
 
@@ -108,6 +112,7 @@ let package = Package(
                 .product(name: "SwiftyShell", package: "SwiftyShell"),
                 .product(name: "Crypto", package: "swift-crypto"),
                 .product(name: "CryptoExtras", package: "swift-crypto"),
+                .product(name: "Logging", package: "swift-log"),
             ]
         ),
         .testTarget(
@@ -121,6 +126,7 @@ let package = Package(
             name: "IntegrationTests",
             dependencies: [
                 "ShipItKit",
+                .product(name: "Logging", package: "swift-log"),
             ],
             path: "Tests/IntegrationTests",
             exclude: ["Fixtures"]

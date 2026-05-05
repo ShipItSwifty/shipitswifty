@@ -1,0 +1,31 @@
+# Swift build artifacts
+.build/
+
+# Git history (not needed in image)
+.git/
+.github/
+
+# Xcode / macOS noise
+DerivedData/
+*.xcworkspace/
+*.xcodeproj/xcuserdata/
+.swiftpm/
+*.dSYM
+*.dSYM.zip
+*.ipa
+.DS_Store
+
+# DocC output
+docs-output/
+
+# Integration test secrets — never bake into image
+.env.integration
+
+# Android build/cache noise
+Tests/IntegrationTests/Fixtures/android-sample/.gradle/
+Tests/IntegrationTests/Fixtures/android-sample/app/build/
+Tests/IntegrationTests/Fixtures/android-sample/build/
+**/.kotlin/
+
+# Editor / IDE
+.claude/
