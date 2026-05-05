@@ -20,34 +20,41 @@ swift build
 
 ## Step 2 — Create your config file
 
-**Option A — Let an AI agent set it up for you**
-
-Run the AI session command first. It inspects the project, returns a versioned JSON payload with all detected values, identifies what's missing, and tells you the exact next step:
+Use `generate` as the default setup path. It walks you through the missing project details, auto-detects what it can from Xcode, and writes `Shipfile.yml` for you.
 
 ```bash
-swift run shipit ai-session --goal beta
+shipit generate
 ```
 
-The response includes:
+If you already know the release goal, target it explicitly:
+
+```bash
+shipit generate --goal beta
+```
+
+For non-interactive use (CI/agent flows):
+
+```bash
+shipit generate --goal beta --non-interactive --output json
+```
+
+The generated result includes:
 - `appConfig` — every inferred value with `source`, `confidence`, and `why`
 - `missing` — required fields that couldn't be resolved, with env var names
 - `ambiguities` — fields where multiple candidates exist and confirmation is needed
 - `readiness` — blockers, missing secrets, and signing risk level
 - `nextAction.command` — the exact command to run next
-- `agentPrompt` — a system prompt for your AI agent
-- `nextQuestion` — the single best follow-up question to ask the user
+- `shipfilePath` — where the generated config was written
 
 If your project is ambiguous (e.g., multiple runnable schemes), resolve those first, then re-run to get the `create_shipfile` action.
 
-For non-interactive use (CI/agent flows):
+If you want to hand the project off to an agent after generation, `ai-session` is still available as a secondary, agent-focused command:
 
 ```bash
-swift run shipit generate --goal beta --non-interactive --output json
+shipit ai-session --goal beta --output json
 ```
 
-This uses `ProjectInspector` for accurate scheme/bundle/team detection, writes `Shipfile.yml`, and returns a JSON result listing any unresolved fields.
-
-**Option B — Manual setup**
+Manual setup is still available if you prefer to start from the example file:
 
 ```bash
 cp Shipfile.example.yml Shipfile.yml
@@ -75,6 +82,20 @@ For actions that call the App Store Connect API, you need `ASC_KEY_ID`, `ASC_ISS
 
 If you only plan to use local build flows such as `build`, `test`, `archive`, or `export`, you can skip this step.
 
+Need help locating these values? See [Credential Lookup](credential-lookup.md).
+
+Where the Apple values come from:
+
+| Value | Where to find it |
+|---|---|
+| `team_id` | Usually auto-detected by `shipit generate` from Xcode signing settings. If you need to set it manually, use the 10-character Apple Developer Team ID shown in the Apple Developer account or in Certificates, IDs & Profiles for the selected team. |
+| `ASC_KEY_ID` | App Store Connect -> `Users and Access` -> `Integrations` -> `App Store Connect API` -> API key `Key ID` |
+| `ASC_ISSUER_ID` | Same App Store Connect API page. This is account-level metadata, not part of the downloaded `.p8` file. |
+| `ASC_PRIVATE_KEY_PATH` | Local filesystem path to the `.p8` file you downloaded when creating the API key |
+| `ASC_PRIVATE_KEY` | Raw contents of that same `.p8` file, typically stored directly in CI secrets |
+
+If `team_id` is missing and you are unsure which one to use, open your Xcode project Signing settings and use the team selected for the app target. That should match the Team ID ShipIt needs.
+
 Find the values in App Store Connect:
 1. Open `App Store Connect`.
 2. Go to `Users and Access`.
@@ -99,6 +120,7 @@ Export the variables in your shell:
 ```bash
 export ASC_KEY_ID=XXXXXXXXXX
 export ASC_ISSUER_ID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+export ASC_PRIVATE_KEY_PATH=./.secrets/AuthKey_XXXXXXXXXX.p8
 ```
 
 For CI, set `ASC_PRIVATE_KEY` to the raw `.p8` file contents instead of using a file path. Do not set both private key forms unless you intentionally want `ASC_PRIVATE_KEY` to win.
@@ -323,12 +345,12 @@ swift run shipit upload
 
 ```bash
 # Human-readable check
-swift run shipit env
-swift run shipit run beta --dry-run
+shipit env
+shipit run beta --dry-run
 
 # Machine-readable check (agents/CI)
-swift run shipit ai-session --goal beta
-swift run shipit run beta --dry-run --output json
+shipit generate --goal beta --non-interactive --output json
+shipit run beta --dry-run --output json
 ```
 
 If you renamed the file, include `--shipfile ./path/to/your-config.yml` on both commands.

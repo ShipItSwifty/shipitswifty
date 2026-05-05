@@ -21,6 +21,8 @@ Set these environment variables (or their Shipfile equivalents under `app_store_
 
 If you only use local Xcode actions (`build`, `test`, `archive`, `export`), you can skip ASC credentials entirely.
 
+If you need help locating `team_id`, `ASC_KEY_ID`, or `ASC_ISSUER_ID`, see <doc:CredentialLookup>.
+
 ## Auth — JWT generation
 
 ``JWTGenerator`` is an `actor` that produces ES256-signed JWTs valid for 20 minutes (Apple's max). It caches the active token and rotates automatically before expiry. You usually never call it directly — ``AppStoreConnectClient`` handles it transparently.
@@ -107,5 +109,6 @@ This wires `MockURLProtocol` into a real ``AppStoreConnectClient`` so your tests
 - ``UploadAction``
 - ``TestFlightAction``
 - ``MetadataAction``
+- <doc:CredentialLookup>
 - <doc:CodeSigningAndVault>
 - <doc:ErrorHandling>
