@@ -1,3 +1,4 @@
+#if os(macOS)
 import Foundation
 
 /// A typed target accepted by `simctl list`.
@@ -267,3 +268,4 @@ public struct SimctlCommand: Sendable, Equatable, Hashable {
         Self(arguments: ["diagnose"] + arguments)
     }
 }
+#endif

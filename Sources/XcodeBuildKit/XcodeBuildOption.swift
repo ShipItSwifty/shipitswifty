@@ -1,3 +1,4 @@
+#if os(macOS)
 import Foundation
 
 /// A typed `xcodebuild` option and its raw arguments.
@@ -449,3 +450,4 @@ public struct XcodeBuildOption: Sendable, Equatable, Hashable {
     /// Emits `-allow-internal-distribution`.
     public static let allowInternalDistribution = Self("-allow-internal-distribution")
 }
+#endif

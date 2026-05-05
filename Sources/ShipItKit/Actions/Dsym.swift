@@ -1,5 +1,6 @@
+#if os(macOS)
 import Foundation
-import OSLog
+import Logging
 
 /// Downloads or uploads dSYM files for crash symbolication.
 ///
@@ -178,3 +179,4 @@ public struct DsymAction: Action {
         return Result(dsymPaths: [dsymPath])
     }
 }
+#endif

@@ -1,7 +1,8 @@
+#if os(macOS)
 import Crypto
 import Foundation
 import JWTKit
-import OSLog
+import Logging
 
 /// Generates ES256-signed JWTs for App Store Connect API authentication.
 ///
@@ -269,3 +270,4 @@ private struct ASCJWTPayload: JWTPayload {
         try expiresAt.verifyNotExpired()
     }
 }
+#endif

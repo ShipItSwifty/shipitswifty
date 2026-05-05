@@ -1,5 +1,6 @@
+#if os(macOS)
 import Foundation
-import OSLog
+import Logging
 
 /// Manages provisioning profiles — creating via ASC API and installing locally.
 ///
@@ -192,3 +193,4 @@ private struct ProfileResource: Codable, Sendable {
         let profileState: String?
     }
 }
+#endif

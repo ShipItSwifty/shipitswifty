@@ -1,5 +1,6 @@
+#if os(macOS)
 import Foundation
-import OSLog
+import Logging
 import SwiftyShell
 
 /// Reads and writes version values directly in a project spec YAML file
@@ -166,3 +167,4 @@ struct ProjectSpecVersionSource: Sendable {
         try updated.write(to: url, atomically: true, encoding: .utf8)
     }
 }
+#endif

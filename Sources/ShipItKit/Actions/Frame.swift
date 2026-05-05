@@ -1,5 +1,6 @@
+#if os(macOS)
 import Foundation
-import OSLog
+import Logging
 import SwiftyShell
 
 /// Overlays device frames on raw screenshots.
@@ -140,3 +141,4 @@ public struct FrameAction: Action {
         }.count
     }
 }
+#endif

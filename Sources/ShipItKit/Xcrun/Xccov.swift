@@ -1,3 +1,4 @@
+#if os(macOS)
 import Foundation
 import SwiftyShell
 
@@ -98,3 +99,4 @@ public struct Xccov: RunnableCommandFamily {
         )
     }
 }
+#endif

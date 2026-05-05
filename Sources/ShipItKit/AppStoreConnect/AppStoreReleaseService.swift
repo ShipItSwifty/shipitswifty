@@ -1,5 +1,6 @@
+#if os(macOS)
 import Foundation
-import OSLog
+import Logging
 
 /// Shared App Store release operations built on top of `AppStoreConnectClient`.
 ///
@@ -575,3 +576,4 @@ private struct AppStoreVersionPhasedReleaseCreateRequest: Encodable, Sendable {
         }
     }
 }
+#endif

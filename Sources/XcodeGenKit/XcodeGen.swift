@@ -1,3 +1,4 @@
+#if os(macOS)
 import Foundation
 import SwiftyShell
 
@@ -172,3 +173,4 @@ public struct XcodeGen: RunnableCommandFamily {
         )
     }
 }
+#endif

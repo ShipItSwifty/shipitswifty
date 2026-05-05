@@ -1,5 +1,6 @@
+#if os(macOS)
 import Foundation
-import OSLog
+import Logging
 import SwiftyShell
 
 /// Bumps `CFBundleVersion` and/or `CFBundleShortVersionString` in the Xcode project.
@@ -107,3 +108,4 @@ public struct VersionAction: Action {
         return try await bumper.bump(options: options)
     }
 }
+#endif

@@ -1,3 +1,4 @@
+#if os(macOS)
 import ArgumentParser
 import ShipItKit
 
@@ -52,3 +53,4 @@ struct VersionCommand: AsyncParsableCommand {
         }
     }
 }
+#endif

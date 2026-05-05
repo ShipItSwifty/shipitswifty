@@ -1,3 +1,4 @@
+#if os(macOS)
 import ArgumentParser
 import ShipItKit
 
@@ -28,3 +29,4 @@ struct PrecheckCommand: AsyncParsableCommand {
         try await metadataCommand.run()
     }
 }
+#endif

@@ -1,3 +1,4 @@
+#if os(macOS)
 import Foundation
 import SwiftyShell
 
@@ -84,3 +85,4 @@ public struct Plutil: RunnableCommandFamily {
         )
     }
 }
+#endif

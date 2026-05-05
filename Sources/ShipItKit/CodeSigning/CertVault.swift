@@ -1,6 +1,7 @@
+#if os(macOS)
 import Crypto
 import Foundation
-import OSLog
+import Logging
 import SwiftyShell
 
 /// Git-backed encrypted certificate and provisioning profile storage.
@@ -273,3 +274,4 @@ public struct CertVault: Sendable {
         try decryptedData.write(to: URL(fileURLWithPath: destinationPath))
     }
 }
+#endif

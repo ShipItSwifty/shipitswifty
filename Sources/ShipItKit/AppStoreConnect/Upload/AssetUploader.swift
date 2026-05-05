@@ -1,6 +1,7 @@
+#if os(macOS)
 import CryptoKit
 import Foundation
-import OSLog
+import Logging
 
 /// Handles the multi-step asset upload protocol for App Store Connect.
 ///
@@ -169,3 +170,4 @@ public struct AssetUploader: Sendable {
         return digest.map { String(format: "%02hhx", $0) }.joined()
     }
 }
+#endif

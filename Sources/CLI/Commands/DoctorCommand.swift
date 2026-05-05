@@ -1,3 +1,4 @@
+#if os(macOS)
 import ArgumentParser
 import Foundation
 import ShipItKit
@@ -188,3 +189,4 @@ struct DoctorCommand: AsyncParsableCommand {
             : .optionalForLocalOnlyWorkflows
     }
 }
+#endif

@@ -1,5 +1,6 @@
+#if os(macOS)
 import Foundation
-import OSLog
+import Logging
 import SwiftyShell
 
 /// Wraps macOS `security` CLI commands for keychain management.
@@ -198,3 +199,4 @@ public struct KeychainHelper: Sendable {
         return String((0..<32).compactMap { _ in chars.randomElement() })
     }
 }
+#endif

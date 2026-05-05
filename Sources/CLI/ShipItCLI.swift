@@ -22,7 +22,12 @@ struct ShipItCLI: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "shipit",
         abstract: "Swift-native CLI for iOS and Android app release automation.",
-        subcommands: [
+        subcommands: subcommandTypes,
+        defaultSubcommand: nil
+    )
+
+    private static var subcommandTypes: [ParsableCommand.Type] {
+        var commands: [ParsableCommand.Type] = [
             GenerateCommand.self,
             SchemaCommand.self,
             InspectCommand.self,
@@ -34,25 +39,29 @@ struct ShipItCLI: AsyncParsableCommand {
             TestCommand.self,
             CoverageCommand.self,
             ArchiveCommand.self,
-            ExportCommand.self,
-            UploadCommand.self,
-            TestFlightCommand.self,
             LintCommand.self,
             PlayStoreCommand.self,
-            SnapshotCommand.self,
-            FrameCommand.self,
-            SignCommand.self,
-            VersionCommand.self,
-            MetadataCommand.self,
-            PrecheckCommand.self,  // backwards-compat alias for: validate metadata
-            ProvisionCommand.self,
             NotifyCommand.self,
             RunCommand.self,
             EnvCommand.self,
+        ]
+        #if os(macOS)
+        commands.append(contentsOf: [
+            ExportCommand.self,
+            UploadCommand.self,
+            TestFlightCommand.self,
+            SnapshotCommand.self,
+            FrameCommand.self,
+            SignCommand.self,
+            MetadataCommand.self,
+            PrecheckCommand.self,  // backwards-compat alias for: validate metadata
+            ProvisionCommand.self,
+            VersionCommand.self,
             DoctorCommand.self,
-        ],
-        defaultSubcommand: nil
-    )
+        ])
+        #endif
+        return commands
+    }
 
     static let versionString = "0.0.1 (build 12)"
 
