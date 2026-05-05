@@ -1,3 +1,4 @@
+#if os(macOS)
 import Crypto
 import Foundation
 import Testing
@@ -403,3 +404,4 @@ private enum TestError: Error {
     case malformedJWT
     case malformedJSON
 }
+#endif

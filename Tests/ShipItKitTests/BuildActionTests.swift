@@ -6,6 +6,7 @@ import Testing
 
 // MARK: - BuildAction Tests
 
+#if os(macOS)
 @Suite("BuildAction")
 struct BuildActionTests {
 
@@ -46,18 +47,11 @@ struct BuildActionTests {
         let executor = MockExecutor { _, _ in
             ShellOutput(stdout: "", stderr: "", exitCode: 0)
         }
-        let context = ActionContext.mock(executor: executor)
         let options = BuildAction.Options()  // No scheme
 
         // Override config to have no scheme
         let config = ResolvedConfig()  // No appScheme
-        let contextNoScheme = ActionContext(
-            shell: ShellContext(executor: executor),
-            logger: context.logger,
-            config: config,
-            appStoreConnect: context.appStoreConnect,
-            platform: .ios
-        )
+        let contextNoScheme = makeTestActionContext(executor: executor, config: config, platform: .ios)
 
         await #expect {
             _ = try await BuildAction().run(with: options, context: contextNoScheme)
@@ -92,21 +86,15 @@ struct BuildActionTests {
             return ShellOutput(stdout: "Build Succeeded\n", stderr: "", exitCode: 0)
         }
 
-        let baseContext = ActionContext.mock(executor: executor)
         let config = ResolvedConfig(appScheme: "MockApp", automaticCodeSigning: true)
-        let context = ActionContext(
-            shell: baseContext.shell,
-            logger: baseContext.logger,
-            config: config,
-            appStoreConnect: baseContext.appStoreConnect,
-            platform: .ios
-        )
+        let context = makeTestActionContext(executor: executor, config: config, platform: .ios)
 
         _ = try await BuildAction().run(with: .init(scheme: "MockApp"), context: context)
 
         #expect(capturedCommand?.arguments.contains("-allowProvisioningUpdates") == true)
     }
 }
+#endif
 
 // MARK: - BuildAction Options Tests
 

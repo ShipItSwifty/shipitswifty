@@ -1,3 +1,4 @@
+#if os(macOS)
 import Foundation
 import SwiftyShell
 import Testing
@@ -417,3 +418,4 @@ struct ValidateArchiveActionTests {
         #expect(fieldNames.contains("fail_on_warnings"))
     }
 }
+#endif

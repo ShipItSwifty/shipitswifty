@@ -1,3 +1,4 @@
+#if os(macOS)
 import Foundation
 import SwiftyShell
 import Testing
@@ -323,3 +324,4 @@ struct EnsureProjectGeneratedTests {
         #expect(commands().isEmpty, "Should not generate when output project already exists")
     }
 }
+#endif

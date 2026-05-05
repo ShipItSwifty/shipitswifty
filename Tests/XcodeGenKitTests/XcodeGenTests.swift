@@ -1,3 +1,4 @@
+#if os(macOS)
 import Foundation
 import SwiftyShell
 import Synchronization
@@ -92,3 +93,4 @@ struct XcodeGenTests {
         #expect(option.arguments == ["--no-env"])
     }
 }
+#endif

@@ -7,6 +7,7 @@ import Testing
 @Suite("Introspection")
 struct IntrospectionTests {
 
+    #if os(macOS)
     @Test("Built-in action schema includes workflow option metadata")
     func builtInActionSchemaIncludesOptions() {
         let uploadSchema = BuiltInSchemaCatalog.actionSchemas().first { $0.name == "upload" }
@@ -61,6 +62,7 @@ struct IntrospectionTests {
         #expect(inspection.suggestedAppConfig.bundleID == "com.example.app")
         #expect(inspection.suggestedAppConfig.teamID == "TEAM12345")
     }
+    #endif
 
     @Test("Shipfile suggester generates beta workflow")
     func shipfileSuggesterGeneratesBetaWorkflow() {
@@ -130,6 +132,7 @@ struct IntrospectionTests {
         #expect(issues.contains { $0.path == "$.app.unknown_key" && $0.severity == .error })
     }
 
+    #if os(macOS)
     @Test("Shipfile validator flags TestFlight workflow without export context")
     func shipfileValidatorFlagsMissingIPAContext() async throws {
         let tempDirectory = try makeTempDirectory()
@@ -205,6 +208,7 @@ struct IntrospectionTests {
         #expect(report.shipfilePath == "<suggested>")
         #expect(report.isValid)
     }
+    #endif
 
     @Test("Shipfile suggester uses env placeholders when app detection is missing")
     func shipfileSuggesterUsesEnvPlaceholdersForMissingDetection() {

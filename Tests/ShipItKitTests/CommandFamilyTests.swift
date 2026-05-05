@@ -1,3 +1,4 @@
+#if os(macOS)
 import Testing
 
 @testable import ShipItKit
@@ -65,3 +66,4 @@ struct CommandFamilyTests {
         #expect(command.arguments == ["-c", "echo ok"])
     }
 }
+#endif

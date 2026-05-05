@@ -1,3 +1,4 @@
+#if os(macOS)
 import Foundation
 import SwiftyShell
 import Testing
@@ -110,3 +111,4 @@ struct DestinationDiscoveryTests {
         #expect(dest.destinationString == "platform=iOS,name=My iPhone")
     }
 }
+#endif

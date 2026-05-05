@@ -34,6 +34,7 @@ struct CLIBuildTests {
         #expect(result.payload?.objectValue?["phasedRelease"] == .bool(true))
     }
 
+    #if os(macOS)
     @Test("Metadata command parses review submission flags")
     func metadataCommandParsesReviewFlags() throws {
         let command =
@@ -49,6 +50,7 @@ struct CLIBuildTests {
         #expect(command.automaticRelease)
         #expect(command.phasedRelease)
     }
+    #endif
 
     @Test("Env command preserves explicit shipfile path")
     func envCommandParsesShipfileOption() throws {
@@ -87,6 +89,7 @@ struct CLIBuildTests {
         #expect(command.global.effectiveColorMode == .never)
     }
 
+    #if os(macOS)
     @Test("BuildAction returns Result with exitCode 0 on success")
     func buildSuccessResult() async throws {
         let executor = MockExecutor { command, _ in
@@ -118,6 +121,7 @@ struct CLIBuildTests {
             #expect(code == 65)
         }
     }
+    #endif
 
     @Test("ActionResultEnvelope encodes to correct JSON shape")
     func resultEnvelopeEncoding() throws {

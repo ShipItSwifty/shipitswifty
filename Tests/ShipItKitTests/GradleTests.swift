@@ -15,13 +15,7 @@ struct AndroidBuildActionTests {
             ShellOutput(stdout: "BUILD SUCCESSFUL\n", stderr: "", exitCode: 0)
         }
         let config = ResolvedConfig(platform: .android)
-        let context = ActionContext(
-            shell: ShellContext(executor: executor),
-            logger: ActionContext.mock(executor: executor).logger,
-            config: config,
-            appStoreConnect: ActionContext.mock(executor: executor).appStoreConnect,
-            platform: .android
-        )
+        let context = makeTestActionContext(executor: executor, config: config, platform: .android)
         let options = BuildAction.Options()
 
         _ = try await BuildAction().run(with: options, context: context)
@@ -45,13 +39,7 @@ struct AndroidArchiveActionTests {
             ShellOutput(stdout: "BUILD SUCCESSFUL\n", stderr: "", exitCode: 0)
         }
         let config = ResolvedConfig(platform: .android)
-        let context = ActionContext(
-            shell: ShellContext(executor: executor),
-            logger: ActionContext.mock(executor: executor).logger,
-            config: config,
-            appStoreConnect: ActionContext.mock(executor: executor).appStoreConnect,
-            platform: .android
-        )
+        let context = makeTestActionContext(executor: executor, config: config, platform: .android)
         let options = ArchiveAction.Options()
 
         _ = try await ArchiveAction().run(with: options, context: context)
@@ -66,6 +54,7 @@ struct AndroidArchiveActionTests {
 
 // MARK: - iOS-only platform guard tests
 
+#if os(macOS)
 @Suite("Platform guards")
 struct PlatformGuardTests {
 
@@ -140,6 +129,7 @@ struct PlatformGuardTests {
         )
     }
 }
+#endif
 
 // MARK: - ProjectInspector Android detection tests
 

@@ -1,3 +1,4 @@
+#if os(macOS)
 import Foundation
 import SwiftyShell
 import Testing
@@ -371,3 +372,4 @@ struct GenerateProjectActionTests {
         #expect(propertyNames.contains("auto_generate"))
     }
 }
+#endif

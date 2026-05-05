@@ -1,3 +1,4 @@
+#if os(macOS)
 import SwiftyShell
 import Testing
 
@@ -74,3 +75,4 @@ struct DoctorCommandTests {
             ])
     }
 }
+#endif

@@ -1,3 +1,4 @@
+#if os(macOS)
 import Foundation
 import Testing
 
@@ -63,3 +64,4 @@ struct ASCIntegrationTests {
         return out.compactMapValues { $0 }
     }
 }
+#endif

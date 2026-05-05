@@ -1,3 +1,4 @@
+#if os(macOS)
 import Foundation
 import SwiftyShell
 import Testing
@@ -388,3 +389,4 @@ struct SignActionTests {
         #expect(result.success == true)
     }
 }
+#endif

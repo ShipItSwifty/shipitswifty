@@ -178,7 +178,7 @@ struct SchemaCommandGoalFilterTests {
     @Test("Beta goal schema includes 'test' action")
     func betaSchemaIncludesTestAction() async throws {
         // Rebuild the filtered list inline (mirrors SchemaCommand.relevantActions(for:.beta))
-        let allActions = BuiltInSchemaCatalog.actionSchemas()
+        let allActions = BuiltInSchemaCatalog.validationActionSchemas()
         let betaActionNames: Set<String> = ["build", "test", "archive", "export", "testflight", "sign", "version", "notify", "git"]
         let betaActions = allActions.filter { betaActionNames.contains($0.name) }
 
@@ -187,7 +187,7 @@ struct SchemaCommandGoalFilterTests {
 
     @Test("Beta goal schema includes all expected actions")
     func betaSchemaActionSet() async throws {
-        let allActions = BuiltInSchemaCatalog.actionSchemas()
+        let allActions = BuiltInSchemaCatalog.validationActionSchemas()
         let betaActionNames: Set<String> = ["build", "test", "archive", "export", "testflight", "sign", "version", "notify", "git"]
         let betaActions = allActions.filter { betaActionNames.contains($0.name) }
         let betaNames = Set(betaActions.map(\.name))
@@ -202,7 +202,7 @@ struct SchemaCommandGoalFilterTests {
 
     @Test("Local goal schema includes 'test' action but not 'testflight'")
     func localSchemaExcludesTestFlight() async throws {
-        let allActions = BuiltInSchemaCatalog.actionSchemas()
+        let allActions = BuiltInSchemaCatalog.validationActionSchemas()
         let localActionNames: Set<String> = ["build", "test", "archive", "export", "sign", "git"]
         let localActions = allActions.filter { localActionNames.contains($0.name) }
         let localNames = Set(localActions.map(\.name))
@@ -213,7 +213,7 @@ struct SchemaCommandGoalFilterTests {
 
     @Test("Beta goal schema test action exposes retry_on_failure option")
     func betaTestActionHasRetryOption() async throws {
-        let allActions = BuiltInSchemaCatalog.actionSchemas()
+        let allActions = BuiltInSchemaCatalog.validationActionSchemas()
         guard let testSchema = allActions.first(where: { $0.name == "test" }) else {
             Issue.record("test action not found in schema catalog")
             return
@@ -223,9 +223,31 @@ struct SchemaCommandGoalFilterTests {
         #expect(testSchema.options.contains { $0.name == "skip_testing" })
     }
 
+    @Test("Schema command parses Android platform option")
+    func schemaCommandParsesAndroidPlatformOption() throws {
+        let command = try SchemaCommand.parseAsRoot(["--workflow", "beta", "--platform", "android"]) as! SchemaCommand
+
+        #expect(command.global.platform == .android)
+        #expect(command.workflow == .beta)
+    }
+
+    @Test("Android beta schema includes Play Store and bundle validation actions")
+    func androidBetaSchemaIncludesAndroidActions() async throws {
+        let allActions = BuiltInSchemaCatalog.validationActionSchemas()
+        let androidBetaActionNames: Set<String> = [
+            "lint", "test", "archive", "coverage", "validate_bundle", "play-store", "notify", "git",
+        ]
+        let androidBetaActions = allActions.filter { androidBetaActionNames.contains($0.name) }
+        let androidBetaNames = Set(androidBetaActions.map(\.name))
+
+        #expect(androidBetaNames.contains("play-store"))
+        #expect(androidBetaNames.contains("validate_bundle"))
+        #expect(!androidBetaNames.contains("testflight"))
+    }
+
     @Test("Full schema (no workflow filter) contains all built-in actions")
     func fullSchemaContainsAllActions() async throws {
-        let allActions = BuiltInSchemaCatalog.actionSchemas()
+        let allActions = BuiltInSchemaCatalog.validationActionSchemas()
         let names = Set(allActions.map(\.name))
 
         for expected in ["build", "test", "archive", "export", "version", "sign", "testflight", "notify", "git"] {

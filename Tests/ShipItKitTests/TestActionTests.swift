@@ -4,6 +4,7 @@ import Testing
 
 @testable import ShipItKit
 
+#if os(macOS)
 @Suite("TestAction")
 struct TestActionTests {
 
@@ -593,6 +594,7 @@ struct TestActionTests {
 
     // MARK: - Missing scheme
 
+    #if os(macOS)
     @Test("Throws invalidConfiguration when no scheme is resolvable")
     func throwsWhenNoScheme() async throws {
         // Build a context whose config has no appScheme so the guard in TestAction fires.
@@ -620,4 +622,6 @@ struct TestActionTests {
             }
         }
     }
+    #endif
 }
+#endif

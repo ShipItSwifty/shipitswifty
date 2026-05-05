@@ -1,3 +1,4 @@
+#if os(macOS)
 import Foundation
 import SwiftyShell
 import Testing
@@ -344,3 +345,4 @@ struct IPAUploadServiceTests {
         )
     }
 }
+#endif
