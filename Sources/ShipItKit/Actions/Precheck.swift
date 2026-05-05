@@ -1,5 +1,6 @@
+#if os(macOS)
 import Foundation
-import OSLog
+import Logging
 
 /// Validates App Store metadata against App Store guidelines before submission.
 ///
@@ -156,3 +157,4 @@ public struct PrecheckAction: Action {
         }
     }
 }
+#endif

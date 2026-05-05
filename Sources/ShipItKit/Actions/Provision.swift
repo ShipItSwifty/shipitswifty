@@ -1,4 +1,6 @@
-import OSLog
+#if os(macOS)
+import Foundation
+import Logging
 
 /// Creates App IDs on the Apple Developer Portal and registers devices.
 ///
@@ -223,3 +225,4 @@ private struct DeviceResource: Codable, Sendable {
         let status: String?
     }
 }
+#endif

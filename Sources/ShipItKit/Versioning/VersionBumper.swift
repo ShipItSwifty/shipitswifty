@@ -1,5 +1,6 @@
+#if os(macOS)
 import Foundation
-import OSLog
+import Logging
 import SwiftyShell
 
 /// Reads and writes `CFBundleVersion` and `CFBundleShortVersionString`
@@ -412,3 +413,4 @@ public struct VersionBumper: Sendable {
         return nil
     }
 }
+#endif

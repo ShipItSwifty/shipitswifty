@@ -1,3 +1,4 @@
+#if os(macOS)
 import Foundation
 import SwiftyShell
 
@@ -132,3 +133,4 @@ public struct SecurityCLI: RunnableCommandFamily {
         )
     }
 }
+#endif

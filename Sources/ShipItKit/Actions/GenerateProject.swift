@@ -1,5 +1,6 @@
+#if os(macOS)
 import Foundation
-import OSLog
+import Logging
 import SwiftyShell
 
 /// Generates an Xcode project from a project spec file (e.g. XcodeGen's `project.yml`).
@@ -196,3 +197,4 @@ extension ActionContext {
         )
     }
 }
+#endif

@@ -1,5 +1,6 @@
+#if os(macOS)
 import Foundation
-import OSLog
+import Logging
 
 /// Uploads a build to TestFlight and manages beta distribution.
 ///
@@ -248,3 +249,4 @@ private struct BetaGroupDistributionRequest: Encodable, Sendable {
         let id: String
     }
 }
+#endif

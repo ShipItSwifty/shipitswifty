@@ -1,5 +1,6 @@
+#if os(macOS)
 import Foundation
-import OSLog
+import Logging
 import SwiftyShell
 
 /// Parses iOS code coverage data from an `.xcresult` bundle using `xcrun xccov`.
@@ -148,3 +149,4 @@ extension Double {
         return (self * multiplier).rounded() / multiplier
     }
 }
+#endif

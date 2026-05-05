@@ -1,5 +1,6 @@
+#if os(macOS)
 import Foundation
-import OSLog
+import Logging
 
 /// Manages App Store metadata — pull from or push to App Store Connect.
 ///
@@ -154,3 +155,4 @@ public struct MetadataAction: Action {
         return Result(localesProcessed: syncResult.localesProcessed, operation: "push", directory: directory)
     }
 }
+#endif

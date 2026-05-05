@@ -1,4 +1,6 @@
-import OSLog
+#if os(macOS)
+import Foundation
+import Logging
 import SwiftyShell
 
 /// Manages certificates and provisioning profiles via encrypted vault storage.
@@ -279,3 +281,4 @@ public struct SignAction: Action {
         )
     }
 }
+#endif

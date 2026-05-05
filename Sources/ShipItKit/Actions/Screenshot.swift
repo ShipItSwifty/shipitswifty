@@ -1,4 +1,6 @@
-import OSLog
+#if os(macOS)
+import Foundation
+import Logging
 import SwiftyShell
 
 /// Captures localized screenshots on simulators by running UI tests.
@@ -176,3 +178,4 @@ public struct SnapshotAction: Action {
         }.count
     }
 }
+#endif

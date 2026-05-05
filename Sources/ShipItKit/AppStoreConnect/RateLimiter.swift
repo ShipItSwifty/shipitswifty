@@ -1,5 +1,6 @@
+#if os(macOS)
 import Foundation
-import OSLog
+import Logging
 
 /// Tracks App Store Connect API rate limits and enforces backoff.
 ///
@@ -88,3 +89,4 @@ public actor RateLimiter {
         }
     }
 }
+#endif

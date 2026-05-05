@@ -1,3 +1,4 @@
+#if os(macOS)
 import ArgumentParser
 import Foundation
 import ShipItKit
@@ -180,3 +181,4 @@ private func resolveOptionalSignConfig(
     return try await ConfigResolver().resolve(
         cliOptions: cliOptions, shipfilePath: "/tmp/shipit-no-shipfile.yml")
 }
+#endif

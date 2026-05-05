@@ -1,3 +1,4 @@
+#if os(macOS)
 import Foundation
 import OSLog
 import SwiftyShell
@@ -194,3 +195,4 @@ public struct DestinationDiscovery: Sendable {
         )
     }
 }
+#endif

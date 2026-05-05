@@ -1,5 +1,6 @@
+#if os(macOS)
 import Foundation
-import OSLog
+import Logging
 
 /// Uploads an IPA and metadata to App Store Connect.
 ///
@@ -119,3 +120,4 @@ public struct UploadAction: Action {
         return (outputDirectory as NSString).appendingPathComponent(ipaName)
     }
 }
+#endif

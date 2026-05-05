@@ -1,3 +1,4 @@
+#if os(macOS)
 import Foundation
 import SwiftyShell
 
@@ -130,3 +131,4 @@ struct XcodeBuildBuildSetting: Sendable, Equatable {
         "\(name)=\(value)"
     }
 }
+#endif

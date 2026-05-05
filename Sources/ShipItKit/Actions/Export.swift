@@ -1,5 +1,6 @@
+#if os(macOS)
 import Foundation
-import OSLog
+import Logging
 import SwiftyShell
 
 /// Exports an IPA from an `.xcarchive` using `xcodebuild -exportArchive`.
@@ -174,3 +175,4 @@ public struct ExportAction: Action {
         return (directory as NSString).appendingPathComponent(ipaFile)
     }
 }
+#endif

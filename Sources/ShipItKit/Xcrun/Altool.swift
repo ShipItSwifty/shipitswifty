@@ -1,3 +1,4 @@
+#if os(macOS)
 import Foundation
 import SwiftyShell
 
@@ -105,3 +106,4 @@ public struct Altool: RunnableCommandFamily {
         )
     }
 }
+#endif

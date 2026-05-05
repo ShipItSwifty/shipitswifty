@@ -1,5 +1,6 @@
+#if os(macOS)
 import Foundation
-import OSLog
+import Logging
 
 /// Validates a `.xcarchive`, exported `.ipa`, or app bundle for App Store upload readiness.
 ///
@@ -483,3 +484,4 @@ extension Optional where Wrapped == String {
         }
     }
 }
+#endif

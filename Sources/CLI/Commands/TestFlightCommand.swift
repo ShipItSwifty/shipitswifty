@@ -1,3 +1,4 @@
+#if os(macOS)
 import ArgumentParser
 import ShipItKit
 
@@ -51,3 +52,4 @@ struct TestFlightCommand: AsyncParsableCommand {
         }
     }
 }
+#endif

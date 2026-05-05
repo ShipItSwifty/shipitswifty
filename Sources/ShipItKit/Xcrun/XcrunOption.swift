@@ -1,3 +1,4 @@
+#if os(macOS)
 import Foundation
 
 /// A typed `xcrun` option and its raw arguments.
@@ -58,3 +59,4 @@ public struct XcrunOption: Sendable, Equatable, Hashable {
     /// Emits `--show-toolchain-path`.
     public static let showToolchainPath = Self("--show-toolchain-path")
 }
+#endif

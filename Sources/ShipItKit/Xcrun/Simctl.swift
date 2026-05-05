@@ -1,3 +1,4 @@
+#if os(macOS)
 import Foundation
 import SwiftyShell
 
@@ -305,3 +306,4 @@ private struct State: Sendable {
         self.trailingArguments = trailingArguments
     }
 }
+#endif

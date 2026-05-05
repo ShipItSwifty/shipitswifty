@@ -1,5 +1,6 @@
+#if os(macOS)
 import Foundation
-import OSLog
+import Logging
 
 /// A response type with no body content (e.g. 204 No Content).
 ///
@@ -244,3 +245,4 @@ public actor AppStoreConnectClient {
 // MARK: - Helpers
 
 private struct EmptyBody: Encodable, Sendable {}
+#endif

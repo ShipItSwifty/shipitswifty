@@ -1,5 +1,6 @@
+#if os(macOS)
 import Foundation
-import OSLog
+import Logging
 
 /// Manages code signing certificates — syncing from encrypted storage and
 /// creating new certificates via the App Store Connect API.
@@ -135,3 +136,4 @@ private struct CertificateResource: Codable, Sendable {
         let certificateType: String?
     }
 }
+#endif

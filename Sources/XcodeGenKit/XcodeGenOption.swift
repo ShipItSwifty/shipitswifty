@@ -1,3 +1,4 @@
+#if os(macOS)
 import Foundation
 
 /// A typed option for the `xcodegen` command.
@@ -61,3 +62,4 @@ public struct XcodeGenOption: Sendable, Equatable, Hashable {
         Self("--file", path)
     }
 }
+#endif

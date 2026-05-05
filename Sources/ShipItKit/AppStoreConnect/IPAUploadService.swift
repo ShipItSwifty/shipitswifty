@@ -1,5 +1,6 @@
+#if os(macOS)
 import Foundation
-import OSLog
+import Logging
 import SwiftyShell
 
 /// Coordinates the IPA upload to App Store Connect / TestFlight.
@@ -238,3 +239,4 @@ extension ShellContext {
         return FileManager.default.homeDirectoryForCurrentUser
     }
 }
+#endif
