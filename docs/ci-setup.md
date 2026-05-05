@@ -13,6 +13,13 @@ The repository includes two pre-built workflows:
 | Build & Test | `.github/workflows/ci.yml` | Push / PR to `main` |
 | Build DocC | `.github/workflows/docc.yml` | Push to `main` + manual |
 
+The `Build & Test` workflow runs three jobs in parallel after lint passes:
+
+| Job | Runner | Swift image | Scope |
+|---|---|---|---|
+| `build-and-test` | `macos-26` | Xcode 26.4 | All targets + integration tests (non-blocking) |
+| `build-and-test-linux` | `ubuntu-24.04` | `swift:6.3.1-noble` | Skips `XcodeBuildKitTests`, `XcodeGenKitTests`, `IntegrationTests` |
+
 ### SwiftyShell dependency
 
 ShipItSwifty depends on the remote `SwiftyShell` Swift package. CI runners must have network and authentication access to fetch Swift package dependencies during `swift build` and `swift test`.
@@ -132,3 +139,7 @@ GitHub Pages uses the repository slug in the path. Use the lowercase `shipitswif
 ## Xcode Version
 
 The workflows pin `Xcode_26.4.app`. Update the `xcode-select` step if you need a different version. Available Xcode versions on GitHub's `macos-26` runner are listed in the [GitHub Actions runner images](https://github.com/actions/runner-images) documentation.
+
+## Linux Swift Version
+
+The Linux CI job uses `swift:6.3.1-noble` (Ubuntu 24.04, current stable Swift). To update it, change the `container.image` value in `.github/workflows/ci.yml` and the `SWIFT_IMAGE` variable at the top of the `Makefile`.

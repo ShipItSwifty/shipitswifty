@@ -110,3 +110,36 @@ jobs:
           files: ShipItSwifty/coverage.lcov
           working-directory: ShipItSwifty
           fail_ci_if_error: false
+
+  build-and-test-linux:
+    name: Build & Test (Linux)
+    needs: lint
+    runs-on: ubuntu-24.04
+    container:
+      image: swift:6.3.1-noble
+
+    steps:
+      - name: Checkout ShipItSwifty
+        uses: actions/checkout@v6
+        with:
+          path: ShipItSwifty
+          persist-credentials: false
+
+      - name: Swift version
+        run: swift --version
+
+      - name: Cache SPM dependencies
+        uses: actions/cache@v5
+        with:
+          path: ShipItSwifty/.build/checkouts
+          key: linux-spm-${{ hashFiles('ShipItSwifty/Package.resolved') }}
+          restore-keys: |
+            linux-spm-
+
+      - name: Build (Linux)
+        working-directory: ShipItSwifty
+        run: swift build
+
+      - name: Test (Linux, skip integration)
+        working-directory: ShipItSwifty
+        run: swift test --enable-code-coverage --skip IntegrationTests --skip XcodeBuildKitTests --skip XcodeGenKitTests

@@ -29,6 +29,28 @@ swift test --filter ShipItKitTests.BuildActionTests  # one suite
 
 `swift test` runs **unit tests only** by default. Integration tests live in a separate target and skip cleanly without credentials — see [Integration tests](#integration-tests) below if you want to run them locally.
 
+### Testing on Linux (Docker)
+
+`GradleKit`, `ShipItKit` core, and `CLI` build and test on Linux. `XcodeBuildKit`, `XcodeGenKit`, and `IntegrationTests` are macOS-only and are automatically skipped. A `Dockerfile` (`swift:6.3.1-noble`) and `Makefile` are included so you can test the Linux-compatible subset without a native Swift toolchain:
+
+```bash
+# Build + test via direct volume mount (fastest for iteration — no docker build step)
+make build-linux
+make test-linux
+
+# Open an interactive shell for debugging
+make shell-linux
+
+# Build a local image with SPM deps cached as a layer, then test
+make docker-build
+make docker-test
+
+# See all available targets
+make help
+```
+
+The skip list used by all Linux targets (`--skip IntegrationTests --skip XcodeBuildKitTests --skip XcodeGenKitTests`) matches what CI enforces in the `build-and-test-linux` job.
+
 ## Project conventions (light-touch)
 
 A few things that keep the codebase consistent — not hard rules, but good defaults:

@@ -32,6 +32,16 @@ swift test --filter XcodeBuildKitTests
 swift test --filter GradleKitTests
 swift test --filter XcodeGenKitTests
 
+# Linux / Docker (skips macOS-only targets automatically)
+make build-linux            # build via direct volume mount
+make test-linux             # run Linux-compatible tests via direct volume mount
+make test-linux-coverage    # same + --enable-code-coverage
+make shell-linux            # interactive shell inside container
+make docker-build           # build local image (caches SPM deps as a layer)
+make docker-test            # run tests inside local image
+make docker-shell           # interactive shell inside local image
+make help                   # list all Makefile targets
+
 # Run CLI
 swift run shipit --help
 swift run shipit build --scheme MyApp

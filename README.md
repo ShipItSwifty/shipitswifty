@@ -55,9 +55,11 @@ For the full feature catalogue and roadmap, see [`docs/features.md`](docs/featur
 
 ## Requirements
 
-- macOS 15+
-- Swift 6 / Xcode 16+
-- For Android: a working JDK 17+ and a project with `gradlew`
+- **iOS workflows (build, archive, sign, TestFlight, App Store Connect, etc.)**: macOS 15+ with Xcode 16+
+- **Android workflows (build, test, archive, lint, Play Store)**: macOS 15+ **or** Linux (Swift 6.0+) with JDK 17+ and a project containing `gradlew`
+- Swift 6 / Xcode 16+ (or the matching open-source Swift 6 toolchain on Linux)
+
+> iOS-only commands (`sign`, `testflight`, `upload`, `metadata`, `precheck`, `provision`, `frame`, `snapshot`, `version`, `validate archive`, etc.) are unavailable on Linux because they depend on Apple-only toolchains (`xcodebuild`, `xcrun`, the Security framework, App Store Connect upload). Android workflows and the cross-platform commands (`build`, `test`, `archive`, `lint`, `coverage`, `play-store`, `validate yml`, `validate bundle`, `notify`, `run`, `inspect`, `generate`, `ai-session`) work on both macOS and Linux.
 
 ## Installation
 
@@ -310,6 +312,28 @@ swift test --enable-code-coverage
 swift test --filter ShipItKitTests.BuildActionTests
 swift run shipit --help
 ```
+
+### Linux / Docker
+
+The `GradleKit`, `ShipItKit` core, and `CLI` targets build and test on Linux. A `Dockerfile` and `Makefile` are included for local development without a native Swift toolchain:
+
+```bash
+# Build + test (direct volume mount — no docker build step)
+make build-linux
+make test-linux
+
+# Interactive shell inside the container
+make shell-linux
+
+# Or build a local image with SPM deps cached as a layer, then test
+make docker-build
+make docker-test
+
+# See all available targets
+make help
+```
+
+macOS-only targets (`XcodeBuildKit`, `XcodeGenKit`, and `IntegrationTests`) are automatically skipped on Linux.
 
 See [`CONTRIBUTING.md`](CONTRIBUTING.md) for the full contributor guide.
 
