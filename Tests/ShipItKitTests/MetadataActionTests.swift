@@ -1,3 +1,4 @@
+#if os(macOS)
 import Foundation
 import Testing
 
@@ -332,3 +333,4 @@ func makeTempDirectory() throws -> URL {
     try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
     return url
 }
+#endif

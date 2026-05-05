@@ -1,3 +1,4 @@
+#if os(macOS)
 import Testing
 
 @testable import ShipItKit
@@ -40,3 +41,4 @@ struct SecurityCLITests {
             ])
     }
 }
+#endif

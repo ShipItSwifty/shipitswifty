@@ -1,3 +1,4 @@
+#if os(macOS)
 import Testing
 
 @testable import ShipItKit
@@ -12,3 +13,4 @@ struct XcodeSelectTests {
         #expect(command.arguments == ["-p"])
     }
 }
+#endif

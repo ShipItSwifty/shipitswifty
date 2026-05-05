@@ -1,3 +1,4 @@
+#if os(macOS)
 import Foundation
 import SwiftyShell
 import Testing
@@ -236,3 +237,4 @@ struct ArchiveExportActionTests {
         return url
     }
 }
+#endif

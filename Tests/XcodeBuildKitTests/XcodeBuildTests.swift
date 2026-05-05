@@ -1,3 +1,4 @@
+#if os(macOS)
 import Foundation
 import SwiftyShell
 import Testing
@@ -54,3 +55,4 @@ struct XcodeBuildTests {
         #expect(output.exitCode == 0)
     }
 }
+#endif

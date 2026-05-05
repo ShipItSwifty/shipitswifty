@@ -4,6 +4,10 @@ import Synchronization
 
 @testable import ShipItKit
 
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
+
 enum MockHTTPResponse: Sendable {
     case response(statusCode: Int, headers: [String: String], body: Data)
 
@@ -34,6 +38,7 @@ final class MockUploadServer: @unchecked Sendable {
     var receivedBodies: [Data] = []
 }
 
+#if os(macOS)
 func makeClient(responses: [MockHTTPResponse]) -> AppStoreConnectClient {
     let queue = ResponseQueue(responses)
     let session = makeMockSession { _ in queue.next() }
@@ -46,6 +51,7 @@ func makeClient(responses: [MockHTTPResponse]) -> AppStoreConnectClient {
         tokenProvider: { "test-token" }
     )
 }
+#endif
 
 func makeMockSession(handler: @escaping @Sendable (URLRequest) -> MockHTTPResponse) -> URLSession {
     let sessionID = UUID().uuidString
@@ -102,6 +108,39 @@ func makeCaptureExecutor(
         return ShellOutput(stdout: "", stderr: "", exitCode: 0)
     }
     return (executor, { storage.withLock { $0 } })
+}
+
+func makeTestActionContext(
+    executor: MockExecutor,
+    config: ResolvedConfig,
+    platform: Platform? = nil
+) -> ActionContext {
+    let shell = ShellContext(executor: executor)
+    let logger = Logger.forType(subsystem: "ShipItSwiftyTests", ActionContext.self)
+    #if os(macOS)
+    let base = ActionContext.mock(executor: executor, platform: platform ?? config.platform)
+    return ActionContext(
+        shell: shell,
+        logger: logger,
+        config: config,
+        appStoreConnect: base.appStoreConnect,
+        platform: platform ?? config.platform
+    )
+    #else
+    return ActionContext(
+        shell: shell,
+        logger: logger,
+        config: config,
+        platform: platform ?? config.platform
+    )
+    #endif
+}
+
+func makeTempDirectory(prefix: String = "ShipItTests") throws -> URL {
+    let url = FileManager.default.temporaryDirectory
+        .appendingPathComponent("\(prefix)-\(UUID().uuidString)", isDirectory: true)
+    try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+    return url
 }
 
 final class MockURLProtocol: URLProtocol {

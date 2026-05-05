@@ -1,3 +1,4 @@
+#if os(macOS)
 import Foundation
 import Testing
 
@@ -65,3 +66,4 @@ struct XcrunTests {
         #expect(output.exitCode == 0)
     }
 }
+#endif

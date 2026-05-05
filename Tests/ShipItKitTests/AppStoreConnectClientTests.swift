@@ -1,3 +1,4 @@
+#if os(macOS)
 import Foundation
 import Testing
 
@@ -39,3 +40,4 @@ private struct BuildAttachmentRequest: Encodable, Sendable {
         let id: String
     }
 }
+#endif

@@ -1,3 +1,4 @@
+#if os(macOS)
 import Foundation
 import SwiftyShell
 import Testing
@@ -183,3 +184,4 @@ struct UploadActionTests {
         )
     }
 }
+#endif

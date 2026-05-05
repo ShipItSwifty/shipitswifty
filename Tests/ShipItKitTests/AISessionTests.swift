@@ -260,6 +260,20 @@ struct AISessionTests {
         #expect(payload.suggestedShipfile.contains("workflows:"))
     }
 
+    @Test("Android platform override produces Android suggested Shipfile")
+    func androidPlatformOverrideProducesAndroidSuggestedShipfile() {
+        let payload = AISessionBuilder().build(
+            goal: .beta,
+            inspection: fullInspection(),
+            hasExistingShipfile: false,
+            platform: .android
+        )
+
+        #expect(payload.suggestedShipfile.contains("platform: android"))
+        #expect(payload.suggestedShipfile.contains("android:"))
+        #expect(payload.suggestedShipfile.contains("play_track"))
+    }
+
     // MARK: - Fixture helpers
 
     private func fullInspection() -> ProjectInspection {

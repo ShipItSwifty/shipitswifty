@@ -231,7 +231,7 @@ struct CompositeActionTests {
         let composite = try #require(resolved.customActions["build_and_sign"])
         #expect(composite.description == "Shared build+sign sequence.")
         #expect(composite.steps.count == 3)
-        #expect(composite.steps.map(\.action) == ["test", "archive", "export"])
+        #expect(composite.steps.map { $0.action } == ["test", "archive", "export"])
 
         let params = try #require(composite.parameters)
         #expect(params["method"]?.isRequired == true)
@@ -255,7 +255,7 @@ struct CompositeActionTests {
             """
         let report = await ShipfileValidator().validate(
             shipfileContents: yml,
-            actionDescriptors: Self.descriptorsForValidator()
+            actionDescriptors: Self.validationDescriptorsForValidator()
         )
         #expect(report.isValid == false)
         #expect(
@@ -281,7 +281,7 @@ struct CompositeActionTests {
             """
         let report = await ShipfileValidator().validate(
             shipfileContents: yml,
-            actionDescriptors: Self.descriptorsForValidator()
+            actionDescriptors: Self.validationDescriptorsForValidator()
         )
         #expect(report.isValid == false)
         #expect(
@@ -301,7 +301,7 @@ struct CompositeActionTests {
             """
         let report = await ShipfileValidator().validate(
             shipfileContents: yml,
-            actionDescriptors: Self.descriptorsForValidator()
+            actionDescriptors: Self.validationDescriptorsForValidator()
         )
         #expect(report.isValid == false)
         #expect(
@@ -324,7 +324,7 @@ struct CompositeActionTests {
             """
         let report = await ShipfileValidator().validate(
             shipfileContents: yml,
-            actionDescriptors: Self.descriptorsForValidator()
+            actionDescriptors: Self.validationDescriptorsForValidator()
         )
         #expect(report.isValid == false)
         #expect(
@@ -369,7 +369,7 @@ struct CompositeActionTests {
             """
         let report = await ShipfileValidator().validate(
             shipfileContents: yml,
-            actionDescriptors: Self.descriptorsForValidator()
+            actionDescriptors: Self.validationDescriptorsForValidator()
         )
         // No custom-action errors should be raised. (Other unrelated issues
         // may still exist because descriptorsForValidator is a minimal set,
@@ -378,6 +378,16 @@ struct CompositeActionTests {
             $0.severity == .error && $0.path.hasPrefix("$.custom_actions")
         }
         #expect(customActionErrors.isEmpty)
+    }
+
+    @Test("validation descriptors include iOS-only actions on every host")
+    func validationDescriptorsIncludeIOSOnlyActions() {
+        let names = Set(BuiltInSchemaCatalog.validationActionSchemas().map(\.name))
+
+        #expect(names.contains("export"))
+        #expect(names.contains("testflight"))
+        #expect(names.contains("metadata"))
+        #expect(names.contains("validate_archive"))
     }
 
     // MARK: Integration — Registry cycle rejection
@@ -552,13 +562,31 @@ struct CompositeActionTests {
     }
 
     static func descriptorsForValidator() -> [ActionDescriptor] {
-        [
+        var descriptors: [ActionDescriptor] = [
             TestAction.descriptor(for: TestAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: TestAction.name)),
             ArchiveAction.descriptor(for: ArchiveAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: ArchiveAction.name)),
+        ]
+        #if os(macOS)
+        descriptors.append(contentsOf: [
             ExportAction.descriptor(for: ExportAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: ExportAction.name)),
             TestFlightAction.descriptor(
                 for: TestFlightAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: TestFlightAction.name)),
-        ]
+        ])
+        #endif
+        return descriptors
+    }
+
+    static func validationDescriptorsForValidator() -> [ActionDescriptor] {
+        BuiltInSchemaCatalog.validationActionSchemas().map { schema in
+            ActionDescriptor(
+                name: schema.name,
+                description: schema.description,
+                optionSchema: schema.options,
+                runJSON: { _, _ in
+                    ActionResultEnvelope(action: schema.name, status: "success", payload: nil)
+                }
+            )
+        }
     }
 }
 

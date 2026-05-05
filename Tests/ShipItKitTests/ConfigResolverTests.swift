@@ -207,6 +207,7 @@ struct ConfigResolverTests {
         #expect(config.processedFiles.isEmpty)
     }
 
+    #if os(macOS)
     @Test("Bundle ID and team ID are inferred from Xcode build settings")
     func infersBundleIDAndTeamIDFromBuildSettings() async throws {
         let executor = MockExecutor { command, _ in
@@ -245,6 +246,7 @@ struct ConfigResolverTests {
         #expect(config.teamID == "DETECTTEAM")
         #expect(config.teamIDFromTargetBuildSettings)
     }
+    #endif
 
     @Test("Automatic code signing flag resolves from Shipfile")
     func automaticCodeSigningFromShipfile() async throws {
