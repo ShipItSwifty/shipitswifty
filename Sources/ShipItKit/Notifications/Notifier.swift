@@ -1,5 +1,9 @@
 import Foundation
-import OSLog
+import Logging
+
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 
 /// Sends build notifications to Slack, Teams, Discord, and custom webhooks.
 ///

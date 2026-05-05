@@ -1,10 +1,10 @@
-import OSLog
+@_exported import Logging
 
 extension Logger {
     /// Creates a `Logger` scoped to a specific type within a subsystem.
     ///
     /// Provides consistent logger naming across ShipItSwifty by using the type name
-    /// as the category. This makes it easy to filter logs by component in Console.app.
+    /// as the category. Built on `swift-log` so it works on macOS and Linux alike.
     ///
     /// ## Usage
     /// ```swift
@@ -15,8 +15,8 @@ extension Logger {
     /// - Parameters:
     ///   - subsystem: The subsystem identifier, e.g. `"ShipItSwifty"`.
     ///   - type: The type to use as the log category.
-    /// - Returns: A `Logger` with category set to the type's name.
+    /// - Returns: A `Logger` whose label is `"<subsystem>.<TypeName>"`.
     public static func forType<T>(subsystem: String, _ type: T.Type) -> Logger {
-        Logger(subsystem: subsystem, category: String(describing: T.self))
+        Logger(label: "\(subsystem).\(String(describing: T.self))")
     }
 }

@@ -1,5 +1,5 @@
 import Foundation
-import OSLog
+import Logging
 import ShipItKit
 
 public struct BuildTimingAction: Action {

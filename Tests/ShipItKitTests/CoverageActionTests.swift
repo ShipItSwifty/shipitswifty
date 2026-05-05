@@ -1,5 +1,5 @@
 import Foundation
-import OSLog
+import Logging
 import SwiftyShell
 import Testing
 
@@ -7,6 +7,7 @@ import Testing
 
 // MARK: - CoverageAction Tests
 
+#if os(macOS)
 @Suite("CoverageAction")
 struct CoverageActionTests {
 
@@ -509,6 +510,7 @@ struct CoverageActionTests {
         #expect(result.targets.contains { $0.name == "MyFeature" })
     }
 }
+#endif
 
 // MARK: - Android Coverage Tests
 

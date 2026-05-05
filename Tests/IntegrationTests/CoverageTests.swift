@@ -1,5 +1,6 @@
+#if os(macOS)
 import Foundation
-import OSLog
+import Logging
 import Testing
 
 @testable import ShipItKit
@@ -18,7 +19,7 @@ struct CoverageIntegrationTests {
 
     @Test("AndroidCoverageParser parses fixture and returns known module names")
     func parserReturnsKnownModules() async throws {
-        let parser = AndroidCoverageParser(logger: Logger(subsystem: "IntegrationTests", category: "coverage"))
+        let parser = AndroidCoverageParser(logger: Logger(label: "IntegrationTests.coverage"))
         let modules = try await parser.parse(reportPath: FixturePaths.jacocoReport.path)
 
         let names = modules.map { $0.name }.sorted()
@@ -27,7 +28,7 @@ struct CoverageIntegrationTests {
 
     @Test("AndroidCoverageParser computes correct line coverage for fixture")
     func parserComputesCorrectCoverage() async throws {
-        let parser = AndroidCoverageParser(logger: Logger(subsystem: "IntegrationTests", category: "coverage"))
+        let parser = AndroidCoverageParser(logger: Logger(label: "IntegrationTests.coverage"))
         let modules = try await parser.parse(reportPath: FixturePaths.jacocoReport.path)
 
         let byName: [String: CoverageTarget] = Dictionary(uniqueKeysWithValues: modules.map { ($0.name, $0) })
@@ -47,7 +48,7 @@ struct CoverageIntegrationTests {
 
     @Test("AndroidCoverageParser lists source files with individual coverage")
     func parserListsSourceFiles() async throws {
-        let parser = AndroidCoverageParser(logger: Logger(subsystem: "IntegrationTests", category: "coverage"))
+        let parser = AndroidCoverageParser(logger: Logger(label: "IntegrationTests.coverage"))
         let modules = try await parser.parse(reportPath: FixturePaths.jacocoReport.path)
 
         let feature = try #require(modules.first { $0.name == "feature" })
@@ -58,7 +59,7 @@ struct CoverageIntegrationTests {
 
     @Test("AndroidCoverageParser throws on missing report file")
     func parserThrowsOnMissingFile() async throws {
-        let parser = AndroidCoverageParser(logger: Logger(subsystem: "IntegrationTests", category: "coverage"))
+        let parser = AndroidCoverageParser(logger: Logger(label: "IntegrationTests.coverage"))
         await #expect {
             _ = try await parser.parse(reportPath: "/nonexistent/path/jacoco.xml")
         } throws: { error in
@@ -112,3 +113,4 @@ struct CoverageIntegrationTests {
         #expect(lines.count == 1, "Expected 1 summary line, got \(lines.count): \(result.stdout)")
     }
 }
+#endif

@@ -1,4 +1,5 @@
-import OSLog
+import Foundation
+import Logging
 import SwiftyShell
 
 /// Performs Git operations via SwiftyShell.

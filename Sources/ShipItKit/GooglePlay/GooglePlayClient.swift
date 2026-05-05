@@ -1,5 +1,9 @@
 import Foundation
-import OSLog
+import Logging
+
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 
 /// JWT-authenticated HTTP client for the Google Play Developer API (v3).
 ///

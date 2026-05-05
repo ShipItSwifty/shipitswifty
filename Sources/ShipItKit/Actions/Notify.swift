@@ -1,5 +1,5 @@
 import Foundation
-import OSLog
+import Logging
 
 /// Posts build results to Slack, Teams, Discord, or any custom webhook.
 ///

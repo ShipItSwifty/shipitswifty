@@ -1,3 +1,4 @@
+#if os(macOS)
 import Foundation
 
 /// Reservation returned by the App Store Connect API when reserving an asset upload slot.
@@ -96,3 +97,4 @@ public struct UploadCommit: Codable, Sendable {
         self.uploaded = uploaded
     }
 }
+#endif

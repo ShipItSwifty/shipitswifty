@@ -1,7 +1,11 @@
 import Crypto
 import CryptoExtras
 import Foundation
-import OSLog
+import Logging
+
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 
 /// Generates and caches Google OAuth2 access tokens for service account authentication.
 ///
