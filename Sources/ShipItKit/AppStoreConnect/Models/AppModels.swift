@@ -1,3 +1,4 @@
+#if os(macOS)
 import Foundation
 
 // MARK: - Generic Response Wrappers
@@ -226,3 +227,4 @@ public struct ASCBetaTester: Codable, Sendable {
         }
     }
 }
+#endif

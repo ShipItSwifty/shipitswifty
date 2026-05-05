@@ -1,6 +1,10 @@
 import Foundation
-import OSLog
+import Logging
 import SwiftyShell
+
+#if canImport(FoundationXML)
+import FoundationXML
+#endif
 
 /// Parses Android code coverage data from a JaCoCo XML report.
 ///

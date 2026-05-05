@@ -1,4 +1,5 @@
-import OSLog
+import Foundation
+import Logging
 
 /// Manages a collection of statically linked `ShipItPlugin` types and
 /// registers their action descriptors into an `ActionRegistry`.

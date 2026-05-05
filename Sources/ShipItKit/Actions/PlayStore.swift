@@ -1,5 +1,5 @@
 import Foundation
-import OSLog
+import Logging
 
 /// Uploads a release artifact to Google Play and assigns it to a distribution track.
 ///

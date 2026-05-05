@@ -1,4 +1,5 @@
-import OSLog
+import Foundation
+import Logging
 
 /// Central registry for built-in and plugin-provided actions.
 ///

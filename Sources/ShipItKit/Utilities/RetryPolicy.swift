@@ -1,4 +1,5 @@
-import OSLog
+import Foundation
+import Logging
 
 /// Defines retry behavior with exponential backoff for transient failures.
 ///

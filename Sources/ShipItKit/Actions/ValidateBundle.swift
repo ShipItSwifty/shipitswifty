@@ -1,5 +1,5 @@
 import Foundation
-import OSLog
+import Logging
 
 /// Validates an Android App Bundle (`.aab`) or APK for Google Play upload readiness.
 ///
