@@ -441,7 +441,7 @@ public enum BuiltInSchemaCatalog {
     }
 
     public static func actionSchemas() -> [ActionSchema] {
-        [
+        var schemas: [ActionSchema] = [
             actionSchema(
                 name: BuildAction.name, description: BuildAction.description, options: buildOptions(),
                 example: buildExample()),
@@ -463,6 +463,15 @@ public enum BuiltInSchemaCatalog {
             actionSchema(
                 name: ValidateBundleAction.name, description: ValidateBundleAction.description,
                 options: validateBundleOptions(), example: validateBundleExample()),
+            actionSchema(
+                name: NotifyAction.name, description: NotifyAction.description, options: notifyOptions(),
+                example: notifyExample()),
+            actionSchema(
+                name: GitAction.name, description: GitAction.description, options: gitOptions(),
+                example: gitExample()),
+        ]
+        #if os(macOS)
+        schemas.append(contentsOf: [
             actionSchema(
                 name: ExportAction.name, description: ExportAction.description, options: exportOptions(),
                 example: exportExample()),
@@ -497,18 +506,20 @@ public enum BuiltInSchemaCatalog {
                 name: ProvisionAction.name, description: ProvisionAction.description,
                 options: provisionOptions(), example: provisionExample()),
             actionSchema(
-                name: NotifyAction.name, description: NotifyAction.description, options: notifyOptions(),
-                example: notifyExample()),
-            actionSchema(
-                name: GitAction.name, description: GitAction.description, options: gitOptions(),
-                example: gitExample()),
-            actionSchema(
                 name: DsymAction.name, description: DsymAction.description, options: dsymOptions(),
                 example: dsymExample()),
             actionSchema(
                 name: GenerateProjectAction.name, description: GenerateProjectAction.description,
                 options: generateProjectOptions(), example: generateProjectExample()),
-        ].sorted { $0.name < $1.name }
+        ])
+        #endif
+        return schemas.sorted { $0.name < $1.name }
+    }
+
+    /// Returns schemas for every built-in action name, including actions that are
+    /// unavailable on the current host OS.
+    public static func validationActionSchemas() -> [ActionSchema] {
+        allValidationActionSchemas().sorted { $0.name < $1.name }
     }
 
     /// Returns the option schema fields for a named built-in action.
@@ -517,6 +528,43 @@ public enum BuiltInSchemaCatalog {
     /// - Returns: The action's declared option fields, or an empty array if the name is unknown.
     public static func optionSchema(for actionName: String) -> [SchemaField] {
         actionSchemas().first(where: { $0.name == actionName })?.options ?? []
+    }
+
+    public static func validationOptionSchema(for actionName: String) -> [SchemaField] {
+        validationActionSchemas().first(where: { $0.name == actionName })?.options ?? []
+    }
+
+    private static func allValidationActionSchemas() -> [ActionSchema] {
+        [
+            actionSchema(name: "archive", description: ArchiveAction.description, options: archiveOptions(), example: archiveExample()),
+            actionSchema(name: "build", description: BuildAction.description, options: buildOptions(), example: buildExample()),
+            actionSchema(name: "coverage", description: CoverageAction.description, options: coverageOptions(), example: coverageExample()),
+            actionSchema(name: "dsym", description: "Download or upload dSYM symbol files.", options: dsymOptions(), example: dsymExample()),
+            actionSchema(name: "export", description: "Export an IPA from an xcarchive.", options: exportOptions(), example: exportExample()),
+            actionSchema(name: "frame", description: "Frame screenshots with device bezels.", options: frameOptions(), example: frameExample()),
+            actionSchema(
+                name: "generate_project", description: "Generate an Xcode project from a project spec.", options: generateProjectOptions(),
+                example: generateProjectExample()),
+            actionSchema(name: "git", description: GitAction.description, options: gitOptions(), example: gitExample()),
+            actionSchema(name: "lint", description: LintAction.description, options: lintOptions(), example: lintExample()),
+            actionSchema(name: "metadata", description: "Sync App Store metadata.", options: metadataOptions(), example: metadataExample()),
+            actionSchema(name: "notify", description: NotifyAction.description, options: notifyOptions(), example: notifyExample()),
+            actionSchema(name: "play-store", description: PlayStoreAction.description, options: playStoreOptions(), example: playStoreExample()),
+            actionSchema(name: "precheck", description: "Validate App Store metadata before submission.", options: precheckOptions(), example: precheckExample()),
+            actionSchema(name: "provision", description: "Manage Apple provisioning assets.", options: provisionOptions(), example: provisionExample()),
+            actionSchema(name: "sign", description: "Manage iOS code signing assets.", options: signOptions(), example: signExample()),
+            actionSchema(name: "snapshot", description: "Capture localized app screenshots.", options: snapshotOptions(), example: snapshotExample()),
+            actionSchema(name: "test", description: TestAction.description, options: testOptions(), example: testExample()),
+            actionSchema(name: "testflight", description: "Upload and distribute a build through TestFlight.", options: testFlightOptions(), example: testFlightExample()),
+            actionSchema(name: "upload", description: "Upload an IPA to App Store Connect.", options: uploadOptions(), example: uploadExample()),
+            actionSchema(
+                name: "validate_archive", description: "Validate an xcarchive or IPA for App Store upload readiness.",
+                options: validateArchiveOptions(), example: validateArchiveExample()),
+            actionSchema(
+                name: "validate_bundle", description: ValidateBundleAction.description, options: validateBundleOptions(),
+                example: validateBundleExample()),
+            actionSchema(name: "version", description: "Bump iOS app version values.", options: versionOptions(), example: versionExample()),
+        ]
     }
 
     private static func actionSchema(

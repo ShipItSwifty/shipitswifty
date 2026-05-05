@@ -34,7 +34,7 @@ public struct AISessionBuilder: Sendable {
         platform: Platform = .ios,
         customActions: [String: CustomActionConfig] = [:]
     ) -> AISessionPayload {
-        let suggestion = ShipfileSuggester().suggest(goal: goal, from: inspection)
+        let suggestion = ShipfileSuggester().suggest(goal: goal, platform: platform, from: inspection)
         let app = inspection.suggestedAppConfig
         let appConfig = buildInferredConfig(app: app, inspection: inspection, goal: goal)
         let ambiguities = buildAmbiguities(inspection: inspection)

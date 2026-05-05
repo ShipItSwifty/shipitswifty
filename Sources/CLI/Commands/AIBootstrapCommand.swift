@@ -30,14 +30,14 @@ struct AIBootstrapCommand: AsyncParsableCommand {
         if FileManager.default.fileExists(atPath: resolvedShipfilePath) {
             validationReport = await validator.validate(
                 shipfilePath: resolvedShipfilePath,
-                actionDescriptors: builtInActionDescriptors()
+                actionDescriptors: validationActionDescriptors()
             )
             source = "existing_shipfile"
         } else {
             validationReport = await validator.validate(
                 shipfileContents: suggestion.yaml,
                 shipfilePath: "<suggested>",
-                actionDescriptors: builtInActionDescriptors()
+                actionDescriptors: validationActionDescriptors()
             )
             source = "suggested_yaml"
         }

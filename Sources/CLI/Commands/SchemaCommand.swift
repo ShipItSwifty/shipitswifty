@@ -18,10 +18,11 @@ struct SchemaCommand: AsyncParsableCommand {
 
         let sections: [SchemaSection]
         let actions: [ActionSchema]
+        let platform = global.platform ?? .ios
 
         if let goal = workflow {
-            sections = allSections.filter { relevantSections(for: goal).contains($0.name) }
-            let actionNames = relevantActions(for: goal)
+            sections = allSections.filter { relevantSections(for: goal, platform: platform).contains($0.name) }
+            let actionNames = relevantActions(for: goal, platform: platform)
             actions = allActions.filter { actionNames.contains($0.name) }
         } else {
             sections = allSections
@@ -57,22 +58,45 @@ struct SchemaCommand: AsyncParsableCommand {
     // MARK: - Goal-scoped filtering
 
     /// Shipfile sections relevant to a given goal.
-    private func relevantSections(for goal: SuggestionGoal) -> Set<String> {
+    private func relevantSections(for goal: SuggestionGoal, platform: Platform) -> Set<String> {
+        if platform == .android {
+            switch goal {
+            case .local:
+                return ["platform", "android", "workflows", "notifications"]
+            case .beta, .release:
+                return ["platform", "android", "workflows", "notifications"]
+            }
+        }
+
         switch goal {
         case .local:
-            return ["app", "build", "code_signing", "archive", "export", "versioning"]
+            return ["platform", "app", "build", "code_signing", "archive", "export", "versioning"]
         case .beta:
-            return ["app", "app_store_connect", "build", "code_signing", "archive", "export", "testflight", "versioning", "notifications"]
+            return [
+                "platform", "app", "app_store_connect", "build", "code_signing", "archive", "export", "testflight",
+                "versioning", "notifications",
+            ]
         case .release:
             return [
-                "app", "app_store_connect", "build", "code_signing", "archive", "export", "testflight", "metadata", "screenshots",
-                "versioning", "notifications",
+                "platform", "app", "app_store_connect", "build", "code_signing", "archive", "export", "testflight", "metadata",
+                "screenshots", "versioning", "notifications",
             ]
         }
     }
 
     /// Action names relevant to a given goal.
-    private func relevantActions(for goal: SuggestionGoal) -> Set<String> {
+    private func relevantActions(for goal: SuggestionGoal, platform: Platform) -> Set<String> {
+        if platform == .android {
+            switch goal {
+            case .local:
+                return ["lint", "test", "build", "coverage", "validate_bundle", "notify", "git"]
+            case .beta:
+                return ["lint", "test", "archive", "coverage", "validate_bundle", "play-store", "notify", "git"]
+            case .release:
+                return ["lint", "test", "archive", "coverage", "validate_bundle", "play-store", "notify", "git"]
+            }
+        }
+
         switch goal {
         case .local:
             return ["build", "test", "archive", "export", "sign", "git"]
