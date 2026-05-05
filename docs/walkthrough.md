@@ -35,7 +35,7 @@ shipit generate --goal beta
 For non-interactive use (CI/agent flows):
 
 ```bash
-shipit generate --goal beta --non-interactive --output json
+shipit generate --goal beta --non-interactive
 ```
 
 The generated result includes:
@@ -349,7 +349,7 @@ shipit env
 shipit run beta --dry-run
 
 # Machine-readable check (agents/CI)
-shipit generate --goal beta --non-interactive --output json
+shipit generate --goal beta --non-interactive
 shipit run beta --dry-run --output json
 ```
 

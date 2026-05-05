@@ -114,7 +114,7 @@ struct CLIIntegrationTests {
 
     // MARK: - Generate
 
-    @Test("generate --non-interactive --output json exits 0")
+    @Test("generate --non-interactive exits 0 and always outputs JSON")
     func generateNonInteractiveExitsZero() async throws {
         let tmp = FileManager.default.temporaryDirectory
             .appendingPathComponent("generate-test-\(UUID().uuidString)")
@@ -122,7 +122,7 @@ struct CLIIntegrationTests {
         defer { try? FileManager.default.removeItem(at: tmp) }
 
         let result = try await CLI.run(
-            "generate", "--goal", "beta", "--non-interactive", "--output", "json",
+            "generate", "--goal", "beta", "--non-interactive",
             workingDirectory: tmp
         )
         #expect(result.exitCode == 0, "output: \(result.output)")

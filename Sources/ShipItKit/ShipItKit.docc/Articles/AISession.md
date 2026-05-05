@@ -107,7 +107,7 @@ If your project has multiple runnable schemes, multiple bundle IDs across config
 When agents are confident enough to write a Shipfile without further user input, they call:
 
 ```bash
-shipit generate --goal beta --non-interactive --output json
+shipit generate --goal beta --non-interactive
 ```
 
 This uses ``ProjectInspector`` for the same accurate scheme/bundle/team detection, writes `Shipfile.yml`, and returns a JSON result listing any unresolved fields.

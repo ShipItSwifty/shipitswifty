@@ -354,7 +354,7 @@ swift run shipit validate archive --archive-path ./build/MyApp.xcarchive
 swift run shipit validate all --output json
 
 # Non-interactive generation (agents/CI)
-swift run shipit generate --goal beta --non-interactive --output json
+swift run shipit generate --goal beta --non-interactive
 
 # Simulate a workflow without executing it (returns structured JSON)
 swift run shipit run beta --dry-run --output json
