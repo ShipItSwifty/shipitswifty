@@ -37,9 +37,11 @@ public enum SchemaValidator {
         case let double as Double:
             return .double(double)
         case let number as NSNumber:
+            #if canImport(Darwin)
             if CFGetTypeID(number) == CFBooleanGetTypeID() {
                 return .bool(number.boolValue)
             }
+            #endif
             if number.doubleValue.rounded(.towardZero) == number.doubleValue {
                 return .int(number.intValue)
             }

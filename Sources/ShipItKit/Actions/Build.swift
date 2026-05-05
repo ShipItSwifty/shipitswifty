@@ -1,4 +1,5 @@
-import OSLog
+import Foundation
+import Logging
 import SwiftyShell
 
 /// Compiles the app.
@@ -162,7 +163,11 @@ public struct BuildAction: Action {
     public func run(with options: Options, context: ActionContext) async throws -> Result {
         switch context.platform {
         case .ios:
+            #if os(macOS)
             return try await runIOS(options: options, context: context)
+            #else
+            throw ShipItError.invalidConfiguration(reason: "iOS builds require macOS.")
+            #endif
         case .android:
             return try await runAndroid(options: options, context: context)
         }
@@ -170,6 +175,7 @@ public struct BuildAction: Action {
 
     // MARK: - iOS Build
 
+    #if os(macOS)
     private func runIOS(options: Options, context: ActionContext) async throws -> Result {
         let scheme = options.scheme ?? context.config.appScheme
         guard let scheme else {
@@ -235,6 +241,8 @@ public struct BuildAction: Action {
         )
     }
 
+    #endif
+
     // MARK: - Android Build
 
     private func runAndroid(options: Options, context: ActionContext) async throws -> Result {
@@ -299,6 +307,7 @@ public struct BuildAction: Action {
 
     // MARK: - Private Helpers
 
+    #if os(macOS)
     private func parseAppPath(from output: String) -> String? {
         let lines = output.components(separatedBy: "\n")
         for line in lines {
@@ -324,6 +333,8 @@ public struct BuildAction: Action {
         }
         return nil
     }
+
+    #endif
 
     private func parseApkPath(from output: String, module: String, variant: String) -> String? {
         // Gradle outputs: "app/build/outputs/apk/release/app-release.apk"

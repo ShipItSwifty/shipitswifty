@@ -1,6 +1,6 @@
 import ArgumentParser
 import Foundation
-import OSLog
+import Logging
 import ShipItKit
 
 #if canImport(Darwin)
@@ -381,7 +381,7 @@ struct GenerateCommand: AsyncParsableCommand {
     /// Falls back to plain `readLine()` when not running on a TTY.
     private func askSecret(_ prompt: String) -> String {
         print("\(prompt): ", terminator: "")
-        fflush(stdout)
+        fflush(nil)
 
         #if canImport(Darwin)
         var old = termios()
@@ -418,6 +418,7 @@ struct GenerateCommand: AsyncParsableCommand {
     }
 
     private func offerDoctor(outputPath: String, formatter: HumanFormatter) async throws {
+        #if os(macOS)
         guard !skipDoctorPrompt, !nonInteractive, global.output == .human, isInteractiveTerminal else {
             return
         }
@@ -430,6 +431,7 @@ struct GenerateCommand: AsyncParsableCommand {
         doctor.global = global
         doctor.global.shipfile = outputPath
         try await doctor.run()
+        #endif
     }
 
     private func resolvedOutputPath() -> String {
@@ -550,8 +552,7 @@ private actor TerminalSpinner {
     func run() async {
         var index = 0
         while isRunning {
-            fputs("\r\(frames[index % frames.count]) \(message)", stderr)
-            fflush(stderr)
+            FileHandle.standardError.write(Data("\r\(frames[index % frames.count]) \(message)".utf8))
             index += 1
             try? await Task.sleep(for: .milliseconds(100))
         }
@@ -559,7 +560,6 @@ private actor TerminalSpinner {
 
     func finish() {
         isRunning = false
-        fputs("\r\u{001B}[2K", stderr)
-        fflush(stderr)
+        FileHandle.standardError.write(Data("\r\u{001B}[2K".utf8))
     }
 }

@@ -1,4 +1,5 @@
-import OSLog
+import Foundation
+import Logging
 
 /// A single step within a workflow, referencing a registered action by name.
 ///
@@ -121,9 +122,11 @@ public struct Workflow: Sendable {
         let startTime = Date()
 
         // Auto-generate project before running any Xcode-dependent steps
+        #if os(macOS)
         if Self.requiresXcodeContainer(steps: steps) {
             try await context.ensureProjectGenerated()
         }
+        #endif
 
         for (index, step) in steps.enumerated() {
             logger.info("Workflow '\(name)' step \(index + 1)/\(steps.count): \(step.action)")

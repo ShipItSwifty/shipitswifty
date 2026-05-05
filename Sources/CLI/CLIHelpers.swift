@@ -1,5 +1,5 @@
 import Foundation
-import OSLog
+import Logging
 import ShipItKit
 import SwiftyShell
 
@@ -35,6 +35,15 @@ func buildActionContext(config: ResolvedConfig) async throws -> ActionContext {
     let shell = ShellContext()
     let logger = Logger.forType(subsystem: "ShipItSwifty", ActionContext.self)
 
+    // Build Google Play client — only present when service account data is available
+    let googlePlayClient: GooglePlayClient?
+    if let gpData = config.googlePlayServiceAccountData {
+        googlePlayClient = try? GooglePlayClient(serviceAccountJSON: gpData)
+    } else {
+        googlePlayClient = nil
+    }
+
+    #if os(macOS)
     // Build ASC client — require credentials for API-touching actions
     let ascClient: AppStoreConnectClient
     if let keyID = config.ascKeyID,
@@ -56,14 +65,6 @@ func buildActionContext(config: ResolvedConfig) async throws -> ActionContext {
         )
     }
 
-    // Build Google Play client — only present when service account data is available
-    let googlePlayClient: GooglePlayClient?
-    if let gpData = config.googlePlayServiceAccountData {
-        googlePlayClient = try? GooglePlayClient(serviceAccountJSON: gpData)
-    } else {
-        googlePlayClient = nil
-    }
-
     return ActionContext(
         shell: shell,
         logger: logger,
@@ -72,6 +73,15 @@ func buildActionContext(config: ResolvedConfig) async throws -> ActionContext {
         googlePlay: googlePlayClient,
         platform: config.platform
     )
+    #else
+    return ActionContext(
+        shell: shell,
+        logger: logger,
+        config: config,
+        googlePlay: googlePlayClient,
+        platform: config.platform
+    )
+    #endif
 }
 
 /// Build a minimal action context for actions that can run without a Shipfile.
