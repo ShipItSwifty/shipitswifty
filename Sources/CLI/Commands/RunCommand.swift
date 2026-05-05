@@ -108,7 +108,7 @@ func registerBuiltInActions(into registry: ActionRegistry) async throws {
 }
 
 func builtInActionDescriptors() -> [ActionDescriptor] {
-    [
+    var descriptors: [ActionDescriptor] = [
         BuildAction.descriptor(for: BuildAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: BuildAction.name)),
         TestAction.descriptor(for: TestAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: TestAction.name)),
         CoverageAction.descriptor(for: CoverageAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: CoverageAction.name)),
@@ -117,6 +117,11 @@ func builtInActionDescriptors() -> [ActionDescriptor] {
         PlayStoreAction.descriptor(for: PlayStoreAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: PlayStoreAction.name)),
         ValidateBundleAction.descriptor(
             for: ValidateBundleAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: ValidateBundleAction.name)),
+        NotifyAction.descriptor(for: NotifyAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: NotifyAction.name)),
+        GitAction.descriptor(for: GitAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: GitAction.name)),
+    ]
+    #if os(macOS)
+    descriptors.append(contentsOf: [
         ExportAction.descriptor(for: ExportAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: ExportAction.name)),
         SignAction.descriptor(for: SignAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: SignAction.name)),
         UploadAction.descriptor(for: UploadAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: UploadAction.name)),
@@ -129,10 +134,23 @@ func builtInActionDescriptors() -> [ActionDescriptor] {
         ValidateArchiveAction.descriptor(
             for: ValidateArchiveAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: ValidateArchiveAction.name)),
         ProvisionAction.descriptor(for: ProvisionAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: ProvisionAction.name)),
-        NotifyAction.descriptor(for: NotifyAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: NotifyAction.name)),
-        GitAction.descriptor(for: GitAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: GitAction.name)),
         DsymAction.descriptor(for: DsymAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: DsymAction.name)),
         GenerateProjectAction.descriptor(
             for: GenerateProjectAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: GenerateProjectAction.name)),
-    ]
+    ])
+    #endif
+    return descriptors
+}
+
+func validationActionDescriptors() -> [ActionDescriptor] {
+    BuiltInSchemaCatalog.validationActionSchemas().map { schema in
+        ActionDescriptor(
+            name: schema.name,
+            description: schema.description,
+            optionSchema: schema.options,
+            runJSON: { _, _ in
+                ActionResultEnvelope(action: schema.name, status: "success", payload: nil)
+            }
+        )
+    }
 }

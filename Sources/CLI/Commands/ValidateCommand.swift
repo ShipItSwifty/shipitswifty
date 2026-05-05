@@ -16,15 +16,24 @@ struct ValidateCommand: AsyncParsableCommand {
               bundle     Validate Android App Bundle (.aab) or APK for Play Store readiness (Android)
               all        Run all validation stages in sequence
             """,
-        subcommands: [
-            ValidateYmlCommand.self,
-            ValidateMetadataCommand.self,
-            ValidateArchiveCommand.self,
-            ValidateBundleCommand.self,
-            ValidateAllCommand.self,
-        ],
+        subcommands: validateSubcommands,
         defaultSubcommand: ValidateYmlCommand.self
     )
+
+    private static var validateSubcommands: [ParsableCommand.Type] {
+        var commands: [ParsableCommand.Type] = [
+            ValidateYmlCommand.self,
+            ValidateBundleCommand.self,
+        ]
+        #if os(macOS)
+        commands.append(contentsOf: [
+            ValidateMetadataCommand.self,
+            ValidateArchiveCommand.self,
+            ValidateAllCommand.self,
+        ])
+        #endif
+        return commands
+    }
 }
 
 // MARK: - validate yml
@@ -43,7 +52,7 @@ struct ValidateYmlCommand: AsyncParsableCommand {
     func run() async throws {
         let report = await ShipfileValidator().validate(
             shipfilePath: configuredShipfilePath(from: global),
-            actionDescriptors: builtInActionDescriptors()
+            actionDescriptors: validationActionDescriptors()
         )
 
         switch global.output {
@@ -80,6 +89,7 @@ struct ValidateYmlCommand: AsyncParsableCommand {
     }
 }
 
+#if os(macOS)
 // MARK: - validate metadata
 
 /// Validate App Store metadata against precheck rules.
@@ -267,6 +277,8 @@ struct ValidateArchiveCommand: AsyncParsableCommand {
     }
 }
 
+#endif
+
 // MARK: - validate bundle
 
 /// Validate an Android App Bundle (.aab) or APK for Google Play upload readiness.
@@ -339,6 +351,7 @@ struct ValidateBundleCommand: AsyncParsableCommand {
     }
 }
 
+#if os(macOS)
 // MARK: - validate all
 
 /// Run all validation stages in sequence: yml → metadata → archive.
@@ -371,7 +384,7 @@ struct ValidateAllCommand: AsyncParsableCommand {
         if global.output == .human { formatter.print("Stage 1/3: validate yml") }
         let ymlReport = await ShipfileValidator().validate(
             shipfilePath: configuredShipfilePath(from: global),
-            actionDescriptors: builtInActionDescriptors()
+            actionDescriptors: validationActionDescriptors()
         )
 
         if !ymlReport.isValid {
@@ -488,6 +501,8 @@ struct ValidateAllCommand: AsyncParsableCommand {
     }
 }
 
+#endif
+
 // MARK: - Shared JSON payload builders
 
 private func validateYmlPayload(report: ValidationReport) -> JSONValue {
@@ -507,6 +522,7 @@ private func validateYmlPayload(report: ValidationReport) -> JSONValue {
     ])
 }
 
+#if os(macOS)
 private func validateArchivePayload(result: ValidateArchiveAction.Result) -> JSONValue {
     var fields: [String: JSONValue] = [
         "mode": .string("archive"),
@@ -526,6 +542,7 @@ private func validateArchivePayload(result: ValidateArchiveAction.Result) -> JSO
     }
     return .object(fields)
 }
+#endif
 
 private func validateBundlePayload(result: ValidateBundleAction.Result) -> JSONValue {
     .object([
