@@ -48,6 +48,7 @@ These constraints are enforced throughout the codebase:
 ### Essentials
 
 - <doc:GettingStarted>
+- <doc:CredentialLookup>
 - <doc:CoreConcepts>
 - <doc:Architecture>
 - <doc:tutorials/Tutorials>
@@ -85,6 +86,7 @@ These constraints are enforced throughout the codebase:
 
 - <doc:CodeSigningAndVault>
 - <doc:AppStoreConnectIntegration>
+- <doc:CredentialLookup>
 - ``SignAction``
 - ``ProvisionAction``
 - ``AppStoreConnectClient``
@@ -96,6 +98,7 @@ These constraints are enforced throughout the codebase:
 ### Android & Google Play
 
 - <doc:AndroidAndGooglePlay>
+- <doc:CredentialLookup>
 - ``PlayStoreAction``
 - ``GooglePlayClient``
 - ``GooglePlayUploadService``

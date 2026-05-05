@@ -31,7 +31,9 @@
     @Section(title: "Configure Google Play credentials") {
         @ContentAndMedia {
             Google Play uploads require a service-account JSON key with the
-            "Release manager" role on the app.
+            "Release manager" role on the app. If you need help finding
+            `package_name`, choosing `play_track`, or wiring the service
+            account, see <doc:CredentialLookup>.
         }
 
         @Steps {

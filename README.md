@@ -191,12 +191,16 @@ For any action that calls the App Store Connect API:
 
 You only need these for upload/metadata/precheck/provision flows. Local `build` / `test` / `archive` / `export` work without them.
 
+Need help finding them? See [`docs/credential-lookup.md`](docs/credential-lookup.md).
+
 ### Google Play (Android)
 
 | Variable | Purpose |
 |---|---|
 | `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` | Raw service-account JSON (preferred for CI) |
 | `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_PATH` | Path to the JSON file (preferred locally) |
+
+Need help finding `package_name`, `play_track`, or setting up the service account? See [`docs/credential-lookup.md`](docs/credential-lookup.md).
 
 ## Output modes
 
@@ -283,6 +287,7 @@ The DocC archive includes a multi-chapter **interactive tutorial** (iOS quick st
 |---|---|---|
 | **Getting started** | `GettingStarted` | — |
 | **Walkthrough** | (see Tutorials chapter 1) | [`docs/walkthrough.md`](docs/walkthrough.md) |
+| **Credential lookup** | — | [`docs/credential-lookup.md`](docs/credential-lookup.md) |
 | **Core concepts** | `CoreConcepts`, `Architecture` | [`docs/architecture.md`](docs/architecture.md) |
 | **Configuration reference** | `ConfigurationReference` | [`docs/configuration-reference.md`](docs/configuration-reference.md) |
 | **Workflows & composites** | `Workflows`, `CompositeActions` | — |

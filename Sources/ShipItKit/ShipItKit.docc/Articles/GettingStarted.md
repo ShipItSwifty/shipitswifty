@@ -31,10 +31,10 @@ swift run shipit --help
 
 ### 2. Create a config file
 
-Copy the example config and fill in your app's details:
+Use `generate` as the default setup path so ShipIt can inspect your project and write the config for you:
 
 ```bash
-cp Shipfile.example.yml Shipfile.yml
+shipit generate
 ```
 
 `Shipfile.yml` is only the default filename. You can rename it and pass `--shipfile <path>` when using the CLI.
@@ -123,6 +123,12 @@ Set these environment variables for any action that talks to the ASC API:
 
 If you only use local Xcode actions such as `build`, `test`, `archive`, or `export`, you can skip these credentials.
 
+Common lookup notes:
+
+- `team_id` is the Apple Developer Team ID selected in Xcode Signing for your app target
+- `ASC_ISSUER_ID` comes from the App Store Connect API page, not from the `.p8` key file
+- For a step-by-step credential lookup reference, see <doc:CredentialLookup>
+
 Find these values in App Store Connect:
 1. Open `Users and Access`.
 2. Open `Integrations`.
@@ -141,5 +147,6 @@ Find these values in App Store Connect:
 ## Next Steps
 
 - Read <doc:CoreConcepts> to understand the action model
+- See <doc:CredentialLookup> when you need to find Apple or Google credential values
 - See <doc:ConfigurationReference> for all Shipfile options
 - See <doc:WritingPlugins> to extend ShipItKit with custom actions

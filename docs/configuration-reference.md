@@ -61,6 +61,11 @@ android:
 | `bundle_id` | string | App bundle identifier. Optional if it can be inferred from Xcode build settings |
 | `team_id` | string | Apple Developer Team ID. Optional if it can be inferred from Xcode build settings |
 
+Where to find these values manually:
+
+- `bundle_id`: your target's bundle identifier in Xcode Signing settings or `PRODUCT_BUNDLE_IDENTIFIER` in build settings
+- `team_id`: the 10-character Apple Developer Team ID for the team selected in Xcode Signing, also shown in the Apple Developer account / Certificates, IDs & Profiles
+
 ## `app_store_connect`
 
 For App Store Connect API actions, provide `key_id`, `issuer_id`, and exactly one private key source: `private_key` or `key_path`.
@@ -76,6 +81,8 @@ Find these values in App Store Connect:
 4. Create or select an API key.
 5. Copy `Key ID` and `Issuer ID`.
 6. Download the `.p8` file and use it via `private_key` or `key_path`.
+
+If ShipIt cannot infer `app.team_id`, use the team selected in Xcode for the app target. The value you need is the Apple Developer Team ID, not the App Store Connect issuer ID.
 
 | Key | Type | Env Var | Description |
 |---|---|---|---|
@@ -418,7 +425,12 @@ Set these environment variables for Google Play upload actions:
 | `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` | Full JSON content of the service account key file |
 | `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_PATH` | Path to the service account key JSON file |
 
-Find or create a service account in Google Cloud Console with the `Release Manager` role in Google Play Console.
+Lookup notes:
+
+- `package_name` is your Android `applicationId`, usually from `app/build.gradle` or `app/build.gradle.kts`
+- `play_track` maps to the Play Console track you are targeting: `internal`, `alpha`, `beta`, or `production`
+- Create the service account in Google Cloud, enable the `Google Play Developer API`, then invite that service account in Play Console `Users and permissions`
+- Give the service account Play Console permissions that match the rollout you want to perform
 
 ## `ios`
 

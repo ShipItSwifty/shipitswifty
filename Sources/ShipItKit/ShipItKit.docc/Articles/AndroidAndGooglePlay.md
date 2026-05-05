@@ -21,6 +21,8 @@ ShipItKit treats Android as a first-class platform. The same actions you use for
 
 The service account needs the `Release manager` role on the app in the Play Console.
 
+If you need help locating `package_name`, choosing `play_track`, or setting up the service account, see <doc:CredentialLookup>.
+
 ## Minimal Shipfile
 
 ```yaml
@@ -143,5 +145,6 @@ See <doc:CIIntegration>.
 - ``Bundletool``
 - ``Adb``
 - ``Emulator``
+- <doc:CredentialLookup>
 - <doc:Validation>
 - <doc:Coverage>

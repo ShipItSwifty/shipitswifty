@@ -57,7 +57,8 @@
     @Section(title: "Set ASC credentials (optional)") {
         @ContentAndMedia {
             For local builds you can skip this step. For uploads, configure App
-            Store Connect API credentials.
+            Store Connect API credentials. If you need help finding `team_id`,
+            `ASC_KEY_ID`, or `ASC_ISSUER_ID`, see <doc:CredentialLookup>.
         }
 
         @Steps {
