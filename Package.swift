@@ -10,7 +10,7 @@ let package = Package(
     // XcodeBuildKit and XcodeGenKit are macOS-only (wrap xcodebuild / xcodegen).
     platforms: [.macOS(.v15)],
     products: [
-        .executable(name: "shipit", targets: ["CLI"]),
+        .executable(name: "shipit", targets: ["ShipItCLI"]),
         .library(name: "ShipItKit", targets: ["ShipItKit"]),
         .library(name: "XcodeBuildKit", targets: ["XcodeBuildKit"]),
         .library(name: "GradleKit", targets: ["GradleKit"]),
@@ -18,7 +18,7 @@ let package = Package(
     ],
     dependencies: [
         // Shell execution
-        .package(url: "https://github.com/maniramezan/swiftyshell", from: "0.1.0"),
+        .package(path: "../SwiftyShell"),
         // DocC generation command plugin
         .package(url: "https://github.com/swiftlang/swift-docc-plugin", from: "1.5.0"),
         // CLI argument parsing
@@ -74,12 +74,13 @@ let package = Package(
         // MARK: - CLI
 
         .executableTarget(
-            name: "CLI",
+            name: "ShipItCLI",
             dependencies: [
                 "ShipItKit",
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
                 .product(name: "Logging", package: "swift-log"),
-            ]
+            ],
+            path: "Sources/CLI"
         ),
 
         // MARK: - Tests
@@ -118,7 +119,7 @@ let package = Package(
         .testTarget(
             name: "CLITests",
             dependencies: [
-                "CLI",
+                "ShipItCLI",
                 .product(name: "SwiftyShell", package: "SwiftyShell"),
             ]
         ),

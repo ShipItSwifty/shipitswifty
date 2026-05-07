@@ -2,7 +2,7 @@ import Foundation
 import SwiftyShell
 import Testing
 
-@testable import CLI
+@testable import ShipItCLI
 @testable import ShipItKit
 
 // MARK: - CLI Build Integration Tests

@@ -1,6 +1,6 @@
 import Testing
 
-@testable import CLI
+@testable import ShipItCLI
 @testable import ShipItKit
 
 @Suite("AISessionCommand")
