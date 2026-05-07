@@ -50,7 +50,7 @@ struct AISessionCommand: AsyncParsableCommand {
         if hasExistingShipfile {
             let resolver = ConfigResolver()
             let resolved = try? await resolver.resolve(
-                cliOptions: CLIOptions(ci: options.ci, platform: platform),
+                cliOptions: CLIOptions(ci: false, platform: platform),
                 shipfilePath: resolvedShipfilePath
             )
             customActions = resolved?.customActions ?? [:]

@@ -36,8 +36,8 @@ public struct AISessionBuilder: Sendable {
     ) -> AISessionPayload {
         let suggestion = ShipfileSuggester().suggest(goal: goal, platform: platform, from: inspection)
         let app = inspection.suggestedAppConfig
-        let appConfig = buildInferredConfig(app: app, inspection: inspection, goal: goal)
-        let ambiguities = buildAmbiguities(inspection: inspection)
+        let appConfig = buildInferredConfig(app: app, inspection: inspection, goal: goal, platform: platform)
+        let ambiguities = buildAmbiguities(inspection: inspection, platform: platform)
         let requiredSecrets = buildSecretDescriptors(for: goal, platform: platform)
         let readiness = buildReadiness(
             goal: goal,
@@ -81,6 +81,82 @@ public struct AISessionBuilder: Sendable {
     // MARK: - Inferred config
 
     private func buildInferredConfig(
+        app: ProjectInspection.SuggestedAppConfig,
+        inspection: ProjectInspection,
+        goal: SuggestionGoal,
+        platform: Platform
+    ) -> [InferredConfigEntry] {
+        switch platform {
+        case .ios:
+            return buildIOSInferredConfig(app: app, inspection: inspection, goal: goal)
+        case .android:
+            return buildAndroidInferredConfig(inspection: inspection, goal: goal)
+        }
+    }
+
+    private func buildAndroidInferredConfig(
+        inspection: ProjectInspection,
+        goal: SuggestionGoal
+    ) -> [InferredConfigEntry] {
+        var entries: [InferredConfigEntry] = []
+
+        // Gradle wrapper
+        let hasGradlew = inspection.gradleFiles.contains("gradlew")
+        if hasGradlew {
+            entries.append(.init(
+                keyPath: "android.gradle_wrapper",
+                value: .string("./gradlew"),
+                source: .detected,
+                confidence: .high,
+                why: "Found gradlew in the project root"
+            ))
+        } else {
+            entries.append(.init(
+                keyPath: "android.gradle_wrapper",
+                value: nil,
+                source: .unresolved,
+                why: "No gradlew found — Gradle wrapper is required for reproducible builds"
+            ))
+        }
+
+        // Module (app is the convention; unresolved until confirmed)
+        entries.append(.init(
+            keyPath: "android.module",
+            value: .string("app"),
+            source: .assumed,
+            confidence: .medium,
+            why: "'app' is the default Android module name — confirm if multi-module project"
+        ))
+
+        // Build variant
+        entries.append(.init(
+            keyPath: "android.build_variant",
+            value: .string("release"),
+            source: .assumed,
+            confidence: .high,
+            why: "Release variant is standard for distribution builds"
+        ))
+
+        // Signing config
+        entries.append(.init(
+            keyPath: "android.signing.keystore_path",
+            value: nil,
+            source: .unresolved,
+            why: "Signing keystore path must be provided for release builds (SHIPIT_ANDROID__KEYSTORE_PATH)"
+        ))
+
+        // Application ID
+        entries.append(.init(
+            keyPath: "android.application_id",
+            value: nil,
+            source: .unresolved,
+            why: "Application ID must be read from build.gradle or provided explicitly"
+        ))
+
+        return entries
+    }
+
+    private func buildIOSInferredConfig(
         app: ProjectInspection.SuggestedAppConfig,
         inspection: ProjectInspection,
         goal: SuggestionGoal
@@ -236,7 +312,17 @@ public struct AISessionBuilder: Sendable {
 
     // MARK: - Ambiguities
 
-    private func buildAmbiguities(inspection: ProjectInspection) -> [AmbiguityFlag] {
+    private func buildAmbiguities(inspection: ProjectInspection, platform: Platform) -> [AmbiguityFlag] {
+        switch platform {
+        case .android:
+            // Android ambiguities will be populated when multi-module detection is added
+            return []
+        case .ios:
+            return buildIOSAmbiguities(inspection: inspection)
+        }
+    }
+
+    private func buildIOSAmbiguities(inspection: ProjectInspection) -> [AmbiguityFlag] {
         var flags: [AmbiguityFlag] = []
         let runnableSchemes = inspection.schemes.filter(\.likelyRunnable)
         let workspaces = inspection.xcodeContainers.filter { $0.kind == "workspace" }
@@ -491,8 +577,12 @@ public struct AISessionBuilder: Sendable {
         switch platform {
         case .android:
             lines = [
-                "You are helping an Android developer automate their app release using ShipItSwifty.",
+                "You are helping a developer automate their Android app release pipeline using ShipItSwifty.",
                 "Goal: \(goal.rawValue) distribution.",
+                "",
+                "ShipItSwifty supports fully custom workflows via `custom_actions:` in Shipfile.yml — users",
+                "can compose any sequence of built-in actions (build, test, archive, lint, play-store, etc.)",
+                "into reusable pipelines, not just the default workflows.",
                 "",
                 "Key commands:",
                 "  shipit ai-session --goal \(goal.rawValue) --platform android  # refresh session state",
@@ -508,8 +598,12 @@ public struct AISessionBuilder: Sendable {
             ]
         case .ios:
             lines = [
-                "You are helping an iOS developer automate their app release using ShipItSwifty.",
+                "You are helping a developer automate their iOS app release pipeline using ShipItSwifty.",
                 "Goal: \(goal.rawValue) distribution.",
+                "",
+                "ShipItSwifty supports fully custom workflows via `custom_actions:` in Shipfile.yml — users",
+                "can compose any sequence of built-in actions (build, test, archive, export, testflight, etc.)",
+                "into reusable pipelines, not just the default workflows.",
                 "",
                 "Key commands:",
                 "  shipit ai-session --goal \(goal.rawValue)              # refresh this session state",

@@ -135,9 +135,6 @@ struct AIBootstrapOptions: ParsableArguments {
     @Flag(name: .long, help: "Enable debug logging")
     var verbose: Bool = false
 
-    @Flag(name: .long, help: "Enable CI mode (non-interactive, strict errors)")
-    var ci: Bool = false
-
     @Option(name: .long, help: "Target platform: ios | android (auto-detected if omitted)")
     var platform: Platform?
 }
