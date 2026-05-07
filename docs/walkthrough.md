@@ -161,7 +161,7 @@ swift run shipit export
 swift run shipit testflight
 ```
 
-> **Test destinations:** `shipit test` requires a `destinations` list in `Shipfile.yml` (or `--destination` flag). It never falls back to a hardcoded simulator name. Use `xcodebuild -showdestinations` to find valid destination strings for your scheme.
+> **Test destinations:** `shipit test` supports automatic destination discovery — when no `destinations` list is configured in `Shipfile.yml` (and no `--destination` flag is passed), it queries available simulators and selects an appropriate one automatically. You can still override with an explicit list or `xcodebuild -showdestinations` to find valid destination strings for your scheme.
 
 ## Step 6 — Define workflows for repeatable releases
 

@@ -2,7 +2,7 @@
 
 > **DocC mirror:** Also available as the `Architecture` and `CoreConcepts` articles in the `ShipItKit` DocC archive.
 
-ShipItSwifty is a pure-Swift CLI toolkit for automating iOS app release workflows, built entirely in Swift 6.
+ShipItSwifty is a pure-Swift CLI toolkit for automating iOS and Android app release workflows, built entirely in Swift 6.
 
 | Principle | Detail |
 |---|---|
@@ -85,17 +85,22 @@ Shipfile.yml / CLI flags / env vars
 // swiftLanguageModes: [.v6]
 
 dependencies: [
-    .package(url: "https://github.com/maniramezan/swiftyshell", branch: "main"), // shell execution
-    .package(url: "https://github.com/apple/swift-argument-parser", from: "1.5.0"),
-    .package(url: "https://github.com/vapor/jwt-kit", from: "5.0.0"),       // ES256 JWT
-    .package(url: "https://github.com/jpsim/Yams", from: "5.0.0"),          // YAML config
-    .package(url: "https://github.com/apple/swift-crypto", from: "3.0.0"),  // code signing
+    .package(url: "https://github.com/maniramezan/swiftyshell", from: "0.1.0"),  // shell execution
+    .package(url: "https://github.com/apple/swift-argument-parser", from: "1.7.1"),
+    .package(url: "https://github.com/vapor/jwt-kit", from: "5.4.0"),       // ES256 JWT
+    .package(url: "https://github.com/jpsim/Yams", from: "6.2.1"),          // YAML config
+    .package(url: "https://github.com/apple/swift-crypto", from: "4.4.0"),  // code signing
+    .package(url: "https://github.com/apple/swift-log", from: "1.6.3"),     // logging
+    .package(url: "https://github.com/swiftlang/swift-docc-plugin", from: "1.4.3"), // DocC
 ]
 ```
 
 **Products:**
 - `.executable("shipit", targets: ["CLI"])`
 - `.library("ShipItKit", targets: ["ShipItKit"])`
+- `.library("XcodeBuildKit", targets: ["XcodeBuildKit"])` — standalone xcodebuild wrapper
+- `.library("GradleKit", targets: ["GradleKit"])` — standalone Gradle/adb/bundletool wrapper
+- `.library("XcodeGenKit", targets: ["XcodeGenKit"])` — standalone xcodegen wrapper
 
 ---
 
@@ -277,6 +282,7 @@ COMMANDS:
     validate bundle    Validate .aab / .apk bundle readiness via bundletool (Android only)
     validate all       Run all applicable stages
   run <workflow>    Execute a named workflow from Shipfile.yml
+  coverage      Read and summarize native code coverage artifacts (iOS: xcresult, Android: JaCoCo)
   env           Print resolved config, env vars, and processed files
   doctor        Diagnose common setup issues for the selected Shipfile
 

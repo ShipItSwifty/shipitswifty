@@ -44,6 +44,8 @@ struct ShipItCLI: AsyncParsableCommand {
             NotifyCommand.self,
             RunCommand.self,
             EnvCommand.self,
+            VersionCommand.self,
+            DoctorCommand.self,
         ]
         #if os(macOS)
         commands.append(contentsOf: [
@@ -56,8 +58,6 @@ struct ShipItCLI: AsyncParsableCommand {
             MetadataCommand.self,
             PrecheckCommand.self,  // backwards-compat alias for: validate metadata
             ProvisionCommand.self,
-            VersionCommand.self,
-            DoctorCommand.self,
         ])
         #endif
         return commands
