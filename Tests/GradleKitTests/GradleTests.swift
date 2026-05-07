@@ -1,15 +1,13 @@
 import Foundation
+@testable import GradleKit
 import SwiftyShell
 import Synchronization
 import Testing
-
-@testable import GradleKit
 
 // MARK: - Gradle command builder tests
 
 @Suite("Gradle")
 struct GradleTests {
-
     @Test("Gradle builds command with a single task")
     func singleTask() {
         let command = Gradle()
@@ -132,7 +130,6 @@ struct GradleTests {
 
 @Suite("Adb")
 struct AdbTests {
-
     @Test("Adb builds install command")
     func installCommand() {
         let command = Adb()
@@ -162,13 +159,23 @@ struct AdbTests {
         #expect(cmd.executableName == "adb")
         #expect(cmd.arguments.contains("devices"))
     }
+
+    @Test("Adb raw arguments preserve serial prefix")
+    func rawArgumentsCommand() {
+        let command = Adb()
+            .serial("emulator-5554")
+            .rawArguments(["version"])
+            .command()
+
+        #expect(command.executableName == "adb")
+        #expect(command.arguments == ["-s", "emulator-5554", "version"])
+    }
 }
 
 // MARK: - Bundletool command builder tests
 
 @Suite("Bundletool")
 struct BundletoolTests {
-
     @Test("Bundletool validate(bundle:) produces correct arguments")
     func validateBundle() {
         let command = Bundletool()

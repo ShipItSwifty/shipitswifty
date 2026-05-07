@@ -1,7 +1,7 @@
 import Foundation
 import Testing
 
-@testable import CLI
+@testable import ShipItCLI
 @testable import ShipItKit
 
 @Suite("CLI Error Suggestions")
