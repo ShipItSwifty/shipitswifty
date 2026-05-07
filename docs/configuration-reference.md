@@ -34,6 +34,7 @@ Shipfile YAML keys map to env vars by upper-casing and joining path segments wit
 ## Top-Level Structure
 
 ```yaml
+platform:
 app:
 app_store_connect:
 code_signing:
@@ -44,12 +45,19 @@ testflight:
 screenshots:
 metadata:
 versioning:
+project_generation:
 notifications:
 workflows:
 # Platform-specific overrides (merged on top of shared config)
 ios:
 android:
 ```
+
+## `platform`
+
+| Key | Type | Default | Description |
+|---|---|---|---|
+| `platform` | string | auto-detected | `ios` or `android`. When omitted, auto-detected from project files (`gradlew`/`build.gradle.kts` → android, `*.xcworkspace`/`*.xcodeproj` → ios). |
 
 ## `app`
 
@@ -177,7 +185,10 @@ The `versioning` section controls how `CFBundleVersion` is incremented. `CFBundl
 | Key | Type | Default | Description |
 |---|---|---|---|
 | `strategy` | string | `sequential` | `sequential` — adds 1 each run (guarantees a plain integer). `timestamp` — uses `YYYYMMDDHHmm` format. |
-| `source` | string | `xcodeproj` | `xcodeproj` — reads `MARKETING_VERSION`/`CURRENT_PROJECT_VERSION` from `xcodebuild -showBuildSettings`; falls back to `agvtool`, then `plutil` on Info.plist. `asc` — reads current build number from App Store Connect; same fallback chain for the read phase. |
+| `source` | string | `xcodeproj` | `xcodeproj` — reads `MARKETING_VERSION`/`CURRENT_PROJECT_VERSION` from `xcodebuild -showBuildSettings`; falls back to `agvtool`, then `plutil` on Info.plist. `asc` — reads current build number from App Store Connect; same fallback chain for the read phase. `project_spec` — reads/writes version values directly in a YAML spec file (XcodeGen/Tuist). |
+| `spec_path` | string | — | Path to the project spec file (used when `source: project_spec`). |
+| `build_key` | string | — | YAML key path for the build number in the spec file (e.g. `settings.CURRENT_PROJECT_VERSION`). |
+| `marketing_key` | string | — | YAML key path for the marketing version in the spec file (e.g. `settings.MARKETING_VERSION`). |
 
 ### `version` action options
 
@@ -256,6 +267,18 @@ Run `xcodebuild -showdestinations -scheme <Scheme>` (with `-workspace` or `-proj
 to list all valid destination strings for your scheme on the current machine. Alternatively, run
 `shipit ai-session --goal local` which calls destination discovery automatically and includes the
 results in `nextQuestion` so an AI agent can ask which destinations to use.
+
+## `project_generation`
+
+Configuration for automatic project file generation (XcodeGen, Tuist) before Xcode-dependent steps.
+
+| Key | Type | Default | Description |
+|---|---|---|---|
+| `tool` | string | — | Generation tool to use: `xcodegen` or `tuist` |
+| `command` | string | — | Custom shell command to run for generation (overrides `tool`) |
+| `spec_path` | string | — | Path to the project spec file (e.g. `project.yml` for XcodeGen) |
+| `output_project` | string | — | Expected output `.xcodeproj` path (used to verify generation succeeded) |
+| `auto_generate` | bool | `true` | Automatically run generation before Xcode-dependent actions. Set to `false` to skip. |
 
 ## `notifications.slack`
 
@@ -409,9 +432,9 @@ Platform-specific Android configuration. These values are merged on top of share
 | `package_name` | string | — | `SHIPIT_ANDROID__PACKAGE_NAME` | Android application ID (e.g. `com.example.app`) |
 | `keystore_path` | string | — | — | Path to the release keystore |
 | `keystore_password` | string | — | `ANDROID_KEYSTORE_PASSWORD` | Keystore password |
-| `key_alias` | string | — | `ANDROID_KEY_ALIAS` | Key alias in the keystore |
+| `keystore_alias` | string | — | `ANDROID_KEY_ALIAS` | Key alias in the keystore |
 | `key_password` | string | — | `ANDROID_KEY_PASSWORD` | Key password |
-| `play_track` | string | `qa` | — | Google Play release track (`internal`, `alpha`, `beta`, `production`) |
+| `play_track` | string | `internal` | — | Google Play release track (`internal`, `alpha`, `beta`, `production`) |
 | `rollout_fraction` | float | — | — | Staged rollout fraction (0.0–1.0), for `production` track |
 | `gradle_properties` | map | `{}` | — | Extra `-P key=value` properties passed to Gradle |
 | `gradlew_path` | string | — | — | Explicit path to the `gradlew` script (auto-detected when omitted) |
@@ -431,6 +454,8 @@ Lookup notes:
 - `play_track` maps to the Play Console track you are targeting: `internal`, `alpha`, `beta`, or `production`
 - Create the service account in Google Cloud, enable the `Google Play Developer API`, then invite that service account in Play Console `Users and permissions`
 - Give the service account Play Console permissions that match the rollout you want to perform
+
+> **Env var naming:** Android keystore variables support both the short form (`ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_PASSWORD`, `ANDROID_KEY_ALIAS`) and the standard `SHIPIT_` prefix form (`SHIPIT_ANDROID__KEYSTORE_PASSWORD`, `SHIPIT_ANDROID__KEY_PASSWORD`, `SHIPIT_ANDROID__KEY_ALIAS`). The short forms are checked as a compatibility fallback when the `SHIPIT_`-prefixed forms are not set.
 
 ## `ios`
 

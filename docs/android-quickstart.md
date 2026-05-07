@@ -55,16 +55,15 @@ android:
   play_track: internal
   keystore_path: ./certs/release.keystore
   keystore_password: ${ANDROID_KEYSTORE_PASSWORD}
-  key_alias: release
+  keystore_alias: release
   key_password: ${ANDROID_KEY_PASSWORD}
 
 workflows:
   beta:
-    steps:
-      - action: test
-      - action: archive
-      - action: validate_bundle
-      - action: play_store
+    - action: test
+    - action: archive
+    - action: validate-bundle
+    - action: play-store
 ```
 
 ## 4. Set credentials
