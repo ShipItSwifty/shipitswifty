@@ -44,11 +44,11 @@ struct ShipItCLI: AsyncParsableCommand {
             NotifyCommand.self,
             RunCommand.self,
             EnvCommand.self,
-            VersionCommand.self,
-            DoctorCommand.self,
         ]
         #if os(macOS)
         commands.append(contentsOf: [
+            VersionCommand.self,
+            DoctorCommand.self,
             ExportCommand.self,
             UploadCommand.self,
             TestFlightCommand.self,
