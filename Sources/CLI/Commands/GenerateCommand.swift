@@ -215,11 +215,15 @@ struct GenerateCommand: AsyncParsableCommand {
                     EnvVarSpec(name: "ASC_PRIVATE_KEY", isSensitive: true, description: "Raw .p8 PEM content (CI fallback)"),
                 ],
                 formatter: formatter)
-            overrides["# App Store Connect credentials are only needed when you want to upload to TestFlight.\n# Uncomment this section and add a `testflight` step to the beta workflow when ready.\n# app_store_connect:"] = "app_store_connect:"
+            overrides[
+                "# App Store Connect credentials are only needed when you want to upload to TestFlight.\n# Uncomment this section and add a `testflight` step to the beta workflow when ready.\n# app_store_connect:"
+            ] = "app_store_connect:"
             overrides["#   key_id: ${ASC_KEY_ID}"] = "  key_id: ${ASC_KEY_ID}"
             overrides["#   issuer_id: ${ASC_ISSUER_ID}"] = "  issuer_id: ${ASC_ISSUER_ID}"
             overrides["#   key_path: ${ASC_PRIVATE_KEY_PATH}"] = "  key_path: ${ASC_PRIVATE_KEY_PATH}"
-            overrides["    # To upload to TestFlight, uncomment the app_store_connect section above and add:\n    # - action: testflight\n    #   options:\n    #     groups: [\"Internal QA\"]"] = "    - action: testflight\n      options:\n        groups: [\"Internal QA\"]"
+            overrides[
+                "    # To upload to TestFlight, uncomment the app_store_connect section above and add:\n    # - action: testflight\n    #   options:\n    #     groups: [\"Internal QA\"]"
+            ] = "    - action: testflight\n      options:\n        groups: [\"Internal QA\"]"
         }
 
         let usesManualSigning = confirm(

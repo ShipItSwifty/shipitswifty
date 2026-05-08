@@ -391,7 +391,7 @@ public struct Adb: RunnableCommandFamily {
     ) -> Self {
         let resolvedSerial: String?
         switch serial {
-        case let .some(value):
+        case .some(let value):
             resolvedSerial = value ?? nil
         case .none:
             resolvedSerial = self.serial

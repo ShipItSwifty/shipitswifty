@@ -1,8 +1,9 @@
 import Foundation
-@testable import GradleKit
 import SwiftyShell
 import Synchronization
 import Testing
+
+@testable import GradleKit
 
 // MARK: - Gradle command builder tests
 
@@ -237,11 +238,12 @@ struct AdbTests {
             )
             .command()
 
-        #expect(command.arguments == [
-            "shell", "am", "start", "-n", "com.example/.MainActivity",
-            "--es", "key1", "val1",
-            "--es", "key2", "val2",
-        ])
+        #expect(
+            command.arguments == [
+                "shell", "am", "start", "-n", "com.example/.MainActivity",
+                "--es", "key1", "val1",
+                "--es", "key2", "val2",
+            ])
     }
 
     @Test("Adb am start activity with ordered arguments")
@@ -250,21 +252,23 @@ struct AdbTests {
             .amStartActivity(component: "com.example/.Main", arguments: ["a", "b"])
             .command()
 
-        #expect(command.arguments == [
-            "shell", "am", "start", "-n", "com.example/.Main",
-            "--es", "arg", "a",
-            "--es", "arg", "b",
-        ])
+        #expect(
+            command.arguments == [
+                "shell", "am", "start", "-n", "com.example/.Main",
+                "--es", "arg", "a",
+                "--es", "arg", "b",
+            ])
     }
 
     @Test("Adb am start VIEW URL")
     func amStartViewURL() {
         let command = Adb().amStartViewURL("https://example.com").command()
-        #expect(command.arguments == [
-            "shell", "am", "start",
-            "-a", "android.intent.action.VIEW",
-            "-d", "https://example.com",
-        ])
+        #expect(
+            command.arguments == [
+                "shell", "am", "start",
+                "-a", "android.intent.action.VIEW",
+                "-d", "https://example.com",
+            ])
     }
 
     @Test("Adb pm list packages")
@@ -278,9 +282,10 @@ struct AdbTests {
         let command = Adb()
             .pmGrantPermission(package: "com.example", permission: "android.permission.CAMERA")
             .command()
-        #expect(command.arguments == [
-            "shell", "pm", "grant", "com.example", "android.permission.CAMERA",
-        ])
+        #expect(
+            command.arguments == [
+                "shell", "pm", "grant", "com.example", "android.permission.CAMERA",
+            ])
     }
 
     @Test("Adb pm revoke permission")
@@ -288,17 +293,19 @@ struct AdbTests {
         let command = Adb()
             .pmRevokePermission(package: "com.example", permission: "android.permission.CAMERA")
             .command()
-        #expect(command.arguments == [
-            "shell", "pm", "revoke", "com.example", "android.permission.CAMERA",
-        ])
+        #expect(
+            command.arguments == [
+                "shell", "pm", "revoke", "com.example", "android.permission.CAMERA",
+            ])
     }
 
     @Test("Adb resolve launchable activity")
     func resolveLaunchableActivity() {
         let command = Adb().resolveLaunchableActivity(package: "com.example").command()
-        #expect(command.arguments == [
-            "shell", "cmd", "package", "resolve-activity", "--brief", "com.example",
-        ])
+        #expect(
+            command.arguments == [
+                "shell", "cmd", "package", "resolve-activity", "--brief", "com.example",
+            ])
     }
 
     @Test("Adb screencap command")

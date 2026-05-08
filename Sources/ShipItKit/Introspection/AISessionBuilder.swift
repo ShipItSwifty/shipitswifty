@@ -103,55 +103,61 @@ public struct AISessionBuilder: Sendable {
         // Gradle wrapper
         let hasGradlew = inspection.gradleFiles.contains("gradlew")
         if hasGradlew {
-            entries.append(.init(
-                keyPath: "android.gradle_wrapper",
-                value: .string("./gradlew"),
-                source: .detected,
-                confidence: .high,
-                why: "Found gradlew in the project root"
-            ))
+            entries.append(
+                .init(
+                    keyPath: "android.gradle_wrapper",
+                    value: .string("./gradlew"),
+                    source: .detected,
+                    confidence: .high,
+                    why: "Found gradlew in the project root"
+                ))
         } else {
-            entries.append(.init(
-                keyPath: "android.gradle_wrapper",
-                value: nil,
-                source: .unresolved,
-                why: "No gradlew found — Gradle wrapper is required for reproducible builds"
-            ))
+            entries.append(
+                .init(
+                    keyPath: "android.gradle_wrapper",
+                    value: nil,
+                    source: .unresolved,
+                    why: "No gradlew found — Gradle wrapper is required for reproducible builds"
+                ))
         }
 
         // Module (app is the convention; unresolved until confirmed)
-        entries.append(.init(
-            keyPath: "android.module",
-            value: .string("app"),
-            source: .assumed,
-            confidence: .medium,
-            why: "'app' is the default Android module name — confirm if multi-module project"
-        ))
+        entries.append(
+            .init(
+                keyPath: "android.module",
+                value: .string("app"),
+                source: .assumed,
+                confidence: .medium,
+                why: "'app' is the default Android module name — confirm if multi-module project"
+            ))
 
         // Build variant
-        entries.append(.init(
-            keyPath: "android.build_variant",
-            value: .string("release"),
-            source: .assumed,
-            confidence: .high,
-            why: "Release variant is standard for distribution builds"
-        ))
+        entries.append(
+            .init(
+                keyPath: "android.build_variant",
+                value: .string("release"),
+                source: .assumed,
+                confidence: .high,
+                why: "Release variant is standard for distribution builds"
+            ))
 
         // Signing config
-        entries.append(.init(
-            keyPath: "android.signing.keystore_path",
-            value: nil,
-            source: .unresolved,
-            why: "Signing keystore path must be provided for release builds (SHIPIT_ANDROID__KEYSTORE_PATH)"
-        ))
+        entries.append(
+            .init(
+                keyPath: "android.signing.keystore_path",
+                value: nil,
+                source: .unresolved,
+                why: "Signing keystore path must be provided for release builds (SHIPIT_ANDROID__KEYSTORE_PATH)"
+            ))
 
         // Application ID
-        entries.append(.init(
-            keyPath: "android.application_id",
-            value: nil,
-            source: .unresolved,
-            why: "Application ID must be read from build.gradle or provided explicitly"
-        ))
+        entries.append(
+            .init(
+                keyPath: "android.application_id",
+                value: nil,
+                source: .unresolved,
+                why: "Application ID must be read from build.gradle or provided explicitly"
+            ))
 
         return entries
     }
