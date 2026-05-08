@@ -239,6 +239,34 @@ AI session is also platform-aware: `shipit ai-session --goal beta --platform and
 
 ---
 
+## Standalone tool libraries
+
+`XcodeBuildKit`, `GradleKit`, and `XcodeGenKit` are independently consumable via SwiftPM — users who only need build tool wrappers can depend on them without pulling in `ShipItKit`.
+
+### GradleKit tool wrappers
+
+| Wrapper | Capabilities |
+|---|---|
+| **Gradle** | Task execution, project/system properties, Gradle flags, init scripts |
+| **Adb** | Device targeting (`-s`), daemon lifecycle (`start-server`/`kill-server`), device discovery (`devices`), app install/uninstall, activity manager (`am start`, `am force-stop`, deep links), package manager (`pm list`, `pm grant`, `pm revoke`, resolve launchable activity), capture (`screencap`, `screenrecord`), input events (`keyevent`), display config (`uimode night`), port forwarding (`forward tcp`), file transfer (`push`/`pull`), shell escape hatch, emulator control (`emu kill`, `emu geo fix`), logcat |
+| **Bundletool** | AAB validation, APK set build, device-spec install |
+| **Emulator** | AVD launch, snapshot management |
+
+### XcodeBuildKit tool wrappers
+
+| Wrapper | Capabilities |
+|---|---|
+| **XcodeBuild** | Build, test, archive, export — typed options and destination discovery |
+| **XcodeSelect** | Print/switch active Xcode |
+
+### XcodeGenKit tool wrappers
+
+| Wrapper | Capabilities |
+|---|---|
+| **XcodeGen** | Project generation from spec files |
+
+---
+
 ## Tool comparison
 
 Migrating from `fastlane`? See the dedicated migration guide in [Walkthrough](walkthrough.md#migrating-from-fastlane).
