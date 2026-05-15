@@ -159,9 +159,13 @@ app:
 
 ios:
   build_system: kmp
+  kmp_shared_module: shared
+  kmp_build_target: IosSimulatorArm64
+  kmp_archive_target: IosArm64
 android:
   build_system: kmp
   module: androidApp
+  gradle_project_dir: .
   package_name: com.example.androidapp
 
 versioning:

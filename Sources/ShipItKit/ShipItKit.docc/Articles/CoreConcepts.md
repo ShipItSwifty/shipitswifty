@@ -94,7 +94,7 @@ Concretely:
 
 - A native iOS app is `Platform.ios` + `BuildSystem.native`.
 - A Kotlin Multiplatform project producing both `.ipa` and `.aab` is `BuildSystem.kmp` on both platforms.
-- Distribution actions (``SignAction``, ``ArchiveAction``, ``TestFlightAction``, ``PlayStoreAction``, ``UploadAction``, ``DsymAction``) read artifact paths and are unchanged across build systems. Only ``BuildAction`` and ``TestAction`` dispatch on ``BuildSystem``.
+- ``BuildAction``, ``ArchiveAction``, and ``TestAction`` dispatch on ``BuildSystem`` because they compile or validate platform artifacts. Later distribution actions (``SignAction``, ``TestFlightAction``, ``PlayStoreAction``, ``UploadAction``, ``DsymAction``) read artifact paths and are unchanged across build systems.
 
 Set `ios.build_system:` / `android.build_system:` in `Shipfile.yml` or override via `SHIPIT_IOS__BUILD_SYSTEM` / `SHIPIT_ANDROID__BUILD_SYSTEM`. When unset, ``BuildSystem/autoDetect(in:fileManager:)`` infers the value from project files. See <doc:KMPIntegration> for the worked KMP example.
 

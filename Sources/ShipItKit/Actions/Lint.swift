@@ -208,9 +208,8 @@ public struct LintAction: Action {
 
         logger.info("Running Android lint task '\(taskName)' for module '\(module)'")
 
-        let gradle = Gradle(context: context.shell)
-            .task(GradleTask(name: "\(module):\(taskName)"))
-            .flag(.noDaemon)
+        let gradle = context.gradle()
+            .task(GradleTask(name: taskName).qualified(module: module))
 
         let output: ShellOutput
         do {

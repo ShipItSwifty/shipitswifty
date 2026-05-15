@@ -75,6 +75,30 @@ struct BuildActionKMPTests {
         #expect(!hasReleaseLink, "must not run the Release link task when Debug was requested")
     }
 
+    @Test("KMP iOS build uses configured shared module and target")
+    func kmpIOSUsesConfiguredModuleAndTarget() async throws {
+        let (executor, commands) = makeCaptureExecutor { _, _ in
+            ShellOutput(stdout: "Build Succeeded\n", stderr: "", exitCode: 0)
+        }
+
+        let config = ResolvedConfig(
+            appScheme: "iosApp",
+            platform: .ios,
+            iosBuildSystem: .kmp,
+            kmpSharedModule: "coreShared",
+            kmpBuildTarget: "IosX64"
+        )
+        let context = makeTestActionContext(executor: executor, config: config, platform: .ios)
+
+        _ = try await BuildAction().run(
+            with: BuildAction.Options(scheme: "iosApp", configuration: .debug),
+            context: context
+        )
+
+        let captured = commands()
+        #expect(captured.contains { $0.contains(":coreShared:linkDebugFrameworkIosX64") })
+    }
+
     @Test("KMP Android build uses the native gradle assemble path")
     func kmpAndroidUsesNativeGradlePath() async throws {
         let (executor, commands) = makeCaptureExecutor { _, _ in
@@ -94,8 +118,8 @@ struct BuildActionKMPTests {
         )
 
         let captured = commands()
-        let hasAssemble = captured.contains(where: { $0.contains("assembleRelease") })
-        #expect(hasAssemble, "expected gradle assembleRelease for KMP Android target")
+        let hasAssemble = captured.contains(where: { $0.contains(":androidApp:assembleRelease") })
+        #expect(hasAssemble, "expected module-qualified gradle assembleRelease for KMP Android target")
     }
 
     @Test("Flutter is rejected with a clear error in this release")

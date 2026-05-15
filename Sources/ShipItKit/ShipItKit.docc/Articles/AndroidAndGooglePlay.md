@@ -59,7 +59,7 @@ Flavors are first-class: pass `flavor` (CLI: `--flavor`) and ShipItKit composes 
 
 ## Typed Gradle wrapper
 
-Internally every Gradle invocation goes through ``Gradle``, which builds the command line from typed values:
+Internally every Gradle invocation goes through `Gradle`, which builds the command line from typed values:
 
 ```swift
 let output = try await Gradle(context: context.shell)
@@ -69,7 +69,7 @@ let output = try await Gradle(context: context.shell)
     .run()
 ```
 
-See ``GradleTask``, ``GradleProperty``, ``GradleFlag``.
+See `GradleTask`, `GradleProperty`, and `GradleFlag`.
 
 ## Google Play upload
 
@@ -115,9 +115,9 @@ Returns the same ``CoverageAction/Result`` shape as iOS — first-party filterin
 
 When you need to drive the SDK directly:
 
-- ``Adb`` — typed `adb` wrapper.
-- ``Emulator`` — typed `emulator` wrapper for headless CI runs.
-- ``Bundletool`` — typed `bundletool` wrapper for AAB inspection.
+- `Adb` — typed `adb` wrapper.
+- `Emulator` — typed `emulator` wrapper for headless CI runs.
+- `Bundletool` — typed `bundletool` wrapper for AAB inspection.
 
 ## CI integration
 
@@ -141,10 +141,10 @@ See <doc:CIIntegration>.
 - ``GooglePlayEdit``
 - ``GooglePlayBundle``
 - ``GooglePlayApk``
-- ``Gradle``
-- ``Bundletool``
-- ``Adb``
-- ``Emulator``
+- `Gradle`
+- `Bundletool`
+- `Adb`
+- `Emulator`
 - <doc:CredentialLookup>
 - <doc:Validation>
 - <doc:Coverage>

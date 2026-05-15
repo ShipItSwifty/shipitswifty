@@ -8,8 +8,8 @@ import Foundation
 /// projects use ``BuildSystem/native``.
 ///
 /// The value is configured under the `ios:` or `android:` Shipfile block via the
-/// `build_system:` key, or via the `SHIPIT_IOS_BUILD_SYSTEM` /
-/// `SHIPIT_ANDROID_BUILD_SYSTEM` environment variables. When unset, ``ConfigResolver``
+/// `build_system:` key, or via the `SHIPIT_IOS__BUILD_SYSTEM` /
+/// `SHIPIT_ANDROID__BUILD_SYSTEM` environment variables. When unset, ``ConfigResolver``
 /// auto-detects it from project files (e.g. `pubspec.yaml` → `.flutter`,
 /// `kotlin("multiplatform")` in `build.gradle.kts` → `.kmp`).
 ///

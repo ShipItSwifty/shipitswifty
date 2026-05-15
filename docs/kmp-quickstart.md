@@ -63,9 +63,14 @@ app:
 
 ios:
   build_system: kmp
+  kmp_shared_module: shared
+  kmp_build_target: IosSimulatorArm64
+  kmp_archive_target: IosArm64
+  kmp_test_task: iosSimulatorArm64Test
 android:
   build_system: kmp
   module: androidApp
+  gradle_project_dir: .
   package_name: com.example.androidapp
   play_track: internal
 
@@ -124,7 +129,15 @@ shipit build --platform ios
 shipit build --platform android
 ```
 
-The iOS path links the `Shared.framework` first, then invokes `xcodebuild` against the wrapper `iosApp.xcworkspace`. The Android path is identical to a native Android Gradle build.
+The iOS build path links the simulator framework target first, then invokes `xcodebuild` against the wrapper `iosApp.xcworkspace`. Archives link the device target (`IosArm64`) before `xcodebuild archive`. The Android path is identical to a module-qualified native Android Gradle build.
+
+You can also run direct binary commands without editing the Shipfile:
+
+```bash
+shipit build --platform android --module androidApp --build-variant release
+shipit test --platform ios --module shared
+shipit archive --platform ios --module shared
+```
 
 ## 5. Bump the shared version
 
@@ -145,8 +158,8 @@ shipit run beta-android   # test → archive (.aab) → Play Store
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
-| `xcodebuild` reports `Shared.framework not found` | Framework wasn't linked before `xcodebuild` | Make sure `ios.build_system: kmp` is set so `ensureProjectGenerated()` runs the link |
-| Wrong simulator architecture during `link…Framework…` | Targeting Intel sim on Apple silicon (or vice versa) | Use the default `IosSimulatorArm64` target, or pass `options.module` plus a `gradlew :shared:link…X64` task explicitly |
+| `xcodebuild` reports `Shared.framework not found` | Framework wasn't linked before `xcodebuild` | Make sure `ios.build_system: kmp` is set so build/archive actions run the link step |
+| Wrong simulator architecture during `link…Framework…` | Targeting Intel sim on Apple silicon (or vice versa) | Set `ios.kmp_build_target: IosX64` or pass a matching workflow option for the shared module |
 | `versionName` not updated | Custom key names in `gradle.properties` | Override via `versioning.marketing_key` / `versioning.build_key` |
 | Gradle re-links the framework every run | Expected — the Gradle task is incremental and skips itself when inputs are unchanged | No action needed |
 

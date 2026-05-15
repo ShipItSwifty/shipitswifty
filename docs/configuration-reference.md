@@ -438,7 +438,9 @@ Platform-specific Android configuration. These values are merged on top of share
 | `play_track` | string | `internal` | — | Google Play release track (`internal`, `alpha`, `beta`, `production`) |
 | `rollout_fraction` | float | — | — | Staged rollout fraction (0.0–1.0), for `production` track |
 | `gradle_properties` | map | `{}` | — | Extra `-P key=value` properties passed to Gradle |
-| `gradlew_path` | string | — | — | Explicit path to the `gradlew` script (auto-detected when omitted) |
+| `gradlew_path` | string | — | `SHIPIT_ANDROID__GRADLEW_PATH` | Explicit path to the `gradlew` script (auto-detected when omitted) |
+| `gradle_project_dir` | string | Shipfile directory | `SHIPIT_ANDROID__GRADLE_PROJECT_DIR` | Directory containing the Gradle root project |
+| `gradle_flags` | array | `[]` | — | Extra Gradle flags such as `--configuration-cache` or `--stacktrace` |
 
 ### Google Play credentials
 
@@ -465,6 +467,10 @@ Platform-specific iOS overrides. Merged on top of shared config when `--platform
 | Key | Type | Default | Env Var | Description |
 |---|---|---|---|---|
 | `build_system` | string | `native` | `SHIPIT_IOS__BUILD_SYSTEM` | Build system that produces the iOS artifact. One of `native`, `flutter`, `react_native`, `kmp`. See [Build systems](#build-systems). |
+| `kmp_shared_module` | string | `shared` | `SHIPIT_IOS__KMP_SHARED_MODULE` | Gradle module containing KMP framework/test tasks |
+| `kmp_build_target` | string | `IosSimulatorArm64` | `SHIPIT_IOS__KMP_BUILD_TARGET` | KMP target linked before local `xcodebuild build` |
+| `kmp_archive_target` | string | `IosArm64` | `SHIPIT_IOS__KMP_ARCHIVE_TARGET` | KMP target linked before `xcodebuild archive` |
+| `kmp_test_task` | string | `iosSimulatorArm64Test` | `SHIPIT_IOS__KMP_TEST_TASK` | KMP Gradle task used by `shipit test --platform ios` |
 | `scheme` | string | — | `SHIPIT_IOS__SCHEME` | iOS-specific Xcode scheme override |
 | `workspace` | string | — | `SHIPIT_IOS__WORKSPACE` | iOS-specific Xcode workspace override |
 | `project` | string | — | `SHIPIT_IOS__PROJECT` | iOS-specific Xcode project override |
@@ -484,7 +490,7 @@ archive:
 | Value | Compilation step (iOS) | Compilation step (Android) | Available |
 |---|---|---|---|
 | `native` (default) | `xcodebuild` | `gradlew assemble` / `bundle` | ✅ Always |
-| `kmp` | `gradlew :shared:linkReleaseFrameworkIosSimulatorArm64` → `xcodebuild` against the Xcode wrapper | `gradlew :androidApp:bundleRelease` (regular Android target) | ✅ This release |
+| `kmp` | build: `:<shared>:link…IosSimulatorArm64` → `xcodebuild`; archive: `:<shared>:link…IosArm64` → `xcodebuild archive` | `gradlew :androidApp:assembleRelease` / `:androidApp:bundleRelease` | ✅ This release |
 | `flutter` | `flutter build ipa` then `xcodebuild` | `flutter build appbundle` | 🚧 Planned |
 | `react_native` | Metro bundle → `xcodebuild` | Metro bundle → `gradlew bundleRelease` | 🚧 Planned |
 
@@ -494,8 +500,8 @@ When `build_system` is unset, ShipItSwifty inspects the project root and resolve
 
 | Project marker | Detected value |
 |---|---|
-| `pubspec.yaml` containing a `flutter:` key | `flutter` |
-| `package.json` declaring `react-native` in `dependencies` or `devDependencies` | `react_native` |
+| `pubspec.yaml` containing a `flutter:` key | `flutter` in inspection output only; runtime stays `native` unless explicitly configured |
+| `package.json` declaring `react-native` in `dependencies` or `devDependencies` | `react_native` in inspection output only; runtime stays `native` unless explicitly configured |
 | `build.gradle.kts` applying `kotlin("multiplatform")` or `org.jetbrains.kotlin.multiplatform` | `kmp` |
 | none of the above | `native` |
 
@@ -508,12 +514,16 @@ ios:
   build_system: kmp
   scheme: iosApp
   workspace: iosApp/iosApp.xcworkspace
+  kmp_shared_module: shared
+  kmp_build_target: IosSimulatorArm64
+  kmp_archive_target: IosArm64
 android:
   build_system: kmp
   module: androidApp
+  gradle_project_dir: .
 versioning:
   source: kmp           # reads/writes versionName + versionCode in gradle.properties
   spec_path: gradle.properties
 ```
 
-The KMP iOS path links the shared framework via Gradle before invoking `xcodebuild`, so the Xcode wrapper can resolve the `Shared.framework` import. The Android path is identical to a regular Android Gradle build.
+The KMP iOS path links the configured shared framework target via Gradle before invoking `xcodebuild`, so the Xcode wrapper can resolve the framework import. The Android path is identical to a regular module-qualified Android Gradle build.

@@ -71,6 +71,7 @@ public struct BuildAction: Action {
         // MARK: Android options
 
         /// Gradle module name (e.g. `"app"`). Overrides `config.androidModule`. (Android only)
+        /// For KMP iOS, this is the shared framework module. Defaults to `config.kmpSharedModule`.
         public var module: String?
 
         /// Gradle build variant (e.g. `"release"`, `"debug"`). (Android only)
@@ -220,11 +221,12 @@ public struct BuildAction: Action {
         let effectiveConfiguration =
             options.configuration?.rawValue ?? context.config.buildConfiguration
 
-        // Workflow-driven runs already linked the KMP shared framework via
-        // `ActionContext.ensureProjectGenerated()`. Direct CLI invocations bypass Workflow,
-        // so we call it here to keep `shipit build` standalone-safe. The call is incremental
-        // and idempotent.
-        try await context.ensureProjectGenerated(buildConfiguration: effectiveConfiguration)
+        try await context.ensureProjectGenerated()
+        try await context.linkKMPFramework(
+            buildConfiguration: effectiveConfiguration,
+            target: context.config.kmpBuildTarget,
+            module: options.module
+        )
 
         // Continue with the regular xcodebuild path against the Xcode wrapper.
         return try await runIOS(options: options, context: context)
@@ -318,9 +320,8 @@ public struct BuildAction: Action {
 
         logger.info("Building Android module '\(module)' with task '\(task.name)'")
 
-        var gradle = Gradle(context: context.shell)
-            .task(task)
-            .flag(.noDaemon)
+        var gradle = context.gradle()
+            .task(task.qualified(module: module))
 
         // Apply config-level Gradle properties
         let allProps = context.config.androidGradleProperties.merging(options.gradleProperties ?? [:]) { _, new in new }
@@ -329,10 +330,9 @@ public struct BuildAction: Action {
         }
 
         if options.clean == true {
-            gradle = Gradle(context: context.shell)
+            gradle = context.gradle()
                 .task(.clean)
-                .task(task)
-                .flag(.noDaemon)
+                .task(task.qualified(module: module))
         }
 
         let output: ShellOutput

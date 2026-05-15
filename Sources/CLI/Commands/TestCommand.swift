@@ -45,6 +45,15 @@ struct TestCommand: AsyncParsableCommand {
     @Flag(name: .long, help: "Retry failing tests once before reporting failure")
     var retryOnFailure: Bool = false
 
+    @Option(name: .long, help: "Gradle module to test (Android) or KMP shared module (iOS KMP)")
+    var module: String?
+
+    @Option(name: .long, help: "Gradle build variant to test (Android, default: debug)")
+    var buildVariant: String?
+
+    @Flag(name: .long, help: "Run Android instrumented tests instead of JVM unit tests")
+    var instrumented: Bool = false
+
     func run() async throws {
         do {
             let config = try await resolveRequiredConfig(
@@ -63,11 +72,22 @@ struct TestCommand: AsyncParsableCommand {
                 testPlan: testPlan,
                 onlyTesting: onlyTesting.isEmpty ? nil : onlyTesting,
                 skipTesting: skipTesting.isEmpty ? nil : skipTesting,
-                retryOnFailure: retryOnFailure ? true : nil
+                retryOnFailure: retryOnFailure ? true : nil,
+                module: module,
+                buildVariant: buildVariant,
+                instrumented: instrumented ? true : nil
             )
 
             if global.dryRun {
-                formatter.print("DRY RUN: Would test scheme '\(scheme ?? config.appScheme ?? "unknown")'")
+                if config.platform == .android {
+                    formatter.print(
+                        "DRY RUN: Would run Gradle tests for module '\(module ?? config.androidModule)' variant '\(buildVariant ?? "debug")'")
+                } else if config.iosBuildSystem == .kmp {
+                    formatter.print(
+                        "DRY RUN: Would run KMP iOS test task '\(config.kmpTestTask)' in module '\(module ?? config.kmpSharedModule)'")
+                } else {
+                    formatter.print("DRY RUN: Would test scheme '\(scheme ?? config.appScheme ?? "unknown")'")
+                }
                 return
             }
 

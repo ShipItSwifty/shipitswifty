@@ -32,6 +32,9 @@ public struct AndroidConfig: Codable, Sendable {
     /// Path to the `gradlew` wrapper script. Auto-detected in the project root if nil.
     public var gradlewPath: String?
 
+    /// Directory containing the Gradle root project. Defaults to the Shipfile directory.
+    public var gradleProjectDir: String?
+
     /// Path to the Android keystore (`.jks` / `.keystore`) file.
     public var keystorePath: String?
 
@@ -63,6 +66,7 @@ public struct AndroidConfig: Codable, Sendable {
         case buildVariant = "build_variant"
         case buildType = "build_type"
         case gradlewPath = "gradlew_path"
+        case gradleProjectDir = "gradle_project_dir"
         case keystorePath = "keystore_path"
         case keystoreAlias = "keystore_alias"
         case packageName = "package_name"
@@ -80,6 +84,7 @@ public struct AndroidConfig: Codable, Sendable {
         buildVariant: String? = nil,
         buildType: AndroidBuildType? = nil,
         gradlewPath: String? = nil,
+        gradleProjectDir: String? = nil,
         keystorePath: String? = nil,
         keystoreAlias: String? = nil,
         packageName: String? = nil,
@@ -94,6 +99,7 @@ public struct AndroidConfig: Codable, Sendable {
         self.buildVariant = buildVariant
         self.buildType = buildType
         self.gradlewPath = gradlewPath
+        self.gradleProjectDir = gradleProjectDir
         self.keystorePath = keystorePath
         self.keystoreAlias = keystoreAlias
         self.packageName = packageName
@@ -130,6 +136,14 @@ public struct IOSConfig: Codable, Sendable {
     /// Set to `.flutter`, `.reactNative`, or `.kmp` when the iOS app is wrapped by a
     /// cross-platform tool.
     public var buildSystem: BuildSystem?
+    /// KMP module containing shared iOS framework tasks. Defaults to `shared`.
+    public var kmpSharedModule: String?
+    /// KMP iOS framework target used for local builds. Defaults to `IosSimulatorArm64`.
+    public var kmpBuildTarget: String?
+    /// KMP iOS framework target used for archives. Defaults to `IosArm64`.
+    public var kmpArchiveTarget: String?
+    /// KMP iOS test Gradle task. Defaults to `iosSimulatorArm64Test`.
+    public var kmpTestTask: String?
     /// iOS-specific Xcode scheme override.
     public var scheme: String?
     /// iOS-specific Xcode workspace override.
@@ -139,6 +153,10 @@ public struct IOSConfig: Codable, Sendable {
 
     enum CodingKeys: String, CodingKey {
         case buildSystem = "build_system"
+        case kmpSharedModule = "kmp_shared_module"
+        case kmpBuildTarget = "kmp_build_target"
+        case kmpArchiveTarget = "kmp_archive_target"
+        case kmpTestTask = "kmp_test_task"
         case scheme
         case workspace
         case project
@@ -147,11 +165,19 @@ public struct IOSConfig: Codable, Sendable {
     /// Creates an `IOSConfig`.
     public init(
         buildSystem: BuildSystem? = nil,
+        kmpSharedModule: String? = nil,
+        kmpBuildTarget: String? = nil,
+        kmpArchiveTarget: String? = nil,
+        kmpTestTask: String? = nil,
         scheme: String? = nil,
         workspace: String? = nil,
         project: String? = nil
     ) {
         self.buildSystem = buildSystem
+        self.kmpSharedModule = kmpSharedModule
+        self.kmpBuildTarget = kmpBuildTarget
+        self.kmpArchiveTarget = kmpArchiveTarget
+        self.kmpTestTask = kmpTestTask
         self.scheme = scheme
         self.workspace = workspace
         self.project = project

@@ -312,6 +312,22 @@ public enum BuiltInSchemaCatalog {
                         allowedValues: ["native", "flutter", "react_native", "kmp"],
                         example: .string("native"), envVar: "SHIPIT_IOS__BUILD_SYSTEM"),
                     .string(
+                        "kmp_shared_module",
+                        description: "KMP Gradle module containing shared iOS framework tasks.",
+                        example: .string("shared"), envVar: "SHIPIT_IOS__KMP_SHARED_MODULE"),
+                    .string(
+                        "kmp_build_target",
+                        description: "KMP iOS target used before local xcodebuild build runs.",
+                        example: .string("IosSimulatorArm64"), envVar: "SHIPIT_IOS__KMP_BUILD_TARGET"),
+                    .string(
+                        "kmp_archive_target",
+                        description: "KMP iOS target used before xcodebuild archive runs.",
+                        example: .string("IosArm64"), envVar: "SHIPIT_IOS__KMP_ARCHIVE_TARGET"),
+                    .string(
+                        "kmp_test_task",
+                        description: "KMP Gradle task used for iOS-side Kotlin tests.",
+                        example: .string("iosSimulatorArm64Test"), envVar: "SHIPIT_IOS__KMP_TEST_TASK"),
+                    .string(
                         "scheme", description: "iOS-specific Xcode scheme override.", example: .string("MyApp"),
                         envVar: "SHIPIT_IOS__SCHEME"),
                     .string(
@@ -355,7 +371,11 @@ public enum BuiltInSchemaCatalog {
                     .string(
                         "gradlew_path",
                         description: "Path to the gradlew wrapper script. Auto-detected if omitted.",
-                        example: .string("./gradlew")),
+                        example: .string("./gradlew"), envVar: "SHIPIT_ANDROID__GRADLEW_PATH"),
+                    .string(
+                        "gradle_project_dir",
+                        description: "Directory containing the Gradle root project. Defaults to the Shipfile directory.",
+                        example: .string("."), envVar: "SHIPIT_ANDROID__GRADLE_PROJECT_DIR"),
                     .string(
                         "keystore_path", description: "Path to the Android keystore (.jks/.keystore) file.",
                         example: .string("./android-keystore.jks")),
@@ -655,10 +675,10 @@ public enum BuiltInSchemaCatalog {
                 example: .bool(true)),
             // Android (Gradle) fields
             .string(
-                "android_module", description: "Gradle module to assemble (Android). Defaults to 'app'.",
+                "module", description: "Gradle module to assemble (Android) or KMP shared module (iOS KMP).",
                 example: .string("app")),
             .string(
-                "android_build_variant",
+                "build_variant",
                 description: "Gradle build variant to assemble (Android). Defaults to 'release'.",
                 example: .string("release")),
             .array(
@@ -734,6 +754,15 @@ public enum BuiltInSchemaCatalog {
                 description:
                     "Automatically retry failing tests once before reporting failure (-retry-tests-on-failure).",
                 defaultValue: .bool(false), example: .bool(true)),
+            .string(
+                "module", description: "Gradle module to test (Android) or KMP shared module (iOS KMP).",
+                example: .string("app")),
+            .string(
+                "build_variant", description: "Gradle build variant to test (Android). Defaults to debug.",
+                example: .string("debug")),
+            .boolean(
+                "instrumented", description: "Run Android instrumented tests instead of JVM unit tests.",
+                defaultValue: .bool(false), example: .bool(false)),
         ]
     }
 
@@ -760,10 +789,10 @@ public enum BuiltInSchemaCatalog {
                 example: .bool(false)),
             // Android (Gradle bundle) fields
             .string(
-                "android_module", description: "Gradle module to bundle (Android). Defaults to 'app'.",
+                "module", description: "Gradle module to bundle (Android) or KMP shared module (iOS KMP).",
                 example: .string("app")),
             .string(
-                "android_bundle_variant",
+                "build_variant",
                 description: "Gradle bundle variant (Android). Defaults to 'release'.",
                 example: .string("release")),
             .array(

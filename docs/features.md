@@ -230,7 +230,7 @@ ShipItSwifty separates **target platform** (`ios`, `android`) from **build syste
 | Build system | iOS compile step | Android compile step | Distribution pipeline | Status |
 |---|---|---|---|---|
 | `native` (default) | `xcodebuild` | `gradlew assemble` / `bundle` | App Store Connect / Google Play | ✅ Implemented |
-| `kmp` | `gradlew link…Framework…` → `xcodebuild` against wrapper | `gradlew :androidApp:bundleRelease` | App Store Connect / Google Play (unchanged) | ✅ Implemented |
+| `kmp` | `gradlew :shared:link…Framework…` → `xcodebuild` against wrapper | `gradlew :androidApp:assembleRelease` / `:androidApp:bundleRelease` | App Store Connect / Google Play (unchanged) | ✅ Implemented |
 | `flutter` | `flutter build ipa` → `xcodebuild` | `flutter build appbundle` | App Store Connect / Google Play (unchanged) | 🚧 Planned |
 | `react_native` | Metro bundle → `xcodebuild` | Metro bundle → `gradlew bundleRelease` | App Store Connect / Google Play (unchanged) | 🚧 Planned |
 
@@ -240,9 +240,13 @@ Configure under the relevant Shipfile block:
 ios:
   build_system: kmp           # native (default) | flutter | react_native | kmp
   scheme: iosApp
+  kmp_shared_module: shared
+  kmp_build_target: IosSimulatorArm64
+  kmp_archive_target: IosArm64
 android:
   build_system: kmp
   module: androidApp
+  gradle_project_dir: .
 versioning:
   source: kmp
   spec_path: gradle.properties

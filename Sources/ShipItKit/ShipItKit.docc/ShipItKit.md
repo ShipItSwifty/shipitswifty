@@ -56,6 +56,7 @@ These constraints are enforced throughout the codebase:
 ### Configuration
 
 - <doc:ConfigurationReference>
+- <doc:SwiftPMScripting>
 - <doc:Workflows>
 - <doc:CompositeActions>
 - <doc:Versioning>
@@ -103,14 +104,6 @@ These constraints are enforced throughout the codebase:
 - ``GooglePlayClient``
 - ``GooglePlayUploadService``
 - ``GooglePlayJWTGenerator``
-- ``Gradle``
-- ``GradleTask``
-- ``GradleFlag``
-- ``GradleProperty``
-- ``Bundletool``
-- ``Adb``
-- ``Emulator``
-
 ### Cross-platform build systems
 
 - <doc:KMPIntegration>
@@ -170,10 +163,6 @@ These constraints are enforced throughout the codebase:
 
 ### Lower-level wrappers
 
-- ``XcodeBuild``
-- ``XcodeBuildOption``
-- ``DestinationDiscovery``
-- ``XcodebuildDestination``
 - ``Xcrun``
 - ``Simctl``
 - ``SimctlCommand``

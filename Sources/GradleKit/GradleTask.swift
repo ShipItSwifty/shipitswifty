@@ -153,6 +153,23 @@ public struct GradleTask: Sendable, Equatable, Hashable {
         return GradleTask(name: "link\(cfg)Framework\(tgt)")
     }
 
+    /// Returns this task qualified with a Gradle module path.
+    ///
+    /// `GradleTask.bundleRelease.qualified(module: "app")` produces
+    /// `:app:bundleRelease`. If `module` is already colon-prefixed, the leading colon is
+    /// preserved and only a trailing separator is normalized.
+    ///
+    /// - Parameter module: Gradle module path, such as `"app"`, `"androidApp"`, or `":shared"`.
+    /// - Returns: A module-qualified Gradle task.
+    public func qualified(module: String) -> GradleTask {
+        let trimmedModule = module.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedModule.isEmpty else { return self }
+
+        let normalizedModule = trimmedModule.hasPrefix(":") ? trimmedModule : ":\(trimmedModule)"
+        let separator = normalizedModule.hasSuffix(":") ? "" : ":"
+        return GradleTask(name: "\(normalizedModule)\(separator)\(name)")
+    }
+
     // MARK: - Custom
 
     /// Arbitrary custom task name.

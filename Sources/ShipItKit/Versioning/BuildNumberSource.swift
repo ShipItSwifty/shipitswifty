@@ -1,4 +1,3 @@
-#if os(macOS)
 /// Strategy for auto-incrementing build numbers.
 ///
 /// Each strategy produces a unique, monotonically increasing build number
@@ -18,4 +17,3 @@ public enum BuildNumberStrategy: String, Codable, Sendable, CaseIterable {
     /// Count the total number of git commits on the current branch.
     case commitCount
 }
-#endif

@@ -156,16 +156,27 @@ Per-platform overrides merged on top of the shared config when the resolved plat
 |---|---|---|---|
 | `build_system` | string | `native` | Build system that produces the artifact: `native`, `flutter`, `react_native`, or `kmp`. Auto-detected from project files when unset. See ``BuildSystem`` and <doc:KMPIntegration>. |
 | `scheme` / `workspace` / `project` (iOS) | string | — | Override `app.*` for iOS only. |
+| `kmp_shared_module` (iOS) | string | `shared` | Gradle module containing KMP framework/test tasks. |
+| `kmp_build_target` (iOS) | string | `IosSimulatorArm64` | KMP framework target used before local builds. |
+| `kmp_archive_target` (iOS) | string | `IosArm64` | KMP framework target used before archives. |
+| `kmp_test_task` (iOS) | string | `iosSimulatorArm64Test` | KMP Gradle task used for iOS-side Kotlin tests. |
 | `module` / `build_variant` / `build_type` (Android) | string | varies | Override the Gradle module name and variant. |
+| `gradlew_path` / `gradle_project_dir` (Android) | string | Shipfile directory | Controls local Gradle wrapper and working directory. |
 
 ```yaml
 ios:
   build_system: kmp           # native (default) | flutter | react_native | kmp
   scheme: iosApp
+  kmp_shared_module: shared
+  kmp_build_target: IosSimulatorArm64
+  kmp_archive_target: IosArm64
 android:
   build_system: kmp
   module: androidApp
+  gradle_project_dir: .
 ```
+
+Flutter and React Native markers are reported by inspection, but runtime support is not active unless you explicitly set those values.
 
 ## `notifications`
 

@@ -11,19 +11,18 @@ Kotlin Multiplatform (KMP) projects produce two artifacts from one source tree: 
 | ``Platform`` | `.ios` / `.android` | invocation (`--platform`) | which side of the distribution pipeline to run |
 | ``BuildSystem`` | `.native` / `.kmp` / `.flutter` / `.reactNative` | `ios.build_system:` / `android.build_system:` | how the native artifact is compiled before distribution |
 
-A native iOS project is `Platform.ios` + `BuildSystem.native`. A KMP project is `Platform.ios` (or `.android`) + `BuildSystem.kmp`. The downstream distribution actions (``SignAction``, ``ArchiveAction``, ``ExportAction``, ``TestFlightAction``, ``PlayStoreAction``, ``UploadAction``) are **artifact-path driven** and do not change behaviour across build systems.
+A native iOS project is `Platform.ios` + `BuildSystem.native`. A KMP project is `Platform.ios` (or `.android`) + `BuildSystem.kmp`. ``BuildAction``, ``ArchiveAction``, and ``TestAction`` dispatch on ``BuildSystem`` because they compile or validate target artifacts. Later distribution actions (``SignAction``, ``ExportAction``, ``TestFlightAction``, ``PlayStoreAction``, ``UploadAction``) remain artifact-path driven.
 
 ## How the iOS path works
 
-When the resolved iOS build system is ``BuildSystem/kmp``, ``ActionContext/ensureProjectGenerated()`` runs the KMP framework link task *before* any `xcodebuild` step:
+When the resolved iOS build system is ``BuildSystem/kmp``, the build and archive actions link the KMP framework before invoking `xcodebuild`:
 
 ```
-ensureProjectGenerated() → gradlew :shared:linkReleaseFrameworkIosSimulatorArm64
-                         → (existing project generation, if configured)
-                         → ready for xcodebuild
+BuildAction   → gradlew :shared:linkReleaseFrameworkIosSimulatorArm64 → xcodebuild build
+ArchiveAction → gradlew :shared:linkReleaseFrameworkIosArm64          → xcodebuild archive
 ```
 
-``BuildAction`` and ``ArchiveAction`` then invoke `xcodebuild` against the wrapper `iosApp.xcworkspace`. Because the framework was already linked, Xcode resolves `Shared.framework` without errors.
+``BuildAction`` defaults to the simulator target (`IosSimulatorArm64`) for local builds. ``ArchiveAction`` defaults to the device target (`IosArm64`) for App Store archives. Override the module and target with `ios.kmp_shared_module`, `ios.kmp_build_target`, and `ios.kmp_archive_target` when your project does not use the standard KMP layout.
 
 The Gradle link task is incremental — re-running it on an unchanged shared module is essentially free.
 
@@ -46,7 +45,7 @@ Custom key names are supported via `versioning.marketing_key` and `versioning.bu
 
 ## Test action
 
-For KMP iOS tests, ``TestAction`` dispatches to `gradlew :shared:iosSimulatorArm64Test` rather than `xcodebuild test`. This is the convention KMP projects use to run the Kotlin-side test suite on an iOS-like target. The Android side reuses the native unit-test path.
+For KMP iOS tests, ``TestAction`` dispatches to `gradlew :shared:iosSimulatorArm64Test` rather than `xcodebuild test`. Override it with `ios.kmp_test_task` and `ios.kmp_shared_module` when needed. The Android side reuses the native unit-test path with a module-qualified Gradle task.
 
 ## Minimal Shipfile
 
@@ -59,9 +58,14 @@ app:
 
 ios:
   build_system: kmp
+  kmp_shared_module: shared
+  kmp_build_target: IosSimulatorArm64
+  kmp_archive_target: IosArm64
+  kmp_test_task: iosSimulatorArm64Test
 android:
   build_system: kmp
   module: androidApp
+  gradle_project_dir: .
   package_name: com.example.androidapp
 
 versioning:
@@ -85,11 +89,13 @@ workflows:
 
 ## Auto-detection
 
-When `build_system` is omitted, ``ProjectInspector`` and ``ConfigResolver`` agree on a single rule:
+When `build_system` is omitted, ``ConfigResolver`` activates KMP automatically from Gradle markers. ``ProjectInspector`` can also report Flutter and React Native markers, but those remain inspection-only until runtime support ships.
 
 | Project marker | Detected value |
 |---|---|
 | `build.gradle.kts` applying `kotlin("multiplatform")` or `org.jetbrains.kotlin.multiplatform` | `.kmp` |
+| `pubspec.yaml` containing `flutter:` | `.flutter` reported by inspection only |
+| `package.json` containing `react-native` | `.reactNative` reported by inspection only |
 
 The same `BuildSystem` value applies to both iOS and Android in a single project — you cannot have an iOS KMP wrapper alongside a native Android Gradle module from the same Shipfile; that's two projects.
 
@@ -97,7 +103,7 @@ The same `BuildSystem` value applies to both iOS and Android in a single project
 
 KMP iOS builds need both `xcodebuild` and `gradlew`, so they run on macOS runners with a JDK 17+ available. Android-only KMP builds can run from Linux as long as JDK 17+ and the Android SDK are installed.
 
-The ``DoctorCommand`` adds two probes when the resolved build system is `.kmp`:
+The `doctor` command adds two probes when the resolved build system is `.kmp`:
 
 - `java on PATH (for Gradle/Kotlin)`
 - `gradlew present in project root`
@@ -110,19 +116,14 @@ These fire only when needed; pure-native projects don't see them.
 
 - ``BuildSystem``
 - ``IOSConfig/buildSystem``
+- ``IOSConfig/kmpSharedModule``
+- ``IOSConfig/kmpBuildTarget``
+- ``IOSConfig/kmpArchiveTarget``
+- ``IOSConfig/kmpTestTask``
 - ``AndroidConfig/buildSystem``
+- ``AndroidConfig/gradleProjectDir``
 - ``ResolvedConfig/iosBuildSystem``
 - ``ResolvedConfig/androidBuildSystem``
-
-### Gradle tasks
-
-- ``GradleTask/linkReleaseFrameworkIosArm64``
-- ``GradleTask/linkReleaseFrameworkIosSimulatorArm64``
-- ``GradleTask/linkDebugFrameworkIosArm64``
-- ``GradleTask/embedAndSignAppleFrameworkForXcode``
-- ``GradleTask/iosSimulatorArm64Test``
-- ``GradleTask/iosArm64Test``
-- ``GradleTask/linkFramework(configuration:target:)``
 
 ### Auto-detection
 

@@ -74,7 +74,7 @@ For tests, ``ActionContext/mock(executor:versioningSource:platform:)`` wires up 
 
 #### Platform × BuildSystem orthogonality
 
-``Platform`` and ``BuildSystem`` are independent axes. ``Platform`` selects the distribution pipeline (iOS vs Android); ``BuildSystem`` selects how the native artifact is compiled (`native`, `kmp`, `flutter` 🚧, `react_native` 🚧). Only ``BuildAction`` and ``TestAction`` dispatch on ``BuildSystem``; all downstream actions (``ArchiveAction``, ``SignAction``, ``ExportAction``, ``TestFlightAction``, ``PlayStoreAction``, ``UploadAction``, ``DsymAction``, ``FrameAction``, ``ScreenshotAction``) consume artifact paths and stay unchanged across build systems. See <doc:KMPIntegration>.
+``Platform`` and ``BuildSystem`` are independent axes. ``Platform`` selects the distribution pipeline (iOS vs Android); ``BuildSystem`` selects how the native artifact is compiled (`native`, `kmp`, `flutter` 🚧, `react_native` 🚧). ``BuildAction``, ``ArchiveAction``, and ``TestAction`` dispatch on ``BuildSystem`` because they invoke compile/test tools. Later actions (``SignAction``, ``ExportAction``, ``TestFlightAction``, ``PlayStoreAction``, ``UploadAction``, ``DsymAction``, and ``FrameAction``) consume artifact paths and stay unchanged across build systems. See <doc:KMPIntegration>.
 
 ### Action model
 
@@ -116,7 +116,7 @@ The CLI renders this either through `HumanFormatter` or ``JSONReporter``. JSON o
 
 These are enforced by the codebase and reviewed for in every PR:
 
-1. **All shell execution goes through SwiftyShell.** Never `Foundation.Process` directly. Use ``XcodeBuild``, ``Gradle``, ``Xcrun``, ``Adb``, etc., for typed wrappers.
+1. **All shell execution goes through SwiftyShell.** Never `Foundation.Process` directly. Use typed wrappers such as `XcodeBuild`, `Gradle`, ``Xcrun``, and `Adb`.
 2. **All ASC API calls go through ``AppStoreConnectClient``.** No raw `URLSession` to Apple endpoints anywhere.
 3. **All public types are `Sendable`.** Swift 6 strict concurrency throughout.
 4. **All async work uses structured concurrency.** `async let`, `TaskGroup`. Never `Task.detached` for production work.
