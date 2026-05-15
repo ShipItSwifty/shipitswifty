@@ -210,6 +210,14 @@ public struct ResolvedConfig: Sendable {
     /// Resolved target platform.
     public let platform: Platform
 
+    /// Resolved iOS build system. ``BuildSystem/native`` for Swift-only Xcode projects;
+    /// `.flutter`, `.reactNative`, or `.kmp` when the iOS app is produced by a cross-platform tool.
+    public let iosBuildSystem: BuildSystem
+
+    /// Resolved Android build system. ``BuildSystem/native`` for pure Gradle projects;
+    /// `.flutter`, `.reactNative`, or `.kmp` when the Android app is produced by a cross-platform tool.
+    public let androidBuildSystem: BuildSystem
+
     // MARK: - Android
 
     /// Gradle module name (e.g. `app`).
@@ -311,6 +319,8 @@ public struct ResolvedConfig: Sendable {
         workflows: [String: WorkflowConfig] = [:],
         customActions: [String: CustomActionConfig] = [:],
         platform: Platform = .ios,
+        iosBuildSystem: BuildSystem = .native,
+        androidBuildSystem: BuildSystem = .native,
         androidModule: String = "app",
         androidBuildVariant: String = "release",
         androidBuildType: AndroidBuildType = .aab,
@@ -381,6 +391,8 @@ public struct ResolvedConfig: Sendable {
         self.workflows = workflows
         self.customActions = customActions
         self.platform = platform
+        self.iosBuildSystem = iosBuildSystem
+        self.androidBuildSystem = androidBuildSystem
         self.androidModule = androidModule
         self.androidBuildVariant = androidBuildVariant
         self.androidBuildType = androidBuildType

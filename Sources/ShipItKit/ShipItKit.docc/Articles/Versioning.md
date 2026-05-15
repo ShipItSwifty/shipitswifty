@@ -43,6 +43,7 @@ The `versioning.source` Shipfile key tells ShipItKit **where to read and write**
 |---|---|---|---|
 | `xcodeproj` (default) | `.xcodeproj` build settings via `agvtool` | same | Standard Xcode projects |
 | `project_spec` | `Project.yml` (XcodeGen) or `Project.swift` (Tuist) | same YAML/Swift | Generated projects, where `.xcodeproj` is rebuilt every run |
+| `kmp` | `gradle.properties` (`versionName` + `versionCode`) | same | Kotlin Multiplatform projects shipping to both stores from one source tree |
 | `asc` | App Store Connect API | `.xcodeproj` (writes back the next build number ASC expects) | Centralised, multi-machine teams |
 
 ```yaml
@@ -76,6 +77,26 @@ versioning:
 ```
 
 The `project_spec` source handles both XcodeGen YAML and Tuist Swift specs — it edits the spec in place so subsequent regenerations preserve the bump.
+
+## Kotlin Multiplatform versioning
+
+For KMP projects, both the iOS framework and the Android `.aab` should ship the same version. Point `versioning.source` at `kmp` to read and write directly from `gradle.properties`:
+
+```yaml
+versioning:
+  source: kmp
+  spec_path: gradle.properties     # default — override if your file lives elsewhere
+```
+
+```properties
+# gradle.properties
+versionName=1.2.3
+versionCode=45
+```
+
+Bumping the build number rewrites the `versionCode=` line in place; bumping the marketing version rewrites `versionName=`. Comments, ordering, and other Gradle properties are preserved. If your project uses non-standard keys, override them via `versioning.marketing_key` and `versioning.build_key`.
+
+See <doc:KMPIntegration> for the full KMP setup.
 
 ## Programmatic use
 

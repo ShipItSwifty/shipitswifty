@@ -55,7 +55,12 @@ public struct AISessionBuilder: Sendable {
             platform: platform
         )
         let agentPrompt = buildAgentPrompt(
-            goal: goal, readiness: readiness, platform: platform, customActions: customActions)
+            goal: goal,
+            readiness: readiness,
+            platform: platform,
+            detectedBuildSystem: inspection.detectedBuildSystem,
+            customActions: customActions
+        )
         let nextQuestion = buildNextQuestion(
             goal: goal,
             missingValues: suggestion.missingValues,
@@ -575,6 +580,7 @@ public struct AISessionBuilder: Sendable {
         goal: SuggestionGoal,
         readiness: AIReadiness,
         platform: Platform,
+        detectedBuildSystem: BuildSystem? = nil,
         customActions: [String: CustomActionConfig] = [:]
     ) -> String {
         let platformFlag = platform == .android ? " --platform android" : ""
@@ -631,6 +637,30 @@ public struct AISessionBuilder: Sendable {
             lines.append("Blockers: \(readiness.blockers.joined(separator: "; "))")
         } else {
             lines.append("Current status: READY — all required config values are present.")
+        }
+
+        if let detectedBuildSystem {
+            lines += [
+                "",
+                "Detected build system: \(detectedBuildSystem.rawValue).",
+            ]
+            switch detectedBuildSystem {
+            case .kmp:
+                lines += [
+                    "This is a Kotlin Multiplatform project. Set `build_system: kmp` on BOTH the `ios:` and",
+                    "`android:` Shipfile blocks so the same source tree drives both stores.",
+                    "Use `versioning.source: kmp` with `spec_path: gradle.properties` to share versionName/versionCode.",
+                    "The KMP iOS path runs `gradlew :shared:link…Framework…` automatically before xcodebuild.",
+                    "Distribution actions (sign / archive / testflight / play-store / upload) are unchanged.",
+                ]
+            case .flutter, .reactNative:
+                lines += [
+                    "Note: `\(detectedBuildSystem.rawValue)` build_system is recognised by the schema but not yet implemented in this release.",
+                    "Configure `build_system: native` (or omit it) for now; full support is planned.",
+                ]
+            case .native:
+                break
+            }
         }
 
         switch platform {

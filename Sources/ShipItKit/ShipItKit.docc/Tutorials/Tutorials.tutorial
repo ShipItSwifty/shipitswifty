@@ -26,6 +26,15 @@
         @TutorialReference(tutorial: "doc:05-Android-PlayStore")
     }
 
+    @Chapter(name: "Kotlin Multiplatform") {
+        Ship one source tree to both the App Store and Google Play with `build_system: kmp`.
+
+        @Image(source: chapter-android.png, alt: "Kotlin Multiplatform chapter cover")
+
+        @TutorialReference(tutorial: "doc:09-KMP-Setup")
+        @TutorialReference(tutorial: "doc:10-KMP-Distribution")
+    }
+
     @Chapter(name: "Build a Plugin") {
         Extend ShipItKit with a custom action, register it, and call it from a workflow.
 

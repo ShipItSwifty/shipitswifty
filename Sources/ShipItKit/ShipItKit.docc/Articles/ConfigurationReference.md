@@ -146,7 +146,26 @@ Version bump strategy.
 | Key | Type | Default | Description |
 |---|---|---|---|
 | `strategy` | string | `sequential` | `sequential` or `timestamp` |
-| `source` | string | `xcodeproj` | `xcodeproj` or `asc` |
+| `source` | string | `xcodeproj` | `xcodeproj`, `project_spec`, `kmp`, or `asc`. KMP reads/writes `versionName`/`versionCode` in `gradle.properties`. See <doc:KMPIntegration>. |
+
+## `ios` / `android`
+
+Per-platform overrides merged on top of the shared config when the resolved platform matches.
+
+| Key | Type | Default | Description |
+|---|---|---|---|
+| `build_system` | string | `native` | Build system that produces the artifact: `native`, `flutter`, `react_native`, or `kmp`. Auto-detected from project files when unset. See ``BuildSystem`` and <doc:KMPIntegration>. |
+| `scheme` / `workspace` / `project` (iOS) | string | — | Override `app.*` for iOS only. |
+| `module` / `build_variant` / `build_type` (Android) | string | varies | Override the Gradle module name and variant. |
+
+```yaml
+ios:
+  build_system: kmp           # native (default) | flutter | react_native | kmp
+  scheme: iosApp
+android:
+  build_system: kmp
+  module: androidApp
+```
 
 ## `notifications`
 

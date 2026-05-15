@@ -1,0 +1,67 @@
+@Tutorial(time: 7) {
+    @Intro(title: "Set up a Kotlin Multiplatform Shipfile") {
+        Configure ShipItSwifty against a KMP project that ships to both the App
+        Store and Google Play from a single source tree.
+
+        @Image(source: chapter-android.png, alt: "Kotlin Multiplatform setup")
+    }
+
+    @Section(title: "Detect the project") {
+        @ContentAndMedia {
+            ShipItSwifty's `inspect` command identifies the build system from
+            project files. For KMP it looks for `kotlin("multiplatform")` in a
+            root `build.gradle.kts`.
+        }
+
+        @Steps {
+            @Step {
+                Run `shipit inspect` from the project root. Confirm
+                `detectedBuildSystem: kmp`.
+
+                @Code(name: "Terminal", file: 20-kmp-inspect.sh)
+            }
+        }
+    }
+
+    @Section(title: "Configure build_system on both platforms") {
+        @ContentAndMedia {
+            Because KMP produces both an iOS framework and an Android module,
+            set `build_system: kmp` under **both** the `ios:` and `android:`
+            blocks. The same value applies on each side of the pipeline.
+        }
+
+        @Steps {
+            @Step {
+                Write a Shipfile that sets `build_system: kmp` per platform
+                and points versioning at `gradle.properties`.
+
+                @Code(name: "Shipfile.yml", file: 20-kmp-shipfile.yml)
+            }
+
+            @Step {
+                Make sure `gradle.properties` defines `versionName` and
+                `versionCode`. ShipItSwifty reads and writes those keys when
+                you bump the shared version.
+
+                @Code(name: "gradle.properties", file: 20-kmp-gradle-properties.txt)
+            }
+        }
+    }
+
+    @Section(title: "Run doctor") {
+        @ContentAndMedia {
+            With a non-`native` build system resolved, `shipit doctor` adds
+            toolchain probes for the Kotlin/Gradle stack. Run it first so a
+            missing JDK or `gradlew` fails fast, before any build.
+        }
+
+        @Steps {
+            @Step {
+                `shipit doctor` includes `java` and `gradlew` probes when
+                `build_system: kmp` resolves.
+
+                @Code(name: "Terminal", file: 20-kmp-doctor.sh)
+            }
+        }
+    }
+}

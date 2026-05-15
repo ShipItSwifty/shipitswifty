@@ -223,6 +223,37 @@ AI session is also platform-aware: `shipit ai-session --goal beta --platform and
 
 ---
 
+## Cross-platform build systems
+
+ShipItSwifty separates **target platform** (`ios`, `android`) from **build system** (`native`, `flutter`, `react_native`, `kmp`). A single Kotlin Multiplatform or Flutter source tree can ship to both stores from one Shipfile.
+
+| Build system | iOS compile step | Android compile step | Distribution pipeline | Status |
+|---|---|---|---|---|
+| `native` (default) | `xcodebuild` | `gradlew assemble` / `bundle` | App Store Connect / Google Play | ✅ Implemented |
+| `kmp` | `gradlew link…Framework…` → `xcodebuild` against wrapper | `gradlew :androidApp:bundleRelease` | App Store Connect / Google Play (unchanged) | ✅ Implemented |
+| `flutter` | `flutter build ipa` → `xcodebuild` | `flutter build appbundle` | App Store Connect / Google Play (unchanged) | 🚧 Planned |
+| `react_native` | Metro bundle → `xcodebuild` | Metro bundle → `gradlew bundleRelease` | App Store Connect / Google Play (unchanged) | 🚧 Planned |
+
+Configure under the relevant Shipfile block:
+
+```yaml
+ios:
+  build_system: kmp           # native (default) | flutter | react_native | kmp
+  scheme: iosApp
+android:
+  build_system: kmp
+  module: androidApp
+versioning:
+  source: kmp
+  spec_path: gradle.properties
+```
+
+Detection is automatic when `build_system` is omitted — see [`docs/configuration-reference.md`](configuration-reference.md#build-systems) for the detection table and CI overrides.
+
+See [`docs/kmp-quickstart.md`](kmp-quickstart.md) for a worked KMP example.
+
+---
+
 ## Android roadmap (v2+)
 
 | Area | Status |

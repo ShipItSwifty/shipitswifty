@@ -198,16 +198,84 @@ public struct TestAction: Action {
     }
 
     public func run(with options: Options, context: ActionContext) async throws -> Result {
-        switch context.platform {
-        case .ios:
+        let buildSystem: BuildSystem =
+            context.platform == .ios
+            ? context.config.iosBuildSystem
+            : context.config.androidBuildSystem
+
+        switch (context.platform, buildSystem) {
+        case (.ios, .native):
             #if os(macOS)
             return try await runIOS(options: options, context: context)
             #else
             throw ShipItError.invalidConfiguration(reason: "iOS tests require macOS.")
             #endif
-        case .android:
+        case (.android, .native):
             return try await runAndroid(options: options, context: context)
+        case (.ios, .kmp):
+            return try await runKMPiOSTests(options: options, context: context)
+        case (.android, .kmp):
+            // KMP Android target is a regular Android Gradle module — reuse the native path.
+            return try await runAndroid(options: options, context: context)
+        case (_, .flutter):
+            throw ShipItError.invalidConfiguration(
+                reason:
+                    "Flutter build_system is not yet supported in this release. Set build_system: native or omit it."
+            )
+        case (_, .reactNative):
+            throw ShipItError.invalidConfiguration(
+                reason:
+                    "React Native build_system is not yet supported in this release. Set build_system: native or omit it."
+            )
         }
+    }
+
+    // MARK: - KMP iOS Test (gradlew iosSimulatorArm64Test)
+
+    /// Runs Kotlin-side KMP tests for the iOS target.
+    ///
+    /// Defaults to `iosSimulatorArm64Test`; consumers can override via `options.module`
+    /// (interpreted as the Gradle module containing the KMP `iosX64Test`/`iosArm64Test` tasks)
+    /// when their shared module lives at a non-default path.
+    private func runKMPiOSTests(options: Options, context: ActionContext) async throws -> Result {
+        let module = options.module ?? "shared"
+        let task: GradleTask = .iosSimulatorArm64Test
+        let qualified = GradleTask(name: ":\(module):\(task.name)")
+
+        logger.info("Running KMP iOS test task '\(qualified.name)'")
+
+        let gradle = Gradle(context: context.shell)
+            .task(qualified)
+            .flag(.noDaemon)
+
+        let output: ShellOutput
+        do {
+            output = try await gradle.run()
+        } catch let ShellError.exitFailure(_, shellOutput) {
+            let combinedLog = [shellOutput.stdout, shellOutput.stderr]
+                .filter { !$0.isEmpty }
+                .joined(separator: "\n")
+            let failCount = parseGradleFailureCount(from: combinedLog)
+            logger.error("KMP iOS tests failed with \(failCount) failure(s)")
+            throw ShipItError.testFailed(
+                exitCode: Int(shellOutput.exitCode),
+                failureCount: failCount,
+                log: combinedLog
+            )
+        }
+
+        if output.exitCode != 0 {
+            let failCount = parseGradleFailureCount(from: output.stdout)
+            throw ShipItError.testFailed(
+                exitCode: Int(output.exitCode),
+                failureCount: failCount,
+                log: output.stderr
+            )
+        }
+
+        let (pass, fail, skip) = parseGradleCounts(from: output.stdout)
+        logger.info("KMP iOS tests complete — pass: \(pass), fail: \(fail), skip: \(skip)")
+        return Result(passCount: pass, failCount: fail, skipCount: skip)
     }
 
     #if os(macOS)

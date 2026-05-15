@@ -86,6 +86,18 @@ Registration is typically done once at process startup via `registerBuiltInActio
 
 The result is a ``ResolvedConfig`` struct that actions read from. This means actions never parse CLI flags or YAML themselves — they only see clean, typed values.
 
+## Build systems vs. target platforms
+
+``Platform`` and ``BuildSystem`` are deliberately separate axes. ``Platform`` (`.ios` / `.android`) selects which side of the distribution pipeline runs. ``BuildSystem`` (`.native` / `.flutter` / `.reactNative` / `.kmp`) selects *how* the native artifact is compiled before that pipeline kicks in.
+
+Concretely:
+
+- A native iOS app is `Platform.ios` + `BuildSystem.native`.
+- A Kotlin Multiplatform project producing both `.ipa` and `.aab` is `BuildSystem.kmp` on both platforms.
+- Distribution actions (``SignAction``, ``ArchiveAction``, ``TestFlightAction``, ``PlayStoreAction``, ``UploadAction``, ``DsymAction``) read artifact paths and are unchanged across build systems. Only ``BuildAction`` and ``TestAction`` dispatch on ``BuildSystem``.
+
+Set `ios.build_system:` / `android.build_system:` in `Shipfile.yml` or override via `SHIPIT_IOS__BUILD_SYSTEM` / `SHIPIT_ANDROID__BUILD_SYSTEM`. When unset, ``BuildSystem/autoDetect(in:fileManager:)`` infers the value from project files. See <doc:KMPIntegration> for the worked KMP example.
+
 ```swift
 let resolver = ConfigResolver()
 let config = try await resolver.resolve(

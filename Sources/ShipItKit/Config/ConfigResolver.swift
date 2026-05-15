@@ -112,6 +112,32 @@ public struct ConfigResolver: Sendable {
         let platform = resolvePlatform(cliOptions: cliOptions, shipfile: shipfile)
         logger.info("Resolved platform: \(platform.rawValue)")
 
+        // Resolve build system per platform: env var > Shipfile ios.build_system / android.build_system >
+        // auto-detect from project files > .native.
+        // Inspect the directory that holds the loaded Shipfile when available so that
+        // `--shipfile path/to/Shipfile.yml` (or `SHIPIT_SHIPFILE` pointing outside the cwd)
+        // doesn't silently fall through to `.native` against the wrong tree.
+        let detectionRoot: String =
+            shipfileLoadResult.loadedPath.map {
+                URL(fileURLWithPath: $0).deletingLastPathComponent().path
+            } ?? "."
+        let autoDetectedBuildSystem = BuildSystem.autoDetect(in: detectionRoot)
+        let iosBuildSystem = resolveBuildSystem(
+            platform: .ios,
+            shipfile: shipfile,
+            autoDetected: autoDetectedBuildSystem
+        )
+        let androidBuildSystem = resolveBuildSystem(
+            platform: .android,
+            shipfile: shipfile,
+            autoDetected: autoDetectedBuildSystem
+        )
+        if iosBuildSystem != .native || androidBuildSystem != .native {
+            logger.info(
+                "Resolved build systems — iOS: \(iosBuildSystem.rawValue), Android: \(androidBuildSystem.rawValue)"
+            )
+        }
+
         // Apply per-platform overrides from Shipfile ios:/android: blocks
         let effectiveApp = mergeAppConfig(base: shipfile?.app, platform: platform, shipfile: shipfile)
         let effectiveBuild = mergeBuildConfig(
@@ -235,6 +261,8 @@ public struct ConfigResolver: Sendable {
             workflows: shipfile?.workflows ?? [:],
             customActions: shipfile?.customActions ?? [:],
             platform: platform,
+            iosBuildSystem: iosBuildSystem,
+            androidBuildSystem: androidBuildSystem,
             androidModule: environment.androidModule ?? androidConfig?.module ?? "app",
             androidBuildVariant: environment.androidBuildVariant ?? androidConfig?.buildVariant
                 ?? "release",
@@ -292,6 +320,40 @@ public struct ConfigResolver: Sendable {
 
         // 5. Default to iOS (existing behaviour)
         return .ios
+    }
+
+    /// Resolves the build system for a given target platform.
+    ///
+    /// Priority: env var (`SHIPIT_IOS__BUILD_SYSTEM` / `SHIPIT_ANDROID__BUILD_SYSTEM`)
+    /// > Shipfile `ios.build_system` / `android.build_system`
+    /// > auto-detected value
+    /// > ``BuildSystem/native``.
+    private func resolveBuildSystem(
+        platform: Platform,
+        shipfile: Shipfile?,
+        autoDetected: BuildSystem?
+    ) -> BuildSystem {
+        let envValue: String?
+        let shipfileValue: BuildSystem?
+        switch platform {
+        case .ios:
+            envValue = environment.iosBuildSystem
+            shipfileValue = shipfile?.ios?.buildSystem
+        case .android:
+            envValue = environment.androidBuildSystem
+            shipfileValue = shipfile?.android?.buildSystem
+        }
+
+        if let raw = envValue?.trimmingCharacters(in: .whitespaces).lowercased(),
+            !raw.isEmpty,
+            let resolved = BuildSystem(rawValue: raw)
+        {
+            return resolved
+        }
+
+        if let shipfileValue { return shipfileValue }
+
+        return autoDetected ?? .native
     }
 
     /// Returns the effective `AppConfig` after merging per-platform overrides.

@@ -1,0 +1,18 @@
+app:
+  scheme: iosApp
+  workspace: iosApp/iosApp.xcworkspace
+  bundle_id: com.example.iosApp
+  team_id: ABCD123456
+
+ios:
+  build_system: kmp
+
+android:
+  build_system: kmp
+  module: androidApp
+  package_name: com.example.androidapp
+  play_track: internal
+
+versioning:
+  source: kmp
+  spec_path: gradle.properties

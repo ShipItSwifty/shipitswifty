@@ -1,0 +1,72 @@
+@Tutorial(time: 10) {
+    @Intro(title: "Ship a KMP release to both stores") {
+        Build, version, archive, and upload a Kotlin Multiplatform app to
+        TestFlight and a Google Play track from a single Shipfile.
+
+        @Image(source: tutorial-android-playstore.png, alt: "KMP dual-store release")
+    }
+
+    @Section(title: "Build each target") {
+        @ContentAndMedia {
+            With `build_system: kmp` set on both blocks, `shipit build` runs
+            the right pre-step automatically. iOS links the shared framework
+            via Gradle, then invokes `xcodebuild`. Android dispatches to the
+            regular Gradle path.
+        }
+
+        @Steps {
+            @Step {
+                Build the iOS wrapper. The first line confirms the resolved
+                build systems before the link task fires.
+
+                @Code(name: "Terminal — iOS", file: 21-kmp-build-ios.sh)
+            }
+
+            @Step {
+                Build the Android target. Same Shipfile, different platform.
+
+                @Code(name: "Terminal — Android", file: 21-kmp-build-android.sh)
+            }
+        }
+    }
+
+    @Section(title: "Bump the shared version") {
+        @ContentAndMedia {
+            With `versioning.source: kmp`, the bumper writes to
+            `gradle.properties` so both iOS and Android pick up the new
+            `versionCode` / `versionName` on the next build.
+        }
+
+        @Steps {
+            @Step {
+                Bump the build number. Only the `versionCode` line is rewritten.
+
+                @Code(name: "Terminal", file: 21-kmp-version.sh)
+            }
+        }
+    }
+
+    @Section(title: "Run the release workflow on each platform") {
+        @ContentAndMedia {
+            The distribution actions — `archive`, `testflight`, `play-store`
+            — are unchanged for KMP. The artifact path produced by `archive`
+            flows into the upload step exactly like a native project.
+        }
+
+        @Steps {
+            @Step {
+                Define two workflows: one per store. Add them to your
+                Shipfile.
+
+                @Code(name: "Shipfile.yml", file: 21-kmp-workflow.yml)
+            }
+
+            @Step {
+                Run each workflow. The iOS run produces `.ipa` + TestFlight
+                upload; the Android run produces `.aab` + Play Store upload.
+
+                @Code(name: "Terminal", file: 04-build.sh)
+            }
+        }
+    }
+}

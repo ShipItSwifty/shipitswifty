@@ -59,6 +59,22 @@ metadata:
 versioning:
   strategy: sequential
   source: xcodeproj
+  # For Kotlin Multiplatform projects shipping to both stores from one source tree,
+  # switch the source to `kmp` and point spec_path at gradle.properties:
+  # source: kmp
+  # spec_path: gradle.properties
+
+# Per-platform overrides — uncomment when needed.
+# `build_system` controls how the native artifact is compiled before the regular
+# distribution pipeline (sign / archive / export / testflight / play-store) runs.
+# Allowed values: native (default), flutter, react_native, kmp.
+# ios:
+#   build_system: native
+#   scheme: MyApp
+# android:
+#   build_system: native
+#   module: app
+#   play_track: internal
 
 notifications:
   slack:

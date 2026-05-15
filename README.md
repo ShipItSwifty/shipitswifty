@@ -50,6 +50,8 @@ Use the CLI directly, embed the library in your own Swift tools, or extend it wi
 | Workflow composition | ✅ | ✅ | Reusable parameterised `custom_actions` in YAML |
 | Plugins | ✅ | ✅ | Statically-linked Swift packages contributing custom actions |
 | AI-assisted setup | ✅ | ✅ | `ai-session` returns a stable JSON contract for agents (config inference, secrets, next-action, schema) |
+| Kotlin Multiplatform | ✅ | ✅ | Set `build_system: kmp` per platform — one source tree ships to both stores. See [`docs/kmp-quickstart.md`](docs/kmp-quickstart.md) |
+| Flutter / React Native | 🚧 | 🚧 | Schema-accepted, planned for upcoming releases |
 
 For the full feature catalogue and roadmap, see [`docs/features.md`](docs/features.md).
 
@@ -147,6 +149,27 @@ workflows:
     - action: archive
     - action: play-store
 ```
+
+A minimal Kotlin Multiplatform `Shipfile.yml` (ships to both stores from one source tree):
+
+```yaml
+app:
+  scheme: iosApp
+  workspace: iosApp/iosApp.xcworkspace
+
+ios:
+  build_system: kmp
+android:
+  build_system: kmp
+  module: androidApp
+  package_name: com.example.androidapp
+
+versioning:
+  source: kmp
+  spec_path: gradle.properties
+```
+
+See [`docs/kmp-quickstart.md`](docs/kmp-quickstart.md) for a walkthrough.
 
 Copy the full annotated example: `cp Shipfile.example.yml Shipfile.yml`.
 
