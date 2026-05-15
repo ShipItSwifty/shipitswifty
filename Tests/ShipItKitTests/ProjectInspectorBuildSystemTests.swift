@@ -13,10 +13,10 @@ struct ProjectInspectorBuildSystemTests {
         defer { try? FileManager.default.removeItem(at: dir) }
 
         try """
-            plugins {
-                kotlin("multiplatform") version "1.9.0"
-            }
-            """.write(
+        plugins {
+            kotlin("multiplatform") version "1.9.0"
+        }
+        """.write(
             to: dir.appendingPathComponent("build.gradle.kts"),
             atomically: true,
             encoding: .utf8
@@ -40,10 +40,10 @@ struct ProjectInspectorBuildSystemTests {
         defer { try? FileManager.default.removeItem(at: dir) }
 
         try """
-            name: demo
-            flutter:
-              uses-material-design: true
-            """.write(
+        name: demo
+        flutter:
+          uses-material-design: true
+        """.write(
             to: dir.appendingPathComponent("pubspec.yaml"),
             atomically: true,
             encoding: .utf8
@@ -67,13 +67,13 @@ struct ProjectInspectorBuildSystemTests {
         defer { try? FileManager.default.removeItem(at: dir) }
 
         try """
-            {
-              "name": "demo",
-              "dependencies": {
-                "react-native": "0.74.0"
-              }
-            }
-            """.write(
+        {
+          "name": "demo",
+          "dependencies": {
+            "react-native": "0.74.0"
+          }
+        }
+        """.write(
             to: dir.appendingPathComponent("package.json"),
             atomically: true,
             encoding: .utf8

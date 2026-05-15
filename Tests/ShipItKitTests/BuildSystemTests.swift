@@ -31,11 +31,11 @@ struct BuildSystemTests {
         defer { try? FileManager.default.removeItem(at: dir) }
 
         try """
-            name: demo
-            description: A flutter demo.
-            flutter:
-              uses-material-design: true
-            """.write(
+        name: demo
+        description: A flutter demo.
+        flutter:
+          uses-material-design: true
+        """.write(
             to: dir.appendingPathComponent("pubspec.yaml"),
             atomically: true,
             encoding: .utf8
@@ -50,11 +50,11 @@ struct BuildSystemTests {
         defer { try? FileManager.default.removeItem(at: dir) }
 
         try """
-            name: demo
-            description: A pure dart project.
-            environment:
-              sdk: ">=3.0.0 <4.0.0"
-            """.write(
+        name: demo
+        description: A pure dart project.
+        environment:
+          sdk: ">=3.0.0 <4.0.0"
+        """.write(
             to: dir.appendingPathComponent("pubspec.yaml"),
             atomically: true,
             encoding: .utf8
@@ -69,15 +69,15 @@ struct BuildSystemTests {
         defer { try? FileManager.default.removeItem(at: dir) }
 
         try """
-            {
-              "name": "demo",
-              "version": "1.0.0",
-              "dependencies": {
-                "react": "18.2.0",
-                "react-native": "0.74.0"
-              }
-            }
-            """.write(
+        {
+          "name": "demo",
+          "version": "1.0.0",
+          "dependencies": {
+            "react": "18.2.0",
+            "react-native": "0.74.0"
+          }
+        }
+        """.write(
             to: dir.appendingPathComponent("package.json"),
             atomically: true,
             encoding: .utf8
@@ -92,13 +92,13 @@ struct BuildSystemTests {
         defer { try? FileManager.default.removeItem(at: dir) }
 
         try """
-            {
-              "name": "demo",
-              "devDependencies": {
-                "react-native": "0.74.0"
-              }
-            }
-            """.write(
+        {
+          "name": "demo",
+          "devDependencies": {
+            "react-native": "0.74.0"
+          }
+        }
+        """.write(
             to: dir.appendingPathComponent("package.json"),
             atomically: true,
             encoding: .utf8
@@ -113,11 +113,11 @@ struct BuildSystemTests {
         defer { try? FileManager.default.removeItem(at: dir) }
 
         try """
-            {
-              "name": "tooling",
-              "dependencies": { "typescript": "5.0.0" }
-            }
-            """.write(
+        {
+          "name": "tooling",
+          "dependencies": { "typescript": "5.0.0" }
+        }
+        """.write(
             to: dir.appendingPathComponent("package.json"),
             atomically: true,
             encoding: .utf8
@@ -132,11 +132,11 @@ struct BuildSystemTests {
         defer { try? FileManager.default.removeItem(at: dir) }
 
         try """
-            plugins {
-                kotlin("multiplatform") version "1.9.0"
-                id("com.android.library")
-            }
-            """.write(
+        plugins {
+            kotlin("multiplatform") version "1.9.0"
+            id("com.android.library")
+        }
+        """.write(
             to: dir.appendingPathComponent("build.gradle.kts"),
             atomically: true,
             encoding: .utf8
@@ -151,10 +151,10 @@ struct BuildSystemTests {
         defer { try? FileManager.default.removeItem(at: dir) }
 
         try """
-            plugins {
-                id("org.jetbrains.kotlin.multiplatform") version "1.9.0"
-            }
-            """.write(
+        plugins {
+            id("org.jetbrains.kotlin.multiplatform") version "1.9.0"
+        }
+        """.write(
             to: dir.appendingPathComponent("build.gradle.kts"),
             atomically: true,
             encoding: .utf8
@@ -169,11 +169,11 @@ struct BuildSystemTests {
         defer { try? FileManager.default.removeItem(at: dir) }
 
         try """
-            plugins {
-                id("com.android.application")
-                kotlin("android") version "1.9.0"
-            }
-            """.write(
+        plugins {
+            id("com.android.application")
+            kotlin("android") version "1.9.0"
+        }
+        """.write(
             to: dir.appendingPathComponent("build.gradle.kts"),
             atomically: true,
             encoding: .utf8
@@ -196,20 +196,20 @@ struct BuildSystemTests {
         defer { try? FileManager.default.removeItem(at: dir) }
 
         try """
-            name: demo
-            flutter:
-              uses-material-design: true
-            """.write(
+        name: demo
+        flutter:
+          uses-material-design: true
+        """.write(
             to: dir.appendingPathComponent("pubspec.yaml"),
             atomically: true,
             encoding: .utf8
         )
 
         try """
-            plugins {
-                kotlin("multiplatform") version "1.9.0"
-            }
-            """.write(
+        plugins {
+            kotlin("multiplatform") version "1.9.0"
+        }
+        """.write(
             to: dir.appendingPathComponent("build.gradle.kts"),
             atomically: true,
             encoding: .utf8

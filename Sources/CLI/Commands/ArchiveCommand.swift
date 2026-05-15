@@ -50,10 +50,12 @@ struct ArchiveCommand: AsyncParsableCommand {
             if global.dryRun {
                 if config.platform == .android {
                     formatter.print(
-                        "DRY RUN: Would run Gradle bundle for module '\(module ?? config.androidModule)' variant '\(buildVariant ?? config.androidBuildVariant)'")
+                        "DRY RUN: Would run Gradle bundle for module '\(module ?? config.androidModule)' variant '\(buildVariant ?? config.androidBuildVariant)'"
+                    )
                 } else if config.iosBuildSystem == .kmp {
                     formatter.print(
-                        "DRY RUN: Would link KMP module '\(module ?? config.kmpSharedModule)' target '\(config.kmpArchiveTarget)' then archive scheme '\(scheme ?? config.appScheme ?? "unknown")'")
+                        "DRY RUN: Would link KMP module '\(module ?? config.kmpSharedModule)' target '\(config.kmpArchiveTarget)' then archive scheme '\(scheme ?? config.appScheme ?? "unknown")'"
+                    )
                 } else {
                     formatter.print("DRY RUN: Would archive scheme '\(scheme ?? config.appScheme ?? "unknown")'")
                 }

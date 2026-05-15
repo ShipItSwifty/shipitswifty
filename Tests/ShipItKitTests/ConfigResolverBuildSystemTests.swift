@@ -12,9 +12,9 @@ struct ConfigResolverBuildSystemTests {
         defer { try? FileManager.default.removeItem(at: tempDirectory) }
         let shipfileURL = tempDirectory.appendingPathComponent("Shipfile.yml")
         try """
-            app:
-              scheme: MyApp
-            """.write(to: shipfileURL, atomically: true, encoding: .utf8)
+        app:
+          scheme: MyApp
+        """.write(to: shipfileURL, atomically: true, encoding: .utf8)
 
         let resolver = ConfigResolver(environment: Environment(env: [:]))
         let config = try await resolver.resolve(shipfilePath: shipfileURL.path)
@@ -29,11 +29,11 @@ struct ConfigResolverBuildSystemTests {
         defer { try? FileManager.default.removeItem(at: tempDirectory) }
         let shipfileURL = tempDirectory.appendingPathComponent("Shipfile.yml")
         try """
-            app:
-              scheme: MyApp
-            ios:
-              build_system: kmp
-            """.write(to: shipfileURL, atomically: true, encoding: .utf8)
+        app:
+          scheme: MyApp
+        ios:
+          build_system: kmp
+        """.write(to: shipfileURL, atomically: true, encoding: .utf8)
 
         let resolver = ConfigResolver(environment: Environment(env: [:]))
         let config = try await resolver.resolve(shipfilePath: shipfileURL.path)
@@ -48,10 +48,10 @@ struct ConfigResolverBuildSystemTests {
         defer { try? FileManager.default.removeItem(at: tempDirectory) }
         let shipfileURL = tempDirectory.appendingPathComponent("Shipfile.yml")
         try """
-            android:
-              module: app
-              build_system: kmp
-            """.write(to: shipfileURL, atomically: true, encoding: .utf8)
+        android:
+          module: app
+          build_system: kmp
+        """.write(to: shipfileURL, atomically: true, encoding: .utf8)
 
         let resolver = ConfigResolver(environment: Environment(env: [:]))
         let config = try await resolver.resolve(shipfilePath: shipfileURL.path)
@@ -66,9 +66,9 @@ struct ConfigResolverBuildSystemTests {
         defer { try? FileManager.default.removeItem(at: tempDirectory) }
         let shipfileURL = tempDirectory.appendingPathComponent("Shipfile.yml")
         try """
-            ios:
-              build_system: native
-            """.write(to: shipfileURL, atomically: true, encoding: .utf8)
+        ios:
+          build_system: native
+        """.write(to: shipfileURL, atomically: true, encoding: .utf8)
 
         let environment = Environment(env: [
             "SHIPIT_IOS__BUILD_SYSTEM": "kmp"
@@ -85,9 +85,9 @@ struct ConfigResolverBuildSystemTests {
         defer { try? FileManager.default.removeItem(at: tempDirectory) }
         let shipfileURL = tempDirectory.appendingPathComponent("Shipfile.yml")
         try """
-            android:
-              build_system: native
-            """.write(to: shipfileURL, atomically: true, encoding: .utf8)
+        android:
+          build_system: native
+        """.write(to: shipfileURL, atomically: true, encoding: .utf8)
 
         let environment = Environment(env: [
             "SHIPIT_ANDROID__BUILD_SYSTEM": "kmp"
@@ -121,10 +121,10 @@ struct ConfigResolverBuildSystemTests {
         defer { try? FileManager.default.removeItem(at: tempDirectory) }
 
         try """
-            plugins {
-                kotlin("multiplatform") version "1.9.0"
-            }
-            """.write(
+        plugins {
+            kotlin("multiplatform") version "1.9.0"
+        }
+        """.write(
             to: tempDirectory.appendingPathComponent("build.gradle.kts"),
             atomically: true,
             encoding: .utf8
@@ -132,9 +132,9 @@ struct ConfigResolverBuildSystemTests {
 
         let shipfileURL = tempDirectory.appendingPathComponent("Shipfile.yml")
         try """
-            app:
-              scheme: iosApp
-            """.write(to: shipfileURL, atomically: true, encoding: .utf8)
+        app:
+          scheme: iosApp
+        """.write(to: shipfileURL, atomically: true, encoding: .utf8)
 
         let resolver = ConfigResolver(environment: Environment(env: [:]))
         let config = try await resolver.resolve(shipfilePath: shipfileURL.path)
@@ -151,10 +151,10 @@ struct ConfigResolverBuildSystemTests {
         defer { try? FileManager.default.removeItem(at: tempDirectory) }
 
         try """
-            name: demo
-            flutter:
-              uses-material-design: true
-            """.write(
+        name: demo
+        flutter:
+          uses-material-design: true
+        """.write(
             to: tempDirectory.appendingPathComponent("pubspec.yaml"),
             atomically: true,
             encoding: .utf8
@@ -175,18 +175,18 @@ struct ConfigResolverBuildSystemTests {
         defer { try? FileManager.default.removeItem(at: tempDirectory) }
         let shipfileURL = tempDirectory.appendingPathComponent("Shipfile.yml")
         try """
-            ios:
-              build_system: kmp
-              kmp_shared_module: coreShared
-              kmp_build_target: IosX64
-              kmp_archive_target: IosArm64
-              kmp_test_task: iosX64Test
-            android:
-              module: androidApp
-              gradle_project_dir: ./android
-              gradlew_path: ./android/gradlew
-              gradle_flags: ["--configuration-cache", "--stacktrace"]
-            """.write(to: shipfileURL, atomically: true, encoding: .utf8)
+        ios:
+          build_system: kmp
+          kmp_shared_module: coreShared
+          kmp_build_target: IosX64
+          kmp_archive_target: IosArm64
+          kmp_test_task: iosX64Test
+        android:
+          module: androidApp
+          gradle_project_dir: ./android
+          gradlew_path: ./android/gradlew
+          gradle_flags: ["--configuration-cache", "--stacktrace"]
+        """.write(to: shipfileURL, atomically: true, encoding: .utf8)
 
         let config = try await ConfigResolver(environment: Environment(env: [:]))
             .resolve(shipfilePath: shipfileURL.path)
@@ -207,9 +207,9 @@ struct ConfigResolverBuildSystemTests {
         defer { try? FileManager.default.removeItem(at: tempDirectory) }
         let shipfileURL = tempDirectory.appendingPathComponent("Shipfile.yml")
         try """
-            ios:
-              build_system: kmp
-            """.write(to: shipfileURL, atomically: true, encoding: .utf8)
+        ios:
+          build_system: kmp
+        """.write(to: shipfileURL, atomically: true, encoding: .utf8)
 
         let environment = Environment(env: [
             "SHIPIT_IOS__BUILD_SYSTEM": "made-up"

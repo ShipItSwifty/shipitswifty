@@ -15,11 +15,11 @@ struct KMPVersionSourceTests {
 
         let propertiesURL = dir.appendingPathComponent("gradle.properties")
         try """
-            # Project properties
-            kotlin.code.style=official
-            versionName=1.2.3
-            versionCode=42
-            """.write(to: propertiesURL, atomically: true, encoding: .utf8)
+        # Project properties
+        kotlin.code.style=official
+        versionName=1.2.3
+        versionCode=42
+        """.write(to: propertiesURL, atomically: true, encoding: .utf8)
 
         let executor = MockExecutor { _, _ in
             ShellOutput(stdout: "", stderr: "", exitCode: 0)
@@ -46,12 +46,12 @@ struct KMPVersionSourceTests {
 
         let propertiesURL = dir.appendingPathComponent("gradle.properties")
         try """
-            # Comment that must be preserved
-            org.gradle.jvmargs=-Xmx2g
-            versionName=2.0.0
-            versionCode=7
-            kotlin.mpp.enableCInteropCommonization=true
-            """.write(to: propertiesURL, atomically: true, encoding: .utf8)
+        # Comment that must be preserved
+        org.gradle.jvmargs=-Xmx2g
+        versionName=2.0.0
+        versionCode=7
+        kotlin.mpp.enableCInteropCommonization=true
+        """.write(to: propertiesURL, atomically: true, encoding: .utf8)
 
         let executor = MockExecutor { _, _ in
             ShellOutput(stdout: "", stderr: "", exitCode: 0)
@@ -84,9 +84,9 @@ struct KMPVersionSourceTests {
 
         let propertiesURL = dir.appendingPathComponent("gradle.properties")
         try """
-            versionName=1.0.0
-            versionCode=1
-            """.write(to: propertiesURL, atomically: true, encoding: .utf8)
+        versionName=1.0.0
+        versionCode=1
+        """.write(to: propertiesURL, atomically: true, encoding: .utf8)
 
         let executor = MockExecutor { _, _ in
             ShellOutput(stdout: "", stderr: "", exitCode: 0)
@@ -115,9 +115,9 @@ struct KMPVersionSourceTests {
 
         let propertiesURL = dir.appendingPathComponent("gradle.properties")
         try """
-            # versionName intentionally omitted
-            versionCode=1
-            """.write(to: propertiesURL, atomically: true, encoding: .utf8)
+        # versionName intentionally omitted
+        versionCode=1
+        """.write(to: propertiesURL, atomically: true, encoding: .utf8)
 
         let executor = MockExecutor { _, _ in
             ShellOutput(stdout: "", stderr: "", exitCode: 0)

@@ -62,10 +62,12 @@ struct BuildCommand: AsyncParsableCommand {
             if global.dryRun {
                 if config.platform == .android {
                     formatter.print(
-                        "DRY RUN: Would run Gradle assemble for module '\(module ?? config.androidModule)' variant '\(buildVariant ?? config.androidBuildVariant)'")
+                        "DRY RUN: Would run Gradle assemble for module '\(module ?? config.androidModule)' variant '\(buildVariant ?? config.androidBuildVariant)'"
+                    )
                 } else if config.iosBuildSystem == .kmp {
                     formatter.print(
-                        "DRY RUN: Would link KMP module '\(module ?? config.kmpSharedModule)' target '\(config.kmpBuildTarget)' then build scheme '\(scheme ?? config.appScheme ?? "unknown")'")
+                        "DRY RUN: Would link KMP module '\(module ?? config.kmpSharedModule)' target '\(config.kmpBuildTarget)' then build scheme '\(scheme ?? config.appScheme ?? "unknown")'"
+                    )
                 } else {
                     formatter.print("DRY RUN: Would build scheme '\(scheme ?? config.appScheme ?? "unknown")'")
                 }
