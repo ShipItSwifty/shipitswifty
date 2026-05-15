@@ -1,4 +1,3 @@
-#if os(macOS)
 import Foundation
 import Logging
 
@@ -145,4 +144,3 @@ struct KMPVersionSource: Sendable {
         try lines.joined(separator: "\n").write(to: url, atomically: true, encoding: .utf8)
     }
 }
-#endif

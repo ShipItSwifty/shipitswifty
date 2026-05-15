@@ -71,9 +71,17 @@ versioning:
 # ios:
 #   build_system: native
 #   scheme: MyApp
+#   # KMP defaults when build_system: kmp
+#   # kmp_shared_module: shared
+#   # kmp_build_target: IosSimulatorArm64
+#   # kmp_archive_target: IosArm64
+#   # kmp_test_task: iosSimulatorArm64Test
 # android:
 #   build_system: native
 #   module: app
+#   # gradle_project_dir: .
+#   # gradlew_path: ./gradlew
+#   # gradle_flags: ["--configuration-cache"]
 #   play_track: internal
 
 notifications:

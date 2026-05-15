@@ -193,7 +193,7 @@ struct DoctorCommand: AsyncParsableCommand {
         config: ResolvedConfig
     ) -> [ToolCheck] {
         let active: Set<BuildSystem> = Set(
-            [config.iosBuildSystem, config.androidBuildSystem].filter { $0 != .native }
+            [(config.platform == .ios ? config.iosBuildSystem : config.androidBuildSystem)].filter { $0 != .native }
         )
         var checks: [ToolCheck] = []
         for system in active.sorted(by: { $0.rawValue < $1.rawValue }) {
@@ -230,7 +230,7 @@ struct DoctorCommand: AsyncParsableCommand {
                 checks.append(
                     ToolCheck(
                         name: "gradlew present in project root",
-                        command: Command("test", arguments: "-x", "./gradlew")
+                        command: Command("test", arguments: "-x", config.gradlewPath ?? "\(config.gradleProjectDir)/gradlew")
                     )
                 )
             }

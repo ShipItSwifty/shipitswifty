@@ -30,6 +30,12 @@ struct BuildCommand: AsyncParsableCommand {
     @Flag(name: .long, help: "Clean before building")
     var clean: Bool = false
 
+    @Option(name: .long, help: "Gradle module to build (Android) or KMP shared module (iOS KMP)")
+    var module: String?
+
+    @Option(name: .long, help: "Gradle build variant to assemble (Android, default: release)")
+    var buildVariant: String?
+
     func run() async throws {
         do {
             let config = try await resolveRequiredConfig(
@@ -48,13 +54,18 @@ struct BuildCommand: AsyncParsableCommand {
             let options = BuildAction.Options(
                 scheme: scheme,
                 configuration: configuration.map { BuildAction.BuildConfiguration(rawValue: $0) } ?? nil,
-                clean: clean ? true : nil
+                clean: clean ? true : nil,
+                module: module,
+                buildVariant: buildVariant
             )
 
             if global.dryRun {
                 if config.platform == .android {
                     formatter.print(
-                        "DRY RUN: Would run gradlew assemble\(config.androidBuildVariant.capitalized) in module '\(config.androidModule)'")
+                        "DRY RUN: Would run Gradle assemble for module '\(module ?? config.androidModule)' variant '\(buildVariant ?? config.androidBuildVariant)'")
+                } else if config.iosBuildSystem == .kmp {
+                    formatter.print(
+                        "DRY RUN: Would link KMP module '\(module ?? config.kmpSharedModule)' target '\(config.kmpBuildTarget)' then build scheme '\(scheme ?? config.appScheme ?? "unknown")'")
                 } else {
                     formatter.print("DRY RUN: Would build scheme '\(scheme ?? config.appScheme ?? "unknown")'")
                 }

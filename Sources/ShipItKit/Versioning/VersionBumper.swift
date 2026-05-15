@@ -1,4 +1,3 @@
-#if os(macOS)
 import Foundation
 import Logging
 import SwiftyShell
@@ -85,6 +84,12 @@ public struct VersionBumper: Sendable {
             return try KMPVersionSource(context: context).readVersion()
         }
 
+        #if !os(macOS)
+        throw ShipItError.invalidConfiguration(
+            reason: "Version source '\(source)' requires macOS. Use versioning.source: kmp for Linux-compatible versioning."
+        )
+        #else
+
         // Project spec source — read directly from YAML
         if source == "project_spec" {
             let specSource = ProjectSpecVersionSource(context: context)
@@ -113,6 +118,7 @@ public struct VersionBumper: Sendable {
 
         // Last resort: plutil on Info.plist.
         return try await readPlistValue(key: "CFBundleShortVersionString")
+        #endif
     }
 
     /// Read the current build number (`CFBundleVersion`).
@@ -125,6 +131,12 @@ public struct VersionBumper: Sendable {
         if source == "kmp" {
             return try KMPVersionSource(context: context).readBuildNumber()
         }
+
+        #if !os(macOS)
+        throw ShipItError.invalidConfiguration(
+            reason: "Version source '\(source)' requires macOS. Use versioning.source: kmp for Linux-compatible versioning."
+        )
+        #else
 
         if source == "project_spec" {
             let specSource = ProjectSpecVersionSource(context: context)
@@ -146,6 +158,7 @@ public struct VersionBumper: Sendable {
         }
 
         return try await readPlistValue(key: "CFBundleVersion")
+        #endif
     }
 
     // MARK: - Write
@@ -155,6 +168,12 @@ public struct VersionBumper: Sendable {
             try KMPVersionSource(context: context).writeVersion(version)
             return
         }
+
+        #if !os(macOS)
+        throw ShipItError.invalidConfiguration(
+            reason: "Version source '\(source)' requires macOS. Use versioning.source: kmp for Linux-compatible versioning."
+        )
+        #else
 
         if source == "project_spec" {
             let specSource = ProjectSpecVersionSource(context: context)
@@ -180,6 +199,7 @@ public struct VersionBumper: Sendable {
             try await writePlistValue(key: "CFBundleShortVersionString", value: version)
         }
         logger.info("Set marketing version to: \(version)")
+        #endif
     }
 
     private func writeBuildNumber(_ build: String, source: String) async throws {
@@ -187,6 +207,12 @@ public struct VersionBumper: Sendable {
             try KMPVersionSource(context: context).writeBuildNumber(build)
             return
         }
+
+        #if !os(macOS)
+        throw ShipItError.invalidConfiguration(
+            reason: "Version source '\(source)' requires macOS. Use versioning.source: kmp for Linux-compatible versioning."
+        )
+        #else
 
         if source == "project_spec" {
             let specSource = ProjectSpecVersionSource(context: context)
@@ -212,6 +238,7 @@ public struct VersionBumper: Sendable {
             try await writePlistValue(key: "CFBundleVersion", value: build)
         }
         logger.info("Set build number to: \(build)")
+        #endif
     }
 
     // MARK: - Compute New Values
@@ -295,6 +322,7 @@ public struct VersionBumper: Sendable {
 
     // MARK: - Xcode Build Settings Helpers
 
+    #if os(macOS)
     /// Read a single build setting value using `xcodebuild -showBuildSettings`.
     ///
     /// Returns `nil` (rather than throwing) when the setting is absent **or** when
@@ -433,5 +461,5 @@ public struct VersionBumper: Sendable {
 
         return nil
     }
+    #endif
 }
-#endif

@@ -213,7 +213,11 @@ public struct TestAction: Action {
         case (.android, .native):
             return try await runAndroid(options: options, context: context)
         case (.ios, .kmp):
+            #if os(macOS)
             return try await runKMPiOSTests(options: options, context: context)
+            #else
+            throw ShipItError.invalidConfiguration(reason: "KMP iOS tests require macOS.")
+            #endif
         case (.android, .kmp):
             // KMP Android target is a regular Android Gradle module — reuse the native path.
             return try await runAndroid(options: options, context: context)
@@ -238,15 +242,13 @@ public struct TestAction: Action {
     /// (interpreted as the Gradle module containing the KMP `iosX64Test`/`iosArm64Test` tasks)
     /// when their shared module lives at a non-default path.
     private func runKMPiOSTests(options: Options, context: ActionContext) async throws -> Result {
-        let module = options.module ?? "shared"
-        let task: GradleTask = .iosSimulatorArm64Test
-        let qualified = GradleTask(name: ":\(module):\(task.name)")
+        let module = options.module ?? context.config.kmpSharedModule
+        let task = GradleTask(name: context.config.kmpTestTask).qualified(module: module)
 
-        logger.info("Running KMP iOS test task '\(qualified.name)'")
+        logger.info("Running KMP iOS test task '\(task.name)'")
 
-        let gradle = Gradle(context: context.shell)
-            .task(qualified)
-            .flag(.noDaemon)
+        let gradle = context.gradle()
+            .task(task)
 
         let output: ShellOutput
         do {
@@ -456,9 +458,8 @@ public struct TestAction: Action {
 
         logger.info("Running Android test task '\(task.name)' for module '\(module)'")
 
-        let gradle = Gradle(context: context.shell)
-            .task(task)
-            .flag(.noDaemon)
+        let gradle = context.gradle()
+            .task(task.qualified(module: module))
 
         let output: ShellOutput
         do {

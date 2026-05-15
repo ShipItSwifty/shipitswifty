@@ -218,6 +218,21 @@ public struct ResolvedConfig: Sendable {
     /// `.flutter`, `.reactNative`, or `.kmp` when the Android app is produced by a cross-platform tool.
     public let androidBuildSystem: BuildSystem
 
+    /// Directory used for project-relative tool execution. Defaults to the Shipfile directory.
+    public let projectRoot: String
+
+    /// KMP Gradle module containing shared iOS framework tasks.
+    public let kmpSharedModule: String
+
+    /// KMP iOS framework target used for local builds.
+    public let kmpBuildTarget: String
+
+    /// KMP iOS framework target used for archives.
+    public let kmpArchiveTarget: String
+
+    /// KMP iOS test Gradle task.
+    public let kmpTestTask: String
+
     // MARK: - Android
 
     /// Gradle module name (e.g. `app`).
@@ -231,6 +246,12 @@ public struct ResolvedConfig: Sendable {
 
     /// Path to `gradlew` wrapper. Auto-detected from project root when nil.
     public let gradlewPath: String?
+
+    /// Directory containing the Gradle root project.
+    public let gradleProjectDir: String
+
+    /// Additional Gradle flags applied to ShipIt-managed Gradle invocations.
+    public let androidGradleFlags: [String]
 
     /// Path to the Android keystore file.
     public let androidKeystorePath: String?
@@ -321,10 +342,17 @@ public struct ResolvedConfig: Sendable {
         platform: Platform = .ios,
         iosBuildSystem: BuildSystem = .native,
         androidBuildSystem: BuildSystem = .native,
+        projectRoot: String = ".",
+        kmpSharedModule: String = "shared",
+        kmpBuildTarget: String = "IosSimulatorArm64",
+        kmpArchiveTarget: String = "IosArm64",
+        kmpTestTask: String = "iosSimulatorArm64Test",
         androidModule: String = "app",
         androidBuildVariant: String = "release",
         androidBuildType: AndroidBuildType = .aab,
         gradlewPath: String? = nil,
+        gradleProjectDir: String? = nil,
+        androidGradleFlags: [String] = [],
         androidKeystorePath: String? = nil,
         androidKeystorePassword: String? = nil,
         androidKeyAlias: String? = nil,
@@ -393,10 +421,17 @@ public struct ResolvedConfig: Sendable {
         self.platform = platform
         self.iosBuildSystem = iosBuildSystem
         self.androidBuildSystem = androidBuildSystem
+        self.projectRoot = projectRoot
+        self.kmpSharedModule = kmpSharedModule
+        self.kmpBuildTarget = kmpBuildTarget
+        self.kmpArchiveTarget = kmpArchiveTarget
+        self.kmpTestTask = kmpTestTask
         self.androidModule = androidModule
         self.androidBuildVariant = androidBuildVariant
         self.androidBuildType = androidBuildType
         self.gradlewPath = gradlewPath
+        self.gradleProjectDir = gradleProjectDir ?? projectRoot
+        self.androidGradleFlags = androidGradleFlags
         self.androidKeystorePath = androidKeystorePath
         self.androidKeystorePassword = androidKeystorePassword
         self.androidKeyAlias = androidKeyAlias

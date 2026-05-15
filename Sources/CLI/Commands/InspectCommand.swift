@@ -35,6 +35,11 @@ extension InspectCommand {
                 let formatter = makeHumanFormatter(global: global)
                 formatter.printHeader("Project Inspection")
                 formatter.printKV("Root", inspection.rootPath)
+                formatter.printKV("Detected Platform", inspection.detectedPlatform.rawValue)
+                formatter.printKV("Detected Build System", inspection.detectedBuildSystem?.rawValue ?? "native")
+                if !inspection.buildSystemFiles.isEmpty {
+                    formatter.printKV("Build System Files", inspection.buildSystemFiles.joined(separator: ", "))
+                }
                 formatter.printKV("Containers", String(inspection.xcodeContainers.count))
                 if let preferred = inspection.preferredContainer {
                     formatter.printKV("Preferred", "\(preferred.kind): \(preferred.path)")

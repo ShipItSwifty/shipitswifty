@@ -142,3 +142,27 @@ public struct ActionContext: Sendable {
         #endif
     }
 }
+
+extension ActionContext {
+    /// Creates a Gradle command family with ShipIt's resolved project settings applied.
+    ///
+    /// The returned value uses the configured Gradle project directory, explicit wrapper path,
+    /// and Shipfile-level flags so direct action runs and workflow runs behave the same way.
+    ///
+    /// - Returns: A `Gradle` builder ready for tasks and properties.
+    public func gradle() -> Gradle {
+        var gradle = Gradle(context: shell)
+            .projectDir(config.gradleProjectDir)
+            .flag(.noDaemon)
+
+        if let gradlewPath = config.gradlewPath {
+            gradle = gradle.settingGradlewPath(gradlewPath)
+        }
+
+        for flag in config.androidGradleFlags where flag != "--no-daemon" {
+            gradle = gradle.flag(.custom(flag))
+        }
+
+        return gradle
+    }
+}

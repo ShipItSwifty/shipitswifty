@@ -107,9 +107,12 @@ public struct ConfigResolver: Sendable {
 
         let shipfileLoadResult = try await loadShipfile(from: resolvedPath)
         let shipfile = shipfileLoadResult.shipfile
+        let projectRoot: String = shipfileLoadResult.loadedPath.map {
+            URL(fileURLWithPath: $0).deletingLastPathComponent().path
+        } ?? "."
 
         // Resolve platform: CLI flag > SHIPIT_PLATFORM env var > Shipfile > auto-detect from project files
-        let platform = resolvePlatform(cliOptions: cliOptions, shipfile: shipfile)
+        let platform = resolvePlatform(cliOptions: cliOptions, shipfile: shipfile, detectionRoot: projectRoot)
         logger.info("Resolved platform: \(platform.rawValue)")
 
         // Resolve build system per platform: env var > Shipfile ios.build_system / android.build_system >
@@ -117,11 +120,21 @@ public struct ConfigResolver: Sendable {
         // Inspect the directory that holds the loaded Shipfile when available so that
         // `--shipfile path/to/Shipfile.yml` (or `SHIPIT_SHIPFILE` pointing outside the cwd)
         // doesn't silently fall through to `.native` against the wrong tree.
-        let detectionRoot: String =
-            shipfileLoadResult.loadedPath.map {
-                URL(fileURLWithPath: $0).deletingLastPathComponent().path
-            } ?? "."
-        let autoDetectedBuildSystem = BuildSystem.autoDetect(in: detectionRoot)
+        let inspectedBuildSystem = BuildSystem.autoDetect(in: projectRoot)
+        let autoDetectedBuildSystem: BuildSystem?
+        switch inspectedBuildSystem {
+        case .kmp:
+            autoDetectedBuildSystem = .kmp
+        case .flutter, .reactNative:
+            // Flutter/RN are reported by inspection and AI helpers, but they are not wired
+            // for execution yet. Avoid making an unsupported build system active unless the
+            // user explicitly opts in via Shipfile or environment.
+            autoDetectedBuildSystem = nil
+        case .native:
+            autoDetectedBuildSystem = .native
+        case nil:
+            autoDetectedBuildSystem = inspectedBuildSystem
+        }
         let iosBuildSystem = resolveBuildSystem(
             platform: .ios,
             shipfile: shipfile,
@@ -263,6 +276,11 @@ public struct ConfigResolver: Sendable {
             platform: platform,
             iosBuildSystem: iosBuildSystem,
             androidBuildSystem: androidBuildSystem,
+            projectRoot: projectRoot,
+            kmpSharedModule: environment.iosKMPSharedModule ?? shipfile?.ios?.kmpSharedModule ?? "shared",
+            kmpBuildTarget: environment.iosKMPBuildTarget ?? shipfile?.ios?.kmpBuildTarget ?? "IosSimulatorArm64",
+            kmpArchiveTarget: environment.iosKMPArchiveTarget ?? shipfile?.ios?.kmpArchiveTarget ?? "IosArm64",
+            kmpTestTask: environment.iosKMPTestTask ?? shipfile?.ios?.kmpTestTask ?? "iosSimulatorArm64Test",
             androidModule: environment.androidModule ?? androidConfig?.module ?? "app",
             androidBuildVariant: environment.androidBuildVariant ?? androidConfig?.buildVariant
                 ?? "release",
@@ -270,6 +288,8 @@ public struct ConfigResolver: Sendable {
                 rawValue: environment.androidBuildType ?? androidConfig?.buildType?.rawValue ?? "")
                 ?? androidConfig?.buildType ?? .aab,
             gradlewPath: environment.androidGradlewPath ?? androidConfig?.gradlewPath,
+            gradleProjectDir: environment.androidGradleProjectDir ?? androidConfig?.gradleProjectDir,
+            androidGradleFlags: androidConfig?.gradleFlags ?? [],
             androidKeystorePath: environment.androidKeystorePath ?? androidConfig?.keystorePath,
             androidKeystorePassword: environment.androidKeystorePassword,
             androidKeyAlias: environment.androidKeyAlias ?? androidConfig?.keystoreAlias,
@@ -287,7 +307,7 @@ public struct ConfigResolver: Sendable {
     /// Resolves the target platform.
     ///
     /// Priority: CLI flag > `SHIPIT_PLATFORM` env var > Shipfile > auto-detect from project files.
-    private func resolvePlatform(cliOptions: CLIOptions, shipfile: Shipfile?) -> Platform {
+    private func resolvePlatform(cliOptions: CLIOptions, shipfile: Shipfile?, detectionRoot: String) -> Platform {
         // 1. CLI flag (highest priority)
         if let platform = cliOptions.platform { return platform }
 
@@ -303,14 +323,16 @@ public struct ConfigResolver: Sendable {
 
         // 4. Auto-detect from file system
         let fm = FileManager.default
-        if fm.fileExists(atPath: "./gradlew") || fm.fileExists(atPath: "./build.gradle.kts")
-            || fm.fileExists(atPath: "./build.gradle")
+        let root = URL(fileURLWithPath: detectionRoot)
+        if fm.fileExists(atPath: root.appendingPathComponent("gradlew").path)
+            || fm.fileExists(atPath: root.appendingPathComponent("build.gradle.kts").path)
+            || fm.fileExists(atPath: root.appendingPathComponent("build.gradle").path)
         {
             return .android
         }
 
-        // Look for .xcworkspace or .xcodeproj in cwd
-        if let items = try? fm.contentsOfDirectory(atPath: ".") {
+        // Look for .xcworkspace or .xcodeproj in the resolved project root
+        if let items = try? fm.contentsOfDirectory(atPath: root.path) {
             for item in items {
                 if item.hasSuffix(".xcworkspace") || item.hasSuffix(".xcodeproj") {
                     return .ios

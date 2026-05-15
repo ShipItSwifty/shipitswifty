@@ -201,6 +201,8 @@ func projectInspectionJSON(_ inspection: ProjectInspection) -> JSONValue {
         "warnings": .array(inspection.warnings.map(JSONValue.string)),
         "detectedPlatform": .string(inspection.detectedPlatform.rawValue),
         "gradleFiles": .array(inspection.gradleFiles.map(JSONValue.string)),
+        "detectedBuildSystem": inspection.detectedBuildSystem.map { .string($0.rawValue) } ?? .null,
+        "buildSystemFiles": .array(inspection.buildSystemFiles.map(JSONValue.string)),
     ])
 }
 

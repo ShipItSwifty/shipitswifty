@@ -99,8 +99,8 @@ Shipfile.yml / CLI flags / env vars
 ```
 
 - `BuildSystem` controls **how the native artifact is compiled** — it is set per platform via `ios.build_system:` / `android.build_system:` (default `.native`).
-- All downstream distribution actions read artifact paths and stay unchanged across build systems; only `BuildAction` and `TestAction` dispatch on `BuildSystem`.
-- For KMP iOS, `ActionContext.ensureProjectGenerated()` runs the Gradle framework-link task **before** any `xcodebuild` step, so the Xcode wrapper resolves `Shared.framework` cleanly.
+- `BuildAction`, `ArchiveAction`, and `TestAction` dispatch on `BuildSystem`; later distribution actions read artifact paths and stay unchanged.
+- For KMP iOS, build/archive actions run the Gradle framework-link task before `xcodebuild`, using simulator targets for local builds and device targets for archives.
 
 See `docs/configuration-reference.md#build-systems` for the user-facing reference and `docs/kmp-quickstart.md` for a worked KMP example.
 

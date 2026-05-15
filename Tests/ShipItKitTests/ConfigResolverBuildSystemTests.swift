@@ -141,6 +141,64 @@ struct ConfigResolverBuildSystemTests {
 
         #expect(config.iosBuildSystem == .kmp)
         #expect(config.androidBuildSystem == .kmp)
+        #expect(config.platform == .android)
+        #expect(config.projectRoot == tempDirectory.path)
+    }
+
+    @Test("Flutter auto-detection is inspection-only until runtime support ships")
+    func flutterAutoDetectionDoesNotActivateUnsupportedRuntime() async throws {
+        let tempDirectory = try makeTempDirectory()
+        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+
+        try """
+            name: demo
+            flutter:
+              uses-material-design: true
+            """.write(
+            to: tempDirectory.appendingPathComponent("pubspec.yaml"),
+            atomically: true,
+            encoding: .utf8
+        )
+        let shipfileURL = tempDirectory.appendingPathComponent("Shipfile.yml")
+        try "app:\n  scheme: Runner\n".write(to: shipfileURL, atomically: true, encoding: .utf8)
+
+        let config = try await ConfigResolver(environment: Environment(env: [:]))
+            .resolve(shipfilePath: shipfileURL.path)
+
+        #expect(config.iosBuildSystem == .native)
+        #expect(config.androidBuildSystem == .native)
+    }
+
+    @Test("Reads KMP and Gradle execution settings")
+    func readsKMPAndGradleSettings() async throws {
+        let tempDirectory = try makeTempDirectory()
+        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+        let shipfileURL = tempDirectory.appendingPathComponent("Shipfile.yml")
+        try """
+            ios:
+              build_system: kmp
+              kmp_shared_module: coreShared
+              kmp_build_target: IosX64
+              kmp_archive_target: IosArm64
+              kmp_test_task: iosX64Test
+            android:
+              module: androidApp
+              gradle_project_dir: ./android
+              gradlew_path: ./android/gradlew
+              gradle_flags: ["--configuration-cache", "--stacktrace"]
+            """.write(to: shipfileURL, atomically: true, encoding: .utf8)
+
+        let config = try await ConfigResolver(environment: Environment(env: [:]))
+            .resolve(shipfilePath: shipfileURL.path)
+
+        #expect(config.kmpSharedModule == "coreShared")
+        #expect(config.kmpBuildTarget == "IosX64")
+        #expect(config.kmpArchiveTarget == "IosArm64")
+        #expect(config.kmpTestTask == "iosX64Test")
+        #expect(config.androidModule == "androidApp")
+        #expect(config.gradlewPath == "./android/gradlew")
+        #expect(config.gradleProjectDir == "./android")
+        #expect(config.androidGradleFlags == ["--configuration-cache", "--stacktrace"])
     }
 
     @Test("Unknown environment value falls through to Shipfile or default")

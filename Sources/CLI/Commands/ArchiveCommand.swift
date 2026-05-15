@@ -22,6 +22,12 @@ struct ArchiveCommand: AsyncParsableCommand {
     @Option(name: .long, help: "Output path for the .xcarchive")
     var outputPath: String?
 
+    @Option(name: .long, help: "Gradle module to archive (Android) or KMP shared module (iOS KMP)")
+    var module: String?
+
+    @Option(name: .long, help: "Gradle build variant to bundle (Android, default: release)")
+    var buildVariant: String?
+
     func run() async throws {
         do {
             let config = try await resolveRequiredConfig(
@@ -36,11 +42,21 @@ struct ArchiveCommand: AsyncParsableCommand {
                 scheme: scheme,
                 configuration: configuration,
                 exportMethod: exportMethod,
-                outputPath: outputPath
+                outputPath: outputPath,
+                module: module,
+                buildVariant: buildVariant
             )
 
             if global.dryRun {
-                formatter.print("DRY RUN: Would archive scheme '\(scheme ?? config.appScheme ?? "unknown")'")
+                if config.platform == .android {
+                    formatter.print(
+                        "DRY RUN: Would run Gradle bundle for module '\(module ?? config.androidModule)' variant '\(buildVariant ?? config.androidBuildVariant)'")
+                } else if config.iosBuildSystem == .kmp {
+                    formatter.print(
+                        "DRY RUN: Would link KMP module '\(module ?? config.kmpSharedModule)' target '\(config.kmpArchiveTarget)' then archive scheme '\(scheme ?? config.appScheme ?? "unknown")'")
+                } else {
+                    formatter.print("DRY RUN: Would archive scheme '\(scheme ?? config.appScheme ?? "unknown")'")
+                }
                 return
             }
 

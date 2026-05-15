@@ -1,4 +1,3 @@
-#if os(macOS)
 import Foundation
 import Logging
 import SwiftyShell
@@ -108,4 +107,3 @@ public struct VersionAction: Action {
         return try await bumper.bump(options: options)
     }
 }
-#endif

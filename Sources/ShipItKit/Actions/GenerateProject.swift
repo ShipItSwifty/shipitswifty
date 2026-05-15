@@ -169,18 +169,8 @@ extension ActionContext {
     /// method to ensure the project exists. If project generation is configured and the
     /// output project is missing, this runs the generation command automatically.
     ///
-    /// When the resolved iOS build system is ``BuildSystem/kmp`` and the target platform
-    /// is iOS, this also links the KMP shared framework via Gradle before any xcodebuild
-    /// step runs. The Gradle link task is incremental, so repeated invocations are cheap.
-    ///
-    /// - Parameter buildConfiguration: Effective build configuration the *following*
-    ///   xcodebuild step will use (e.g. `"Debug"`, `"Release"`). When `nil`, falls back
-    ///   to ``ResolvedConfig/buildConfiguration``. Pass the action's resolved option so
-    ///   the KMP link task produces the matching framework variant.
     /// - Throws: `ShipItError` when generation fails or is needed but not configured.
-    public func ensureProjectGenerated(buildConfiguration: String? = nil) async throws {
-        try await ensureKMPFrameworkLinked(buildConfiguration: buildConfiguration)
-
+    public func ensureProjectGenerated() async throws {
         let config = self.config
         guard config.projectGenerationTool != nil || config.projectGenerationCommand != nil else {
             // No project generation configured — nothing to do
@@ -207,28 +197,27 @@ extension ActionContext {
         )
     }
 
-    /// Links the KMP shared framework when the resolved iOS build system is ``BuildSystem/kmp``
-    /// and we are targeting iOS. No-op for all other configurations.
+    /// Links the KMP shared framework when targeting iOS with ``BuildSystem/kmp``.
     ///
-    /// The configuration component of the Gradle link task (`linkDebug…` vs `linkRelease…`)
-    /// is taken from `buildConfiguration` when provided so it matches the upcoming
-    /// `xcodebuild` invocation. Falls back to ``ResolvedConfig/buildConfiguration`` (which
-    /// defaults to `"Release"`) when callers don't have a per-action override.
-    private func ensureKMPFrameworkLinked(buildConfiguration: String? = nil) async throws {
+    /// - Parameters:
+    ///   - buildConfiguration: Effective build configuration for the following `xcodebuild` step.
+    ///   - target: KMP iOS target, such as `IosSimulatorArm64` or `IosArm64`.
+    ///   - module: Gradle module containing the shared KMP framework tasks.
+    public func linkKMPFramework(
+        buildConfiguration: String,
+        target: String,
+        module: String? = nil
+    ) async throws {
         guard platform == .ios, config.iosBuildSystem == .kmp else { return }
 
-        // The shared module name is conventionally `shared` for KMP projects; teams that
-        // rename it can still drive the link explicitly via `BuildAction.Options.module`.
-        let module = "shared"
-        let configuration = buildConfiguration ?? config.buildConfiguration
         let linkTask = GradleTask.linkFramework(
-            configuration: configuration, target: "IosSimulatorArm64")
-        let qualified = GradleTask(name: ":\(module):\(linkTask.name)")
+            configuration: buildConfiguration,
+            target: target
+        ).qualified(module: module ?? config.kmpSharedModule)
 
         do {
-            _ = try await Gradle(context: shell)
-                .task(qualified)
-                .flag(.noDaemon)
+            _ = try await gradle()
+                .task(linkTask)
                 .run()
         } catch let ShellError.exitFailure(_, output) {
             throw ShipItError.buildFailed(

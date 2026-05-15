@@ -207,8 +207,8 @@ Shipfile.yml / CLI flags / env vars
 | `ActionContext` | Passed to every `Action.run(...)`. Carries `ShellContext` (SwiftyShell), `Logger`, `ResolvedConfig`, `AppStoreConnectClient`. Provides `ensureProjectGenerated()` for auto-generation. |
 | `ConfigResolver` | Merges CLI flags → env vars (`SHIPIT_*`) → Shipfile.yml → built-in defaults. |
 | `AppStoreConnectClient` | JWT-authenticated HTTP client for the ASC REST API. |
-| `GenerateProjectAction` | Generates `.xcodeproj` from a spec file (XcodeGen, Tuist). Auto-invoked by `Workflow.run()` before Xcode-dependent steps. Also runs the KMP `link…Framework…` task when `ios.build_system: kmp` is resolved. |
-| `BuildSystem` | Enum (`native`, `flutter`, `react_native`, `kmp`) orthogonal to `Platform`. Set per platform via `ios.build_system` / `android.build_system`. Drives `BuildAction` / `TestAction` dispatch; downstream distribution actions are artifact-path driven and unchanged. |
+| `GenerateProjectAction` | Generates `.xcodeproj` from a spec file (XcodeGen, Tuist). Auto-invoked by `Workflow.run()` before Xcode-dependent steps. |
+| `BuildSystem` | Enum (`native`, `flutter`, `react_native`, `kmp`) orthogonal to `Platform`. Set per platform via `ios.build_system` / `android.build_system`. Drives `BuildAction` / `ArchiveAction` / `TestAction` dispatch; later distribution actions are artifact-path driven and unchanged. |
 | `ProjectSpecVersionSource` | Reads/writes version values directly in YAML spec files for `project_spec` versioning source. |
 | `KMPVersionSource` | Reads/writes `versionName` / `versionCode` in `gradle.properties` for `versioning.source: kmp`. |
 | `DestinationDiscovery` | Discovers available xcodebuild destinations. Used by `TestAction` for automatic simulator selection. |
@@ -223,13 +223,15 @@ CLI flags > `SHIPIT_*` env vars > `Shipfile.yml` > built-in defaults. Shipfile s
 
 - Set per platform: `ios.build_system:` / `android.build_system:` (or `SHIPIT_IOS__BUILD_SYSTEM` / `SHIPIT_ANDROID__BUILD_SYSTEM`).
 - Auto-detection rules (`BuildSystem.autoDetect(in:)`): `pubspec.yaml` with `flutter:` → `.flutter`; `package.json` with `react-native` dep → `.reactNative`; `kotlin("multiplatform")` in `build.gradle.kts` → `.kmp`; otherwise `nil` (resolves to `.native`).
-- Only `BuildAction` and `TestAction` switch on `BuildSystem`. All downstream actions (`sign`, `archive`, `export`, `testflight`, `play-store`, `upload`, `dsym`, `frame`, `screenshot`) keep their `guard context.platform == .ios/.android` checks and operate on artifact paths.
-- KMP iOS builds run `gradlew :shared:link…Framework…` automatically via `ActionContext.ensureProjectGenerated()` before any `xcodebuild` step.
+- `BuildAction`, `ArchiveAction`, and `TestAction` switch on `BuildSystem`. Later actions (`sign`, `export`, `testflight`, `play-store`, `upload`, `dsym`, `frame`, `screenshot`) keep their platform checks and operate on artifact paths.
+- KMP iOS builds run `gradlew :<shared-module>:link…Framework…` automatically before `xcodebuild build`; archives use the archive target before `xcodebuild archive`.
+- KMP defaults: `ios.kmp_shared_module: shared`, `ios.kmp_build_target: IosSimulatorArm64`, `ios.kmp_archive_target: IosArm64`, `ios.kmp_test_task: iosSimulatorArm64Test`.
 - `versioning.source: kmp` reads/writes `versionName` + `versionCode` in `gradle.properties` via `KMPVersionSource`.
 - `flutter` / `react_native` values are accepted by the schema but currently throw `invalidConfiguration` at build time — they are planned for upcoming releases.
 
 When recommending changes to an agent:
 - Prefer setting `build_system` under the platform block over inventing a new top-level CLI flag.
+- Prefer setting KMP module/target overrides under `ios:` over hardcoding Gradle task names in workflows.
 - For KMP, set `build_system: kmp` on **both** `ios:` and `android:`.
 - Suggest `versioning.source: kmp` when the user mentions `gradle.properties` versions or KMP-style version sharing.
 

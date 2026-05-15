@@ -26,7 +26,7 @@ struct TestActionKMPTests {
         )
 
         let captured = commands()
-        let hasIosTest = captured.contains(where: { $0.contains("iosSimulatorArm64Test") })
+        let hasIosTest = captured.contains(where: { $0.contains(":shared:iosSimulatorArm64Test") })
         #expect(hasIosTest, "expected gradle iosSimulatorArm64Test invocation for KMP iOS tests")
         // Exit code 0 path with empty stdout produces a zero-failure result.
         #expect(result.failCount == 0)
@@ -56,7 +56,26 @@ struct TestActionKMPTests {
         )
 
         let captured = commands()
-        let hasUnitTest = captured.contains(where: { $0.contains("testDebugUnitTest") })
+        let hasUnitTest = captured.contains(where: { $0.contains(":androidApp:testDebugUnitTest") })
         #expect(hasUnitTest, "KMP Android target should reuse the native unit-test path")
+    }
+
+    @Test("KMP iOS tests use configured module and test task")
+    func kmpIOSTestsUseConfiguredTask() async throws {
+        let (executor, commands) = makeCaptureExecutor { _, _ in
+            ShellOutput(stdout: "", stderr: "", exitCode: 0)
+        }
+
+        let config = ResolvedConfig(
+            platform: .ios,
+            iosBuildSystem: .kmp,
+            kmpSharedModule: "coreShared",
+            kmpTestTask: "iosX64Test"
+        )
+        let context = makeTestActionContext(executor: executor, config: config, platform: .ios)
+
+        _ = try await TestAction().run(with: TestAction.Options(), context: context)
+
+        #expect(commands().contains { $0.contains(":coreShared:iosX64Test") })
     }
 }

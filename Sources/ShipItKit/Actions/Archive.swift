@@ -125,17 +125,51 @@ public struct ArchiveAction: Action {
     }
 
     public func run(with options: Options, context: ActionContext) async throws -> Result {
-        switch context.platform {
-        case .ios:
+        let buildSystem: BuildSystem =
+            context.platform == .ios
+            ? context.config.iosBuildSystem
+            : context.config.androidBuildSystem
+
+        switch (context.platform, buildSystem) {
+        case (.ios, .native):
             #if os(macOS)
             return try await runIOS(options: options, context: context)
             #else
             throw ShipItError.invalidConfiguration(reason: "iOS archives require macOS.")
             #endif
-        case .android:
+        case (.ios, .kmp):
+            #if os(macOS)
+            return try await runKMPIOSArchive(options: options, context: context)
+            #else
+            throw ShipItError.invalidConfiguration(reason: "KMP iOS archives require macOS.")
+            #endif
+        case (.android, .native), (.android, .kmp):
             return try await runAndroid(options: options, context: context)
+        case (_, .flutter):
+            throw ShipItError.invalidConfiguration(
+                reason:
+                    "Flutter build_system is not yet supported in this release. Set build_system: native or omit it."
+            )
+        case (_, .reactNative):
+            throw ShipItError.invalidConfiguration(
+                reason:
+                    "React Native build_system is not yet supported in this release. Set build_system: native or omit it."
+            )
         }
     }
+
+    #if os(macOS)
+    private func runKMPIOSArchive(options: Options, context: ActionContext) async throws -> Result {
+        let configuration = options.configuration ?? context.config.buildConfiguration
+        try await context.ensureProjectGenerated()
+        try await context.linkKMPFramework(
+            buildConfiguration: configuration,
+            target: context.config.kmpArchiveTarget,
+            module: options.module
+        )
+        return try await runIOS(options: options, context: context)
+    }
+    #endif
 
     // MARK: - iOS Archive
 
@@ -209,9 +243,8 @@ public struct ArchiveAction: Action {
 
         logger.info("Bundling Android module '\(module)' with task '\(task.name)'")
 
-        var gradle = Gradle(context: context.shell)
-            .task(task)
-            .flag(.noDaemon)
+        var gradle = context.gradle()
+            .task(task.qualified(module: module))
 
         let allProps = context.config.androidGradleProperties.merging(options.gradleProperties ?? [:]) { _, new in new }
         for (key, value) in allProps {

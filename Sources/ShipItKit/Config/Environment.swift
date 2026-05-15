@@ -49,6 +49,18 @@ public struct Environment: Sendable {
     /// Accepts `native`, `flutter`, `react_native`, or `kmp`.
     public var iosBuildSystem: String? { env["SHIPIT_IOS__BUILD_SYSTEM"] }
 
+    /// `SHIPIT_IOS__KMP_SHARED_MODULE` — Gradle module containing shared KMP framework tasks.
+    public var iosKMPSharedModule: String? { env["SHIPIT_IOS__KMP_SHARED_MODULE"] }
+
+    /// `SHIPIT_IOS__KMP_BUILD_TARGET` — KMP iOS target for local builds.
+    public var iosKMPBuildTarget: String? { env["SHIPIT_IOS__KMP_BUILD_TARGET"] }
+
+    /// `SHIPIT_IOS__KMP_ARCHIVE_TARGET` — KMP iOS target for archives.
+    public var iosKMPArchiveTarget: String? { env["SHIPIT_IOS__KMP_ARCHIVE_TARGET"] }
+
+    /// `SHIPIT_IOS__KMP_TEST_TASK` — KMP iOS test Gradle task.
+    public var iosKMPTestTask: String? { env["SHIPIT_IOS__KMP_TEST_TASK"] }
+
     /// `SHIPIT_ANDROID__BUILD_SYSTEM` — overrides Android build system detection.
     /// Accepts `native`, `flutter`, `react_native`, or `kmp`.
     public var androidBuildSystem: String? { env["SHIPIT_ANDROID__BUILD_SYSTEM"] }
@@ -150,6 +162,9 @@ public struct Environment: Sendable {
 
     /// `SHIPIT_ANDROID__GRADLEW_PATH` — Path to the gradlew wrapper script
     public var androidGradlewPath: String? { env["SHIPIT_ANDROID__GRADLEW_PATH"] }
+
+    /// `SHIPIT_ANDROID__GRADLE_PROJECT_DIR` — Directory containing the Gradle root project.
+    public var androidGradleProjectDir: String? { env["SHIPIT_ANDROID__GRADLE_PROJECT_DIR"] }
 
     /// `SHIPIT_ANDROID__KEYSTORE_PATH` — Path to the Android keystore file
     public var androidKeystorePath: String? { env["SHIPIT_ANDROID__KEYSTORE_PATH"] }

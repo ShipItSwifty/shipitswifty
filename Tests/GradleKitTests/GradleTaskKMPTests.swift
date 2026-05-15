@@ -54,4 +54,10 @@ struct GradleTaskKMPTests {
                 == "linkReleaseFrameworkIosArm64"
         )
     }
+
+    @Test("qualified adds a Gradle module prefix")
+    func qualifiedTask() {
+        #expect(GradleTask.bundleRelease.qualified(module: "androidApp").name == ":androidApp:bundleRelease")
+        #expect(GradleTask.iosSimulatorArm64Test.qualified(module: ":shared").name == ":shared:iosSimulatorArm64Test")
+    }
 }
