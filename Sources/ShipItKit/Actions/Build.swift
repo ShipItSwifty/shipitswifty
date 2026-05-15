@@ -161,17 +161,75 @@ public struct BuildAction: Action {
     /// - Returns: Build result with artifact paths.
     /// - Throws: ``ShipItError/buildFailed(exitCode:log:)`` if the build exits non-zero.
     public func run(with options: Options, context: ActionContext) async throws -> Result {
-        switch context.platform {
-        case .ios:
+        let buildSystem: BuildSystem =
+            context.platform == .ios
+            ? context.config.iosBuildSystem
+            : context.config.androidBuildSystem
+
+        switch (context.platform, buildSystem) {
+        case (.ios, .native):
             #if os(macOS)
             return try await runIOS(options: options, context: context)
             #else
             throw ShipItError.invalidConfiguration(reason: "iOS builds require macOS.")
             #endif
-        case .android:
+        case (.android, .native):
             return try await runAndroid(options: options, context: context)
+        case (.ios, .kmp):
+            #if os(macOS)
+            return try await runKMPiOSBuild(options: options, context: context)
+            #else
+            throw ShipItError.invalidConfiguration(reason: "KMP iOS builds require macOS.")
+            #endif
+        case (.android, .kmp):
+            // KMP's Android target is a regular Android Gradle module — reuse the native path.
+            return try await runAndroid(options: options, context: context)
+        case (_, .flutter):
+            throw ShipItError.invalidConfiguration(
+                reason:
+                    "Flutter build_system is not yet supported in this release. Set build_system: native or omit it."
+            )
+        case (_, .reactNative):
+            throw ShipItError.invalidConfiguration(
+                reason:
+                    "React Native build_system is not yet supported in this release. Set build_system: native or omit it."
+            )
         }
     }
+
+    // MARK: - KMP iOS Build
+
+    #if os(macOS)
+    /// Links the KMP shared framework via Gradle, then runs `xcodebuild build` against the
+    /// wrapper Xcode project. The Gradle link task is determined by `options.module` (default
+    /// `"shared"`) and the resolved `BuildConfiguration`.
+    ///
+    /// This path assumes the project follows the standard KMP layout where the Xcode wrapper
+    /// lives alongside `gradlew` (e.g. `./iosApp/iosApp.xcworkspace`).
+    private func runKMPiOSBuild(options: Options, context: ActionContext) async throws -> Result {
+        guard (options.scheme ?? context.config.appScheme) != nil else {
+            throw ShipItError.invalidConfiguration(
+                reason:
+                    "KMP iOS build requires a scheme for the Xcode wrapper. Set app.scheme in Shipfile.yml or pass --scheme."
+            )
+        }
+
+        // The KMP framework link must use the same Build Configuration that the upcoming
+        // xcodebuild step will use. Pass the action's effective configuration so a Debug
+        // build doesn't get paired with a Release framework (and vice-versa).
+        let effectiveConfiguration =
+            options.configuration?.rawValue ?? context.config.buildConfiguration
+
+        // Workflow-driven runs already linked the KMP shared framework via
+        // `ActionContext.ensureProjectGenerated()`. Direct CLI invocations bypass Workflow,
+        // so we call it here to keep `shipit build` standalone-safe. The call is incremental
+        // and idempotent.
+        try await context.ensureProjectGenerated(buildConfiguration: effectiveConfiguration)
+
+        // Continue with the regular xcodebuild path against the Xcode wrapper.
+        return try await runIOS(options: options, context: context)
+    }
+    #endif
 
     // MARK: - iOS Build
 

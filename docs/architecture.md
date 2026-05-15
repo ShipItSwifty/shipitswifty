@@ -75,6 +75,35 @@ Shipfile.yml / CLI flags / env vars
   Action.run(with:context:)  →  ActionResultEnvelope (JSON-serializable)
 ```
 
+### Platform × BuildSystem
+
+`Platform` (`.ios` / `.android`) and `BuildSystem` (`.native` / `.flutter` / `.reactNative` / `.kmp`) are deliberately **orthogonal axes** in `ResolvedConfig`:
+
+```
+                       iOS pipeline                     Android pipeline
+                  ┌─────────────────────────┐     ┌──────────────────────────┐
+.native           │ xcodebuild              │     │ gradlew assemble/bundle  │
+.kmp              │ gradlew link… → xcb     │     │ gradlew bundleRelease    │
+.flutter (🚧)     │ flutter build ipa → xcb │     │ flutter build appbundle  │
+.reactNative (🚧) │ Metro → xcodebuild      │     │ Metro → gradlew bundle   │
+                  └────────────┬────────────┘     └────────────┬─────────────┘
+                               ▼                                ▼
+                       ┌────────────────────────────────────────────┐
+                       │  Distribution actions (sign · archive ·    │
+                       │  export · testflight · play-store · upload │
+                       │  · dsym · frame · screenshot)              │
+                       │                                            │
+                       │  Artifact-path driven — unchanged across   │
+                       │  build systems.                            │
+                       └────────────────────────────────────────────┘
+```
+
+- `BuildSystem` controls **how the native artifact is compiled** — it is set per platform via `ios.build_system:` / `android.build_system:` (default `.native`).
+- All downstream distribution actions read artifact paths and stay unchanged across build systems; only `BuildAction` and `TestAction` dispatch on `BuildSystem`.
+- For KMP iOS, `ActionContext.ensureProjectGenerated()` runs the Gradle framework-link task **before** any `xcodebuild` step, so the Xcode wrapper resolves `Shared.framework` cleanly.
+
+See `docs/configuration-reference.md#build-systems` for the user-facing reference and `docs/kmp-quickstart.md` for a worked KMP example.
+
 ---
 
 ## Package dependencies

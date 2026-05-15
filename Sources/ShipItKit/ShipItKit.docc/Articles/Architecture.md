@@ -65,12 +65,16 @@ See <doc:ConfigurationReference> for every key.
 
 - **`shell`** — a SwiftyShell `ShellContext` for spawning processes
 - **`logger`** — a structured `Logger` scoped to the operation
-- **`config`** — the merged ``ResolvedConfig``
+- **`config`** — the merged ``ResolvedConfig`` (includes ``ResolvedConfig/iosBuildSystem`` and ``ResolvedConfig/androidBuildSystem``)
 - **`appStoreConnect`** — an ``AppStoreConnectClient`` (always non-nil; only fails when actually used without credentials)
 - **`googlePlay`** — an optional ``GooglePlayClient`` (Android)
 - **`platform`** — ``Platform`` (`.ios` or `.android`)
 
 For tests, ``ActionContext/mock(executor:versioningSource:platform:)`` wires up a `MockExecutor` so no real processes spawn. See <doc:TestingWithMocks>.
+
+#### Platform × BuildSystem orthogonality
+
+``Platform`` and ``BuildSystem`` are independent axes. ``Platform`` selects the distribution pipeline (iOS vs Android); ``BuildSystem`` selects how the native artifact is compiled (`native`, `kmp`, `flutter` 🚧, `react_native` 🚧). Only ``BuildAction`` and ``TestAction`` dispatch on ``BuildSystem``; all downstream actions (``ArchiveAction``, ``SignAction``, ``ExportAction``, ``TestFlightAction``, ``PlayStoreAction``, ``UploadAction``, ``DsymAction``, ``FrameAction``, ``ScreenshotAction``) consume artifact paths and stay unchanged across build systems. See <doc:KMPIntegration>.
 
 ### Action model
 

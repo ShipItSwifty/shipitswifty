@@ -111,3 +111,61 @@ shipit run beta --ci --output json | jq .status
 ## Linux Swift Version
 
 The Linux CI job uses `swift:6.3.1-noble` (Ubuntu 24.04, current stable Swift). To update it, change the `container.image` value in `.github/workflows/ci.yml` and the `SWIFT_IMAGE` variable at the top of the `Makefile`.
+
+## Cross-platform build systems on CI
+
+When `build_system` resolves to anything other than `native`, ShipItSwifty layers a pre-build step on top of the regular pipeline. Each build system needs its own toolchain on the runner.
+
+### Kotlin Multiplatform
+
+Both iOS and Android KMP builds run from macOS runners — the iOS path links the shared framework via Gradle before invoking `xcodebuild`, and you can't run `xcodebuild` from a Linux runner.
+
+GitHub Actions example:
+
+```yaml
+jobs:
+  ios-beta:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v3
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ hashFiles('**/*.gradle.kts', 'gradle.properties') }}
+      - run: shipit doctor --ci
+      - run: shipit run beta-ios --ci --output json
+        env:
+          ASC_KEY_ID:    ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_PRIVATE_KEY: ${{ secrets.ASC_PRIVATE_KEY }}
+
+  android-beta:
+    runs-on: macos-15           # or ubuntu-latest — Android-only KMP target works on Linux
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: 17 }
+      - uses: gradle/actions/setup-gradle@v3
+      - run: shipit run beta-android --ci --output json
+        env:
+          GOOGLE_PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
+```
+
+Things to watch on KMP CI:
+
+- **JDK 17+ is required** — Kotlin 1.9 / Compose Multiplatform target JDK 17 by default.
+- **Gradle cache is essential** — the first link of `Shared.framework` is slow; subsequent invocations are nearly free if `~/.gradle` is cached.
+- **`shipit doctor` validates** that `java` is on PATH and `./gradlew` is executable. Run it as the first step so a missing toolchain fails fast.
+- **iOS simulators**: `xcodebuild build` may need a destination. On macOS runners, the bundled simulators are pre-installed; pin the OS version via `--destination` if reproducibility matters.
+
+### Flutter and React Native (planned)
+
+Flutter and React Native build systems are planned for upcoming releases. When they ship, this section will be expanded with the Flutter SDK and Node/Metro toolchain setup steps.

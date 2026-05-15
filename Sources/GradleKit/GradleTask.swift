@@ -99,6 +99,60 @@ public struct GradleTask: Sendable, Equatable, Hashable {
         return GradleTask(name: "bundle\(f)\(v)")
     }
 
+    // MARK: - Kotlin Multiplatform Tasks
+
+    /// `linkDebugFrameworkIosArm64` — Link the debug-configuration Kotlin Multiplatform
+    /// iOS framework for the `iosArm64` (device) target.
+    public static let linkDebugFrameworkIosArm64 = GradleTask(name: "linkDebugFrameworkIosArm64")
+
+    /// `linkReleaseFrameworkIosArm64` — Link the release-configuration Kotlin Multiplatform
+    /// iOS framework for the `iosArm64` (device) target.
+    public static let linkReleaseFrameworkIosArm64 = GradleTask(name: "linkReleaseFrameworkIosArm64")
+
+    /// `linkDebugFrameworkIosSimulatorArm64` — Link the debug-configuration KMP iOS framework
+    /// for the `iosSimulatorArm64` (Apple-silicon simulator) target.
+    public static let linkDebugFrameworkIosSimulatorArm64 = GradleTask(
+        name: "linkDebugFrameworkIosSimulatorArm64")
+
+    /// `linkReleaseFrameworkIosSimulatorArm64` — Link the release-configuration KMP iOS framework
+    /// for the `iosSimulatorArm64` (Apple-silicon simulator) target.
+    public static let linkReleaseFrameworkIosSimulatorArm64 = GradleTask(
+        name: "linkReleaseFrameworkIosSimulatorArm64")
+
+    /// `linkDebugFrameworkIosX64` — Link the debug-configuration KMP iOS framework for the
+    /// `iosX64` (Intel simulator) target.
+    public static let linkDebugFrameworkIosX64 = GradleTask(name: "linkDebugFrameworkIosX64")
+
+    /// `linkReleaseFrameworkIosX64` — Link the release-configuration KMP iOS framework for
+    /// the `iosX64` (Intel simulator) target.
+    public static let linkReleaseFrameworkIosX64 = GradleTask(name: "linkReleaseFrameworkIosX64")
+
+    /// `embedAndSignAppleFrameworkForXcode` — The task invoked by the Xcode "Run Script"
+    /// build phase that the KMP Gradle plugin installs. Links and embeds the correct framework
+    /// configuration/architecture based on Xcode environment variables.
+    public static let embedAndSignAppleFrameworkForXcode = GradleTask(
+        name: "embedAndSignAppleFrameworkForXcode")
+
+    /// `iosSimulatorArm64Test` — Run KMP common/iOS-target tests on the Apple-silicon simulator.
+    public static let iosSimulatorArm64Test = GradleTask(name: "iosSimulatorArm64Test")
+
+    /// `iosArm64Test` — Run KMP common/iOS-target tests on an `iosArm64` device.
+    public static let iosArm64Test = GradleTask(name: "iosArm64Test")
+
+    /// `iosX64Test` — Run KMP common/iOS-target tests on the Intel simulator.
+    public static let iosX64Test = GradleTask(name: "iosX64Test")
+
+    /// Builds a KMP iOS framework link task such as `linkReleaseFrameworkIosSimulatorArm64`.
+    ///
+    /// - Parameters:
+    ///   - configuration: Kotlin build configuration (e.g. `"Debug"`, `"Release"`).
+    ///   - target: KMP iOS target name (e.g. `"IosArm64"`, `"IosSimulatorArm64"`, `"IosX64"`).
+    public static func linkFramework(configuration: String, target: String) -> GradleTask {
+        let cfg = configuration.prefix(1).uppercased() + configuration.dropFirst()
+        let tgt = target.prefix(1).uppercased() + target.dropFirst()
+        return GradleTask(name: "link\(cfg)Framework\(tgt)")
+    }
+
     // MARK: - Custom
 
     /// Arbitrary custom task name.

@@ -306,6 +306,12 @@ public enum BuiltInSchemaCatalog {
                     "iOS-specific overrides merged on top of shared config when platform resolves to .ios. Useful in monorepo projects containing both iOS and Android targets.",
                 properties: [
                     .string(
+                        "build_system",
+                        description:
+                            "Build system that produces the iOS artifact. Defaults to 'native' for pure Swift/Xcode projects. Set to 'flutter', 'react_native', or 'kmp' when the iOS app is wrapped by a cross-platform tool.",
+                        allowedValues: ["native", "flutter", "react_native", "kmp"],
+                        example: .string("native"), envVar: "SHIPIT_IOS__BUILD_SYSTEM"),
+                    .string(
                         "scheme", description: "iOS-specific Xcode scheme override.", example: .string("MyApp"),
                         envVar: "SHIPIT_IOS__SCHEME"),
                     .string(
@@ -322,6 +328,12 @@ public enum BuiltInSchemaCatalog {
                     "Android-specific configuration merged on top of shared config when platform resolves to .android.",
                 notes: ["Set platform to android via --platform android or SHIPIT_PLATFORM=android."],
                 properties: [
+                    .string(
+                        "build_system",
+                        description:
+                            "Build system that produces the Android artifact. Defaults to 'native' for pure Gradle projects. Set to 'flutter', 'react_native', or 'kmp' when the Android app is produced by a cross-platform tool.",
+                        allowedValues: ["native", "flutter", "react_native", "kmp"],
+                        example: .string("native"), envVar: "SHIPIT_ANDROID__BUILD_SYSTEM"),
                     .string(
                         "module", description: "Gradle module name (e.g. app). Defaults to 'app'.",
                         example: .string("app"), envVar: "SHIPIT_ANDROID__MODULE"),

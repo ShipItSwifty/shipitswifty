@@ -111,6 +111,11 @@ These constraints are enforced throughout the codebase:
 - ``Adb``
 - ``Emulator``
 
+### Cross-platform build systems
+
+- <doc:KMPIntegration>
+- ``BuildSystem``
+
 ### AI-assisted setup
 
 - <doc:AISession>

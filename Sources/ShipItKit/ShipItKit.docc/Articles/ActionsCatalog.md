@@ -14,12 +14,14 @@ shipit schema --action build --output json
 
 ## Build & test
 
-| Action | iOS | Android | Notes |
-|---|:-:|:-:|---|
-| ``BuildAction`` | ✅ | ✅ | `xcodebuild build` / `gradlew assemble<Variant>` |
-| ``TestAction`` | ✅ | ✅ | Multi-destination on iOS; unit + instrumented on Android |
-| ``CoverageAction`` | ✅ | ✅ | Reads `.xcresult` / JaCoCo XML — see <doc:Coverage> |
-| ``LintAction`` | ✅ | ✅ | `xcodebuild analyze` / `gradlew lint` |
+> **Cross-platform build systems:** When `ios.build_system:` / `android.build_system:` resolves to `kmp` (or, in future releases, `flutter` / `react_native`), ``BuildAction`` and ``TestAction`` run a build-system-specific compile step before the regular pipeline. Distribution actions further down this catalog are unchanged — they're artifact-path driven. See <doc:KMPIntegration>.
+
+| Action | iOS | Android | KMP | Notes |
+|---|:-:|:-:|:-:|---|
+| ``BuildAction`` | ✅ | ✅ | ✅ | `xcodebuild build` / `gradlew assemble<Variant>`; KMP iOS links the shared framework via Gradle first |
+| ``TestAction`` | ✅ | ✅ | ✅ | Multi-destination on iOS; unit + instrumented on Android; KMP iOS dispatches to `gradlew :shared:iosSimulatorArm64Test` |
+| ``CoverageAction`` | ✅ | ✅ | ⚠️ | Reads `.xcresult` / JaCoCo XML. KMP support inherits per-target behaviour — see <doc:Coverage> |
+| ``LintAction`` | ✅ | ✅ | ✅ | `xcodebuild analyze` / `gradlew lint` |
 
 ## Distribution prep
 

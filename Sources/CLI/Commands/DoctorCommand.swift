@@ -60,6 +60,17 @@ struct DoctorCommand: AsyncParsableCommand {
                     } && allPassed
             }
 
+            for toolCheck in Self.buildSystemToolCheckCommands(shell: shell, config: config) {
+                allPassed =
+                    await check(
+                        name: toolCheck.name,
+                        formatter: formatter
+                    ) {
+                        let output = try await toolCheck.command.run(in: shell)
+                        return output.exitCode == 0
+                    } && allPassed
+            }
+
             allPassed =
                 await check(
                     name: "Shipfile.yml parseable",
@@ -173,6 +184,58 @@ struct DoctorCommand: AsyncParsableCommand {
             ToolCheck(name: "security CLI available", command: SecurityCLI(context: shell).help().command()),
             ToolCheck(name: "xcrun simctl available", command: Simctl(context: shell).list(json: true).command()),
         ]
+    }
+
+    /// Returns toolchain checks gated on the resolved build system for each platform.
+    /// Empty when both platforms resolve to ``BuildSystem/native``.
+    static func buildSystemToolCheckCommands(
+        shell: ShellContext,
+        config: ResolvedConfig
+    ) -> [ToolCheck] {
+        let active: Set<BuildSystem> = Set(
+            [config.iosBuildSystem, config.androidBuildSystem].filter { $0 != .native }
+        )
+        var checks: [ToolCheck] = []
+        for system in active.sorted(by: { $0.rawValue < $1.rawValue }) {
+            switch system {
+            case .native:
+                continue
+            case .flutter:
+                checks.append(
+                    ToolCheck(
+                        name: "flutter on PATH",
+                        command: Command("flutter", arguments: "--version")
+                    )
+                )
+            case .reactNative:
+                checks.append(
+                    ToolCheck(
+                        name: "node on PATH",
+                        command: Command("node", arguments: "--version")
+                    )
+                )
+                checks.append(
+                    ToolCheck(
+                        name: "npx on PATH (for react-native)",
+                        command: Command("npx", arguments: "--version")
+                    )
+                )
+            case .kmp:
+                checks.append(
+                    ToolCheck(
+                        name: "java on PATH (for Gradle/Kotlin)",
+                        command: Command("java", arguments: "-version")
+                    )
+                )
+                checks.append(
+                    ToolCheck(
+                        name: "gradlew present in project root",
+                        command: Command("test", arguments: "-x", "./gradlew")
+                    )
+                )
+            }
+        }
+        return checks
     }
 
     static func ascDiagnosticsMode(for config: ResolvedConfig) -> ASCDiagnosticsMode {

@@ -22,11 +22,14 @@ public struct ProjectInspector: Sendable {
         let suggestedAppConfig = suggestedAppConfig(from: preferredContainer, schemes: schemes)
         let gradleFiles = discoverGradleFiles(fileManager: fileManager)
         let detectedPlatform: Platform = !gradleFiles.isEmpty ? .android : (containers.isEmpty ? .ios : .ios)
+        let detectedBuildSystem = BuildSystem.autoDetect(in: rootPath, fileManager: fileManager)
+        let buildSystemFiles = discoverBuildSystemFiles(
+            for: detectedBuildSystem, fileManager: fileManager)
 
         var warnings: [String] = []
-        if containers.isEmpty && gradleFiles.isEmpty {
-            warnings.append("No .xcworkspace, .xcodeproj, or Gradle files were found under the selected path.")
-        } else if containers.isEmpty && detectedPlatform == .ios {
+        if containers.isEmpty && gradleFiles.isEmpty && detectedBuildSystem == nil {
+            warnings.append("No .xcworkspace, .xcodeproj, Gradle, or cross-platform project files were found under the selected path.")
+        } else if containers.isEmpty && detectedPlatform == .ios && detectedBuildSystem == nil {
             warnings.append("No .xcworkspace or .xcodeproj files were found under the selected path.")
         }
         if !containers.isEmpty && schemes.isEmpty {
@@ -34,6 +37,11 @@ public struct ProjectInspector: Sendable {
         }
         if containers.count > 1 {
             warnings.append("Multiple Xcode containers were found. Review the suggested workspace/project before using generated config.")
+        }
+        if let detectedBuildSystem {
+            warnings.append(
+                "Detected \(detectedBuildSystem.rawValue) project. Set `ios.build_system: \(detectedBuildSystem.rawValue)` and `android.build_system: \(detectedBuildSystem.rawValue)` in Shipfile.yml to opt into framework-aware builds."
+            )
         }
 
         return ProjectInspection(
@@ -49,8 +57,34 @@ public struct ProjectInspector: Sendable {
             ciFiles: discoverKnownFiles([".github/workflows", "bitrise.yml", ".gitlab-ci.yml"], fileManager: fileManager),
             warnings: warnings,
             detectedPlatform: detectedPlatform,
-            gradleFiles: gradleFiles
+            gradleFiles: gradleFiles,
+            detectedBuildSystem: detectedBuildSystem,
+            buildSystemFiles: buildSystemFiles
         )
+    }
+
+    /// Returns the marker files that drove the detection of `buildSystem`.
+    /// Empty when `buildSystem` is `nil` (i.e. the project is native).
+    private func discoverBuildSystemFiles(
+        for buildSystem: BuildSystem?,
+        fileManager: FileManager
+    ) -> [String] {
+        guard let buildSystem else { return [] }
+        let candidates: [String]
+        switch buildSystem {
+        case .flutter:
+            candidates = ["pubspec.yaml", "pubspec.lock"]
+        case .reactNative:
+            candidates = ["package.json", "yarn.lock", "package-lock.json", "pnpm-lock.yaml"]
+        case .kmp:
+            candidates = ["build.gradle.kts", "build.gradle", "settings.gradle.kts", "settings.gradle"]
+        case .native:
+            candidates = []
+        }
+        return candidates.compactMap { name in
+            let absolute = URL(fileURLWithPath: rootPath).appendingPathComponent(name).path
+            return fileManager.fileExists(atPath: absolute) ? name : nil
+        }
     }
 
     private func discoverXcodeContainers(fileManager: FileManager) -> [ProjectInspection.XcodeContainer] {

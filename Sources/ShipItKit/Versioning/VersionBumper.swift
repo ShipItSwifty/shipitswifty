@@ -62,6 +62,8 @@ public struct VersionBumper: Sendable {
                 return "project_spec"
             case "xcodeproj":
                 return "xcodeproj"
+            case "kmp", "gradle_properties":
+                return "kmp"
             default:
                 return target
             }
@@ -78,6 +80,11 @@ public struct VersionBumper: Sendable {
 
     /// Read the current marketing version from the specified source.
     private func readVersion(source: String) async throws -> String {
+        // KMP source — read directly from gradle.properties
+        if source == "kmp" {
+            return try KMPVersionSource(context: context).readVersion()
+        }
+
         // Project spec source — read directly from YAML
         if source == "project_spec" {
             let specSource = ProjectSpecVersionSource(context: context)
@@ -115,6 +122,10 @@ public struct VersionBumper: Sendable {
 
     /// Read the current build number from the specified source.
     private func readBuildNumber(source: String) async throws -> String {
+        if source == "kmp" {
+            return try KMPVersionSource(context: context).readBuildNumber()
+        }
+
         if source == "project_spec" {
             let specSource = ProjectSpecVersionSource(context: context)
             return try specSource.readBuildNumber()
@@ -140,6 +151,11 @@ public struct VersionBumper: Sendable {
     // MARK: - Write
 
     private func writeVersion(_ version: String, source: String) async throws {
+        if source == "kmp" {
+            try KMPVersionSource(context: context).writeVersion(version)
+            return
+        }
+
         if source == "project_spec" {
             let specSource = ProjectSpecVersionSource(context: context)
             try specSource.writeVersion(version)
@@ -167,6 +183,11 @@ public struct VersionBumper: Sendable {
     }
 
     private func writeBuildNumber(_ build: String, source: String) async throws {
+        if source == "kmp" {
+            try KMPVersionSource(context: context).writeBuildNumber(build)
+            return
+        }
+
         if source == "project_spec" {
             let specSource = ProjectSpecVersionSource(context: context)
             try specSource.writeBuildNumber(build)

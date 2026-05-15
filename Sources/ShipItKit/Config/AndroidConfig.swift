@@ -15,6 +15,11 @@ import Foundation
 /// ```
 public struct AndroidConfig: Codable, Sendable {
 
+    /// Build system that produces the Android artifact. Defaults to ``BuildSystem/native``.
+    /// Set to `.flutter`, `.reactNative`, or `.kmp` when the same source tree drives the
+    /// Android target via a cross-platform tool.
+    public var buildSystem: BuildSystem?
+
     /// Gradle module name (e.g. `app`). Defaults to `"app"`.
     public var module: String?
 
@@ -53,6 +58,7 @@ public struct AndroidConfig: Codable, Sendable {
     public var gradleFlags: [String]?
 
     enum CodingKeys: String, CodingKey {
+        case buildSystem = "build_system"
         case module
         case buildVariant = "build_variant"
         case buildType = "build_type"
@@ -69,6 +75,7 @@ public struct AndroidConfig: Codable, Sendable {
 
     /// Creates an `AndroidConfig`.
     public init(
+        buildSystem: BuildSystem? = nil,
         module: String? = nil,
         buildVariant: String? = nil,
         buildType: AndroidBuildType? = nil,
@@ -82,6 +89,7 @@ public struct AndroidConfig: Codable, Sendable {
         flavor: String? = nil,
         gradleFlags: [String]? = nil
     ) {
+        self.buildSystem = buildSystem
         self.module = module
         self.buildVariant = buildVariant
         self.buildType = buildType
@@ -118,6 +126,10 @@ public enum AndroidBuildType: String, Codable, Sendable, CaseIterable {
 ///   module: app
 /// ```
 public struct IOSConfig: Codable, Sendable {
+    /// Build system that produces the iOS artifact. Defaults to ``BuildSystem/native``.
+    /// Set to `.flutter`, `.reactNative`, or `.kmp` when the iOS app is wrapped by a
+    /// cross-platform tool.
+    public var buildSystem: BuildSystem?
     /// iOS-specific Xcode scheme override.
     public var scheme: String?
     /// iOS-specific Xcode workspace override.
@@ -126,13 +138,20 @@ public struct IOSConfig: Codable, Sendable {
     public var project: String?
 
     enum CodingKeys: String, CodingKey {
+        case buildSystem = "build_system"
         case scheme
         case workspace
         case project
     }
 
     /// Creates an `IOSConfig`.
-    public init(scheme: String? = nil, workspace: String? = nil, project: String? = nil) {
+    public init(
+        buildSystem: BuildSystem? = nil,
+        scheme: String? = nil,
+        workspace: String? = nil,
+        project: String? = nil
+    ) {
+        self.buildSystem = buildSystem
         self.scheme = scheme
         self.workspace = workspace
         self.project = project

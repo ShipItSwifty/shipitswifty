@@ -352,6 +352,12 @@ public struct ProjectInspection: Codable, Sendable, Hashable {
     public let detectedPlatform: Platform
     /// Gradle-related files found under the root path (e.g. `gradlew`, `build.gradle.kts`).
     public let gradleFiles: [String]
+    /// Auto-detected cross-platform build system driving the project, or `nil` for native projects.
+    /// When non-`nil`, the same value applies to both iOS and Android target pipelines.
+    public let detectedBuildSystem: BuildSystem?
+    /// Build-system marker files found under the root path (e.g. `pubspec.yaml`, `package.json`).
+    /// Empty for native projects.
+    public let buildSystemFiles: [String]
 
     public init(
         rootPath: String,
@@ -364,7 +370,9 @@ public struct ProjectInspection: Codable, Sendable, Hashable {
         ciFiles: [String],
         warnings: [String],
         detectedPlatform: Platform = .ios,
-        gradleFiles: [String] = []
+        gradleFiles: [String] = [],
+        detectedBuildSystem: BuildSystem? = nil,
+        buildSystemFiles: [String] = []
     ) {
         self.rootPath = rootPath
         self.xcodeContainers = xcodeContainers
@@ -377,6 +385,8 @@ public struct ProjectInspection: Codable, Sendable, Hashable {
         self.warnings = warnings
         self.detectedPlatform = detectedPlatform
         self.gradleFiles = gradleFiles
+        self.detectedBuildSystem = detectedBuildSystem
+        self.buildSystemFiles = buildSystemFiles
     }
 }
 

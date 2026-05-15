@@ -426,6 +426,7 @@ Platform-specific Android configuration. These values are merged on top of share
 
 | Key | Type | Default | Env Var | Description |
 |---|---|---|---|---|
+| `build_system` | string | `native` | `SHIPIT_ANDROID__BUILD_SYSTEM` | Build system that produces the Android artifact. One of `native`, `flutter`, `react_native`, `kmp`. See [Build systems](#build-systems). |
 | `module` | string | `app` | — | Gradle module to build/bundle |
 | `build_variant` | string | `release` | — | Gradle build variant (e.g. `release`, `debug`) |
 | `build_type` | string | `aab` | — | `aab` (Android App Bundle) or `apk` |
@@ -461,10 +462,58 @@ Lookup notes:
 
 Platform-specific iOS overrides. Merged on top of shared config when `--platform ios` is active. All top-level `app`, `code_signing`, `archive`, `export`, `testflight`, and `screenshots` keys can appear here to override the shared defaults for iOS only.
 
+| Key | Type | Default | Env Var | Description |
+|---|---|---|---|---|
+| `build_system` | string | `native` | `SHIPIT_IOS__BUILD_SYSTEM` | Build system that produces the iOS artifact. One of `native`, `flutter`, `react_native`, `kmp`. See [Build systems](#build-systems). |
+| `scheme` | string | — | `SHIPIT_IOS__SCHEME` | iOS-specific Xcode scheme override |
+| `workspace` | string | — | `SHIPIT_IOS__WORKSPACE` | iOS-specific Xcode workspace override |
+| `project` | string | — | `SHIPIT_IOS__PROJECT` | iOS-specific Xcode project override |
+
 ```yaml
 ios:
-  app:
-    scheme: MyApp
-  archive:
-    export_method: app-store
+  build_system: native      # native (default) | flutter | react_native | kmp
+  scheme: MyApp
+archive:
+  export_method: app-store
 ```
+
+## Build systems
+
+`build_system` is **orthogonal** to `platform`: a single Kotlin Multiplatform or Flutter source tree can produce both an iOS `.ipa` and an Android `.aab`. Setting `build_system` tells ShipItSwifty *how* the native artifact is compiled before the regular distribution pipeline (sign / archive / export / TestFlight / Play Store) runs.
+
+| Value | Compilation step (iOS) | Compilation step (Android) | Available |
+|---|---|---|---|
+| `native` (default) | `xcodebuild` | `gradlew assemble` / `bundle` | ✅ Always |
+| `kmp` | `gradlew :shared:linkReleaseFrameworkIosSimulatorArm64` → `xcodebuild` against the Xcode wrapper | `gradlew :androidApp:bundleRelease` (regular Android target) | ✅ This release |
+| `flutter` | `flutter build ipa` then `xcodebuild` | `flutter build appbundle` | 🚧 Planned |
+| `react_native` | Metro bundle → `xcodebuild` | Metro bundle → `gradlew bundleRelease` | 🚧 Planned |
+
+### Auto-detection
+
+When `build_system` is unset, ShipItSwifty inspects the project root and resolves it automatically:
+
+| Project marker | Detected value |
+|---|---|
+| `pubspec.yaml` containing a `flutter:` key | `flutter` |
+| `package.json` declaring `react-native` in `dependencies` or `devDependencies` | `react_native` |
+| `build.gradle.kts` applying `kotlin("multiplatform")` or `org.jetbrains.kotlin.multiplatform` | `kmp` |
+| none of the above | `native` |
+
+You can override the resolved value via `--platform` plus the `SHIPIT_IOS__BUILD_SYSTEM` / `SHIPIT_ANDROID__BUILD_SYSTEM` environment variables, or by setting `build_system:` explicitly under the relevant Shipfile block.
+
+### KMP example
+
+```yaml
+ios:
+  build_system: kmp
+  scheme: iosApp
+  workspace: iosApp/iosApp.xcworkspace
+android:
+  build_system: kmp
+  module: androidApp
+versioning:
+  source: kmp           # reads/writes versionName + versionCode in gradle.properties
+  spec_path: gradle.properties
+```
+
+The KMP iOS path links the shared framework via Gradle before invoking `xcodebuild`, so the Xcode wrapper can resolve the `Shared.framework` import. The Android path is identical to a regular Android Gradle build.

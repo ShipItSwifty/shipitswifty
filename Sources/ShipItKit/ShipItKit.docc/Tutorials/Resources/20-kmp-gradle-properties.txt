@@ -1,0 +1,6 @@
+# gradle.properties
+org.gradle.jvmargs=-Xmx2g
+kotlin.code.style=official
+
+versionName=1.0.0
+versionCode=1

@@ -45,6 +45,14 @@ public struct Environment: Sendable {
     /// `SHIPIT_PLATFORM` — overrides platform auto-detection. Accepts `ios` or `android`.
     public var platform: String? { env["SHIPIT_PLATFORM"] }
 
+    /// `SHIPIT_IOS__BUILD_SYSTEM` — overrides iOS build system detection.
+    /// Accepts `native`, `flutter`, `react_native`, or `kmp`.
+    public var iosBuildSystem: String? { env["SHIPIT_IOS__BUILD_SYSTEM"] }
+
+    /// `SHIPIT_ANDROID__BUILD_SYSTEM` — overrides Android build system detection.
+    /// Accepts `native`, `flutter`, `react_native`, or `kmp`.
+    public var androidBuildSystem: String? { env["SHIPIT_ANDROID__BUILD_SYSTEM"] }
+
     // MARK: - App Configuration
 
     /// `SHIPIT_APP__WORKSPACE`

@@ -1,0 +1,17 @@
+workflows:
+  beta-ios:
+    - action: test
+      options: { platform: ios }
+    - action: version
+      options: { bump: build }
+    - action: archive
+      options: { platform: ios }
+    - action: testflight
+      options: { groups: ["Internal QA"] }
+
+  beta-android:
+    - action: test
+      options: { platform: android }
+    - action: archive
+      options: { platform: android }
+    - action: play-store
