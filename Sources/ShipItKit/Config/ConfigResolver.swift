@@ -107,9 +107,10 @@ public struct ConfigResolver: Sendable {
 
         let shipfileLoadResult = try await loadShipfile(from: resolvedPath)
         let shipfile = shipfileLoadResult.shipfile
-        let projectRoot: String = shipfileLoadResult.loadedPath.map {
-            URL(fileURLWithPath: $0).deletingLastPathComponent().path
-        } ?? "."
+        let projectRoot: String =
+            shipfileLoadResult.loadedPath.map {
+                URL(fileURLWithPath: $0).deletingLastPathComponent().path
+            } ?? "."
 
         // Resolve platform: CLI flag > SHIPIT_PLATFORM env var > Shipfile > auto-detect from project files
         let platform = resolvePlatform(cliOptions: cliOptions, shipfile: shipfile, detectionRoot: projectRoot)

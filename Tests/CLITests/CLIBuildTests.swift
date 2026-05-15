@@ -91,11 +91,12 @@ struct CLIBuildTests {
 
     @Test("Build command parses Gradle module and variant")
     func buildCommandParsesGradleOptions() throws {
-        let command = try BuildCommand.parseAsRoot([
-            "--platform", "android",
-            "--module", "androidApp",
-            "--build-variant", "debug",
-        ]) as! BuildCommand
+        let command =
+            try BuildCommand.parseAsRoot([
+                "--platform", "android",
+                "--module", "androidApp",
+                "--build-variant", "debug",
+            ]) as! BuildCommand
 
         #expect(command.global.platform == .android)
         #expect(command.module == "androidApp")
@@ -104,11 +105,12 @@ struct CLIBuildTests {
 
     @Test("Archive command parses Gradle module and variant")
     func archiveCommandParsesGradleOptions() throws {
-        let command = try ArchiveCommand.parseAsRoot([
-            "--platform", "android",
-            "--module", "androidApp",
-            "--build-variant", "release",
-        ]) as! ArchiveCommand
+        let command =
+            try ArchiveCommand.parseAsRoot([
+                "--platform", "android",
+                "--module", "androidApp",
+                "--build-variant", "release",
+            ]) as! ArchiveCommand
 
         #expect(command.global.platform == .android)
         #expect(command.module == "androidApp")
@@ -117,12 +119,13 @@ struct CLIBuildTests {
 
     @Test("Test command parses Gradle module variant and instrumented flag")
     func testCommandParsesGradleOptions() throws {
-        let command = try TestCommand.parseAsRoot([
-            "--platform", "android",
-            "--module", "androidApp",
-            "--build-variant", "debug",
-            "--instrumented",
-        ]) as! TestCommand
+        let command =
+            try TestCommand.parseAsRoot([
+                "--platform", "android",
+                "--module", "androidApp",
+                "--build-variant", "debug",
+                "--instrumented",
+            ]) as! TestCommand
 
         #expect(command.global.platform == .android)
         #expect(command.module == "androidApp")

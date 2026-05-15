@@ -106,7 +106,8 @@ struct KMPVersionSource: Sendable {
             let trimmed = line.trimmingCharacters(in: .whitespaces)
             if trimmed.hasPrefix("#") || trimmed.hasPrefix("!") { continue }
             guard trimmed.hasPrefix("\(key)=") || trimmed.hasPrefix("\(key) =") else { continue }
-            let afterEquals = trimmed
+            let afterEquals =
+                trimmed
                 .drop(while: { $0 != "=" })
                 .dropFirst()
             let value = afterEquals.trimmingCharacters(in: .whitespaces)
