@@ -122,10 +122,10 @@ struct BuildActionKMPTests {
         #expect(hasAssemble, "expected module-qualified gradle assembleRelease for KMP Android target")
     }
 
-    @Test("Flutter iOS build succeeds via flutter build ipa")
+    @Test("Flutter iOS build succeeds via flutter build ios")
     func flutterSucceeds() async throws {
         let executor = MockExecutor { _, _ in
-            ShellOutput(stdout: "✓ Built build/ios/ipa/Runner.ipa\n", stderr: "", exitCode: 0)
+            ShellOutput(stdout: "✓ Built build/ios/Runner.app\n", stderr: "", exitCode: 0)
         }
         let config = ResolvedConfig(
             appScheme: "Runner",

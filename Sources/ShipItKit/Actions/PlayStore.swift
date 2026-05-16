@@ -131,44 +131,33 @@ public struct PlayStoreAction: Action {
         let track = options.track ?? context.config.androidPlayTrack
         let rolloutFraction = options.rolloutFraction ?? context.config.androidRolloutFraction
 
-        guard options.aabPath != nil || options.apkPath != nil else {
+        // Resolve artifact path: explicit option → auto-discovery for Flutter/RN → error
+        let resolvedAABPath: String?
+        let resolvedAPKPath: String?
+
+        if options.aabPath != nil || options.apkPath != nil {
+            resolvedAABPath = options.aabPath
+            resolvedAPKPath = options.apkPath
+        } else {
             // Auto-discover well-known paths for Flutter / React Native
             let buildSystem = context.config.androidBuildSystem
-            let autoPath: String?
             switch buildSystem {
             case .flutter:
-                autoPath = CrossPlatformArtifactPaths.flutterAAB(
+                resolvedAABPath = CrossPlatformArtifactPaths.flutterAAB(
                     flavor: context.config.androidGradleProperties["flavor"],
                     variant: context.config.androidBuildVariant
                 )
+                resolvedAPKPath = nil
+                logger.info("Auto-discovered \(buildSystem.rawValue) AAB path: \(resolvedAABPath!)")
             case .reactNative:
-                autoPath = CrossPlatformArtifactPaths.reactNativeAAB(variant: context.config.androidBuildVariant)
+                resolvedAABPath = CrossPlatformArtifactPaths.reactNativeAAB(variant: context.config.androidBuildVariant)
+                resolvedAPKPath = nil
+                logger.info("Auto-discovered \(buildSystem.rawValue) AAB path: \(resolvedAABPath!)")
             default:
-                autoPath = nil
-            }
-
-            guard let discoveredPath = autoPath else {
                 throw ShipItError.invalidConfiguration(
                     reason: "Play Store upload requires either --aab or --apk artifact path."
                 )
             }
-
-            logger.info("Auto-discovered \(buildSystem.rawValue) AAB path: \(discoveredPath)")
-
-            let notes = buildReleaseNotes(from: options.releaseNotes)
-            let releaseStatus: GooglePlayReleaseStatus = rolloutFraction != nil ? .inProgress : .completed
-            logger.info("Uploading to Google Play — package: '\(packageName)', track: '\(track)'")
-            let uploader = GooglePlayUploadService(client: googlePlay, packageName: packageName)
-            let versionCode = try await uploader.uploadAndRelease(
-                aabPath: discoveredPath,
-                apkPath: nil,
-                track: track,
-                releaseNotes: notes,
-                status: releaseStatus,
-                userFraction: rolloutFraction
-            )
-            logger.info("Play Store upload succeeded — versionCode=\(versionCode) on track '\(track)'")
-            return Result(versionCode: versionCode, track: track, packageName: packageName)
         }
 
         let notes = buildReleaseNotes(from: options.releaseNotes)
@@ -178,8 +167,8 @@ public struct PlayStoreAction: Action {
 
         let uploader = GooglePlayUploadService(client: googlePlay, packageName: packageName)
         let versionCode = try await uploader.uploadAndRelease(
-            aabPath: options.aabPath,
-            apkPath: options.apkPath,
+            aabPath: resolvedAABPath,
+            apkPath: resolvedAPKPath,
             track: track,
             releaseNotes: notes,
             status: releaseStatus,

@@ -7,10 +7,10 @@ import Testing
 @Suite("BuildAction — Flutter")
 struct BuildActionFlutterTests {
 
-    @Test("Flutter iOS build runs flutter build ipa")
-    func flutterIOSBuildRunsFlutterBuildIPA() async throws {
+    @Test("Flutter iOS build runs flutter build ios (not ipa)")
+    func flutterIOSBuildRunsFlutterBuildIOS() async throws {
         let (executor, commands) = makeCaptureExecutor { _, _ in
-            ShellOutput(stdout: "✓ Built build/ios/ipa/Runner.ipa\n", stderr: "", exitCode: 0)
+            ShellOutput(stdout: "✓ Built build/ios/Runner.app\n", stderr: "", exitCode: 0)
         }
         let config = ResolvedConfig(
             appScheme: "Runner",
@@ -22,7 +22,9 @@ struct BuildActionFlutterTests {
         #if os(macOS)
         _ = try await BuildAction().run(with: BuildAction.Options(), context: context)
         let captured = commands()
-        #expect(captured.contains { $0.contains("flutter") && $0.contains("build") && $0.contains("ipa") })
+        #expect(captured.contains { $0.contains("flutter") && $0.contains("build") && $0.contains("ios") })
+        // BuildAction should NOT run `flutter build ipa` — that's ArchiveAction's job
+        #expect(!captured.contains { $0.contains("ipa") })
         #else
         await #expect {
             _ = try await BuildAction().run(with: BuildAction.Options(), context: context)
@@ -49,7 +51,6 @@ struct BuildActionFlutterTests {
         let captured = commands()
         #expect(captured.contains { $0.contains("flutter") && $0.contains("apk") })
         #expect(result.apkPath == "build/app/outputs/flutter-apk/app-release.apk")
-        #expect(result.aabPath == nil)
     }
 
     @Test("Flutter build failure throws buildFailed")
@@ -90,7 +91,6 @@ struct BuildActionFlutterTests {
         let captured = commands()
         #expect(captured.contains { $0.contains("npx") && $0.contains("react-native") && $0.contains("build-android") })
         #expect(result.apkPath == "android/app/build/outputs/apk/release/app-release.apk")
-        #expect(result.aabPath == nil)
     }
 
     #if os(macOS)

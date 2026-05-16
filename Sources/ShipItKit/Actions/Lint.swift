@@ -154,9 +154,7 @@ public struct LintAction: Action {
         do {
             output = try await flutter.run()
         } catch let ShellError.exitFailure(_, shellOutput) {
-            let combinedLog = [shellOutput.stdout, shellOutput.stderr]
-                .filter { !$0.isEmpty }
-                .joined(separator: "\n")
+            let combinedLog = ShellRunHelpers.combinedLog(shellOutput)
             let issues = countFlutterIssues(in: combinedLog)
             logger.error("Flutter analyze failed — \(issues) issue(s)")
             if options.failOnError ?? true {

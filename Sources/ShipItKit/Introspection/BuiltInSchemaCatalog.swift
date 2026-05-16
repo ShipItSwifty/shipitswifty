@@ -681,6 +681,10 @@ public enum BuiltInSchemaCatalog {
                 "build_variant",
                 description: "Gradle build variant to assemble (Android). Defaults to 'release'.",
                 example: .string("release")),
+            .string(
+                "flavor",
+                description: "Product flavor name (e.g. free, paid). Combined with build_variant for task names. Also used by Flutter and React Native builds.",
+                example: .string("free")),
             .array(
                 "gradle_properties",
                 description: "Additional -P key=value properties passed to Gradle (Android).",
@@ -795,6 +799,10 @@ public enum BuiltInSchemaCatalog {
                 "build_variant",
                 description: "Gradle bundle variant (Android). Defaults to 'release'.",
                 example: .string("release")),
+            .string(
+                "flavor",
+                description: "Product flavor name (e.g. free, paid). Combined with build_variant for task names. Also used by Flutter and React Native archives.",
+                example: .string("free")),
             .array(
                 "gradle_properties",
                 description: "Additional -P key=value properties passed to Gradle bundle task (Android).",

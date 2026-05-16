@@ -62,6 +62,29 @@ public struct FlutterCLI: RunnableCommandFamily {
 
     // MARK: - Build commands
 
+    /// `flutter build ios --release` — compiles the iOS app without producing an IPA.
+    ///
+    /// Use this for validation / CI compile checks. For distribution archives that produce
+    /// an IPA, use ``buildIPA(flavor:dartDefines:target:)`` instead.
+    ///
+    /// - Parameters:
+    ///   - flavor: Optional product flavor (e.g. `"free"`, `"paid"`).
+    ///   - dartDefines: Optional `--dart-define=KEY=VALUE` arguments.
+    ///   - target: Optional Dart entry point (e.g. `"lib/main_prod.dart"`).
+    public func buildIOS(
+        flavor: String? = nil,
+        dartDefines: [String: String] = [:],
+        target: String? = nil
+    ) -> Self {
+        var args = ["build", "ios", "--release", "--no-codesign"]
+        if let flavor { args.append(contentsOf: ["--flavor", flavor]) }
+        for (key, value) in dartDefines.sorted(by: { $0.key < $1.key }) {
+            args.append("--dart-define=\(key)=\(value)")
+        }
+        if let target { args.append(contentsOf: ["--target", target]) }
+        return copy(arguments: args)
+    }
+
     /// `flutter build ipa` — produces `build/ios/ipa/*.ipa` directly.
     ///
     /// Flutter's IPA build does not require a separate export step; the IPA is ready for
@@ -78,7 +101,7 @@ public struct FlutterCLI: RunnableCommandFamily {
     ) -> Self {
         var args = ["build", "ipa", "--release"]
         if let flavor { args.append(contentsOf: ["--flavor", flavor]) }
-        for (key, value) in dartDefines { args.append("--dart-define=\(key)=\(value)") }
+        for (key, value) in dartDefines.sorted(by: { $0.key < $1.key }) { args.append("--dart-define=\(key)=\(value)") }
         if let target { args.append(contentsOf: ["--target", target]) }
         return copy(arguments: args)
     }
@@ -96,7 +119,7 @@ public struct FlutterCLI: RunnableCommandFamily {
     ) -> Self {
         var args = ["build", "appbundle", "--release"]
         if let flavor { args.append(contentsOf: ["--flavor", flavor]) }
-        for (key, value) in dartDefines { args.append("--dart-define=\(key)=\(value)") }
+        for (key, value) in dartDefines.sorted(by: { $0.key < $1.key }) { args.append("--dart-define=\(key)=\(value)") }
         if let target { args.append(contentsOf: ["--target", target]) }
         return copy(arguments: args)
     }
@@ -114,7 +137,7 @@ public struct FlutterCLI: RunnableCommandFamily {
     ) -> Self {
         var args = ["build", "apk", "--release"]
         if let flavor { args.append(contentsOf: ["--flavor", flavor]) }
-        for (key, value) in dartDefines { args.append("--dart-define=\(key)=\(value)") }
+        for (key, value) in dartDefines.sorted(by: { $0.key < $1.key }) { args.append("--dart-define=\(key)=\(value)") }
         if let target { args.append(contentsOf: ["--target", target]) }
         return copy(arguments: args)
     }
