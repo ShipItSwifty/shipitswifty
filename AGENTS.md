@@ -227,7 +227,7 @@ CLI flags > `SHIPIT_*` env vars > `Shipfile.yml` > built-in defaults. Shipfile s
 - KMP iOS builds run `gradlew :<shared-module>:link…Framework…` automatically before `xcodebuild build`; archives use the archive target before `xcodebuild archive`.
 - KMP defaults: `ios.kmp_shared_module: shared`, `ios.kmp_build_target: IosSimulatorArm64`, `ios.kmp_archive_target: IosArm64`, `ios.kmp_test_task: iosSimulatorArm64Test`.
 - `versioning.source: kmp` reads/writes `versionName` + `versionCode` in `gradle.properties` via `KMPVersionSource`.
-- `flutter` / `react_native` values are accepted by the schema but currently throw `invalidConfiguration` at build time — they are planned for upcoming releases.
+- `flutter` / `react_native` are fully implemented: `BuildAction`, `ArchiveAction`, `TestAction`, and `LintAction` all dispatch on `build_system` and invoke the appropriate Flutter/RN CLI. `ValidateBundle` and `PlayStoreAction` auto-discover artifact paths for both. Flutter iOS archive produces IPA directly (no export step); RN iOS uses `xcodebuild archive` + export.
 
 When recommending changes to an agent:
 - Prefer setting `build_system` under the platform block over inventing a new top-level CLI flag.

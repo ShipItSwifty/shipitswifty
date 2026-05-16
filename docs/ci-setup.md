@@ -166,6 +166,31 @@ Things to watch on KMP CI:
 - **`shipit doctor` validates** that `java` is on PATH and `./gradlew` is executable. Run it as the first step so a missing toolchain fails fast.
 - **iOS simulators**: `xcodebuild build` may need a destination. On macOS runners, the bundled simulators are pre-installed; pin the OS version via `--destination` if reproducibility matters.
 
-### Flutter and React Native (planned)
+### Flutter and React Native
 
-Flutter and React Native build systems are planned for upcoming releases. When they ship, this section will be expanded with the Flutter SDK and Node/Metro toolchain setup steps.
+Flutter workflows need the Flutter SDK before running ShipItSwifty. React Native workflows need Node and the project package manager (`npm`, `yarn`, or `pnpm`).
+
+```yaml
+jobs:
+  flutter-android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with: { channel: stable }
+      - run: flutter pub get
+      - run: shipit run beta-android --ci --output json
+
+  react-native-android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: npm }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: 17 }
+      - run: npm ci
+      - run: shipit run beta-android --ci --output json
+```
+
+Use macOS runners for Flutter iOS or React Native iOS distribution because both require Xcode and Apple signing tooling.

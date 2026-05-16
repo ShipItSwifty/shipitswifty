@@ -1,0 +1,78 @@
+@Tutorial(time: 8) {
+    @Intro(title: "Set up a Flutter Shipfile") {
+        Configure ShipItSwifty against a Flutter project that ships to both the
+        App Store and Google Play. Auto-detection reads `pubspec.yaml` and sets
+        `build_system: flutter` on both platforms automatically.
+
+        @Image(source: chapter-android.png, alt: "Flutter setup")
+    }
+
+    @Section(title: "Detect the Flutter project") {
+        @ContentAndMedia {
+            ShipItSwifty's `inspect` command identifies Flutter from `pubspec.yaml`.
+            Run it from your project root to confirm detection before generating config.
+        }
+
+        @Steps {
+            @Step {
+                Run `shipit inspect` from the Flutter project root. Confirm
+                `detectedBuildSystem: flutter` in the JSON output.
+
+                @Code(name: "Terminal", file: 22-flutter-inspect.sh)
+            }
+
+            @Step {
+                Check that `shipit doctor` finds `flutter` on PATH. Install the
+                Flutter SDK from flutter.dev if it is missing.
+
+                @Code(name: "Terminal", file: 22-flutter-doctor.sh)
+            }
+        }
+    }
+
+    @Section(title: "Generate and review the Shipfile") {
+        @ContentAndMedia {
+            `shipit generate` creates a starter Shipfile that sets `build_system: flutter`
+            under both `ios:` and `android:`. Review the file and fill in any
+            missing values before committing.
+        }
+
+        @Steps {
+            @Step {
+                Generate a beta-goal Shipfile. The generator emits separate
+                `beta-ios` and `beta-android` workflows.
+
+                @Code(name: "Terminal", file: 22-flutter-generate.sh)
+            }
+
+            @Step {
+                Review the generated Shipfile. Note that both platforms have
+                `build_system: flutter` and the iOS workflow omits `export`
+                — `flutter build ipa` produces the IPA directly.
+
+                @Code(name: "Shipfile.yml", file: 22-flutter-shipfile.yml)
+            }
+        }
+    }
+
+    @Section(title: "Run lint and tests") {
+        @ContentAndMedia {
+            Before archiving, validate the Dart code with `flutter analyze` and
+            run `flutter test`. Both map to `shipit lint` and `shipit test`.
+        }
+
+        @Steps {
+            @Step {
+                Run lint to surface Dart static analysis issues.
+
+                @Code(name: "Terminal", file: 22-flutter-lint.sh)
+            }
+
+            @Step {
+                Run the Flutter test suite. Pass/fail counts appear in the output.
+
+                @Code(name: "Terminal", file: 22-flutter-test.sh)
+            }
+        }
+    }
+}

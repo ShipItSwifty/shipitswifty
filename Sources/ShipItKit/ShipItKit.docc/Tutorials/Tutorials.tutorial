@@ -35,6 +35,18 @@
         @TutorialReference(tutorial: "doc:10-KMP-Distribution")
     }
 
+    @Chapter(name: "Flutter and React Native") {
+        Ship Flutter and React Native apps to the App Store and Google Play
+        using `build_system: flutter` or `build_system: react_native`.
+
+        @Image(source: chapter-ios.png, alt: "Flutter and React Native chapter cover")
+
+        @TutorialReference(tutorial: "doc:11-Flutter-Setup")
+        @TutorialReference(tutorial: "doc:12-Flutter-Distribution")
+        @TutorialReference(tutorial: "doc:13-ReactNative-Setup")
+        @TutorialReference(tutorial: "doc:14-ReactNative-Distribution")
+    }
+
     @Chapter(name: "Build a Plugin") {
         Extend ShipItKit with a custom action, register it, and call it from a workflow.
 

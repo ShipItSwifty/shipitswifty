@@ -135,6 +135,49 @@ struct UploadActionTests {
         #expect(result.reviewSubmissionID == "review-123")
     }
 
+    @Test("UploadAction discovers Flutter IPA output when export directory is absent")
+    func uploadDiscoversFlutterIPAOutput() async throws {
+        let tempDirectory = try makeTempDirectory()
+        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+
+        let ipaDirectory = tempDirectory.appendingPathComponent("build/ios/ipa", isDirectory: true)
+        try FileManager.default.createDirectory(at: ipaDirectory, withIntermediateDirectories: true)
+        try Data("ipa-data".utf8).write(to: ipaDirectory.appendingPathComponent("Example.ipa"))
+
+        let executor = MockExecutor { command, _ in
+            if command.arguments.first == "altool" {
+                return ShellOutput(stdout: "", stderr: "", exitCode: 0)
+            }
+            if command.arguments.first == "-c" {
+                return ShellOutput(stdout: "3\n", stderr: "", exitCode: 0)
+            }
+            return ShellOutput(stdout: "", stderr: "", exitCode: 0)
+        }
+        let session = makeMockSession { request in
+            let path = request.url?.path ?? ""
+            let queryItems = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)?.queryItems ?? []
+            let query = Dictionary(uniqueKeysWithValues: queryItems.map { ($0.name, $0.value ?? "") })
+            if path == "/v1/apps" {
+                return .json(["data": [["id": "app-1", "attributes": ["bundleId": "com.example.app"]]]])
+            }
+            if path == "/v1/builds", query["filter[version]"] == "3" {
+                return .json(["data": [["id": "build-333", "attributes": ["version": "3"]]]])
+            }
+            return .error(statusCode: 404, body: "not found")
+        }
+
+        let context = makeContext(
+            executor: executor,
+            session: session,
+            bundleID: "com.example.app",
+            iosBuildSystem: .flutter,
+            workingDirectory: tempDirectory.path
+        )
+        let result = try await UploadAction().run(with: .init(), context: context)
+
+        #expect(result.buildID == "build-333")
+    }
+
     // MARK: - Helpers
 
     private func makeTempDirectory() throws -> URL {
@@ -147,7 +190,9 @@ struct UploadActionTests {
         executor: MockExecutor,
         session: URLSession,
         bundleID: String,
-        submitForReview: Bool = false
+        submitForReview: Bool = false,
+        iosBuildSystem: BuildSystem = .native,
+        workingDirectory: String? = nil
     ) -> ActionContext {
         let base = ActionContext.mock(executor: executor)
         let homeURL = FileManager.default.temporaryDirectory
@@ -156,7 +201,7 @@ struct UploadActionTests {
             executor: executor,
             searchPaths: base.shell.searchPaths,
             environment: base.shell.environment.merging(["HOME": homeURL.path]) { _, new in new },
-            workingDirectory: base.shell.workingDirectory,
+            workingDirectory: workingDirectory ?? base.shell.workingDirectory,
             defaultTimeout: base.shell.defaultTimeout,
             defaultOutputLimit: base.shell.defaultOutputLimit
         )
@@ -177,7 +222,8 @@ struct UploadActionTests {
                 ascPrivateKeyData: Data(
                     "-----BEGIN PRIVATE KEY-----\nfake\n-----END PRIVATE KEY-----\n".utf8
                 ),
-                submitForReview: submitForReview
+                submitForReview: submitForReview,
+                iosBuildSystem: iosBuildSystem
             ),
             appStoreConnect: client,
             platform: .ios

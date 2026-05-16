@@ -491,8 +491,8 @@ archive:
 |---|---|---|---|
 | `native` (default) | `xcodebuild` | `gradlew assemble` / `bundle` | ✅ Always |
 | `kmp` | build: `:<shared>:link…IosSimulatorArm64` → `xcodebuild`; archive: `:<shared>:link…IosArm64` → `xcodebuild archive` | `gradlew :androidApp:assembleRelease` / `:androidApp:bundleRelease` | ✅ This release |
-| `flutter` | `flutter build ipa` then `xcodebuild` | `flutter build appbundle` | 🚧 Planned |
-| `react_native` | Metro bundle → `xcodebuild` | Metro bundle → `gradlew bundleRelease` | 🚧 Planned |
+| `flutter` | `flutter build ipa` (IPA at `build/ios/ipa/`; no export step) | build: `flutter build apk`; archive: `flutter build appbundle` → `build/app/outputs/bundle/release/app-release.aab` | ✅ This release |
+| `react_native` | Metro bundle → `xcodebuild archive` + export | build: `npx react-native build-android --mode=release`; archive: `npx react-native build-android --mode=release --tasks bundleRelease` → `android/app/build/outputs/bundle/release/app-release.aab` | ✅ This release |
 
 ### Auto-detection
 
@@ -500,8 +500,8 @@ When `build_system` is unset, ShipItSwifty inspects the project root and resolve
 
 | Project marker | Detected value |
 |---|---|
-| `pubspec.yaml` containing a `flutter:` key | `flutter` in inspection output only; runtime stays `native` unless explicitly configured |
-| `package.json` declaring `react-native` in `dependencies` or `devDependencies` | `react_native` in inspection output only; runtime stays `native` unless explicitly configured |
+| `pubspec.yaml` containing a `flutter:` key | `flutter` — activates Flutter runtime build paths |
+| `package.json` declaring `react-native` in `dependencies` or `devDependencies` | `react_native` — activates RN runtime build paths |
 | `build.gradle.kts` applying `kotlin("multiplatform")` or `org.jetbrains.kotlin.multiplatform` | `kmp` |
 | none of the above | `native` |
 

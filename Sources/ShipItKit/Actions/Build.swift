@@ -132,6 +132,9 @@ public struct BuildAction: Action {
         /// Path to the output APK file. (Android)
         public let apkPath: String?
 
+        /// Path to the output AAB file. (Android app bundle builds)
+        public let aabPath: String?
+
         /// Exit code from the build tool.
         public let exitCode: Int
 
@@ -143,12 +146,14 @@ public struct BuildAction: Action {
             appPath: String? = nil,
             dsymPath: String? = nil,
             apkPath: String? = nil,
+            aabPath: String? = nil,
             exitCode: Int = 0,
             warnings: Int = 0
         ) {
             self.appPath = appPath
             self.dsymPath = dsymPath
             self.apkPath = apkPath
+            self.aabPath = aabPath
             self.exitCode = exitCode
             self.warnings = warnings
         }
@@ -185,17 +190,173 @@ public struct BuildAction: Action {
         case (.android, .kmp):
             // KMP's Android target is a regular Android Gradle module — reuse the native path.
             return try await runAndroid(options: options, context: context)
-        case (_, .flutter):
-            throw ShipItError.invalidConfiguration(
-                reason:
-                    "Flutter build_system is not yet supported in this release. Set build_system: native or omit it."
-            )
-        case (_, .reactNative):
-            throw ShipItError.invalidConfiguration(
-                reason:
-                    "React Native build_system is not yet supported in this release. Set build_system: native or omit it."
+        case (.ios, .flutter):
+            #if os(macOS)
+            return try await runFlutterIOS(options: options, context: context)
+            #else
+            throw ShipItError.invalidConfiguration(reason: "Flutter iOS builds require macOS.")
+            #endif
+        case (.android, .flutter):
+            return try await runFlutterAndroid(options: options, context: context)
+        case (.ios, .reactNative):
+            #if os(macOS)
+            return try await runReactNativeIOS(options: options, context: context)
+            #else
+            throw ShipItError.invalidConfiguration(reason: "React Native iOS builds require macOS.")
+            #endif
+        case (.android, .reactNative):
+            return try await runReactNativeAndroid(options: options, context: context)
+        }
+    }
+
+    // MARK: - Flutter iOS Build
+
+    #if os(macOS)
+    /// Runs `flutter build ipa --release` to compile a Flutter iOS app.
+    ///
+    /// Flutter's IPA command bundles both the Dart layer and the iOS host app, producing
+    /// `build/ios/ipa/*.ipa` directly. There is no separate `xcodebuild archive` or
+    /// `xcodebuild -exportArchive` step needed — use `ArchiveAction` to get the final IPA path.
+    private func runFlutterIOS(options: Options, context: ActionContext) async throws -> Result {
+        let flavor = options.flavor
+        logger.info("Building Flutter iOS app (flutter build ipa\(flavor.map { " --flavor \($0)" } ?? ""))")
+
+        let flutter = FlutterCLI(context: context.shell)
+            .buildIPA(flavor: flavor)
+
+        let output: ShellOutput
+        do {
+            output = try await flutter.run()
+        } catch let ShellError.exitFailure(_, shellOutput) {
+            logger.error("Flutter iOS build failed with exit code \(shellOutput.exitCode)")
+            throw ShipItError.buildFailed(
+                exitCode: Int(shellOutput.exitCode),
+                log: [shellOutput.stdout, shellOutput.stderr]
+                    .filter { !$0.isEmpty }
+                    .joined(separator: "\n")
             )
         }
+
+        if output.exitCode != 0 {
+            logger.error("Flutter iOS build failed with exit code \(output.exitCode)")
+            throw ShipItError.buildFailed(exitCode: Int(output.exitCode), log: output.stderr)
+        }
+
+        logger.info("Flutter iOS build succeeded")
+        return Result(exitCode: Int(output.exitCode), warnings: countWarnings(in: output.stdout))
+    }
+    #endif
+
+    // MARK: - Flutter Android Build
+
+    /// Runs `flutter build appbundle --release` to produce a release AAB.
+    private func runFlutterAndroid(options: Options, context: ActionContext) async throws -> Result {
+        let flavor = options.flavor
+        logger.info("Building Flutter Android APK\(flavor.map { " (flavor: \($0))" } ?? "")")
+
+        let flutter = FlutterCLI(context: context.shell)
+            .buildAPK(flavor: flavor)
+
+        let output: ShellOutput
+        do {
+            output = try await flutter.run()
+        } catch let ShellError.exitFailure(_, shellOutput) {
+            logger.error("Flutter Android build failed with exit code \(shellOutput.exitCode)")
+            throw ShipItError.buildFailed(
+                exitCode: Int(shellOutput.exitCode),
+                log: [shellOutput.stdout, shellOutput.stderr]
+                    .filter { !$0.isEmpty }
+                    .joined(separator: "\n")
+            )
+        }
+
+        if output.exitCode != 0 {
+            logger.error("Flutter Android build failed with exit code \(output.exitCode)")
+            throw ShipItError.buildFailed(exitCode: Int(output.exitCode), log: output.stderr)
+        }
+
+        logger.info("Flutter Android build succeeded")
+        return Result(
+            apkPath: CrossPlatformArtifactPaths.flutterAPK(flavor: flavor),
+            exitCode: Int(output.exitCode),
+            warnings: countWarnings(in: output.stdout)
+        )
+    }
+
+    // MARK: - React Native iOS Build
+
+    #if os(macOS)
+    /// Runs `npx react-native build-ios --mode Release` to validate the iOS bundle.
+    ///
+    /// This step confirms the React Native JS bundle and native compilation succeed.
+    /// For App Store-grade archives, `ArchiveAction` runs `xcodebuild archive` afterward.
+    private func runReactNativeIOS(options: Options, context: ActionContext) async throws -> Result {
+        let scheme = options.scheme ?? context.config.appScheme
+        let configuration = options.configuration?.rawValue ?? context.config.buildConfiguration
+        logger.info("Building React Native iOS (npx react-native build-ios --mode \(configuration))")
+
+        let rn = ReactNativeCLI(context: context.shell)
+            .buildIOS(mode: configuration, scheme: scheme)
+
+        let output: ShellOutput
+        do {
+            output = try await rn.run()
+        } catch let ShellError.exitFailure(_, shellOutput) {
+            logger.error("React Native iOS build failed with exit code \(shellOutput.exitCode)")
+            throw ShipItError.buildFailed(
+                exitCode: Int(shellOutput.exitCode),
+                log: [shellOutput.stdout, shellOutput.stderr]
+                    .filter { !$0.isEmpty }
+                    .joined(separator: "\n")
+            )
+        }
+
+        if output.exitCode != 0 {
+            logger.error("React Native iOS build failed with exit code \(output.exitCode)")
+            throw ShipItError.buildFailed(exitCode: Int(output.exitCode), log: output.stderr)
+        }
+
+        logger.info("React Native iOS build succeeded")
+        return Result(exitCode: Int(output.exitCode), warnings: countWarnings(in: output.stdout))
+    }
+    #endif
+
+    // MARK: - React Native Android Build
+
+    /// Runs `npx react-native build-android --mode=release` to produce a release AAB.
+    private func runReactNativeAndroid(
+        options: Options, context: ActionContext
+    ) async throws -> Result {
+        let variant = options.buildVariant ?? context.config.androidBuildVariant
+        logger.info("Building React Native Android (npx react-native build-android --mode=\(variant))")
+
+        let rn = ReactNativeCLI(context: context.shell)
+            .buildAndroid(mode: variant)
+
+        let output: ShellOutput
+        do {
+            output = try await rn.run()
+        } catch let ShellError.exitFailure(_, shellOutput) {
+            logger.error("React Native Android build failed with exit code \(shellOutput.exitCode)")
+            throw ShipItError.buildFailed(
+                exitCode: Int(shellOutput.exitCode),
+                log: [shellOutput.stdout, shellOutput.stderr]
+                    .filter { !$0.isEmpty }
+                    .joined(separator: "\n")
+            )
+        }
+
+        if output.exitCode != 0 {
+            logger.error("React Native Android build failed with exit code \(output.exitCode)")
+            throw ShipItError.buildFailed(exitCode: Int(output.exitCode), log: output.stderr)
+        }
+
+        logger.info("React Native Android build succeeded")
+        return Result(
+            apkPath: CrossPlatformArtifactPaths.reactNativeAPK(variant: variant),
+            exitCode: Int(output.exitCode),
+            warnings: countWarnings(in: output.stdout)
+        )
     }
 
     // MARK: - KMP iOS Build

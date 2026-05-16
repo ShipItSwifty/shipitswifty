@@ -231,8 +231,8 @@ ShipItSwifty separates **target platform** (`ios`, `android`) from **build syste
 |---|---|---|---|---|
 | `native` (default) | `xcodebuild` | `gradlew assemble` / `bundle` | App Store Connect / Google Play | ✅ Implemented |
 | `kmp` | `gradlew :shared:link…Framework…` → `xcodebuild` against wrapper | `gradlew :androidApp:assembleRelease` / `:androidApp:bundleRelease` | App Store Connect / Google Play (unchanged) | ✅ Implemented |
-| `flutter` | `flutter build ipa` → `xcodebuild` | `flutter build appbundle` | App Store Connect / Google Play (unchanged) | 🚧 Planned |
-| `react_native` | Metro bundle → `xcodebuild` | Metro bundle → `gradlew bundleRelease` | App Store Connect / Google Play (unchanged) | 🚧 Planned |
+| `flutter` | `flutter build ipa` (IPA direct, no export step) | build: `flutter build apk`; archive: `flutter build appbundle` | App Store Connect / Google Play (unchanged) | ✅ Implemented |
+| `react_native` | Metro bundle → `xcodebuild archive` + export | build: `npx react-native build-android`; archive: `npx react-native build-android --tasks bundleRelease` | App Store Connect / Google Play (unchanged) | ✅ Implemented |
 
 Configure under the relevant Shipfile block:
 

@@ -1,0 +1,69 @@
+@Tutorial(time: 8) {
+    @Intro(title: "Set up a React Native Shipfile") {
+        Configure ShipItSwifty against a React Native project. Auto-detection reads
+        `package.json` for a `react-native` dependency and sets `build_system: react_native`.
+        Tests and lint use your project's package manager scripts automatically.
+
+        @Image(source: chapter-android.png, alt: "React Native setup")
+    }
+
+    @Section(title: "Detect the React Native project") {
+        @ContentAndMedia {
+            ShipItSwifty reads `package.json` to confirm React Native. The JS package
+            manager (npm, yarn, or pnpm) is auto-detected from lockfiles and used to
+            run `test` and `lint` scripts.
+        }
+
+        @Steps {
+            @Step {
+                Run `shipit inspect` from the project root. Confirm
+                `detectedBuildSystem: react_native` in the JSON output.
+
+                @Code(name: "Terminal", file: 24-rn-inspect.sh)
+            }
+        }
+    }
+
+    @Section(title: "Add test and lint scripts to package.json") {
+        @ContentAndMedia {
+            The `test` and `lint` actions run package manager scripts. Ensure both
+            are declared in `package.json` before running `shipit test` or
+            `shipit lint`. ShipItKit throws a clear error when a script is missing.
+        }
+
+        @Steps {
+            @Step {
+                Add Jest and ESLint scripts to `package.json` if not already present.
+
+                @Code(name: "package.json", file: 24-rn-package-json.json)
+            }
+
+            @Step {
+                Run the test script via ShipItSwifty.
+
+                @Code(name: "Terminal", file: 24-rn-test.sh)
+            }
+
+            @Step {
+                Run lint via ShipItSwifty.
+
+                @Code(name: "Terminal", file: 24-rn-lint.sh)
+            }
+        }
+    }
+
+    @Section(title: "Configure the Shipfile") {
+        @ContentAndMedia {
+            React Native iOS archive uses `xcodebuild archive` + export. Set the
+            Xcode scheme in `app.scheme`. Android uses the RN CLI which wraps Gradle.
+        }
+
+        @Steps {
+            @Step {
+                Review or create the React Native Shipfile.
+
+                @Code(name: "Shipfile.yml", file: 24-rn-shipfile.yml)
+            }
+        }
+    }
+}

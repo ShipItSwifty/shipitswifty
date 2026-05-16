@@ -179,6 +179,76 @@ struct TestFlightActionTests {
         #expect(ascWasCalled == false)
     }
 
+    @Test("Flutter iOS TestFlight discovers IPA from flutter archive output")
+    func discoversFlutterIPAOutput() async throws {
+        let tempDirectory = try makeTempDirectory()
+        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+
+        let ipaDirectory = tempDirectory.appendingPathComponent("build/ios/ipa", isDirectory: true)
+        try FileManager.default.createDirectory(at: ipaDirectory, withIntermediateDirectories: true)
+        try Data("ipa-data".utf8).write(to: ipaDirectory.appendingPathComponent("Example.ipa"))
+
+        let executor = MockExecutor { command, _ in
+            if command.arguments.first == "altool" {
+                return ShellOutput(stdout: "", stderr: "", exitCode: 0)
+            }
+            if command.arguments.first == "-c" {
+                return ShellOutput(stdout: "1\n", stderr: "", exitCode: 0)
+            }
+            return ShellOutput(stdout: "", stderr: "", exitCode: 0)
+        }
+        let session = makeMockSession { request in
+            let path = request.url?.path ?? ""
+            let queryItems = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)?.queryItems ?? []
+            let query = Dictionary(uniqueKeysWithValues: queryItems.map { ($0.name, $0.value ?? "") })
+            if path == "/v1/apps" {
+                return .json(["data": [["id": "app-1", "attributes": ["bundleId": "com.example.app"]]]])
+            }
+            if path == "/v1/builds", query["filter[version]"] == "1" {
+                return .json(["data": [["id": "build-123", "attributes": ["version": "1"]]]])
+            }
+            return .error(statusCode: 404, body: "not found")
+        }
+
+        let base = ActionContext.mock(executor: executor)
+        let shell = ShellContext(
+            executor: executor,
+            searchPaths: base.shell.searchPaths,
+            environment: base.shell.environment,
+            workingDirectory: tempDirectory.path,
+            defaultTimeout: base.shell.defaultTimeout,
+            defaultOutputLimit: base.shell.defaultOutputLimit
+        )
+        let client = AppStoreConnectClient(
+            keyID: "TESTKEY",
+            issuerID: "test-issuer",
+            privateKeyData: Data("placeholder".utf8),
+            session: session,
+            tokenProvider: { "test-token" }
+        )
+        let context = ActionContext(
+            shell: shell,
+            logger: base.logger,
+            config: ResolvedConfig(
+                bundleID: "com.example.app",
+                ascKeyID: "TESTKEY",
+                ascIssuerID: "test-issuer",
+                ascPrivateKeyData: Data("-----BEGIN PRIVATE KEY-----\nfake\n-----END PRIVATE KEY-----\n".utf8),
+                skipWaitingForBuildProcessing: true,
+                iosBuildSystem: .flutter
+            ),
+            appStoreConnect: client,
+            platform: .ios
+        )
+
+        let result = try await TestFlightAction().run(
+            with: .init(skipWaitingForBuildProcessing: true),
+            context: context
+        )
+
+        #expect(result.buildID == nil)
+    }
+
     // MARK: - Helpers
 
     private func makeTempDirectory() throws -> URL {

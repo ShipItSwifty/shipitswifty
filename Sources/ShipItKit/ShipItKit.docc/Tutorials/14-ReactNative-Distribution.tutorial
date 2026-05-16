@@ -1,0 +1,75 @@
+@Tutorial(time: 10) {
+    @Intro(title: "Distribute a React Native app") {
+        Archive and distribute a React Native app to the App Store and Google Play.
+        The iOS path uses `xcodebuild archive` (same as native iOS), while the
+        Android path uses the RN CLI to bundle JS and produce an AAB.
+
+        @Image(source: chapter-ios.png, alt: "React Native distribution")
+    }
+
+    @Section(title: "iOS: archive and export") {
+        @ContentAndMedia {
+            React Native iOS distribution uses the standard `xcodebuild archive` +
+            `xcodebuild -exportArchive` pipeline. ShipItKit runs these automatically
+            when `ArchiveAction` and `ExportAction` see `build_system: react_native`.
+        }
+
+        @Steps {
+            @Step {
+                Archive the iOS app. `xcodebuild archive` runs on the Xcode project
+                inside the RN workspace.
+
+                @Code(name: "Terminal", file: 25-rn-ios-archive.sh)
+            }
+
+            @Step {
+                Export the `.xcarchive` to an IPA and optionally upload to TestFlight.
+
+                @Code(name: "Terminal", file: 25-rn-ios-export.sh)
+            }
+        }
+    }
+
+    @Section(title: "Android: archive via RN CLI") {
+        @ContentAndMedia {
+            `shipit archive --platform android` runs `npx react-native build-android --mode=release --tasks bundleRelease`,
+            which bundles the JS layer and invokes Gradle, producing
+            `android/app/build/outputs/bundle/release/app-release.aab`.
+            The `play-store` action discovers this path automatically.
+        }
+
+        @Steps {
+            @Step {
+                Archive the Android app via the RN CLI.
+
+                @Code(name: "Terminal", file: 25-rn-android-archive.sh)
+            }
+
+            @Step {
+                Upload to Google Play.
+
+                @Code(name: "Terminal", file: 25-rn-android-play-store.sh)
+            }
+        }
+    }
+
+    @Section(title: "Full CI workflow") {
+        @ContentAndMedia {
+            Run lint, test, archive, and upload from a single `shipit run` command.
+        }
+
+        @Steps {
+            @Step {
+                Run the full iOS beta workflow in CI mode with JSON output.
+
+                @Code(name: "Terminal", file: 25-rn-ci-ios.sh)
+            }
+
+            @Step {
+                Run the full Android beta workflow in CI mode with JSON output.
+
+                @Code(name: "Terminal", file: 25-rn-ci-android.sh)
+            }
+        }
+    }
+}

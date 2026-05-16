@@ -107,7 +107,11 @@ These constraints are enforced throughout the codebase:
 ### Cross-platform build systems
 
 - <doc:KMPIntegration>
+- <doc:FlutterAndReactNative>
 - ``BuildSystem``
+- ``FlutterCLI``
+- ``ReactNativeCLI``
+- ``JSPackageManager``
 
 ### AI-assisted setup
 
