@@ -7,6 +7,7 @@ import Testing
 @Suite("TestAction — KMP")
 struct TestActionKMPTests {
 
+    #if os(macOS)
     @Test("KMP iOS tests dispatch to gradlew iosSimulatorArm64Test against the shared module")
     func kmpIOSTestsUseGradle() async throws {
         let (executor, commands) = makeCaptureExecutor { _, _ in
@@ -32,6 +33,7 @@ struct TestActionKMPTests {
         #expect(result.failCount == 0)
         #expect(result.succeeded)
     }
+    #endif
 
     @Test("KMP Android tests dispatch through the native gradle test path")
     func kmpAndroidUsesNativePath() async throws {
@@ -60,6 +62,7 @@ struct TestActionKMPTests {
         #expect(hasUnitTest, "KMP Android target should reuse the native unit-test path")
     }
 
+    #if os(macOS)
     @Test("KMP iOS tests use configured module and test task")
     func kmpIOSTestsUseConfiguredTask() async throws {
         let (executor, commands) = makeCaptureExecutor { _, _ in
@@ -78,4 +81,5 @@ struct TestActionKMPTests {
 
         #expect(commands().contains { $0.contains(":coreShared:iosX64Test") })
     }
+    #endif
 }
