@@ -183,24 +183,10 @@ public struct ArchiveAction: Action {
             #if os(macOS)
             logger.info("Archiving Flutter iOS app (flutter build ipa\(flavor.map { " --flavor \($0)" } ?? ""))")
             let flutter = FlutterCLI(context: context.shell).buildIPA(flavor: flavor)
-            let output: ShellOutput
-            do {
-                output = try await flutter.run()
-            } catch let ShellError.exitFailure(_, shellOutput) {
-                logger.error("Flutter iOS archive failed with exit code \(shellOutput.exitCode)")
-                throw ShipItError.archiveFailed(
-                    exitCode: Int(shellOutput.exitCode),
-                    log: [shellOutput.stdout, shellOutput.stderr]
-                        .filter { !$0.isEmpty }
-                        .joined(separator: "\n")
-                )
+            let output = try await ShellRunHelpers.run(flutter) { exitCode, log in
+                logger.error("Flutter iOS archive failed with exit code \(exitCode)")
+                return .archiveFailed(exitCode: exitCode, log: log)
             }
-            if output.exitCode != 0 {
-                logger.error("Flutter iOS archive failed with exit code \(output.exitCode)")
-                throw ShipItError.archiveFailed(exitCode: Int(output.exitCode), log: output.stderr)
-            }
-            // Flutter writes the IPA to build/ios/ipa/<AppName>.ipa — we return the
-            // directory glob pattern so downstream steps can discover the actual file.
             let ipaPath = "build/ios/ipa"
             logger.info("Flutter iOS archive succeeded. IPA directory: \(ipaPath)")
             return Result(ipaPath: ipaPath, exitCode: Int(output.exitCode))
@@ -210,21 +196,9 @@ public struct ArchiveAction: Action {
         case .android:
             logger.info("Archiving Flutter Android app (flutter build appbundle\(flavor.map { " --flavor \($0)" } ?? ""))")
             let flutter = FlutterCLI(context: context.shell).buildAppBundle(flavor: flavor)
-            let output: ShellOutput
-            do {
-                output = try await flutter.run()
-            } catch let ShellError.exitFailure(_, shellOutput) {
-                logger.error("Flutter Android archive failed with exit code \(shellOutput.exitCode)")
-                throw ShipItError.archiveFailed(
-                    exitCode: Int(shellOutput.exitCode),
-                    log: [shellOutput.stdout, shellOutput.stderr]
-                        .filter { !$0.isEmpty }
-                        .joined(separator: "\n")
-                )
-            }
-            if output.exitCode != 0 {
-                logger.error("Flutter Android archive failed with exit code \(output.exitCode)")
-                throw ShipItError.archiveFailed(exitCode: Int(output.exitCode), log: output.stderr)
+            let output = try await ShellRunHelpers.run(flutter) { exitCode, log in
+                logger.error("Flutter Android archive failed with exit code \(exitCode)")
+                return .archiveFailed(exitCode: exitCode, log: log)
             }
             let aabPath = CrossPlatformArtifactPaths.flutterAAB(flavor: flavor)
             logger.info("Flutter Android archive succeeded. AAB: \(aabPath)")
@@ -261,21 +235,9 @@ public struct ArchiveAction: Action {
         logger.info("Archiving React Native Android app (npx react-native build-android --mode=\(variant) --tasks \(task))")
 
         let rn = ReactNativeCLI(context: context.shell).buildAndroid(mode: variant, task: task)
-        let output: ShellOutput
-        do {
-            output = try await rn.run()
-        } catch let ShellError.exitFailure(_, shellOutput) {
-            logger.error("React Native Android archive failed with exit code \(shellOutput.exitCode)")
-            throw ShipItError.archiveFailed(
-                exitCode: Int(shellOutput.exitCode),
-                log: [shellOutput.stdout, shellOutput.stderr]
-                    .filter { !$0.isEmpty }
-                    .joined(separator: "\n")
-            )
-        }
-        if output.exitCode != 0 {
-            logger.error("React Native Android archive failed with exit code \(output.exitCode)")
-            throw ShipItError.archiveFailed(exitCode: Int(output.exitCode), log: output.stderr)
+        let output = try await ShellRunHelpers.run(rn) { exitCode, log in
+            logger.error("React Native Android archive failed with exit code \(exitCode)")
+            return .archiveFailed(exitCode: exitCode, log: log)
         }
         let aabPath = CrossPlatformArtifactPaths.reactNativeAAB(variant: variant)
         logger.info("React Native Android archive succeeded. AAB: \(aabPath)")

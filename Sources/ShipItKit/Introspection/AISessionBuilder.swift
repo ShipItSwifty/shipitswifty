@@ -655,8 +655,12 @@ public struct AISessionBuilder: Sendable {
                 ]
             case .flutter, .reactNative:
                 lines += [
-                    "Note: `\(detectedBuildSystem.rawValue)` build_system is recognised by the schema but not yet implemented in this release.",
-                    "Configure `build_system: native` (or omit it) for now; full support is planned.",
+                    "This is a \(detectedBuildSystem.rawValue) project. Set `build_system: \(detectedBuildSystem.rawValue)` on BOTH the `ios:` and",
+                    "`android:` Shipfile blocks so ShipIt uses the correct CLI for each platform.",
+                    "Build, test, lint, archive, and distribution actions all dispatch on `build_system` automatically.",
+                    "Flutter iOS archive produces an IPA directly (no separate export step needed).",
+                    "React Native iOS archive uses `xcodebuild archive` + export, same as native.",
+                    "Distribution actions (testflight / play-store / upload) are unchanged.",
                 ]
             case .native:
                 break

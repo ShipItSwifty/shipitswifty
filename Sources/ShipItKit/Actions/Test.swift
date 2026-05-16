@@ -238,9 +238,7 @@ public struct TestAction: Action {
         do {
             output = try await flutter.run()
         } catch let ShellError.exitFailure(_, shellOutput) {
-            let combinedLog = [shellOutput.stdout, shellOutput.stderr]
-                .filter { !$0.isEmpty }
-                .joined(separator: "\n")
+            let combinedLog = ShellRunHelpers.combinedLog(shellOutput)
             let failCount = parseFlutterFailureCount(from: combinedLog)
             logger.error("Flutter tests failed with \(failCount) failure(s)")
             throw ShipItError.testFailed(
@@ -250,11 +248,12 @@ public struct TestAction: Action {
             )
         }
         if output.exitCode != 0 {
-            let failCount = parseFlutterFailureCount(from: output.stdout + output.stderr)
+            let combinedLog = ShellRunHelpers.combinedLog(output)
+            let failCount = parseFlutterFailureCount(from: combinedLog)
             throw ShipItError.testFailed(
                 exitCode: Int(output.exitCode),
                 failureCount: failCount,
-                log: output.stderr
+                log: combinedLog
             )
         }
         let (pass, fail, skip) = parseFlutterCounts(from: output.stdout)

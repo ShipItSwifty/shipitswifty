@@ -132,9 +132,6 @@ public struct BuildAction: Action {
         /// Path to the output APK file. (Android)
         public let apkPath: String?
 
-        /// Path to the output AAB file. (Android app bundle builds)
-        public let aabPath: String?
-
         /// Exit code from the build tool.
         public let exitCode: Int
 
@@ -146,14 +143,12 @@ public struct BuildAction: Action {
             appPath: String? = nil,
             dsymPath: String? = nil,
             apkPath: String? = nil,
-            aabPath: String? = nil,
             exitCode: Int = 0,
             warnings: Int = 0
         ) {
             self.appPath = appPath
             self.dsymPath = dsymPath
             self.apkPath = apkPath
-            self.aabPath = aabPath
             self.exitCode = exitCode
             self.warnings = warnings
         }
@@ -212,34 +207,22 @@ public struct BuildAction: Action {
     // MARK: - Flutter iOS Build
 
     #if os(macOS)
-    /// Runs `flutter build ipa --release` to compile a Flutter iOS app.
+    /// Runs `flutter build ios --release` to compile and validate the Flutter iOS app.
     ///
-    /// Flutter's IPA command bundles both the Dart layer and the iOS host app, producing
-    /// `build/ios/ipa/*.ipa` directly. There is no separate `xcodebuild archive` or
-    /// `xcodebuild -exportArchive` step needed — use `ArchiveAction` to get the final IPA path.
+    /// Unlike `ArchiveAction` (which runs `flutter build ipa`), the build step uses
+    /// `flutter build ios` — a lighter compile-only check that does not produce an IPA.
+    /// This avoids running the full IPA export twice when a workflow has both `build` and
+    /// `archive` steps.
     private func runFlutterIOS(options: Options, context: ActionContext) async throws -> Result {
         let flavor = options.flavor
-        logger.info("Building Flutter iOS app (flutter build ipa\(flavor.map { " --flavor \($0)" } ?? ""))")
+        logger.info("Building Flutter iOS app (flutter build ios\(flavor.map { " --flavor \($0)" } ?? ""))")
 
         let flutter = FlutterCLI(context: context.shell)
-            .buildIPA(flavor: flavor)
+            .buildIOS(flavor: flavor)
 
-        let output: ShellOutput
-        do {
-            output = try await flutter.run()
-        } catch let ShellError.exitFailure(_, shellOutput) {
-            logger.error("Flutter iOS build failed with exit code \(shellOutput.exitCode)")
-            throw ShipItError.buildFailed(
-                exitCode: Int(shellOutput.exitCode),
-                log: [shellOutput.stdout, shellOutput.stderr]
-                    .filter { !$0.isEmpty }
-                    .joined(separator: "\n")
-            )
-        }
-
-        if output.exitCode != 0 {
-            logger.error("Flutter iOS build failed with exit code \(output.exitCode)")
-            throw ShipItError.buildFailed(exitCode: Int(output.exitCode), log: output.stderr)
+        let output = try await ShellRunHelpers.run(flutter) { exitCode, log in
+            logger.error("Flutter iOS build failed with exit code \(exitCode)")
+            return .buildFailed(exitCode: exitCode, log: log)
         }
 
         logger.info("Flutter iOS build succeeded")
@@ -249,7 +232,7 @@ public struct BuildAction: Action {
 
     // MARK: - Flutter Android Build
 
-    /// Runs `flutter build appbundle --release` to produce a release AAB.
+    /// Runs `flutter build apk --release` to produce a release APK.
     private func runFlutterAndroid(options: Options, context: ActionContext) async throws -> Result {
         let flavor = options.flavor
         logger.info("Building Flutter Android APK\(flavor.map { " (flavor: \($0))" } ?? "")")
@@ -257,22 +240,9 @@ public struct BuildAction: Action {
         let flutter = FlutterCLI(context: context.shell)
             .buildAPK(flavor: flavor)
 
-        let output: ShellOutput
-        do {
-            output = try await flutter.run()
-        } catch let ShellError.exitFailure(_, shellOutput) {
-            logger.error("Flutter Android build failed with exit code \(shellOutput.exitCode)")
-            throw ShipItError.buildFailed(
-                exitCode: Int(shellOutput.exitCode),
-                log: [shellOutput.stdout, shellOutput.stderr]
-                    .filter { !$0.isEmpty }
-                    .joined(separator: "\n")
-            )
-        }
-
-        if output.exitCode != 0 {
-            logger.error("Flutter Android build failed with exit code \(output.exitCode)")
-            throw ShipItError.buildFailed(exitCode: Int(output.exitCode), log: output.stderr)
+        let output = try await ShellRunHelpers.run(flutter) { exitCode, log in
+            logger.error("Flutter Android build failed with exit code \(exitCode)")
+            return .buildFailed(exitCode: exitCode, log: log)
         }
 
         logger.info("Flutter Android build succeeded")
@@ -298,22 +268,9 @@ public struct BuildAction: Action {
         let rn = ReactNativeCLI(context: context.shell)
             .buildIOS(mode: configuration, scheme: scheme)
 
-        let output: ShellOutput
-        do {
-            output = try await rn.run()
-        } catch let ShellError.exitFailure(_, shellOutput) {
-            logger.error("React Native iOS build failed with exit code \(shellOutput.exitCode)")
-            throw ShipItError.buildFailed(
-                exitCode: Int(shellOutput.exitCode),
-                log: [shellOutput.stdout, shellOutput.stderr]
-                    .filter { !$0.isEmpty }
-                    .joined(separator: "\n")
-            )
-        }
-
-        if output.exitCode != 0 {
-            logger.error("React Native iOS build failed with exit code \(output.exitCode)")
-            throw ShipItError.buildFailed(exitCode: Int(output.exitCode), log: output.stderr)
+        let output = try await ShellRunHelpers.run(rn) { exitCode, log in
+            logger.error("React Native iOS build failed with exit code \(exitCode)")
+            return .buildFailed(exitCode: exitCode, log: log)
         }
 
         logger.info("React Native iOS build succeeded")
@@ -323,7 +280,7 @@ public struct BuildAction: Action {
 
     // MARK: - React Native Android Build
 
-    /// Runs `npx react-native build-android --mode=release` to produce a release AAB.
+    /// Runs `npx react-native build-android --mode=release` to produce a release APK.
     private func runReactNativeAndroid(
         options: Options, context: ActionContext
     ) async throws -> Result {
@@ -333,22 +290,9 @@ public struct BuildAction: Action {
         let rn = ReactNativeCLI(context: context.shell)
             .buildAndroid(mode: variant)
 
-        let output: ShellOutput
-        do {
-            output = try await rn.run()
-        } catch let ShellError.exitFailure(_, shellOutput) {
-            logger.error("React Native Android build failed with exit code \(shellOutput.exitCode)")
-            throw ShipItError.buildFailed(
-                exitCode: Int(shellOutput.exitCode),
-                log: [shellOutput.stdout, shellOutput.stderr]
-                    .filter { !$0.isEmpty }
-                    .joined(separator: "\n")
-            )
-        }
-
-        if output.exitCode != 0 {
-            logger.error("React Native Android build failed with exit code \(output.exitCode)")
-            throw ShipItError.buildFailed(exitCode: Int(output.exitCode), log: output.stderr)
+        let output = try await ShellRunHelpers.run(rn) { exitCode, log in
+            logger.error("React Native Android build failed with exit code \(exitCode)")
+            return .buildFailed(exitCode: exitCode, log: log)
         }
 
         logger.info("React Native Android build succeeded")
