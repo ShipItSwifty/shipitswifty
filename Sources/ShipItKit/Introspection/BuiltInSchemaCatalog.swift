@@ -683,7 +683,8 @@ public enum BuiltInSchemaCatalog {
                 example: .string("release")),
             .string(
                 "flavor",
-                description: "Product flavor name (e.g. free, paid). Combined with build_variant for task names. Also used by Flutter and React Native builds.",
+                description:
+                    "Product flavor name (e.g. free, paid). Combined with build_variant for task names. Also used by Flutter and React Native builds.",
                 example: .string("free")),
             .array(
                 "gradle_properties",
@@ -801,7 +802,8 @@ public enum BuiltInSchemaCatalog {
                 example: .string("release")),
             .string(
                 "flavor",
-                description: "Product flavor name (e.g. free, paid). Combined with build_variant for task names. Also used by Flutter and React Native archives.",
+                description:
+                    "Product flavor name (e.g. free, paid). Combined with build_variant for task names. Also used by Flutter and React Native archives.",
                 example: .string("free")),
             .array(
                 "gradle_properties",

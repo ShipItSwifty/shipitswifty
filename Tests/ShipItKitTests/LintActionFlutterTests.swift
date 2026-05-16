@@ -29,11 +29,11 @@ struct LintActionFlutterTests {
     @Test("Flutter lint returns issue count from flutter analyze output")
     func flutterLintCountsIssues() async throws {
         let analyzeOutput = """
-        Analyzing my_app...
-          • Avoid using print. Try using a Logger instead.
-          • Prefer single quotes.
-        2 issues found.
-        """
+            Analyzing my_app...
+              • Avoid using print. Try using a Logger instead.
+              • Prefer single quotes.
+            2 issues found.
+            """
         let (executor, _) = makeCaptureExecutor { _, _ in
             ShellOutput(stdout: analyzeOutput, stderr: "", exitCode: 0)
         }
@@ -51,13 +51,13 @@ struct LintActionFlutterTests {
     func rnLintRunsPackageManagerScript() async throws {
         let tempDir = try makeTempDirectory(prefix: "RNLintAction")
         let packageJSON = """
-        {
-          "name": "my-app",
-          "scripts": {
-            "lint": "eslint src/"
-          }
-        }
-        """
+            {
+              "name": "my-app",
+              "scripts": {
+                "lint": "eslint src/"
+              }
+            }
+            """
         try packageJSON.write(
             to: tempDir.appendingPathComponent("package.json"),
             atomically: true,
@@ -84,8 +84,8 @@ struct LintActionFlutterTests {
     func rnLintThrowsWhenScriptMissing() async throws {
         let tempDir = try makeTempDirectory(prefix: "RNLintNoScript")
         let packageJSON = """
-        {"name": "my-app", "scripts": {}}
-        """
+            {"name": "my-app", "scripts": {}}
+            """
         try packageJSON.write(
             to: tempDir.appendingPathComponent("package.json"),
             atomically: true,
@@ -113,8 +113,8 @@ struct LintActionFlutterTests {
     func rnLintDoesNotSwallowUnexpectedErrors() async throws {
         let tempDir = try makeTempDirectory(prefix: "RNLintUnexpectedError")
         let packageJSON = """
-        {"name": "my-app", "scripts": {"lint": "eslint src/"}}
-        """
+            {"name": "my-app", "scripts": {"lint": "eslint src/"}}
+            """
         try packageJSON.write(
             to: tempDir.appendingPathComponent("package.json"),
             atomically: true,

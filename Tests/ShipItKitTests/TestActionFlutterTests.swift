@@ -29,7 +29,8 @@ struct TestActionFlutterTests {
     @Test("Flutter test failure propagates test counts")
     func flutterTestFailurePropagatesCounts() async throws {
         let (executor, _) = makeCaptureExecutor { _, _ in
-            throw ShellError.exitFailure(command: "flutter", output: ShellOutput(stdout: "00:02 +11 -2: Some tests failed.\n", stderr: "", exitCode: 1))
+            throw ShellError.exitFailure(
+                command: "flutter", output: ShellOutput(stdout: "00:02 +11 -2: Some tests failed.\n", stderr: "", exitCode: 1))
         }
         let config = ResolvedConfig(
             platform: .android,
@@ -72,14 +73,14 @@ struct TestActionFlutterTests {
         // Create a temporary package.json with a test script
         let tempDir = try makeTempDirectory(prefix: "RNTestAction")
         let packageJSON = """
-        {
-          "name": "my-app",
-          "scripts": {
-            "test": "jest --passWithNoTests",
-            "lint": "eslint ."
-          }
-        }
-        """
+            {
+              "name": "my-app",
+              "scripts": {
+                "test": "jest --passWithNoTests",
+                "lint": "eslint ."
+              }
+            }
+            """
         try packageJSON.write(
             to: tempDir.appendingPathComponent("package.json"),
             atomically: true,
@@ -112,11 +113,11 @@ struct TestActionFlutterTests {
     func rnTestThrowsWhenScriptMissing() async throws {
         let tempDir = try makeTempDirectory(prefix: "RNTestNoScript")
         let packageJSON = """
-        {
-          "name": "my-app",
-          "scripts": {}
-        }
-        """
+            {
+              "name": "my-app",
+              "scripts": {}
+            }
+            """
         try packageJSON.write(
             to: tempDir.appendingPathComponent("package.json"),
             atomically: true,

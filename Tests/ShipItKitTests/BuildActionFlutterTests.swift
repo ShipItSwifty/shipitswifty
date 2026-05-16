@@ -56,7 +56,8 @@ struct BuildActionFlutterTests {
     @Test("Flutter build failure throws buildFailed")
     func flutterBuildFailureThrows() async throws {
         let executor = MockExecutor { _, _ in
-            throw ShellError.exitFailure(command: "flutter", output: ShellOutput(stdout: "", stderr: "Error: pubspec.yaml not found", exitCode: 1))
+            throw ShellError.exitFailure(
+                command: "flutter", output: ShellOutput(stdout: "", stderr: "Error: pubspec.yaml not found", exitCode: 1))
         }
         let config = ResolvedConfig(
             platform: .android,
