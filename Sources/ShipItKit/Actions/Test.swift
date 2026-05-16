@@ -336,7 +336,8 @@ public struct TestAction: Action {
         var skip = 0
         for line in output.components(separatedBy: "\n") {
             guard line.contains("Tests:") else { continue }
-            let words = line
+            let words =
+                line
                 .components(separatedBy: CharacterSet.whitespacesAndNewlines)
                 .map { $0.trimmingCharacters(in: CharacterSet(charactersIn: ",")) }
                 .filter { !$0.isEmpty }
@@ -344,13 +345,19 @@ public struct TestAction: Action {
                 guard i > 0 else { continue }
                 if word == "passed",
                     let n = Int(words[i - 1])
-                { pass = n }
+                {
+                    pass = n
+                }
                 if word == "failed",
                     let n = Int(words[i - 1])
-                { fail = n }
+                {
+                    fail = n
+                }
                 if word == "skipped" || word == "todo",
                     let n = Int(words[i - 1])
-                { skip = n }
+                {
+                    skip = n
+                }
             }
         }
         return (pass: pass, fail: fail, skip: skip)
