@@ -84,8 +84,8 @@ Shipfile.yml / CLI flags / env vars
                   ┌─────────────────────────┐     ┌──────────────────────────┐
 .native           │ xcodebuild              │     │ gradlew assemble/bundle  │
 .kmp              │ gradlew link… → xcb     │     │ gradlew bundleRelease    │
-.flutter (🚧)     │ flutter build ipa → xcb │     │ flutter build appbundle  │
-.reactNative (🚧) │ Metro → xcodebuild      │     │ Metro → gradlew bundle   │
+.flutter          │ flutter build ipa (IPA direct) │     │ apk build / aab archive  │
+.reactNative      │ Metro → xcodebuild archive     │     │ rn build / bundle task   │
                   └────────────┬────────────┘     └────────────┬─────────────┘
                                ▼                                ▼
                        ┌────────────────────────────────────────────┐

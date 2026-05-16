@@ -1,0 +1,30 @@
+# Shipfile.yml — React Native
+app:
+  scheme: ${SHIPIT_APP__SCHEME}       # Xcode scheme name
+  bundle_id: ${SHIPIT_APP__BUNDLE_ID}
+  team_id: ${SHIPIT_APP__TEAM_ID}
+
+ios:
+  build_system: react_native
+
+android:
+  build_system: react_native
+  package_name: ${SHIPIT_ANDROID__PACKAGE_NAME}
+  play_track: internal
+
+code_signing:
+  type: automatic
+
+workflows:
+  beta-ios:
+    - action: lint
+    - action: test
+    - action: archive   # xcodebuild archive on RN-generated Xcode project
+    - action: export
+    - action: testflight
+
+  beta-android:
+    - action: lint
+    - action: test
+    - action: archive   # npx react-native build-android --mode=release --tasks bundleRelease
+    - action: play-store

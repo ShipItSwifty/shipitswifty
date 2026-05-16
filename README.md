@@ -51,7 +51,7 @@ Use the CLI directly, embed the library in your own Swift tools, or extend it wi
 | Plugins | ✅ | ✅ | Statically-linked Swift packages contributing custom actions |
 | AI-assisted setup | ✅ | ✅ | `ai-session` returns a stable JSON contract for agents (config inference, secrets, next-action, schema) |
 | Kotlin Multiplatform | ✅ | ✅ | Set `build_system: kmp` per platform — one source tree ships to both stores. See [`docs/kmp-quickstart.md`](docs/kmp-quickstart.md) |
-| Flutter / React Native | 🚧 | 🚧 | Schema-accepted, planned for upcoming releases |
+| Flutter / React Native | ✅ | ✅ | Runtime-supported `build_system` values with framework-aware build, archive, test, lint, and artifact discovery |
 
 For the full feature catalogue and roadmap, see [`docs/features.md`](docs/features.md).
 

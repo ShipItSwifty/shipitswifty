@@ -1,0 +1,75 @@
+@Tutorial(time: 10) {
+    @Intro(title: "Distribute a Flutter app") {
+        Archive the Flutter iOS app as an IPA and the Flutter Android app as an AAB,
+        then run the full CI workflow. Flutter's build pipeline skips the `export`
+        step that native iOS requires.
+
+        @Image(source: chapter-ios.png, alt: "Flutter distribution")
+    }
+
+    @Section(title: "Archive Flutter iOS (flutter build ipa)") {
+        @ContentAndMedia {
+            `shipit archive --platform ios` runs `flutter build ipa --release`,
+            which compiles Dart and the native Swift/ObjC host app, then packages
+            the IPA at `build/ios/ipa/`. No separate `export` step is needed.
+        }
+
+        @Steps {
+            @Step {
+                Archive the Flutter iOS app. The IPA is written to `build/ios/ipa/`.
+
+                @Code(name: "Terminal", file: 23-flutter-ios-archive.sh)
+            }
+
+            @Step {
+                (Optional) Upload to TestFlight. Add an `app_store_connect:` block
+                to the Shipfile and run `shipit testflight`.
+
+                @Code(name: "Terminal", file: 23-flutter-testflight.sh)
+            }
+        }
+    }
+
+    @Section(title: "Archive Flutter Android (flutter build appbundle)") {
+        @ContentAndMedia {
+            `shipit archive --platform android` runs `flutter build appbundle --release`,
+            producing `build/app/outputs/bundle/release/app-release.aab`.
+            The `play-store` and `validate bundle` actions discover this path automatically.
+        }
+
+        @Steps {
+            @Step {
+                Archive the Flutter Android app. The AAB is written to the default output path.
+
+                @Code(name: "Terminal", file: 23-flutter-android-archive.sh)
+            }
+
+            @Step {
+                Validate the AAB before upload.
+
+                @Code(name: "Terminal", file: 23-flutter-validate.sh)
+            }
+        }
+    }
+
+    @Section(title: "Full CI workflow") {
+        @ContentAndMedia {
+            Run the entire workflow — lint, test, archive, and distribute — from a
+            single `shipit run` command. Use `--output json` for structured CI output.
+        }
+
+        @Steps {
+            @Step {
+                Run the full beta iOS workflow in CI mode.
+
+                @Code(name: "Terminal", file: 23-flutter-ci-ios.sh)
+            }
+
+            @Step {
+                Run the full beta Android workflow in CI mode.
+
+                @Code(name: "Terminal", file: 23-flutter-ci-android.sh)
+            }
+        }
+    }
+}

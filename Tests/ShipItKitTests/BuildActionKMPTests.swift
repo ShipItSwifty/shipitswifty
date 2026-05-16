@@ -122,10 +122,10 @@ struct BuildActionKMPTests {
         #expect(hasAssemble, "expected module-qualified gradle assembleRelease for KMP Android target")
     }
 
-    @Test("Flutter is rejected with a clear error in this release")
-    func flutterRejected() async throws {
+    @Test("Flutter iOS build succeeds via flutter build ipa")
+    func flutterSucceeds() async throws {
         let executor = MockExecutor { _, _ in
-            ShellOutput(stdout: "", stderr: "", exitCode: 0)
+            ShellOutput(stdout: "✓ Built build/ios/ipa/Runner.ipa\n", stderr: "", exitCode: 0)
         }
         let config = ResolvedConfig(
             appScheme: "Runner",
@@ -135,6 +135,14 @@ struct BuildActionKMPTests {
         let context = makeTestActionContext(
             executor: executor, config: config, platform: .ios)
 
+        #if os(macOS)
+        let result = try await BuildAction().run(
+            with: BuildAction.Options(scheme: "Runner"),
+            context: context
+        )
+        #expect(result.exitCode == 0)
+        #else
+        // Flutter iOS requires macOS — verify graceful error on Linux
         await #expect {
             _ = try await BuildAction().run(
                 with: BuildAction.Options(scheme: "Runner"),
@@ -144,12 +152,13 @@ struct BuildActionKMPTests {
             guard case ShipItError.invalidConfiguration = error else { return false }
             return true
         }
+        #endif
     }
 
-    @Test("React Native is rejected with a clear error in this release")
-    func reactNativeRejected() async throws {
+    @Test("React Native Android build succeeds via npx react-native build-android")
+    func reactNativeSucceeds() async throws {
         let executor = MockExecutor { _, _ in
-            ShellOutput(stdout: "", stderr: "", exitCode: 0)
+            ShellOutput(stdout: "BUILD SUCCESSFUL\n", stderr: "", exitCode: 0)
         }
         let config = ResolvedConfig(
             platform: .android,
@@ -158,15 +167,11 @@ struct BuildActionKMPTests {
         let context = makeTestActionContext(
             executor: executor, config: config, platform: .android)
 
-        await #expect {
-            _ = try await BuildAction().run(
-                with: BuildAction.Options(module: "app"),
-                context: context
-            )
-        } throws: { error in
-            guard case ShipItError.invalidConfiguration = error else { return false }
-            return true
-        }
+        let result = try await BuildAction().run(
+            with: BuildAction.Options(module: "app"),
+            context: context
+        )
+        #expect(result.exitCode == 0)
     }
 }
 #endif

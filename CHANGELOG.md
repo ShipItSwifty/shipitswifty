@@ -13,10 +13,10 @@ and this project aims to follow [Semantic Versioning](https://semver.org/).
 - `ProjectInspector` now reports `detectedBuildSystem` and `buildSystemFiles` so `shipit inspect` and `shipit ai-session` can surface the resolved value.
 - `KMPVersionSource` reads and writes `versionName` / `versionCode` in `gradle.properties`; opt in with `versioning.source: kmp`.
 - New `GradleTask` statics for KMP: `linkDebugFrameworkIosArm64`, `linkReleaseFrameworkIosArm64`, `linkDebugFrameworkIosSimulatorArm64`, `linkReleaseFrameworkIosSimulatorArm64`, `linkDebugFrameworkIosX64`, `linkReleaseFrameworkIosX64`, `embedAndSignAppleFrameworkForXcode`, `iosSimulatorArm64Test`, `iosArm64Test`, `iosX64Test`, plus a `linkFramework(configuration:target:)` helper.
-- `shipit doctor` adds conditional toolchain probes (`java`, `gradlew`, and — in upcoming releases — `flutter`, `node`, `npx`) when a non-`native` build system is resolved.
+- `shipit doctor` adds conditional toolchain probes (`java`, `gradlew`, `flutter`, `node`, `npx`) when a non-`native` build system is resolved.
+- **Flutter and React Native runtime support.** `build_system: flutter` and `build_system: react_native` now dispatch build, archive, test, lint, validate bundle, and Play Store paths to the appropriate framework toolchain.
 - New DocC article `KMPIntegration` and tutorial chapter "Kotlin Multiplatform" (chapters 9 and 10). New markdown quickstart `docs/kmp-quickstart.md` and CI guide section in `docs/ci-setup.md`.
 - Added `CHANGELOG.md` to track notable project changes.
 
 ### Notes
-- Flutter and React Native `build_system` values are accepted by the schema but produce a clear `invalidConfiguration` error at build time — they are planned for upcoming releases.
 - The `Platform` enum (`ios` / `android`) is unchanged. Cross-platform frameworks are modeled via the orthogonal `BuildSystem` axis so `Platform` keeps its meaning of "which target-OS pipeline runs."

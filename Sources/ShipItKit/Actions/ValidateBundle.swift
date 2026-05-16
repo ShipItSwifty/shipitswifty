@@ -120,7 +120,7 @@ public struct ValidateBundleAction: Action {
     }
 
     public func run(with options: Options, context: ActionContext) async throws -> Result {
-        // Resolve target path
+        // Resolve target path — fall back to build-system defaults when no explicit path given
         let targetPath: String
         let isAAB: Bool
 
@@ -131,9 +131,23 @@ public struct ValidateBundleAction: Action {
             targetPath = apk
             isAAB = false
         } else {
-            throw ShipItError.invalidConfiguration(
-                reason: "validate_bundle requires an artifact path. Pass --aab ./build/app-release.aab or --apk ./build/app-release.apk"
-            )
+            // Auto-discover well-known paths for Flutter / React Native
+            let buildSystem = context.config.androidBuildSystem
+            switch buildSystem {
+            case .flutter:
+                targetPath = CrossPlatformArtifactPaths.flutterAAB(
+                    flavor: context.config.androidGradleProperties["flavor"],
+                    variant: context.config.androidBuildVariant
+                )
+                isAAB = true
+            case .reactNative:
+                targetPath = CrossPlatformArtifactPaths.reactNativeAAB(variant: context.config.androidBuildVariant)
+                isAAB = true
+            default:
+                throw ShipItError.invalidConfiguration(
+                    reason: "validate_bundle requires an artifact path. Pass --aab ./build/app-release.aab or --apk ./build/app-release.apk"
+                )
+            }
         }
 
         guard FileManager.default.fileExists(atPath: targetPath) else {

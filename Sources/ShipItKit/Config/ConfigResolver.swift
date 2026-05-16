@@ -122,20 +122,7 @@ public struct ConfigResolver: Sendable {
         // `--shipfile path/to/Shipfile.yml` (or `SHIPIT_SHIPFILE` pointing outside the cwd)
         // doesn't silently fall through to `.native` against the wrong tree.
         let inspectedBuildSystem = BuildSystem.autoDetect(in: projectRoot)
-        let autoDetectedBuildSystem: BuildSystem?
-        switch inspectedBuildSystem {
-        case .kmp:
-            autoDetectedBuildSystem = .kmp
-        case .flutter, .reactNative:
-            // Flutter/RN are reported by inspection and AI helpers, but they are not wired
-            // for execution yet. Avoid making an unsupported build system active unless the
-            // user explicitly opts in via Shipfile or environment.
-            autoDetectedBuildSystem = nil
-        case .native:
-            autoDetectedBuildSystem = .native
-        case nil:
-            autoDetectedBuildSystem = inspectedBuildSystem
-        }
+        let autoDetectedBuildSystem: BuildSystem? = inspectedBuildSystem
         let iosBuildSystem = resolveBuildSystem(
             platform: .ios,
             shipfile: shipfile,

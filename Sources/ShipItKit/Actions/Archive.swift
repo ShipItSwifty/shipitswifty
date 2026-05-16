@@ -100,19 +100,24 @@ public struct ArchiveAction: Action {
 
     /// Result of a successful archive.
     public struct Result: Codable, Sendable {
-        /// Path to the created `.xcarchive`. (iOS)
+        /// Path to the created `.xcarchive`. (iOS native/KMP/RN)
+        /// For Flutter iOS, this contains the IPA path instead (Flutter skips xcarchive).
         public let archivePath: String?
 
         /// Path to the generated `.aab` file. (Android)
         public let aabPath: String?
 
+        /// Path to the generated `.ipa` file. Set for Flutter iOS where no xcarchive is created.
+        public let ipaPath: String?
+
         /// Exit code from the underlying tool.
         public let exitCode: Int
 
-        /// Creates an iOS `Result`.
+        /// Creates an iOS xcarchive `Result`.
         public init(archivePath: String, exitCode: Int = 0) {
             self.archivePath = archivePath
             self.aabPath = nil
+            self.ipaPath = nil
             self.exitCode = exitCode
         }
 
@@ -120,6 +125,15 @@ public struct ArchiveAction: Action {
         public init(aabPath: String?, exitCode: Int = 0) {
             self.archivePath = nil
             self.aabPath = aabPath
+            self.ipaPath = nil
+            self.exitCode = exitCode
+        }
+
+        /// Creates a Flutter iOS `Result` where the IPA is produced directly (no xcarchive).
+        public init(ipaPath: String?, exitCode: Int = 0) {
+            self.archivePath = nil
+            self.aabPath = nil
+            self.ipaPath = ipaPath
             self.exitCode = exitCode
         }
     }
@@ -146,16 +160,126 @@ public struct ArchiveAction: Action {
         case (.android, .native), (.android, .kmp):
             return try await runAndroid(options: options, context: context)
         case (_, .flutter):
-            throw ShipItError.invalidConfiguration(
-                reason:
-                    "Flutter build_system is not yet supported in this release. Set build_system: native or omit it."
-            )
-        case (_, .reactNative):
-            throw ShipItError.invalidConfiguration(
-                reason:
-                    "React Native build_system is not yet supported in this release. Set build_system: native or omit it."
+            return try await runFlutterArchive(options: options, context: context)
+        case (.ios, .reactNative):
+            #if os(macOS)
+            return try await runReactNativeIOSArchive(options: options, context: context)
+            #else
+            throw ShipItError.invalidConfiguration(reason: "React Native iOS archives require macOS.")
+            #endif
+        case (.android, .reactNative):
+            return try await runReactNativeAndroidArchive(options: options, context: context)
+        }
+    }
+
+    // MARK: - Flutter Archive
+
+    /// Flutter iOS: `flutter build ipa` → IPA at `build/ios/ipa/*.ipa` (no xcarchive).
+    /// Flutter Android: `flutter build appbundle` → AAB at `build/app/outputs/bundle/release/app-release.aab`.
+    private func runFlutterArchive(options: Options, context: ActionContext) async throws -> Result {
+        let flavor = options.flavor
+        switch context.platform {
+        case .ios:
+            #if os(macOS)
+            logger.info("Archiving Flutter iOS app (flutter build ipa\(flavor.map { " --flavor \($0)" } ?? ""))")
+            let flutter = FlutterCLI(context: context.shell).buildIPA(flavor: flavor)
+            let output: ShellOutput
+            do {
+                output = try await flutter.run()
+            } catch let ShellError.exitFailure(_, shellOutput) {
+                logger.error("Flutter iOS archive failed with exit code \(shellOutput.exitCode)")
+                throw ShipItError.archiveFailed(
+                    exitCode: Int(shellOutput.exitCode),
+                    log: [shellOutput.stdout, shellOutput.stderr]
+                        .filter { !$0.isEmpty }
+                        .joined(separator: "\n")
+                )
+            }
+            if output.exitCode != 0 {
+                logger.error("Flutter iOS archive failed with exit code \(output.exitCode)")
+                throw ShipItError.archiveFailed(exitCode: Int(output.exitCode), log: output.stderr)
+            }
+            // Flutter writes the IPA to build/ios/ipa/<AppName>.ipa — we return the
+            // directory glob pattern so downstream steps can discover the actual file.
+            let ipaPath = "build/ios/ipa"
+            logger.info("Flutter iOS archive succeeded. IPA directory: \(ipaPath)")
+            return Result(ipaPath: ipaPath, exitCode: Int(output.exitCode))
+            #else
+            throw ShipItError.invalidConfiguration(reason: "Flutter iOS archives require macOS.")
+            #endif
+        case .android:
+            logger.info("Archiving Flutter Android app (flutter build appbundle\(flavor.map { " --flavor \($0)" } ?? ""))")
+            let flutter = FlutterCLI(context: context.shell).buildAppBundle(flavor: flavor)
+            let output: ShellOutput
+            do {
+                output = try await flutter.run()
+            } catch let ShellError.exitFailure(_, shellOutput) {
+                logger.error("Flutter Android archive failed with exit code \(shellOutput.exitCode)")
+                throw ShipItError.archiveFailed(
+                    exitCode: Int(shellOutput.exitCode),
+                    log: [shellOutput.stdout, shellOutput.stderr]
+                        .filter { !$0.isEmpty }
+                        .joined(separator: "\n")
+                )
+            }
+            if output.exitCode != 0 {
+                logger.error("Flutter Android archive failed with exit code \(output.exitCode)")
+                throw ShipItError.archiveFailed(exitCode: Int(output.exitCode), log: output.stderr)
+            }
+            let aabPath = CrossPlatformArtifactPaths.flutterAAB(flavor: flavor)
+            logger.info("Flutter Android archive succeeded. AAB: \(aabPath)")
+            return Result(aabPath: aabPath, exitCode: Int(output.exitCode))
+        }
+    }
+
+    // MARK: - React Native iOS Archive (xcodebuild archive)
+
+    #if os(macOS)
+    /// React Native iOS archive runs standard `xcodebuild archive` on the generated Xcode project.
+    ///
+    /// Unlike Flutter, the RN CLI does not produce an App Store-ready IPA — `xcodebuild archive`
+    /// and `xcodebuild -exportArchive` (via `ExportAction`) are required.
+    private func runReactNativeIOSArchive(
+        options: Options, context: ActionContext
+    ) async throws -> Result {
+        logger.info("Archiving React Native iOS app via xcodebuild archive")
+        return try await runIOS(options: options, context: context)
+    }
+    #endif
+
+    // MARK: - React Native Android Archive (npx react-native build-android)
+
+    /// React Native Android archive uses the RN CLI which wraps Gradle.
+    ///
+    /// The RN CLI correctly bundles the JS layer before invoking Gradle, producing
+    /// `android/app/build/outputs/bundle/release/app-release.aab`.
+    private func runReactNativeAndroidArchive(
+        options: Options, context: ActionContext
+    ) async throws -> Result {
+        let variant = options.buildVariant ?? context.config.androidBuildVariant
+        let task = CrossPlatformArtifactPaths.gradleTaskName(prefix: "bundle", variant: variant)
+        logger.info("Archiving React Native Android app (npx react-native build-android --mode=\(variant) --tasks \(task))")
+
+        let rn = ReactNativeCLI(context: context.shell).buildAndroid(mode: variant, task: task)
+        let output: ShellOutput
+        do {
+            output = try await rn.run()
+        } catch let ShellError.exitFailure(_, shellOutput) {
+            logger.error("React Native Android archive failed with exit code \(shellOutput.exitCode)")
+            throw ShipItError.archiveFailed(
+                exitCode: Int(shellOutput.exitCode),
+                log: [shellOutput.stdout, shellOutput.stderr]
+                    .filter { !$0.isEmpty }
+                    .joined(separator: "\n")
             )
         }
+        if output.exitCode != 0 {
+            logger.error("React Native Android archive failed with exit code \(output.exitCode)")
+            throw ShipItError.archiveFailed(exitCode: Int(output.exitCode), log: output.stderr)
+        }
+        let aabPath = CrossPlatformArtifactPaths.reactNativeAAB(variant: variant)
+        logger.info("React Native Android archive succeeded. AAB: \(aabPath)")
+        return Result(aabPath: aabPath, exitCode: Int(output.exitCode))
     }
 
     #if os(macOS)

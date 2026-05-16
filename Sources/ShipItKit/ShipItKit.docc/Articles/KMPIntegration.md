@@ -89,13 +89,15 @@ workflows:
 
 ## Auto-detection
 
-When `build_system` is omitted, ``ConfigResolver`` activates KMP automatically from Gradle markers. ``ProjectInspector`` can also report Flutter and React Native markers, but those remain inspection-only until runtime support ships.
+When `build_system` is omitted, ``ConfigResolver`` activates KMP, Flutter, or React Native automatically from project markers.
 
 | Project marker | Detected value |
 |---|---|
 | `build.gradle.kts` applying `kotlin("multiplatform")` or `org.jetbrains.kotlin.multiplatform` | `.kmp` |
-| `pubspec.yaml` containing `flutter:` | `.flutter` reported by inspection only |
-| `package.json` containing `react-native` | `.reactNative` reported by inspection only |
+| `pubspec.yaml` containing `flutter:` | `.flutter` |
+| `package.json` containing `react-native` | `.reactNative` |
+
+For Flutter and React Native usage, see <doc:FlutterAndReactNative>.
 
 The same `BuildSystem` value applies to both iOS and Android in a single project — you cannot have an iOS KMP wrapper alongside a native Android Gradle module from the same Shipfile; that's two projects.
 

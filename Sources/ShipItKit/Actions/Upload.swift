@@ -110,14 +110,7 @@ public struct UploadAction: Action {
     }
 
     private func locateExportedIPA(context: ActionContext) -> String? {
-        let outputDirectory = context.config.exportOutputDirectory ?? "./build/export"
-        guard let contents = try? FileManager.default.contentsOfDirectory(atPath: outputDirectory) else {
-            return nil
-        }
-        guard let ipaName = contents.sorted().first(where: { $0.hasSuffix(".ipa") }) else {
-            return nil
-        }
-        return (outputDirectory as NSString).appendingPathComponent(ipaName)
+        CrossPlatformArtifactPaths.locateExportedIPA(context: context)
     }
 }
 #endif

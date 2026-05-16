@@ -145,8 +145,8 @@ struct ConfigResolverBuildSystemTests {
         #expect(config.projectRoot == tempDirectory.path)
     }
 
-    @Test("Flutter auto-detection is inspection-only until runtime support ships")
-    func flutterAutoDetectionDoesNotActivateUnsupportedRuntime() async throws {
+    @Test("Flutter auto-detection activates flutter build system")
+    func flutterAutoDetectionActivatesFlutterBuildSystem() async throws {
         let tempDirectory = try makeTempDirectory()
         defer { try? FileManager.default.removeItem(at: tempDirectory) }
 
@@ -165,8 +165,8 @@ struct ConfigResolverBuildSystemTests {
         let config = try await ConfigResolver(environment: Environment(env: [:]))
             .resolve(shipfilePath: shipfileURL.path)
 
-        #expect(config.iosBuildSystem == .native)
-        #expect(config.androidBuildSystem == .native)
+        #expect(config.iosBuildSystem == .flutter)
+        #expect(config.androidBuildSystem == .flutter)
     }
 
     @Test("Reads KMP and Gradle execution settings")

@@ -222,16 +222,139 @@ public struct TestAction: Action {
             // KMP Android target is a regular Android Gradle module — reuse the native path.
             return try await runAndroid(options: options, context: context)
         case (_, .flutter):
-            throw ShipItError.invalidConfiguration(
-                reason:
-                    "Flutter build_system is not yet supported in this release. Set build_system: native or omit it."
-            )
+            return try await runFlutterTests(options: options, context: context)
         case (_, .reactNative):
-            throw ShipItError.invalidConfiguration(
-                reason:
-                    "React Native build_system is not yet supported in this release. Set build_system: native or omit it."
+            return try await runReactNativeTests(options: options, context: context)
+        }
+    }
+
+    // MARK: - Flutter Tests (flutter test)
+
+    /// Runs `flutter test` for Flutter projects (both iOS and Android platforms).
+    private func runFlutterTests(options: Options, context: ActionContext) async throws -> Result {
+        logger.info("Running Flutter tests (flutter test)")
+        let flutter = FlutterCLI(context: context.shell).test()
+        let output: ShellOutput
+        do {
+            output = try await flutter.run()
+        } catch let ShellError.exitFailure(_, shellOutput) {
+            let combinedLog = [shellOutput.stdout, shellOutput.stderr]
+                .filter { !$0.isEmpty }
+                .joined(separator: "\n")
+            let failCount = parseFlutterFailureCount(from: combinedLog)
+            logger.error("Flutter tests failed with \(failCount) failure(s)")
+            throw ShipItError.testFailed(
+                exitCode: Int(shellOutput.exitCode),
+                failureCount: failCount,
+                log: combinedLog
             )
         }
+        if output.exitCode != 0 {
+            let failCount = parseFlutterFailureCount(from: output.stdout + output.stderr)
+            throw ShipItError.testFailed(
+                exitCode: Int(output.exitCode),
+                failureCount: failCount,
+                log: output.stderr
+            )
+        }
+        let (pass, fail, skip) = parseFlutterCounts(from: output.stdout)
+        logger.info("Flutter tests complete — pass: \(pass), fail: \(fail), skip: \(skip)")
+        return Result(passCount: pass, failCount: fail, skipCount: skip)
+    }
+
+    // MARK: - React Native Tests (package manager run test)
+
+    /// Runs the `test` script from `package.json` using the detected JS package manager.
+    ///
+    /// The package manager is auto-detected from lockfiles (`pnpm-lock.yaml` → pnpm,
+    /// `yarn.lock` → yarn, otherwise npm). Throws a clear error when the `test` script
+    /// is not declared in `package.json`.
+    private func runReactNativeTests(
+        options: Options, context: ActionContext
+    ) async throws -> Result {
+        let projectRoot = context.config.projectRoot
+        logger.info("Running React Native tests via JS package manager")
+        let runner = JSScriptRunner(context: context.shell, projectRoot: projectRoot)
+        logger.info(
+            "Detected package manager: \(runner.resolvedPackageManager.rawValue)"
+        )
+        let output = try await runner.run(script: "test")
+        let (pass, fail, skip) = parseJSTestCounts(from: output.stdout + output.stderr)
+        logger.info("React Native tests complete — pass: \(pass), fail: \(fail), skip: \(skip)")
+        return Result(passCount: pass, failCount: fail, skipCount: skip)
+    }
+
+    // MARK: - Flutter / RN parse helpers
+
+    static func parseFlutterTestCountsForTesting(from output: String) -> (pass: Int, fail: Int, skip: Int) {
+        Self().parseFlutterCounts(from: output)
+    }
+
+    static func parseJSTestCountsForTesting(from output: String) -> (pass: Int, fail: Int, skip: Int) {
+        Self().parseJSTestCounts(from: output)
+    }
+
+    private func parseFlutterCounts(from output: String) -> (pass: Int, fail: Int, skip: Int) {
+        // Flutter test output format (one status line per test result, final line is summary):
+        //   "00:01 +12: All tests passed!"       → 12 passed
+        //   "00:02 +11 -2: Some tests failed."   → 11 passed (cumulative), 2 failed
+        var bestPass = 0
+        var bestFail = 0
+        var bestSkip = 0
+        for line in output.components(separatedBy: "\n") {
+            let tokens = line.components(separatedBy: .whitespaces).filter { !$0.isEmpty }
+            var lineHasCount = false
+            var lineFail = 0
+            var lineSkip = 0
+            for token in tokens {
+                let stripped = token.trimmingCharacters(in: CharacterSet(charactersIn: ":,"))
+                if stripped.hasPrefix("+"), let pass = Int(stripped.dropFirst()) {
+                    bestPass = pass
+                    lineHasCount = true
+                } else if stripped.hasPrefix("-"), let fail = Int(stripped.dropFirst()) {
+                    lineFail = fail
+                    lineHasCount = true
+                } else if stripped.hasPrefix("~"), let skip = Int(stripped.dropFirst()) {
+                    lineSkip = skip
+                    lineHasCount = true
+                }
+            }
+            guard lineHasCount else { continue }
+            bestFail = lineFail
+            bestSkip = lineSkip
+        }
+        return (pass: bestPass, fail: bestFail, skip: bestSkip)
+    }
+
+    private func parseFlutterFailureCount(from output: String) -> Int {
+        parseFlutterCounts(from: output).fail
+    }
+
+    private func parseJSTestCounts(from output: String) -> (pass: Int, fail: Int, skip: Int) {
+        // Jest output: "Tests: 1 failed, 2 skipped, 12 passed, 15 total"
+        var pass = 0
+        var fail = 0
+        var skip = 0
+        for line in output.components(separatedBy: "\n") {
+            guard line.contains("Tests:") else { continue }
+            let words = line
+                .components(separatedBy: CharacterSet.whitespacesAndNewlines)
+                .map { $0.trimmingCharacters(in: CharacterSet(charactersIn: ",")) }
+                .filter { !$0.isEmpty }
+            for (i, word) in words.enumerated() {
+                guard i > 0 else { continue }
+                if word == "passed",
+                    let n = Int(words[i - 1])
+                { pass = n }
+                if word == "failed",
+                    let n = Int(words[i - 1])
+                { fail = n }
+                if word == "skipped" || word == "todo",
+                    let n = Int(words[i - 1])
+                { skip = n }
+            }
+        }
+        return (pass: pass, fail: fail, skip: skip)
     }
 
     // MARK: - KMP iOS Test (gradlew iosSimulatorArm64Test)
