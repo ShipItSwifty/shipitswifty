@@ -217,7 +217,7 @@ public struct ShipfileSuggester: Sendable {
         var missingValues: [SuggestedShipfile.MissingValue] = []
         let warnings = inspection.warnings
 
-        if platform == .ios, (goal == .beta || goal == .release) {
+        if platform == .ios, goal == .beta || goal == .release {
             missingValues.append(
                 .init(
                     keyPath: "app.scheme",
@@ -225,7 +225,7 @@ public struct ShipfileSuggester: Sendable {
                     envVar: "SHIPIT_APP__SCHEME"
                 ))
         }
-        if platform == .android, (goal == .beta || goal == .release) {
+        if platform == .android, goal == .beta || goal == .release {
             missingValues.append(
                 .init(
                     keyPath: "android.keystore_path",
