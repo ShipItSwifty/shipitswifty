@@ -271,6 +271,49 @@ struct GenerateCommand: AsyncParsableCommand {
         addOverride(&overrides, placeholder: "${SHIPIT_ANDROID__KEYSTORE_PATH}", value: keystorePath)
         addOverride(&overrides, placeholder: "${SHIPIT_ANDROID__KEY_ALIAS}", value: keystoreAlias)
 
+        // --- Signing env vars (always shown) ---
+        // Gradle needs these env vars to apply the signing config at build time.
+        // The keystore path and alias are in the Shipfile, but Gradle also reads
+        // them from env vars — so we must inform the user to export all four.
+        var signingEnvOverrides: [String: String] = [:]
+        if !keystorePath.isEmpty { signingEnvOverrides["SHIPIT_ANDROID__KEYSTORE_PATH"] = keystorePath }
+        if !keystoreAlias.isEmpty { signingEnvOverrides["SHIPIT_ANDROID__KEY_ALIAS"] = keystoreAlias }
+        if !keystorePassword.isEmpty { signingEnvOverrides["SHIPIT_ANDROID__KEYSTORE_PASSWORD"] = keystorePassword }
+        if !keyPassword.isEmpty { signingEnvOverrides["SHIPIT_ANDROID__KEY_PASSWORD"] = keyPassword }
+
+        let signingEnvSpecs: [EnvVarSpec] = [
+            EnvVarSpec(
+                name: "SHIPIT_ANDROID__KEYSTORE_PATH", isSensitive: false,
+                description: "Path to .keystore / .jks file (read by Gradle signingConfig)"),
+            EnvVarSpec(
+                name: "SHIPIT_ANDROID__KEY_ALIAS", isSensitive: false,
+                description: "Keystore key alias (read by Gradle signingConfig)"),
+            EnvVarSpec(
+                name: "SHIPIT_ANDROID__KEYSTORE_PASSWORD", isSensitive: true,
+                description: "Keystore password (read by Gradle signingConfig)"),
+            EnvVarSpec(
+                name: "SHIPIT_ANDROID__KEY_PASSWORD", isSensitive: true,
+                description: "Key alias password (read by Gradle signingConfig)"),
+        ]
+
+        if !signingEnvOverrides.isEmpty {
+            formatter.printHeader("Android Signing — Required Environment Variables")
+            formatter.print("Your build.gradle.kts reads these env vars to sign the release AAB.")
+            formatter.print("Add them to your shell profile (~/.zshrc) or CI secrets:\n")
+            for spec in signingEnvSpecs {
+                guard let value = signingEnvOverrides[spec.name] else { continue }
+                let display =
+                    spec.isSensitive ? String(repeating: "*", count: min(value.count, 8)) : value
+                formatter.print("  export \(spec.name)=\"\(display)\"")
+            }
+            formatter.print("")
+            formatter.printWarning(
+                "Without these exports, Gradle will produce an unsigned AAB that Google Play rejects.")
+            formatter.printWarning(
+                "Sensitive values shown as **** above — copy from your earlier input.")
+            formatter.print("")
+        }
+
         let uploadsToPlay =
             goal == .release
             || confirm(
