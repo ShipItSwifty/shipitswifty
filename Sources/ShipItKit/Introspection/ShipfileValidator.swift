@@ -159,7 +159,11 @@ public struct ShipfileValidator: Sendable {
         var issues: [ValidationIssue] = []
         let action = step.action.lowercased()
 
-        if ["build", "test", "archive"].contains(action), stringOption("scheme", in: options) == nil, config.appScheme == nil {
+        if ["build", "test", "archive"].contains(action),
+            config.platform != .android,
+            stringOption("scheme", in: options) == nil,
+            config.appScheme == nil
+        {
             issues.append(
                 .init(severity: .error, path: ".options.scheme", message: "This action requires a scheme or app.scheme in config."))
         }

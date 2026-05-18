@@ -184,7 +184,7 @@ Copy the full annotated example: `cp Shipfile.example.yml Shipfile.yml`.
 | Group | Commands |
 |---|---|
 | **Setup / inspection** | `generate`, `doctor`, `env`, `inspect`, `suggest-config`, `schema` |
-| **AI agents** | `ai-bootstrap`, `ai-session` |
+| **AI agents** | `ai-session` |
 | **Validation** | `validate yml`, `validate metadata`, `validate archive`, `validate bundle`, `validate all`, `precheck` (alias) |
 | **Build & test** | `build`, `test`, `coverage`, `lint`, `archive`, `export` |
 | **Distribution (iOS)** | `upload`, `testflight`, `metadata`, `sign`, `provision`, `snapshot`, `frame` |

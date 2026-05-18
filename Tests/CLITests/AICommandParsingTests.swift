@@ -116,33 +116,6 @@ struct AICommandParsingTests {
         #expect(command.path == "/tmp/example")
     }
 
-    @Test("AI bootstrap parses goal and path")
-    func aiBootstrapParsesGoalAndPath() throws {
-        let command =
-            try AIBootstrapCommand.parseAsRoot([
-                "--goal",
-                "local",
-                "--path",
-                "/tmp/project",
-            ]) as! AIBootstrapCommand
-
-        #expect(command.goal == .local)
-        #expect(command.path == "/tmp/project")
-    }
-
-    @Test("AI bootstrap uses narrow bootstrap options")
-    func aiBootstrapUsesBootstrapOptions() throws {
-        let command =
-            try AIBootstrapCommand.parseAsRoot([
-                "--shipfile",
-                "./Config/Shipfile.yml",
-                "--verbose",
-            ]) as! AIBootstrapCommand
-
-        #expect(command.options.shipfile == "./Config/Shipfile.yml")
-        #expect(command.options.verbose)
-    }
-
     @Test("Schema field JSON includes nested properties")
     func schemaFieldJSONIncludesNestedProperties() {
         let field = SchemaField.object(

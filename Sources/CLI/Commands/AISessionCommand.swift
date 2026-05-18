@@ -28,7 +28,7 @@ struct AISessionCommand: AsyncParsableCommand {
         abstract: "Structured AI-agent session bootstrap — stable JSON contract (v\(AISessionBuilder.contractVersion))"
     )
 
-    @OptionGroup var options: AIBootstrapOptions
+    @OptionGroup var options: AISessionOptions
 
     @Option(name: .long, help: "Goal to optimize for: local, beta, or release")
     var goal: SuggestionGoal = .beta

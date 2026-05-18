@@ -283,7 +283,6 @@ COMMANDS:
                   --workflow <local|beta|release>  Emit only sections/actions relevant to that goal
   inspect       Inspect project facts for AI-assisted config generation
   suggest-config Generate a suggested Shipfile for local, beta, or release goals
-  ai-bootstrap  Always-JSON bootstrap payload for AI agents (inspection + schema + suggestion + validation)
   ai-session    Stable, versioned JSON contract for AI agents (v1)
                   Returns: inferred config with confidence + provenance, secret descriptors,
                   ambiguity flags, readiness diagnosis, next action, agent prompt, next question
@@ -608,7 +607,7 @@ public actor RateLimiter: Sendable {
 
 ## Introspection types
 
-These types live in `Sources/ShipItKit/Introspection/` and power `ai-session`, `ai-bootstrap`, `suggest-config`, `inspect`, and `schema`.
+These types live in `Sources/ShipItKit/Introspection/` and power `ai-session`, `suggest-config`, `inspect`, and `schema`.
 
 | Type | Role |
 |---|---|

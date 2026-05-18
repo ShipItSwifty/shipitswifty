@@ -32,7 +32,6 @@ struct ShipItCLI: AsyncParsableCommand {
             SchemaCommand.self,
             InspectCommand.self,
             SuggestConfigCommand.self,
-            AIBootstrapCommand.self,
             AISessionCommand.self,
             ValidateCommand.self,
             BuildCommand.self,
@@ -125,8 +124,8 @@ struct GlobalOptions: ParsableArguments {
     }
 }
 
-/// Narrow option set for JSON-only AI bootstrap flows.
-struct AIBootstrapOptions: ParsableArguments {
+/// Narrow option set for JSON-only AI session flows.
+struct AISessionOptions: ParsableArguments {
     @Option(
         name: .long,
         help: "Path to config file. Defaults to ./Shipfile.yml when checking for an existing Shipfile")
