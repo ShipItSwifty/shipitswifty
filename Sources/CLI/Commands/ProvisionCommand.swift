@@ -32,7 +32,7 @@ struct ProvisionCommand: AsyncParsableCommand {
                 global: global,
                 cliOptions: CLIOptions(ci: global.ci, dryRun: global.dryRun, platform: global.platform)
             )
-            let context = try await buildActionContext(config: config)
+            let context = try await buildActionContext(config: config, verbose: global.verbose)
 
             let opMap: [String: ProvisionAction.ProvisionOperation] = [
                 "create-app-id": .createAppId,

@@ -116,7 +116,7 @@ struct ValidateMetadataCommand: AsyncParsableCommand {
                 global: global,
                 cliOptions: CLIOptions(ci: global.ci, dryRun: global.dryRun, platform: global.platform)
             )
-            let context = try await buildActionContext(config: config)
+            let context = try await buildActionContext(config: config, verbose: global.verbose)
 
             let options = PrecheckAction.Options(
                 directory: directory,
@@ -208,7 +208,7 @@ struct ValidateArchiveCommand: AsyncParsableCommand {
 
     func run() async throws {
         do {
-            let context = try await buildFallbackActionContext(platform: global.platform ?? .ios)
+            let context = try await buildFallbackActionContext(platform: global.platform ?? .ios, verbose: global.verbose)
 
             let options = ValidateArchiveAction.Options(
                 archivePath: archivePath,
@@ -307,7 +307,7 @@ struct ValidateBundleCommand: AsyncParsableCommand {
                 global: global,
                 cliOptions: CLIOptions(ci: global.ci, dryRun: global.dryRun, platform: global.platform)
             )
-            let context = try await buildActionContext(config: config)
+            let context = try await buildActionContext(config: config, verbose: global.verbose)
 
             let options = ValidateBundleAction.Options(
                 aabPath: aab,
@@ -402,7 +402,7 @@ struct ValidateAllCommand: AsyncParsableCommand {
                 global: global,
                 cliOptions: CLIOptions(ci: global.ci, dryRun: global.dryRun, platform: global.platform)
             )
-            let context = try await buildActionContext(config: config)
+            let context = try await buildActionContext(config: config, verbose: global.verbose)
             let precheckOptions = PrecheckAction.Options(
                 directory: directory, failOnWarnings: failOnWarnings ? true : nil)
             _ = try await PrecheckAction().run(with: precheckOptions, context: context)

@@ -1,5 +1,6 @@
 import ArgumentParser
 import Foundation
+import Logging
 import ShipItKit
 
 /// The main CLI entry point for ShipItSwifty.
@@ -69,6 +70,15 @@ struct ShipItCLI: AsyncParsableCommand {
         if arguments == ["--version"] {
             print(versionString)
             return
+        }
+
+        // Bootstrap logging before parsing so every Logger created downstream respects --verbose.
+        let isVerbose = arguments.contains("--verbose")
+        let logLevel: Logger.Level = isVerbose ? .debug : .info
+        LoggingSystem.bootstrap { label in
+            var handler = StreamLogHandler.standardError(label: label)
+            handler.logLevel = logLevel
+            return handler
         }
 
         do {
