@@ -615,7 +615,7 @@ public struct TestAction: Action {
             )
         }
 
-        let (pass, fail, skip) = parseGradleCounts(from: output.stdout)
+        let (pass, fail, skip) = parseGradleCounts(from: output.stdout + "\n" + output.stderr)
         logger.info("Android tests complete — pass: \(pass), fail: \(fail), skip: \(skip)")
 
         return Result(passCount: pass, failCount: fail, skipCount: skip)

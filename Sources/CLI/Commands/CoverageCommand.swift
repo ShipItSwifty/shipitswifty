@@ -88,7 +88,7 @@ struct CoverageCommand: AsyncParsableCommand {
                     platform: global.platform
                 )
             )
-            let context = try await buildActionContext(config: config)
+            let context = try await buildActionContext(config: config, verbose: global.verbose)
 
             let coverageFormat = resolvedCoverageFormat()
 

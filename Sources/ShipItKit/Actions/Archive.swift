@@ -358,6 +358,9 @@ public struct ArchiveAction: Action {
         logger.info("Android bundle succeeded for module '\(module)'")
 
         let aabPath = parseAabPath(from: output.stdout, module: module, variant: variant)
+        if let aabPath {
+            logger.info("Android AAB path: \(aabPath)")
+        }
         return Result(aabPath: aabPath, exitCode: Int(output.exitCode))
     }
 

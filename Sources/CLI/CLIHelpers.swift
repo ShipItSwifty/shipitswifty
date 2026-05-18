@@ -29,9 +29,12 @@ func resolveRequiredConfig(
 /// Creates the Google Play client if service account data is present.
 /// If credentials are missing, creates placeholder clients (will fail on API calls).
 ///
-/// - Parameter config: The resolved configuration.
+/// - Parameters:
+///   - config: The resolved configuration.
+///   - verbose: Unused — log level is set globally at startup via `LoggingSystem.bootstrap`.
+///     Kept for call-site compatibility.
 /// - Returns: An `ActionContext` ready for use by actions.
-func buildActionContext(config: ResolvedConfig) async throws -> ActionContext {
+func buildActionContext(config: ResolvedConfig, verbose: Bool = false) async throws -> ActionContext {
     let shell = ShellContext()
     let logger = Logger.forType(subsystem: "ShipItSwifty", ActionContext.self)
 
@@ -85,8 +88,8 @@ func buildActionContext(config: ResolvedConfig) async throws -> ActionContext {
 }
 
 /// Build a minimal action context for actions that can run without a Shipfile.
-func buildFallbackActionContext(platform: Platform = .ios) async throws -> ActionContext {
-    try await buildActionContext(config: ResolvedConfig(platform: platform))
+func buildFallbackActionContext(platform: Platform = .ios, verbose: Bool = false) async throws -> ActionContext {
+    try await buildActionContext(config: ResolvedConfig(platform: platform), verbose: verbose)
 }
 
 /// Output a successful action result in the specified format.

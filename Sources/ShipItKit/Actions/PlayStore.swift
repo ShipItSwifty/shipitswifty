@@ -154,9 +154,13 @@ public struct PlayStoreAction: Action {
                 resolvedAPKPath = nil
                 logger.info("Auto-discovered \(buildSystem.rawValue) AAB path: \(resolvedAABPath!)")
             default:
-                throw ShipItError.invalidConfiguration(
-                    reason: "Play Store upload requires either --aab or --apk artifact path."
-                )
+                // Native Gradle: derive the conventional AAB output path from module + variant
+                let module = context.config.androidModule
+                let variant = context.config.androidBuildVariant
+                let aab = "\(module)/build/outputs/bundle/\(variant)/\(module)-\(variant).aab"
+                resolvedAABPath = aab
+                resolvedAPKPath = nil
+                logger.info("Auto-discovered native AAB path: \(aab). Override with --aab if the path differs.")
             }
         }
 
