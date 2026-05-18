@@ -1,6 +1,29 @@
 import Foundation
 
 enum CrossPlatformArtifactPaths {
+
+    /// Converts a camelCase variant name (e.g. `"prodRelease"`) to hyphen-separated lowercase
+    /// (e.g. `"prod-release"`), matching Gradle's AAB filename convention.
+    static func hyphenatedVariant(_ variant: String) -> String {
+        var result = ""
+        for char in variant {
+            if char.isUppercase && !result.isEmpty {
+                result += "-"
+            }
+            result += String(char).lowercased()
+        }
+        return result
+    }
+
+    /// Returns the conventional native Gradle AAB path for a given module and variant.
+    ///
+    /// Directory uses the camelCase variant name (e.g. `prodRelease`).
+    /// Filename uses hyphenated lowercase (e.g. `app-prod-release.aab`).
+    static func nativeAAB(module: String = "app", variant: String = "release") -> String {
+        let filename = "\(module)-\(hyphenatedVariant(variant)).aab"
+        return "\(module)/build/outputs/bundle/\(variant)/\(filename)"
+    }
+
     static func flutterAAB(flavor: String? = nil, variant: String = "release") -> String {
         let normalizedVariant = variant.lowercased()
         if let flavor, !flavor.isEmpty {

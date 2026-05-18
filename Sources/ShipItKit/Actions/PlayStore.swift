@@ -171,7 +171,7 @@ public struct PlayStoreAction: Action {
             default:
                 // Native Gradle: derive the conventional AAB output path from module + variant
                 let module = context.config.androidModule
-                let aab = "\(module)/build/outputs/bundle/\(variant)/\(module)-\(variant).aab"
+                let aab = CrossPlatformArtifactPaths.nativeAAB(module: module, variant: variant)
                 resolvedAABPath = aab
                 resolvedAPKPath = nil
                 logger.info("Auto-discovered native AAB path: \(aab). Override with --aab or build_variant option if the path differs.")

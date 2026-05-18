@@ -378,6 +378,6 @@ public struct ArchiveAction: Action {
                 }
             }
         }
-        return "\(module)/build/outputs/bundle/\(variant)/\(module)-\(variant).aab"
+        return CrossPlatformArtifactPaths.nativeAAB(module: module, variant: variant)
     }
 }
