@@ -178,6 +178,7 @@ struct GenerateCommand: AsyncParsableCommand {
     {
         let app = suggestion.inspection.suggestedAppConfig
         formatter.printHeader("Confirm iOS Values")
+        formatter.print("Tip: For any value, you can enter ${MY_ENV_VAR} to reference an environment variable at runtime.\n")
 
         var overrides: [String: String] = [:]
         addOverride(
@@ -256,6 +257,7 @@ struct GenerateCommand: AsyncParsableCommand {
         -> [String: String]
     {
         formatter.printHeader("Confirm Android Values")
+        formatter.print("Tip: For any value, you can enter ${MY_ENV_VAR} to reference an environment variable at runtime.\n")
 
         var overrides: [String: String] = [:]
         addOverride(
@@ -264,6 +266,14 @@ struct GenerateCommand: AsyncParsableCommand {
         addOverride(
             &overrides, placeholder: "${SHIPIT_ANDROID__PACKAGE_NAME}",
             value: ask("Android package name", defaultValue: nil))
+
+        // --- Build variant ---
+        formatter.print("")
+        formatter.print("Build variant determines the AAB output path and Gradle task.")
+        formatter.print("Common values: release, prodRelease, stagingRelease, debug")
+        formatter.print("If you use product flavors (e.g. prod + release), use the combined name (e.g. prodRelease).")
+        let buildVariant = ask("Build variant", defaultValue: "release")
+        addOverride(&overrides, placeholder: "build_variant: release", value: "build_variant: \(buildVariant)")
 
         // --- Keystore setup ---
         let (keystorePath, keystoreAlias, keystorePassword, keyPassword) = collectAndroidKeystore(
@@ -345,14 +355,16 @@ struct GenerateCommand: AsyncParsableCommand {
                 "Do you want this Shipfile to include Google Play upload settings?", defaultAnswer: false)
         if uploadsToPlay {
             formatter.printHeader("Google Play Environment")
-            formatter.print("ShipIt will reference env vars instead of storing secrets in Shipfile.yml.")
+            formatter.print("ShipIt needs these env vars for signing and uploading to Google Play.")
+            formatter.print("Press Enter to accept detected values, or type your own.\n")
 
-            // Values already collected during keystore setup — treat as [collected].
+            // Values already collected during keystore setup
             var envOverrides: [String: String] = [:]
             if !keystorePassword.isEmpty { envOverrides["SHIPIT_ANDROID__KEYSTORE_PASSWORD"] = keystorePassword }
             if !keyPassword.isEmpty { envOverrides["SHIPIT_ANDROID__KEY_PASSWORD"] = keyPassword }
 
             let processEnv = ProcessInfo.processInfo.environment
+            let dotEnvValues = readDotEnvValues(directory: path)
             let envSpecs: [EnvVarSpec] = [
                 EnvVarSpec(
                     name: "GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_PATH", isSensitive: false,
@@ -368,25 +380,34 @@ struct GenerateCommand: AsyncParsableCommand {
                     description: "Key alias password"),
             ]
 
-            // Show status for all specs so the user can see what's already handled.
+            // Show clear status for each var
             for spec in envSpecs {
+                let status: String
                 if envOverrides[spec.name] != nil {
-                    formatter.printKV(spec.name, "[collected]  \(spec.description)")
-                } else if processEnv[spec.name] != nil {
-                    formatter.printKV(spec.name, "[set]  \(spec.description)")
+                    status = "ready (collected above)"
+                } else if let envVal = processEnv[spec.name] {
+                    status = spec.isSensitive ? "ready (set in environment)" : "ready (\(envVal))"
+                } else if let dotVal = dotEnvValues[spec.name] {
+                    status = spec.isSensitive ? "ready (set in .env)" : "ready (\(dotVal))"
                 } else {
-                    formatter.printKV(spec.name, "(not set)  \(spec.description)")
+                    status = "missing"
                 }
+                formatter.print("  \(spec.name): \(status)")
+                formatter.print("    \(spec.description)")
             }
 
-            // Only prompt for specs not yet answered in-memory or in the process env.
+            // Only prompt for vars that are truly missing (not collected, not in env, not in .env)
             let filteredSpecs = envSpecs.filter {
-                envOverrides[$0.name] == nil && processEnv[$0.name] == nil
+                envOverrides[$0.name] == nil
+                    && processEnv[$0.name] == nil
+                    && dotEnvValues[$0.name] == nil
             }
             if !filteredSpecs.isEmpty {
-                formatter.print("")
+                formatter.print("\nThe following are not yet configured:")
                 let collected = collectEnvironmentVariables(filteredSpecs, formatter: formatter, showStatusTable: false)
                 envOverrides.merge(collected) { _, new in new }
+            } else {
+                formatter.print("\nAll required env vars are already configured.")
             }
 
             if !envOverrides.isEmpty {
@@ -418,7 +439,17 @@ struct GenerateCommand: AsyncParsableCommand {
     {
         formatter.printHeader("Android Keystore")
 
-        let hasKeystore = confirm("Do you already have an Android keystore (.jks / .keystore)?", defaultAnswer: true)
+        // If we can detect an existing keystore path from env or .env, skip the "do you have one?" question
+        let env = ProcessInfo.processInfo.environment
+        let dotEnvValues = readDotEnvValues(directory: path)
+        let detectedPath = env["SHIPIT_ANDROID__KEYSTORE_PATH"] ?? dotEnvValues["SHIPIT_ANDROID__KEYSTORE_PATH"]
+
+        let hasKeystore: Bool
+        if detectedPath != nil {
+            hasKeystore = true
+        } else {
+            hasKeystore = confirm("Do you already have an Android keystore (.jks / .keystore)?", defaultAnswer: true)
+        }
 
         if hasKeystore {
             return collectExistingKeystore(formatter: formatter)
@@ -432,32 +463,113 @@ struct GenerateCommand: AsyncParsableCommand {
     private func collectExistingKeystore(formatter: HumanFormatter)
         -> (path: String, alias: String, keystorePassword: String, keyPassword: String)
     {
-        let keystorePath = ask("Keystore path (.jks or .keystore)", defaultValue: nil)
+        let env = ProcessInfo.processInfo.environment
+
+        // Check for existing env vars that could prefill values
+        let existingPath = env["SHIPIT_ANDROID__KEYSTORE_PATH"]
+        let existingAlias = env["SHIPIT_ANDROID__KEY_ALIAS"]
+        let existingKeystorePassword = env["SHIPIT_ANDROID__KEYSTORE_PASSWORD"]
+        let existingKeyPassword = env["SHIPIT_ANDROID__KEY_PASSWORD"]
+
+        // Also check .env file in project directory
+        let dotEnvValues = readDotEnvValues(directory: path)
+        let prefillPath = existingPath ?? dotEnvValues["SHIPIT_ANDROID__KEYSTORE_PATH"]
+        let prefillAlias = existingAlias ?? dotEnvValues["SHIPIT_ANDROID__KEY_ALIAS"]
+        let prefillKeystorePassword = existingKeystorePassword ?? dotEnvValues["SHIPIT_ANDROID__KEYSTORE_PASSWORD"]
+        let prefillKeyPassword = existingKeyPassword ?? dotEnvValues["SHIPIT_ANDROID__KEY_PASSWORD"]
+
+        let hasExisting = prefillPath != nil || prefillAlias != nil
+        if hasExisting {
+            formatter.print("Detected existing signing configuration:")
+            if let p = prefillPath {
+                let source = existingPath != nil ? "env" : ".env"
+                formatter.print("  Keystore path: \(p) (from \(source))")
+            }
+            if let a = prefillAlias {
+                let source = existingAlias != nil ? "env" : ".env"
+                formatter.print("  Key alias: \(a) (from \(source))")
+            }
+            if prefillKeystorePassword != nil { formatter.print("  Keystore password: ******** (detected)") }
+            if prefillKeyPassword != nil { formatter.print("  Key password: ******** (detected)") }
+            formatter.print("")
+        }
+
+        let keystorePath: String
+        if prefillPath != nil {
+            // Show the env var reference as default so Shipfile uses ${ENV_VAR} syntax
+            let envVarDefault = existingPath != nil
+                ? "${SHIPIT_ANDROID__KEYSTORE_PATH}"
+                : (dotEnvValues["SHIPIT_ANDROID__KEYSTORE_PATH"].map { _ in "${SHIPIT_ANDROID__KEYSTORE_PATH}" } ?? prefillPath!)
+            let answer = ask("Keystore path (.jks or .keystore)", defaultValue: envVarDefault)
+            keystorePath = answer
+        } else {
+            keystorePath = ask("Keystore path (.jks or .keystore)", defaultValue: nil)
+        }
+
         guard !keystorePath.isEmpty else {
             formatter.printWarning("No keystore path entered; you can set it manually in Shipfile.yml later.")
             return ("", "", "", "")
         }
 
-        formatter.print("Enter the keystore password to inspect aliases (leave blank to enter alias manually).")
-        let keystorePassword = askSecret("Keystore password")
+        let keystorePassword: String
+        if let prefill = prefillKeystorePassword {
+            formatter.print("Keystore password detected. Press Enter to keep it, or type a new one.")
+            let raw = askSecret("Keystore password")
+            keystorePassword = raw.isEmpty ? prefill : raw
+        } else {
+            formatter.print("Enter the keystore password to inspect aliases (leave blank to enter alias manually).")
+            keystorePassword = askSecret("Keystore password")
+        }
 
         var resolvedAlias = ""
         if !keystorePassword.isEmpty {
+            // Use the actual filesystem path for keytool, not the ${ENV_VAR} reference
+            let actualKeystorePath = prefillPath ?? keystorePath
             resolvedAlias = readAliasFromKeystore(
-                path: keystorePath, password: keystorePassword, formatter: formatter)
+                path: actualKeystorePath, password: keystorePassword, formatter: formatter)
         }
 
         if resolvedAlias.isEmpty {
-            resolvedAlias = ask("Keystore key alias", defaultValue: nil)
+            let aliasDefault: String? = prefillAlias != nil ? "${SHIPIT_ANDROID__KEY_ALIAS}" : nil
+            resolvedAlias = ask("Keystore key alias", defaultValue: aliasDefault)
         }
 
         // Key password may differ from keystore password.
-        formatter.print(
-            "Key password (press Enter to use the same password as the keystore).")
-        let rawKeyPassword = askSecret("Key password")
-        let keyPassword = rawKeyPassword.isEmpty ? keystorePassword : rawKeyPassword
+        let keyPassword: String
+        if let prefill = prefillKeyPassword {
+            formatter.print("Key password detected. Press Enter to keep it, or type a new one.")
+            let raw = askSecret("Key password")
+            keyPassword = raw.isEmpty ? prefill : raw
+        } else {
+            formatter.print(
+                "Key password (press Enter to use the same password as the keystore).")
+            let rawKeyPassword = askSecret("Key password")
+            keyPassword = rawKeyPassword.isEmpty ? keystorePassword : rawKeyPassword
+        }
 
         return (keystorePath, resolvedAlias, keystorePassword, keyPassword)
+    }
+
+    /// Reads KEY=VALUE pairs from a .env file without loading them into the process.
+    private func readDotEnvValues(directory: String) -> [String: String] {
+        let envPath = (directory as NSString).appendingPathComponent(".env")
+        guard let contents = try? String(contentsOfFile: envPath, encoding: .utf8) else { return [:] }
+        var result: [String: String] = [:]
+        for line in contents.components(separatedBy: "\n") {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            guard !trimmed.isEmpty, !trimmed.hasPrefix("#") else { continue }
+            var keyValue = trimmed
+            if keyValue.hasPrefix("export ") { keyValue = String(keyValue.dropFirst("export ".count)) }
+            guard let eq = keyValue.firstIndex(of: "=") else { continue }
+            let key = String(keyValue[..<eq]).trimmingCharacters(in: .whitespaces)
+            var value = String(keyValue[keyValue.index(after: eq)...]).trimmingCharacters(in: .whitespaces)
+            if (value.hasPrefix("\"") && value.hasSuffix("\""))
+                || (value.hasPrefix("'") && value.hasSuffix("'")) {
+                value = String(value.dropFirst().dropLast())
+            }
+            result[key] = value
+        }
+        return result
     }
 
     /// Runs `keytool -list -v` to extract aliases from an existing keystore.
