@@ -31,8 +31,8 @@ func resolveRequiredConfig(
 ///
 /// - Parameters:
 ///   - config: The resolved configuration.
-///   - verbose: Unused — log level is set globally at startup via `LoggingSystem.bootstrap`.
-///     Kept for call-site compatibility.
+///   - verbose: When `true`, raw command output is logged at debug level and stored in
+///     `ActionContext.verbose` so actions can emit additional diagnostic info.
 /// - Returns: An `ActionContext` ready for use by actions.
 func buildActionContext(config: ResolvedConfig, verbose: Bool = false) async throws -> ActionContext {
     let shell = ShellContext()
@@ -74,7 +74,8 @@ func buildActionContext(config: ResolvedConfig, verbose: Bool = false) async thr
         config: config,
         appStoreConnect: ascClient,
         googlePlay: googlePlayClient,
-        platform: config.platform
+        platform: config.platform,
+        verbose: verbose
     )
     #else
     return ActionContext(
@@ -82,7 +83,8 @@ func buildActionContext(config: ResolvedConfig, verbose: Bool = false) async thr
         logger: logger,
         config: config,
         googlePlay: googlePlayClient,
-        platform: config.platform
+        platform: config.platform,
+        verbose: verbose
     )
     #endif
 }

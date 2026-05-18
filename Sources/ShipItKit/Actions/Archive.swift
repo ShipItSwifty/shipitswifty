@@ -356,6 +356,7 @@ public struct ArchiveAction: Action {
         }
 
         logger.info("Android bundle succeeded for module '\(module)'")
+        context.logShellOutput(output, label: "gradlew bundle")
 
         let aabPath = parseAabPath(from: output.stdout, module: module, variant: variant)
         if let aabPath {

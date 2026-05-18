@@ -27,6 +27,11 @@ public struct ActionContext: Sendable {
     /// Merged configuration from Shipfile + env + CLI.
     public let config: ResolvedConfig
 
+    /// When `true`, raw stdout/stderr from shell commands is emitted at debug log level.
+    ///
+    /// Set by `--verbose` at the CLI layer via `buildActionContext(config:verbose:)`.
+    public let verbose: Bool
+
     #if os(macOS)
     /// App Store Connect API client (iOS, macOS only).
     public let appStoreConnect: AppStoreConnectClient
@@ -48,13 +53,15 @@ public struct ActionContext: Sendable {
     ///   - appStoreConnect: App Store Connect API client.
     ///   - googlePlay: Google Play API client (optional; only present for Android).
     ///   - platform: Target platform (default: `.ios`).
+    ///   - verbose: When `true`, raw command output is logged at debug level (default: `false`).
     public init(
         shell: ShellContext,
         logger: Logger,
         config: ResolvedConfig,
         appStoreConnect: AppStoreConnectClient,
         googlePlay: GooglePlayClient? = nil,
-        platform: Platform = .ios
+        platform: Platform = .ios,
+        verbose: Bool = false
     ) {
         self.shell = shell
         self.logger = logger
@@ -62,6 +69,7 @@ public struct ActionContext: Sendable {
         self.appStoreConnect = appStoreConnect
         self.googlePlay = googlePlay
         self.platform = platform
+        self.verbose = verbose
     }
     #else
     /// Creates an `ActionContext` (Linux). App Store Connect features are unavailable on Linux.
@@ -70,13 +78,15 @@ public struct ActionContext: Sendable {
         logger: Logger,
         config: ResolvedConfig,
         googlePlay: GooglePlayClient? = nil,
-        platform: Platform = .android
+        platform: Platform = .android,
+        verbose: Bool = false
     ) {
         self.shell = shell
         self.logger = logger
         self.config = config
         self.googlePlay = googlePlay
         self.platform = platform
+        self.verbose = verbose
     }
     #endif
 
@@ -144,6 +154,24 @@ public struct ActionContext: Sendable {
 }
 
 extension ActionContext {
+    /// Logs `stdout` and `stderr` from a shell command at `.debug` level when verbose is enabled.
+    ///
+    /// Call this immediately after any `.run()` that you want surfaced under `--verbose`.
+    /// Output is suppressed when `verbose` is `false` so there is no overhead in normal runs.
+    ///
+    /// - Parameters:
+    ///   - output: The `ShellOutput` returned by a command.
+    ///   - label: A short label shown before the output block, e.g. `"gradlew"`.
+    public func logShellOutput(_ output: ShellOutput, label: String) {
+        guard verbose else { return }
+        if !output.stdout.isEmpty {
+            logger.debug("\(label) stdout:\n\(output.stdout.trimmingCharacters(in: .newlines))")
+        }
+        if !output.stderr.isEmpty {
+            logger.debug("\(label) stderr:\n\(output.stderr.trimmingCharacters(in: .newlines))")
+        }
+    }
+
     /// Creates a Gradle command family with ShipIt's resolved project settings applied.
     ///
     /// The returned value uses the configured Gradle project directory, explicit wrapper path,
@@ -161,6 +189,13 @@ extension ActionContext {
 
         for flag in config.androidGradleFlags where flag != "--no-daemon" {
             gradle = gradle.flag(.custom(flag))
+        }
+
+        if verbose {
+            let projectDir = config.gradleProjectDir
+            let buildDir = "\(projectDir)/\(config.androidModule)/build"
+            logger.debug("Gradle project dir: \(projectDir)")
+            logger.debug("Android build output dir: \(buildDir)/outputs")
         }
 
         return gradle

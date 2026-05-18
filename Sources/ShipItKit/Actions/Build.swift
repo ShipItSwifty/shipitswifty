@@ -459,6 +459,7 @@ public struct BuildAction: Action {
         }
 
         logger.info("Android build succeeded for module '\(module)'")
+        context.logShellOutput(output, label: "gradlew assemble")
 
         let apkPath = parseApkPath(from: output.stdout, module: module, variant: variant)
         return Result(
