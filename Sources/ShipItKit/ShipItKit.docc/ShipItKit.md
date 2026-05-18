@@ -13,7 +13,7 @@ All domain logic lives in `ShipItKit`. The `shipit` CLI is a thin argument-parsi
 ### Core execution model
 
 ```
-Shipfile.yml / CLI flags / env vars
+Shipfile.yml / CLI flags / env vars / .env (auto-loaded)
         ↓
   ConfigResolver  →  ResolvedConfig
         ↓
@@ -25,6 +25,8 @@ Shipfile.yml / CLI flags / env vars
         ↓
   Action.run(with:context:)  →  ActionResultEnvelope (Codable)
 ```
+
+> **Linux support:** Android actions, config resolution, and validation run natively on Linux. iOS-specific actions require macOS.
 
 ### Hard architectural rules
 
@@ -173,3 +175,8 @@ These constraints are enforced throughout the codebase:
 - ``Simctl``
 - ``SimctlCommand``
 - ``XcrunOption``
+
+### Guided setup
+
+- ``GenerateProjectAction``
+- ``ProjectInspector``

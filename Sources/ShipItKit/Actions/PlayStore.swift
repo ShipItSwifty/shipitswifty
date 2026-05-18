@@ -69,6 +69,10 @@ public struct PlayStoreAction: Action {
         /// Defaults to `config.androidGradleProperties["flavor"]`.
         public var flavor: String?
 
+        /// Human-readable release name shown in the Play Console (e.g. `"1.2.0 (42)"`).
+        /// If nil, Google Play defaults to showing the versionCode.
+        public var releaseName: String?
+
         /// Creates `Options` for the Play Store action.
         public init(
             aabPath: String? = nil,
@@ -78,7 +82,8 @@ public struct PlayStoreAction: Action {
             rolloutFraction: Double? = nil,
             packageName: String? = nil,
             buildVariant: String? = nil,
-            flavor: String? = nil
+            flavor: String? = nil,
+            releaseName: String? = nil
         ) {
             self.aabPath = aabPath
             self.apkPath = apkPath
@@ -88,6 +93,7 @@ public struct PlayStoreAction: Action {
             self.packageName = packageName
             self.buildVariant = buildVariant
             self.flavor = flavor
+            self.releaseName = releaseName
         }
     }
 
@@ -200,6 +206,7 @@ public struct PlayStoreAction: Action {
             aabPath: anchoredAABPath,
             apkPath: anchoredAPKPath,
             track: track,
+            releaseName: options.releaseName,
             releaseNotes: notes,
             status: releaseStatus,
             userFraction: rolloutFraction

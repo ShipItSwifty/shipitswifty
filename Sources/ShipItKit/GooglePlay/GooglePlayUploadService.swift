@@ -57,6 +57,7 @@ public struct GooglePlayUploadService: Sendable {
         aabPath: String? = nil,
         apkPath: String? = nil,
         track: String,
+        releaseName: String? = nil,
         releaseNotes: [GooglePlayReleaseNote] = [],
         status: GooglePlayReleaseStatus = .completed,
         userFraction: Double? = nil
@@ -91,6 +92,7 @@ public struct GooglePlayUploadService: Sendable {
             editId: editId,
             track: track,
             versionCode: versionCode,
+            releaseName: releaseName,
             releaseNotes: releaseNotes,
             status: status,
             userFraction: userFraction
@@ -132,11 +134,13 @@ public struct GooglePlayUploadService: Sendable {
         editId: String,
         track: String,
         versionCode: Int,
+        releaseName: String?,
         releaseNotes: [GooglePlayReleaseNote],
         status: GooglePlayReleaseStatus,
         userFraction: Double?
     ) async throws {
         let release = GooglePlayRelease(
+            name: releaseName,
             versionCodes: ["\(versionCode)"],
             status: status,
             userFraction: userFraction,

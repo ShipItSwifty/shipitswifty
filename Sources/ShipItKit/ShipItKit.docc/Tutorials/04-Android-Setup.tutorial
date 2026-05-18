@@ -8,9 +8,14 @@
 
     @Section(title: "Configure platform: android") {
         @ContentAndMedia {
-            ShipItSwifty treats Android as a first-class target. Set `platform:
-            android` at the top of your Shipfile to switch the default action
-            mappings to Gradle.
+            ShipItSwifty treats Android as a first-class target. The recommended
+            setup path is `shipit generate --goal beta`, which auto-detects your
+            Gradle module, guides keystore configuration, and creates a `.env`
+            file with signing credentials (using `${VAR_NAME}` references for
+            values already in your environment).
+
+            You can also set `platform: android` manually at the top of your
+            Shipfile to switch the default action mappings to Gradle.
         }
 
         @Steps {

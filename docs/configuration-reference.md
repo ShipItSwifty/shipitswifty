@@ -595,3 +595,50 @@ versioning:
 ```
 
 The KMP iOS path links the configured shared framework target via Gradle before invoking `xcodebuild`, so the Xcode wrapper can resolve the framework import. The Android path is identical to a regular module-qualified Android Gradle build.
+
+## `coverage` action options
+
+The `coverage` action reads native coverage artifacts — it does not generate them. Configure it inline in workflow steps or use as a standalone command.
+
+| Option | Type | Default | Description |
+|---|---|---|---|
+| `platform` | string | auto-detected | `ios` or `android` |
+| `xcresult` | string | auto-discovered | Explicit `.xcresult` bundle path (iOS) |
+| `report` | string | auto-discovered | Explicit JaCoCo XML report path (Android) |
+| `first_party_only` | bool | `true` | Suppress test bundles, SPM deps, and known vendor prefixes |
+| `targets` | bool | `false` | Show per-target/module breakdown |
+| `files` | bool | `false` | Show per-file breakdown |
+| `include_target` | list | `[]` | Include only these targets (overrides first-party filter) |
+| `exclude_target` | list | `[]` | Exclude specific targets |
+| `sort` | string | `coverage` | `coverage` (lowest first) or `name` |
+| `limit` | int | — | Cap number of entries shown |
+| `format` | string | `text` | `text`, `json`, or `markdown` |
+
+## Linux and Docker support
+
+Android actions (build, test, archive, lint, play-store, validate bundle) and all config resolution run natively on Linux. iOS-specific actions (`xcodebuild`-backed, code signing, TestFlight, etc.) are gated behind `#if os(macOS)`.
+
+Use the Makefile targets for Docker-based development and CI:
+
+| Target | Description |
+|---|---|
+| `make build-linux` | Build via direct volume mount |
+| `make test-linux` | Run Linux-compatible tests |
+| `make test-linux-coverage` | Tests + `--enable-code-coverage` |
+| `make shell-linux` | Interactive container shell |
+| `make docker-build` | Build local image (caches SPM deps as a layer) |
+| `make docker-test` | Run tests inside local image |
+
+## `shipit generate` — guided setup
+
+`shipit generate --goal <local|beta|release>` is the recommended first command. It:
+
+1. Inspects the project directory for Xcode workspaces/projects, `gradlew`, `pubspec.yaml`, etc.
+2. Auto-detects platform, scheme, bundle ID, team ID, and build system.
+3. Prompts interactively for missing or ambiguous values.
+4. Writes `Shipfile.yml` with comments and env var references.
+5. For Android signing, guides keystore discovery and offers three persistence options:
+   - **`.env` file** (recommended for local dev) — uses `${VAR_NAME}` references for values already in env, inlines only user-provided values. Auto-adds `.env` to `.gitignore`.
+   - **Shell profile** (`~/.zshrc` or `~/.bashrc`) — appends `export` lines.
+   - **Manual** — prints the required export lines for you to handle.
+6. Runs `shipit doctor` to validate the environment.
