@@ -156,7 +156,8 @@ struct IntrospectionTests {
             actionDescriptors: [
                 TestFlightAction.descriptor(
                     for: TestFlightAction(),
-                    optionSchema: BuiltInSchemaCatalog.optionSchema(for: TestFlightAction.name)
+                    optionSchema: BuiltInSchemaCatalog.optionSchema(for: TestFlightAction.name),
+                    validationRules: TestFlightAction.validationRules
                 )
             ]
         )

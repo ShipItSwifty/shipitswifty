@@ -129,6 +129,8 @@ These constraints are enforced throughout the codebase:
 
 - ``Action``
 - ``ActionDescriptor``
+- ``ActionValidationRule``
+- ``ActionValidationContext``
 - ``ActionContext``
 - ``ActionResultEnvelope``
 - ``CompositeAction``

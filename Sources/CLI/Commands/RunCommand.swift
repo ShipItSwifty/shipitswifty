@@ -109,34 +109,89 @@ func registerBuiltInActions(into registry: ActionRegistry) async throws {
 
 func builtInActionDescriptors() -> [ActionDescriptor] {
     var descriptors: [ActionDescriptor] = [
-        BuildAction.descriptor(for: BuildAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: BuildAction.name)),
-        TestAction.descriptor(for: TestAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: TestAction.name)),
-        CoverageAction.descriptor(for: CoverageAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: CoverageAction.name)),
-        ArchiveAction.descriptor(for: ArchiveAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: ArchiveAction.name)),
-        LintAction.descriptor(for: LintAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: LintAction.name)),
-        PlayStoreAction.descriptor(for: PlayStoreAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: PlayStoreAction.name)),
+        BuildAction.descriptor(
+            for: BuildAction(),
+            optionSchema: BuiltInSchemaCatalog.optionSchema(for: BuildAction.name),
+            validationRules: BuildAction.validationRules),
+        TestAction.descriptor(
+            for: TestAction(),
+            optionSchema: BuiltInSchemaCatalog.optionSchema(for: TestAction.name),
+            validationRules: TestAction.validationRules),
+        CoverageAction.descriptor(
+            for: CoverageAction(),
+            optionSchema: BuiltInSchemaCatalog.optionSchema(for: CoverageAction.name)),
+        ArchiveAction.descriptor(
+            for: ArchiveAction(),
+            optionSchema: BuiltInSchemaCatalog.optionSchema(for: ArchiveAction.name),
+            validationRules: ArchiveAction.validationRules),
+        LintAction.descriptor(
+            for: LintAction(),
+            optionSchema: BuiltInSchemaCatalog.optionSchema(for: LintAction.name)),
+        PlayStoreAction.descriptor(
+            for: PlayStoreAction(),
+            optionSchema: BuiltInSchemaCatalog.optionSchema(for: PlayStoreAction.name)),
         ValidateBundleAction.descriptor(
-            for: ValidateBundleAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: ValidateBundleAction.name)),
-        NotifyAction.descriptor(for: NotifyAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: NotifyAction.name)),
-        GitAction.descriptor(for: GitAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: GitAction.name)),
+            for: ValidateBundleAction(),
+            optionSchema: BuiltInSchemaCatalog.optionSchema(for: ValidateBundleAction.name)),
+        NotifyAction.descriptor(
+            for: NotifyAction(),
+            optionSchema: BuiltInSchemaCatalog.optionSchema(for: NotifyAction.name),
+            validationRules: NotifyAction.validationRules),
+        GitAction.descriptor(
+            for: GitAction(),
+            optionSchema: BuiltInSchemaCatalog.optionSchema(for: GitAction.name),
+            validationRules: GitAction.validationRules),
     ]
     #if os(macOS)
     descriptors.append(contentsOf: [
-        ExportAction.descriptor(for: ExportAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: ExportAction.name)),
-        SignAction.descriptor(for: SignAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: SignAction.name)),
-        UploadAction.descriptor(for: UploadAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: UploadAction.name)),
-        TestFlightAction.descriptor(for: TestFlightAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: TestFlightAction.name)),
-        SnapshotAction.descriptor(for: SnapshotAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: SnapshotAction.name)),
-        FrameAction.descriptor(for: FrameAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: FrameAction.name)),
-        VersionAction.descriptor(for: VersionAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: VersionAction.name)),
-        MetadataAction.descriptor(for: MetadataAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: MetadataAction.name)),
-        PrecheckAction.descriptor(for: PrecheckAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: PrecheckAction.name)),
+        ExportAction.descriptor(
+            for: ExportAction(),
+            optionSchema: BuiltInSchemaCatalog.optionSchema(for: ExportAction.name),
+            validationRules: ExportAction.validationRules),
+        SignAction.descriptor(
+            for: SignAction(),
+            optionSchema: BuiltInSchemaCatalog.optionSchema(for: SignAction.name),
+            validationRules: SignAction.validationRules),
+        UploadAction.descriptor(
+            for: UploadAction(),
+            optionSchema: BuiltInSchemaCatalog.optionSchema(for: UploadAction.name),
+            validationRules: UploadAction.validationRules),
+        TestFlightAction.descriptor(
+            for: TestFlightAction(),
+            optionSchema: BuiltInSchemaCatalog.optionSchema(for: TestFlightAction.name),
+            validationRules: TestFlightAction.validationRules),
+        SnapshotAction.descriptor(
+            for: SnapshotAction(),
+            optionSchema: BuiltInSchemaCatalog.optionSchema(for: SnapshotAction.name),
+            validationRules: SnapshotAction.validationRules),
+        FrameAction.descriptor(
+            for: FrameAction(),
+            optionSchema: BuiltInSchemaCatalog.optionSchema(for: FrameAction.name)),
+        VersionAction.descriptor(
+            for: VersionAction(),
+            optionSchema: BuiltInSchemaCatalog.optionSchema(for: VersionAction.name),
+            validationRules: VersionAction.validationRules),
+        MetadataAction.descriptor(
+            for: MetadataAction(),
+            optionSchema: BuiltInSchemaCatalog.optionSchema(for: MetadataAction.name),
+            validationRules: MetadataAction.validationRules),
+        PrecheckAction.descriptor(
+            for: PrecheckAction(),
+            optionSchema: BuiltInSchemaCatalog.optionSchema(for: PrecheckAction.name)),
         ValidateArchiveAction.descriptor(
-            for: ValidateArchiveAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: ValidateArchiveAction.name)),
-        ProvisionAction.descriptor(for: ProvisionAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: ProvisionAction.name)),
-        DsymAction.descriptor(for: DsymAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: DsymAction.name)),
+            for: ValidateArchiveAction(),
+            optionSchema: BuiltInSchemaCatalog.optionSchema(for: ValidateArchiveAction.name)),
+        ProvisionAction.descriptor(
+            for: ProvisionAction(),
+            optionSchema: BuiltInSchemaCatalog.optionSchema(for: ProvisionAction.name),
+            validationRules: ProvisionAction.validationRules),
+        DsymAction.descriptor(
+            for: DsymAction(),
+            optionSchema: BuiltInSchemaCatalog.optionSchema(for: DsymAction.name),
+            validationRules: DsymAction.validationRules),
         GenerateProjectAction.descriptor(
-            for: GenerateProjectAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: GenerateProjectAction.name)),
+            for: GenerateProjectAction(),
+            optionSchema: BuiltInSchemaCatalog.optionSchema(for: GenerateProjectAction.name)),
     ])
     #endif
     return descriptors

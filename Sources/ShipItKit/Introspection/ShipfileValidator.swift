@@ -137,6 +137,7 @@ public struct ShipfileValidator: Sendable {
                         stepIndex: index,
                         step: step,
                         allSteps: steps,
+                        descriptor: descriptor,
                         config: resolvedConfig
                     ).map {
                         ValidationIssue(severity: $0.severity, path: stepPath + ($0.path == "$" ? "" : $0.path), message: $0.message)
@@ -153,132 +154,26 @@ public struct ShipfileValidator: Sendable {
         stepIndex: Int,
         step: WorkflowStepConfig,
         allSteps: WorkflowConfig,
+        descriptor: ActionDescriptor,
         config: ResolvedConfig
     ) -> [ValidationIssue] {
-        let options = step.options?.objectValue ?? [:]
         var issues: [ValidationIssue] = []
-        let action = step.action.lowercased()
-
-        if ["build", "test", "archive"].contains(action),
-            config.platform != .android,
-            stringOption("scheme", in: options) == nil,
-            config.appScheme == nil
-        {
-            issues.append(
-                .init(severity: .error, path: ".options.scheme", message: "This action requires a scheme or app.scheme in config."))
-        }
-
-        if action == "snapshot" {
-            if stringOption("scheme", in: options) == nil, config.screenshotScheme == nil, config.appScheme == nil {
-                issues.append(
-                    .init(
-                        severity: .error, path: ".options.scheme",
-                        message: "Snapshot requires screenshots.scheme, app.scheme, or a step-level scheme."))
-            }
-            if arrayOption("devices", in: options).isEmpty && config.screenshotDevices.isEmpty {
-                issues.append(.init(severity: .error, path: ".options.devices", message: "Snapshot requires at least one device."))
-            }
-        }
-
-        if action == "export",
-            stringOption("archive_path", in: options) == nil,
-            config.exportArchivePath == nil,
-            config.archiveOutputPath == nil
-        {
-            issues.append(
-                .init(severity: .error, path: ".options.archive_path", message: "Export requires an archive path or archive.output_path."))
-        }
-
-        if ["upload", "testflight", "metadata"].contains(action), config.bundleID == nil {
-            issues.append(.init(severity: .error, path: "$", message: "This action requires app.bundle_id or SHIPIT_APP__BUNDLE_ID."))
-        }
-
-        if action == "upload" {
-            let hasExplicitIPA = stringOption("ipa_path", in: options) != nil
-            if !hasExplicitIPA && !hasExportContext(before: stepIndex, in: allSteps, config: config) {
-                issues.append(
-                    .init(
-                        severity: .error, path: ".options.ipa_path",
-                        message:
-                            "Upload needs `ipa_path`, a previous export step, or an IPA already present in the export output directory."))
-            }
-        }
-
-        if action == "testflight" {
-            let hasExplicitIPA = stringOption("ipa", in: options) != nil
-            if !hasExplicitIPA && !hasExportContext(before: stepIndex, in: allSteps, config: config) {
-                issues.append(
-                    .init(
-                        severity: .error, path: ".options.ipa",
-                        message: "TestFlight needs `ipa`, a previous export step, or an IPA already present in the export output directory."
-                    ))
-            }
-        }
-
-        if action == "sign" {
-            let operation = stringOption("operation", in: options) ?? ""
-            if ["sync", "import", "init"].contains(operation), stringOption("git_url", in: options) == nil, config.codeSigningGitUrl == nil
-            {
-                issues.append(
-                    .init(
-                        severity: .error, path: ".options.git_url", message: "This sign operation requires git_url or code_signing.git_url."
-                    ))
-            }
-            if operation == "import" {
-                if stringOption("p12_path", in: options) == nil {
-                    issues.append(.init(severity: .error, path: ".options.p12_path", message: "sign import requires p12_path."))
-                }
-                if stringOption("provisioning_profile_path", in: options) == nil {
-                    issues.append(
-                        .init(
-                            severity: .error, path: ".options.provisioning_profile_path",
-                            message: "sign import requires provisioning_profile_path."))
-                }
-            }
-        }
-
-        if action == "git" {
-            let operation = stringOption("operation", in: options) ?? ""
-            if operation == "tag", stringOption("tag_name", in: options) == nil {
-                issues.append(.init(severity: .error, path: ".options.tag_name", message: "git tag requires tag_name."))
-            }
-            if operation == "commit", stringOption("commit_message", in: options) == nil {
-                issues.append(.init(severity: .error, path: ".options.commit_message", message: "git commit requires commit_message."))
-            }
-        }
-
-        if action == "version", stringOption("bump", in: options) == "set", stringOption("version", in: options) == nil {
-            issues.append(
-                .init(severity: .error, path: ".options.version", message: "version bump `set` requires an explicit version value."))
-        }
-
-        if action == "provision" {
-            let operation = stringOption("operation", in: options) ?? ""
-            if operation == "createAppId", stringOption("bundle_id", in: options) == nil, config.bundleID == nil {
-                issues.append(
-                    .init(severity: .error, path: ".options.bundle_id", message: "createAppId requires bundle_id or app.bundle_id."))
-            }
-            if operation == "registerDevices", arrayOption("device_udids", in: options).isEmpty {
-                issues.append(
-                    .init(severity: .error, path: ".options.device_udids", message: "registerDevices requires at least one device UDID."))
-            }
-        }
-
-        if action == "dsym", stringOption("operation", in: options) == "upload" {
-            if stringOption("dsym_path", in: options) == nil {
-                issues.append(.init(severity: .error, path: ".options.dsym_path", message: "dSYM upload requires dsym_path."))
-            }
-            if stringOption("upload_url", in: options) == nil {
-                issues.append(.init(severity: .error, path: ".options.upload_url", message: "dSYM upload requires upload_url."))
-            }
-        }
-
-        if action == "notify", options["slack"] == nil, stringOption("webhook_url", in: options) == nil {
-            issues.append(.init(severity: .warning, path: ".options", message: "notify has no configured destination and will be a no-op."))
-        }
 
         if workflowName.isEmpty {
             issues.append(.init(severity: .warning, path: "$", message: "Workflow names should not be empty."))
+        }
+
+        let ctx = ActionValidationContext(
+            options: step.options?.objectValue ?? [:],
+            stepIndex: stepIndex,
+            allSteps: allSteps,
+            config: config
+        )
+
+        for rule in descriptor.validationRules {
+            if let issue = rule.evaluate(context: ctx) {
+                issues.append(issue)
+            }
         }
 
         return issues
@@ -300,18 +195,6 @@ public struct ShipfileValidator: Sendable {
                     "ASC-backed workflows are configured, but ASC credentials are not fully resolved in the current environment. Validation assumes they may be supplied by CI environment variables."
             )
         ]
-    }
-
-    private func hasExportContext(before stepIndex: Int, in steps: WorkflowConfig, config: ResolvedConfig) -> Bool {
-        if steps[..<stepIndex].contains(where: { $0.action.lowercased() == "export" }) {
-            return true
-        }
-
-        let outputDirectory = config.exportOutputDirectory ?? "./build/export"
-        guard let contents = try? FileManager.default.contentsOfDirectory(atPath: outputDirectory) else {
-            return false
-        }
-        return contents.contains(where: { $0.hasSuffix(".ipa") })
     }
 
     private func customActionIssues(
@@ -410,13 +293,5 @@ public struct ShipfileValidator: Sendable {
         default:
             break
         }
-    }
-
-    private func stringOption(_ key: String, in object: [String: JSONValue]) -> String? {
-        object[key]?.stringValue
-    }
-
-    private func arrayOption(_ key: String, in object: [String: JSONValue]) -> [JSONValue] {
-        object[key]?.arrayValue ?? []
     }
 }
