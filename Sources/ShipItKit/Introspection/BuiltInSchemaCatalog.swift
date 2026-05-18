@@ -234,9 +234,9 @@ public enum BuiltInSchemaCatalog {
                     .string(
                         "source",
                         description:
-                            "Where CFBundleVersion and CFBundleShortVersionString are read and written. `xcodeproj` reads/writes Xcode build settings directly in the .xcodeproj file. `project_spec` reads/writes a project spec YAML file (e.g. XcodeGen project.yml). `asc` reads the current build number from App Store Connect.",
+                            "Where CFBundleVersion and CFBundleShortVersionString are read and written. `xcodeproj` reads/writes Xcode build settings directly in the .xcodeproj file. `project_spec` reads/writes a project spec YAML file (e.g. XcodeGen project.yml). `asc` reads the current build number from App Store Connect. `kmp` reads/writes versionName/versionCode in gradle.properties. `gradle` reads/writes versionName/versionCode directly in build.gradle.kts or build.gradle.",
                         defaultValue: .string("xcodeproj"),
-                        allowedValues: ["xcodeproj", "project_spec", "asc"], example: .string("xcodeproj")),
+                        allowedValues: ["xcodeproj", "project_spec", "asc", "kmp", "gradle"], example: .string("xcodeproj")),
                     .string(
                         "spec_path",
                         description:
@@ -947,8 +947,8 @@ public enum BuiltInSchemaCatalog {
             .string(
                 "target",
                 description:
-                    "Where to write the version bump. `source_of_truth` or `project_spec` writes to the spec file (e.g. project.yml). `xcodeproj` writes to the Xcode project. When unset, uses the versioning.source from config.",
-                allowedValues: ["source_of_truth", "project_spec", "xcodeproj"],
+                    "Where to write the version bump. `source_of_truth` or `project_spec` writes to the spec file (e.g. project.yml). `xcodeproj` writes to the Xcode project. `kmp` writes to gradle.properties. `gradle` writes to build.gradle.kts or build.gradle. When unset, uses the versioning.source from config.",
+                allowedValues: ["source_of_truth", "project_spec", "xcodeproj", "kmp", "gradle"],
                 example: .string("source_of_truth")),
         ]
     }

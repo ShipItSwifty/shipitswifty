@@ -185,7 +185,7 @@ The `versioning` section controls how `CFBundleVersion` is incremented. `CFBundl
 | Key | Type | Default | Description |
 |---|---|---|---|
 | `strategy` | string | `sequential` | `sequential` — adds 1 each run (guarantees a plain integer). `timestamp` — uses `YYYYMMDDHHmm` format. |
-| `source` | string | `xcodeproj` | `xcodeproj` — reads `MARKETING_VERSION`/`CURRENT_PROJECT_VERSION` from `xcodebuild -showBuildSettings`; falls back to `agvtool`, then `plutil` on Info.plist. `asc` — reads current build number from App Store Connect; same fallback chain for the read phase. `project_spec` — reads/writes version values directly in a YAML spec file (XcodeGen/Tuist). |
+| `source` | string | `xcodeproj` | `xcodeproj` — reads `MARKETING_VERSION`/`CURRENT_PROJECT_VERSION` from `xcodebuild -showBuildSettings`; falls back to `agvtool`, then `plutil` on Info.plist. `asc` — reads current build number from App Store Connect; same fallback chain for the read phase. `project_spec` — reads/writes version values directly in a YAML spec file (XcodeGen/Tuist). `kmp` — reads/writes `versionName`/`versionCode` in `gradle.properties`. `gradle` — reads/writes `versionName`/`versionCode` directly in `build.gradle.kts` or `build.gradle`; default for Android projects. |
 | `spec_path` | string | — | Path to the project spec file (used when `source: project_spec`). |
 | `build_key` | string | — | YAML key path for the build number in the spec file (e.g. `settings.CURRENT_PROJECT_VERSION`). |
 | `marketing_key` | string | — | YAML key path for the marketing version in the spec file (e.g. `settings.MARKETING_VERSION`). |
@@ -200,6 +200,40 @@ The `version` action accepts a `bump` option that selects which counter to chang
 | `patch` | Patch segment of `CFBundleShortVersionString`; resets `CFBundleVersion` to `1` | Major and minor segments |
 | `minor` | Minor segment; resets patch and `CFBundleVersion` to `1` | Major segment |
 | `major` | Major segment; resets minor, patch, and `CFBundleVersion` to `1` | — |
+
+### Version bump ordering and recovery
+
+**Recommended order:** place `version` *after* steps that can fail (e.g. `test`, `archive`) and pair it with an immediate `git` commit step. This way a failed early step never touches version files, and a failed late step leaves the bump committed to git — recoverable with a plain `git revert`.
+
+```yaml
+workflows:
+  beta:
+    - action: test
+    - action: archive
+    - action: version          # bump only after build succeeds
+      options: { bump: build }
+    - action: git              # commit immediately so git is the rollback mechanism
+      options:
+        commit: "chore: bump build number [skip ci]"
+        files: ["MyApp.xcodeproj/project.pbxproj"]
+    - action: export
+    - action: testflight
+```
+
+If a workflow fails after the bump but before the git commit, restore with:
+
+```bash
+git restore MyApp.xcodeproj/project.pbxproj   # xcodeproj source
+# git restore project.yml                      # project_spec source
+# git restore gradle.properties                # kmp source
+```
+
+**Preview before bumping:** use `--dry-run` to see the computed before/after values without writing anything:
+
+```bash
+swift run shipit version --bump build --dry-run
+swift run shipit version --bump patch --dry-run --output json
+```
 
 ### Beta workflow pattern (local-only, Apple semantics)
 

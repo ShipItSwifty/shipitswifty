@@ -211,6 +211,7 @@ Shipfile.yml / CLI flags / env vars
 | `BuildSystem` | Enum (`native`, `flutter`, `react_native`, `kmp`) orthogonal to `Platform`. Set per platform via `ios.build_system` / `android.build_system`. Drives `BuildAction` / `ArchiveAction` / `TestAction` dispatch; later distribution actions are artifact-path driven and unchanged. |
 | `ProjectSpecVersionSource` | Reads/writes version values directly in YAML spec files for `project_spec` versioning source. |
 | `KMPVersionSource` | Reads/writes `versionName` / `versionCode` in `gradle.properties` for `versioning.source: kmp`. |
+| `GradleVersionSource` | Reads/writes `versionName` / `versionCode` directly in `build.gradle.kts` or `build.gradle` for `versioning.source: gradle`. Default versioning source for Android projects. |
 | `DestinationDiscovery` | Discovers available xcodebuild destinations. Used by `TestAction` for automatic simulator selection. |
 
 ### Config resolution priority
@@ -227,6 +228,7 @@ CLI flags > `SHIPIT_*` env vars > `Shipfile.yml` > built-in defaults. Shipfile s
 - KMP iOS builds run `gradlew :<shared-module>:link…Framework…` automatically before `xcodebuild build`; archives use the archive target before `xcodebuild archive`.
 - KMP defaults: `ios.kmp_shared_module: shared`, `ios.kmp_build_target: IosSimulatorArm64`, `ios.kmp_archive_target: IosArm64`, `ios.kmp_test_task: iosSimulatorArm64Test`.
 - `versioning.source: kmp` reads/writes `versionName` + `versionCode` in `gradle.properties` via `KMPVersionSource`.
+- `versioning.source: gradle` reads/writes `versionName` + `versionCode` directly in `build.gradle.kts` or `build.gradle` via `GradleVersionSource`. This is the default versioning source for Android projects.
 - `flutter` / `react_native` are fully implemented: `BuildAction`, `ArchiveAction`, `TestAction`, and `LintAction` all dispatch on `build_system` and invoke the appropriate Flutter/RN CLI. `ValidateBundle` and `PlayStoreAction` auto-discover artifact paths for both. Flutter iOS archive produces IPA directly (no export step); RN iOS uses `xcodebuild archive` + export.
 
 When recommending changes to an agent:
@@ -234,6 +236,7 @@ When recommending changes to an agent:
 - Prefer setting KMP module/target overrides under `ios:` over hardcoding Gradle task names in workflows.
 - For KMP, set `build_system: kmp` on **both** `ios:` and `android:`.
 - Suggest `versioning.source: kmp` when the user mentions `gradle.properties` versions or KMP-style version sharing.
+- Suggest `versioning.source: gradle` (or leave as default) when the user has a standard Android project with version info in `build.gradle.kts` / `build.gradle`.
 
 ### Source layout
 

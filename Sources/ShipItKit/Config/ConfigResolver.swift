@@ -194,7 +194,8 @@ public struct ConfigResolver: Sendable {
         let projGenAutoGenerate = projGen?.autoGenerate ?? true
 
         // Versioning config — resolve spec_path from project_generation if not set
-        let versioningSource = shipfile?.versioning?.source ?? "xcodeproj"
+        let versioningSourceDefault = platform == .android ? "gradle" : "xcodeproj"
+        let versioningSource = shipfile?.versioning?.source ?? versioningSourceDefault
         let versioningSpecPath = shipfile?.versioning?.specPath ?? projGenSpecPath
 
         return ResolvedConfig(

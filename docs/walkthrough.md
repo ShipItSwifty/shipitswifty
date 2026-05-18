@@ -433,6 +433,90 @@ If your config is not named `Shipfile.yml`, pass it explicitly:
 swift run shipit doctor --shipfile ./path/to/your-config.yml
 ```
 
+## Version Bump Ordering and Recovery
+
+### Recommended workflow order
+
+Place the `version` step **after** `test` and `build` succeed, and pair it with a `git` commit step immediately after. This means:
+
+- If `test` or `build` fails, the version files are never touched.
+- If the version bump itself fails, nothing was written.
+- If a later step (e.g. `export` or `testflight`) fails, the bumped version is already committed to git — recovery is a plain `git revert`.
+
+```yaml
+workflows:
+  beta:
+    - action: test
+    - action: archive
+    - action: version
+      options: { bump: build }
+    - action: git
+      options:
+        commit: "chore: bump build number [skip ci]"
+        files: ["MyApp.xcodeproj/project.pbxproj"]
+    - action: export
+    - action: testflight
+```
+
+Contrast this with bumping first (which leaves a committed version if a later step fails):
+
+```yaml
+# Avoid: version first means a failed archive leaves a stranded bump
+workflows:
+  beta:
+    - action: version   # ← written to disk before anything else
+    - action: archive   # ← if this fails, version is stuck at n+1
+```
+
+### Recovering a stranded version bump with git
+
+If a workflow failed after bumping the version but before the git commit step, recover with:
+
+```bash
+# Preview what changed
+git diff
+
+# Restore version files to the last commit
+git restore MyApp.xcodeproj/project.pbxproj
+# or for project_spec / KMP sources:
+git restore project.yml
+git restore gradle.properties
+```
+
+### Previewing a version bump without writing
+
+Use `--dry-run` with `shipit version` to see the computed before/after values without modifying any files:
+
+```bash
+# Human-readable preview
+swift run shipit version --bump build --dry-run
+
+# Machine-readable preview (for CI scripts or agents)
+swift run shipit version --bump patch --dry-run --output json
+```
+
+Example human output:
+```
+DRY RUN: Would bump build (source: xcodeproj)
+  build number: 42 → 43
+```
+
+Example JSON output:
+```json
+{
+  "action": "version",
+  "status": "dry_run",
+  "payload": {
+    "bump": "build",
+    "source": "xcodeproj",
+    "currentVersion": "1.0.0",
+    "currentBuildNumber": "42",
+    "newVersion": "1.0.0",
+    "newBuildNumber": "43"
+  }
+}
+```
+
 ## Common Caveats
 
 - The package depends on the remote `SwiftyShell` Swift package, so your environment must be able to fetch Swift package dependencies.

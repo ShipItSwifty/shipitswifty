@@ -22,6 +22,50 @@ public struct VersionBumper: Sendable {
         self.context = context
     }
 
+    /// Preview what a version bump would produce without writing any files.
+    ///
+    /// Reads the current values, computes the new values, and returns both — identical
+    /// to `bump(options:)` except no files are modified. Use this to implement dry-run
+    /// previews or to validate options before committing a change.
+    ///
+    /// - Parameter options: Which component to bump and how.
+    /// - Returns: A `Preview` containing the before and after values.
+    public func preview(options: VersionAction.Options) async throws -> Preview {
+        let effectiveSource = resolveVersioningSource(options: options)
+        let currentVersion = try await readVersion(source: effectiveSource)
+        let currentBuild = try await readBuildNumber(source: effectiveSource)
+
+        logger.info("Preview version bump: current \(currentVersion) (\(currentBuild)), source: \(effectiveSource)")
+
+        let (newVersion, newBuild) = try await computeNewValues(
+            currentVersion: currentVersion,
+            currentBuild: currentBuild,
+            options: options
+        )
+
+        return Preview(
+            currentVersion: currentVersion,
+            currentBuildNumber: currentBuild,
+            newVersion: newVersion,
+            newBuildNumber: newBuild,
+            source: effectiveSource
+        )
+    }
+
+    /// A read-only snapshot of what `bump(options:)` would produce.
+    public struct Preview: Sendable {
+        /// The marketing version before the bump.
+        public let currentVersion: String
+        /// The build number before the bump.
+        public let currentBuildNumber: String
+        /// The marketing version that would be written.
+        public let newVersion: String
+        /// The build number that would be written.
+        public let newBuildNumber: String
+        /// The versioning source that would be used.
+        public let source: String
+    }
+
     /// Bump the version according to the given options.
     ///
     /// - Parameter options: Which component to bump and how.
@@ -63,6 +107,8 @@ public struct VersionBumper: Sendable {
                 return "xcodeproj"
             case "kmp", "gradle_properties":
                 return "kmp"
+            case "gradle", "build_gradle":
+                return "gradle"
             default:
                 return target
             }
@@ -82,6 +128,11 @@ public struct VersionBumper: Sendable {
         // KMP source — read directly from gradle.properties
         if source == "kmp" {
             return try KMPVersionSource(context: context).readVersion()
+        }
+
+        // Gradle source — read directly from build.gradle.kts / build.gradle
+        if source == "gradle" {
+            return try GradleVersionSource(context: context).readVersion()
         }
 
         #if !os(macOS)
@@ -132,6 +183,11 @@ public struct VersionBumper: Sendable {
             return try KMPVersionSource(context: context).readBuildNumber()
         }
 
+        // Gradle source — read directly from build.gradle.kts / build.gradle
+        if source == "gradle" {
+            return try GradleVersionSource(context: context).readBuildNumber()
+        }
+
         #if !os(macOS)
         throw ShipItError.invalidConfiguration(
             reason: "Version source '\(source)' requires macOS. Use versioning.source: kmp for Linux-compatible versioning."
@@ -166,6 +222,11 @@ public struct VersionBumper: Sendable {
     private func writeVersion(_ version: String, source: String) async throws {
         if source == "kmp" {
             try KMPVersionSource(context: context).writeVersion(version)
+            return
+        }
+
+        if source == "gradle" {
+            try GradleVersionSource(context: context).writeVersion(version)
             return
         }
 
@@ -205,6 +266,11 @@ public struct VersionBumper: Sendable {
     private func writeBuildNumber(_ build: String, source: String) async throws {
         if source == "kmp" {
             try KMPVersionSource(context: context).writeBuildNumber(build)
+            return
+        }
+
+        if source == "gradle" {
+            try GradleVersionSource(context: context).writeBuildNumber(build)
             return
         }
 
