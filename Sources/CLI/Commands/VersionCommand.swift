@@ -41,7 +41,33 @@ struct VersionCommand: AsyncParsableCommand {
             )
 
             if global.dryRun {
-                formatter.print("DRY RUN: Would bump \(bump)")
+                let bumper = VersionBumper(context: context)
+                let preview = try await bumper.preview(options: options)
+                switch global.output {
+                case .json:
+                    let reporter = JSONReporter()
+                    let envelope = ActionResultEnvelope(
+                        action: "version",
+                        status: "dry_run",
+                        payload: .object([
+                            "bump": .string(bump),
+                            "source": .string(preview.source),
+                            "currentVersion": .string(preview.currentVersion),
+                            "currentBuildNumber": .string(preview.currentBuildNumber),
+                            "newVersion": .string(preview.newVersion),
+                            "newBuildNumber": .string(preview.newBuildNumber),
+                        ])
+                    )
+                    print(try reporter.encode(envelope))
+                case .human:
+                    formatter.print("DRY RUN: Would bump \(bump) (source: \(preview.source))")
+                    if preview.currentVersion != preview.newVersion {
+                        formatter.print("  version:      \(preview.currentVersion) → \(preview.newVersion)")
+                    }
+                    if preview.currentBuildNumber != preview.newBuildNumber {
+                        formatter.print("  build number: \(preview.currentBuildNumber) → \(preview.newBuildNumber)")
+                    }
+                }
                 return
             }
 
