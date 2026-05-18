@@ -43,35 +43,52 @@ struct DoctorCommandTests {
         #expect(DoctorCommand.ascDiagnosticsMode(for: ResolvedConfig()) == .unknown)
     }
 
-    @Test("doctor tool checks use typed supported commands")
-    func doctorToolChecksUseTypedSupportedCommands() {
-        let commands = DoctorCommand.toolCheckCommands(shell: ShellContext())
+    @Test("doctor iOS tool checks include Xcode toolchain")
+    func doctorIOSToolChecksIncludeXcodeToolchain() {
+        let commands = DoctorCommand.toolCheckCommands(shell: ShellContext(), platform: .ios)
 
         #expect(
             commands.map(\.name) == [
+                "git on PATH",
                 "Xcode installed",
                 "xcodebuild available",
-                "git on PATH",
                 "security CLI available",
                 "xcrun simctl available",
             ])
 
         #expect(
             commands.map { $0.command.executableName } == [
+                "git",
                 "xcode-select",
                 "xcrun",
-                "git",
                 "security",
                 "xcrun",
             ])
 
         #expect(
             commands.map { $0.command.arguments } == [
+                ["--version"],
                 ["-p"],
                 ["xcodebuild", "-version"],
-                ["--version"],
                 ["help"],
                 ["simctl", "list", "--json"],
+            ])
+    }
+
+    @Test("doctor Android tool checks omit Xcode toolchain")
+    func doctorAndroidToolChecksOmitXcodeToolchain() {
+        let commands = DoctorCommand.toolCheckCommands(shell: ShellContext(), platform: .android)
+
+        #expect(
+            commands.map(\.name) == [
+                "git on PATH",
+                "java on PATH (for Gradle)",
+            ])
+
+        #expect(
+            commands.map { $0.command.executableName } == [
+                "git",
+                "java",
             ])
     }
 }

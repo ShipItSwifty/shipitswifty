@@ -165,7 +165,7 @@ For incremental CI speed:
 
 - `--output json` is the canonical CI format — pipe it to `jq` for assertions.
 - Set `--verbose` when debugging a failing run.
-- `shipit doctor` reports the detected toolchain, credentials, and Shipfile state.
+- `shipit doctor` reports the detected toolchain, credentials, and Shipfile state. Checks are scoped to the detected platform — iOS projects verify the full Xcode toolchain and ASC credentials; Android projects verify `git`, `java`, and any build-system extras (`flutter`, `node`, `java` for KMP).
 
 ## See also
 
