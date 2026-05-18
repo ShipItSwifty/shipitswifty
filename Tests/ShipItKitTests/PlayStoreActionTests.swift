@@ -141,7 +141,7 @@ struct PlayStoreActionTests {
         let projectDir = try makeTempDirectory(prefix: "PlayStoreTests")
         defer { try? FileManager.default.removeItem(at: projectDir) }
 
-        let aabRelative = "app/build/outputs/bundle/prodRelease/app-prodRelease.aab"
+        let aabRelative = "app/build/outputs/bundle/prodRelease/app-prod-release.aab"
         let aabURL = projectDir.appendingPathComponent(aabRelative, isDirectory: false)
         try FileManager.default.createDirectory(
             at: aabURL.deletingLastPathComponent(), withIntermediateDirectories: true)
