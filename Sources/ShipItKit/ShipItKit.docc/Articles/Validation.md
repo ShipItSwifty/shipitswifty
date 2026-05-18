@@ -28,6 +28,7 @@ The fastest, cheapest check — runs entirely in-process and surfaces:
   - Reference undeclared parameters in `{{param.NAME}}`.
   - Form a cycle (`a → b → a`).
 - Required Shipfile fields that are present but blank.
+- **Per-action semantic rules** — each registered action can declare ``ActionValidationRule`` values on its ``ActionDescriptor``. ``ShipfileValidator`` evaluates those rules for every workflow step that references the action. Rules are platform-aware: a rule scoped to `[.ios]` is silently skipped for Android Shipfiles. Built-in examples include requiring `app.scheme` for `build`/`test`/`archive` on iOS, requiring `app.bundle_id` for `testflight`/`upload`/`metadata`, and requiring `ipa_path` or a preceding `export` step for `upload`.
 
 ```bash
 shipit validate yml
@@ -104,6 +105,8 @@ shipit validate bundle --bundle ./app/build/outputs/bundle/release/app-release.a
 ## See also
 
 - ``ShipfileValidator``
+- ``ActionValidationRule``
+- ``ActionValidationContext``
 - ``PrecheckAction``
 - ``ValidateArchiveAction``
 - ``ValidateBundleAction``

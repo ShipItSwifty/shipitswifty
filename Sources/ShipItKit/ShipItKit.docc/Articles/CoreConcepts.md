@@ -12,14 +12,13 @@ An `Action` is the smallest unit of work — a single step like `build`, `archiv
 
 ```swift
 public protocol Action: Sendable {
-    associatedtype Options: Sendable
-    associatedtype Result: Sendable
+    associatedtype Options: Codable & Sendable
+    associatedtype Result: Codable & Sendable
 
-    var name: String { get }
+    static var name: String { get }
+    static var description: String { get }
 
     func run(with options: Options, context: ActionContext) async throws -> Result
-
-    static func descriptor(for action: Self) -> ActionDescriptor
 }
 ```
 
@@ -27,13 +26,35 @@ Actions are **self-contained**: they receive all runtime context via ``ActionCon
 
 ### ActionDescriptor
 
-Because `Action` has associated types, it can't be stored in a heterogeneous collection directly. ``ActionDescriptor`` is a type-erased wrapper that stores the action's name and an `execute` closure:
+Because `Action` has associated types, it can't be stored in a heterogeneous collection directly. ``ActionDescriptor`` is a type-erased wrapper that stores the action's name, an `optionSchema`, a set of ``ActionValidationRule`` values for `validate yml`, and the type-erased `runJSON` closure:
 
 ```swift
-let descriptor = BuildAction.descriptor(for: BuildAction())
+let descriptor = BuildAction.descriptor(
+    for: BuildAction(),
+    optionSchema: BuiltInSchemaCatalog.optionSchema(for: BuildAction.name),
+    validationRules: BuildAction.validationRules
+)
 ```
 
 Descriptors are what you register in the ``ActionRegistry`` and what workflows look up by name.
+
+### ActionValidationRule
+
+``ActionValidationRule`` is a ``Sendable`` closure-based struct attached to a descriptor. Each rule is evaluated by ``ShipfileValidator`` for every workflow step that references the action. Rules can be scoped to a specific ``Platform`` set — rules outside that set are silently skipped:
+
+```swift
+ActionValidationRule(platforms: [.ios]) { ctx in
+    guard ctx.options["scheme"]?.stringValue == nil, ctx.config.appScheme == nil
+    else { return nil }
+    return ValidationIssue(
+        severity: .error,
+        path: ".options.scheme",
+        message: "This action requires a scheme or app.scheme in config."
+    )
+}
+```
+
+The context passed to each rule is ``ActionValidationContext``, which exposes `options`, `stepIndex`, `allSteps`, and `config`.
 
 ## ActionContext
 

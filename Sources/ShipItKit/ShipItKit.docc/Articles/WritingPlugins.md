@@ -72,7 +72,7 @@ Key requirements enforced by the protocol:
 
 - ``Action/name`` and ``Action/description`` are **`static`** properties.
 - `Options` and `Result` must be **`Codable & Sendable`**. ShipItKit decodes `Options` from `Shipfile.yml` automatically (snake-case YAML keys → camelCase Swift properties).
-- The protocol provides ``Action/descriptor(for:optionSchema:)`` automatically — you do not need to write one by hand.
+- The protocol provides ``Action/descriptor(for:optionSchema:platforms:validationRules:)`` automatically — you do not need to write one by hand.
 
 ### 3. Bundle into a `ShipItPlugin`
 
@@ -120,11 +120,45 @@ workflows:
 - `options: JSONValue?` — the step's `options` dict from the Shipfile, or `nil`
 - `context: ActionContext` — shell, logger, config, App Store Connect / Google Play clients
 
+It also carries two optional pieces of metadata used by ``ShipfileValidator`` during `validate yml`:
+
+- **`platforms: Set<Platform>?`** — when non-nil, the action is only expected to be used on those platforms (currently informational; future versions may warn on mismatched usage).
+- **`validationRules: [ActionValidationRule]`** — semantic rules evaluated for every workflow step that references this action. Each ``ActionValidationRule`` can be scoped to a ``Platform`` set and returns a ``ValidationIssue`` or `nil`.
+
 For typed `Options`, the auto-generated descriptor handles `JSONValue → Options` decoding via `Codable`. For free-form options, use ``JSONValue`` accessors (`stringValue`, `intValue`, `doubleValue`, `boolValue`, `arrayValue`, `objectValue`, `isNull`):
 
 ```swift
 let scheme = options?.objectValue?["scheme"]?.stringValue ?? "MyApp"
 let retries = options?.objectValue?["retries"]?.intValue ?? 3
+```
+
+### Adding validation rules to a plugin action
+
+If your action has required options, add rules so `shipit validate yml` catches misconfigurations early:
+
+```swift
+extension TrackReleaseAction {
+    public static var validationRules: [ActionValidationRule] {
+        [
+            ActionValidationRule { ctx in
+                guard ctx.options["version"]?.stringValue == nil else { return nil }
+                return ValidationIssue(
+                    severity: .error,
+                    path: ".options.version",
+                    message: "track-release requires a version string.")
+            }
+        ]
+    }
+}
+```
+
+Pass the rules when creating the descriptor:
+
+```swift
+TrackReleaseAction.descriptor(
+    for: TrackReleaseAction(),
+    validationRules: TrackReleaseAction.validationRules
+)
 ```
 
 ## Testing your plugin
@@ -157,6 +191,8 @@ import ShipItKit
 
 - ``Action``
 - ``ActionDescriptor``
+- ``ActionValidationRule``
+- ``ActionValidationContext``
 - ``ActionRegistry``
 - ``ActionContext``
 - ``ShipItPlugin``
