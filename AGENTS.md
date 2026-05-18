@@ -216,7 +216,7 @@ Shipfile.yml / CLI flags / env vars
 
 ### Config resolution priority
 
-CLI flags > `SHIPIT_*` env vars > `Shipfile.yml` > built-in defaults. Shipfile supports `${ENV_VAR}` expansion.
+CLI flags > `SHIPIT_*` env vars > `.env` file (auto-loaded from Shipfile directory) > `Shipfile.yml` > built-in defaults. Shipfile supports `${ENV_VAR}` expansion.
 
 ### Cross-platform build systems
 
