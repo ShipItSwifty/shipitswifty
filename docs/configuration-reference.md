@@ -11,8 +11,20 @@ For config-backed CLI commands, the selected file must exist. A missing `./Shipf
 ## Priority Order
 
 ```
-CLI flags  >  SHIPIT_* env vars  >  config file  >  Built-in defaults
+CLI flags  >  SHIPIT_* env vars  >  .env file  >  config file  >  Built-in defaults
 ```
+
+### `.env` file auto-loading
+
+ShipIt automatically loads a `.env` file from the same directory as `Shipfile.yml` before resolving configuration. Variables defined in `.env` are only set if not already present in the environment (real env vars always take precedence).
+
+Supported formats:
+- `KEY=VALUE`
+- `export KEY=VALUE`
+- Quoted values (`KEY="value"` or `KEY='value'`)
+- Comments (`# ...`) and blank lines are ignored
+
+Use `shipit generate` to create a `.env` file with signing credentials. The file is automatically added to `.gitignore`.
 
 ## Environment variable naming convention
 

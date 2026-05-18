@@ -20,7 +20,50 @@ func resolveRequiredConfig(
         throw ShipItError.invalidConfiguration(reason: "Shipfile not found at \(shipfilePath)")
     }
 
+    // Auto-load .env from the Shipfile's directory if present.
+    let shipfileDir = (shipfilePath as NSString).deletingLastPathComponent
+    loadDotEnvIfPresent(directory: shipfileDir)
+
     return try await ConfigResolver().resolve(cliOptions: cliOptions, shipfilePath: shipfilePath)
+}
+
+/// Loads KEY=VALUE pairs from a `.env` file in the given directory into the process environment.
+///
+/// - Only sets variables that are not already set (env vars take precedence).
+/// - Ignores comments (`#`) and empty lines.
+/// - Strips surrounding quotes from values.
+func loadDotEnvIfPresent(directory: String) {
+    let envPath = (directory as NSString).appendingPathComponent(".env")
+    guard let contents = try? String(contentsOfFile: envPath, encoding: .utf8) else { return }
+
+    for line in contents.components(separatedBy: "\n") {
+        let trimmed = line.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty, !trimmed.hasPrefix("#") else { continue }
+
+        // Support both KEY=VALUE and export KEY=VALUE
+        var keyValue = trimmed
+        if keyValue.hasPrefix("export ") {
+            keyValue = String(keyValue.dropFirst("export ".count))
+        }
+
+        guard let equalsIndex = keyValue.firstIndex(of: "=") else { continue }
+        let key = String(keyValue[keyValue.startIndex..<equalsIndex])
+            .trimmingCharacters(in: .whitespaces)
+        var value = String(keyValue[keyValue.index(after: equalsIndex)...])
+            .trimmingCharacters(in: .whitespaces)
+
+        // Strip surrounding quotes
+        if (value.hasPrefix("\"") && value.hasSuffix("\""))
+            || (value.hasPrefix("'") && value.hasSuffix("'"))
+        {
+            value = String(value.dropFirst().dropLast())
+        }
+
+        // Only set if not already in environment (env takes precedence)
+        if ProcessInfo.processInfo.environment[key] == nil {
+            setenv(key, value, 0)
+        }
+    }
 }
 
 /// Build a full `ActionContext` from a resolved config.
