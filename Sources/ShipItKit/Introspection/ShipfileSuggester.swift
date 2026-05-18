@@ -557,6 +557,10 @@ public struct ShipfileSuggester: Sendable {
             "  # Google Play credentials are only needed when uploading:",
             "  #   GOOGLE_PLAY_SERVICE_ACCOUNT_JSON or GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_PATH",
             "",
+            "versioning:",
+            "  strategy: sequential",
+            "  source: gradle",
+            "",
             "workflows:",
         ]
 
@@ -571,6 +575,9 @@ public struct ShipfileSuggester: Sendable {
         case .beta:
             lines.append(contentsOf: [
                 "  beta:",
+                "    # Bump versionCode only — versionName unchanged.",
+                "    - action: version",
+                "      options: { bump: build }",
                 "    - action: lint",
                 "    - action: test",
                 "    - action: archive",
@@ -580,6 +587,8 @@ public struct ShipfileSuggester: Sendable {
         case .release:
             lines.append(contentsOf: [
                 "  release:",
+                "    - action: version",
+                "      options: { bump: build }",
                 "    - action: lint",
                 "    - action: test",
                 "    - action: archive",
