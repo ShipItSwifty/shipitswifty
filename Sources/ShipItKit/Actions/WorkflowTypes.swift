@@ -80,6 +80,14 @@ public struct Workflow: Sendable {
     /// The ordered sequence of steps in this workflow.
     public let steps: [WorkflowStep]
 
+    /// Optional build variant override for all steps in this workflow.
+    /// When set, overrides `config.androidBuildVariant` in the `ActionContext` passed to each step.
+    public let buildVariant: String?
+
+    /// Optional product flavor override for all steps in this workflow.
+    /// When set, overrides `config.androidGradleProperties["flavor"]` in the `ActionContext`.
+    public let flavor: String?
+
     private let logger = Logger.forType(subsystem: "ShipItSwifty", Workflow.self)
 
     /// Initialize from an explicit array (used by the YAML config decoder).
@@ -87,19 +95,27 @@ public struct Workflow: Sendable {
     /// - Parameters:
     ///   - name: The workflow identifier.
     ///   - steps: Array of steps to execute in order.
-    public init(_ name: String, steps: [WorkflowStep]) {
+    ///   - buildVariant: Optional build variant override for all steps.
+    ///   - flavor: Optional product flavor override for all steps.
+    public init(_ name: String, steps: [WorkflowStep], buildVariant: String? = nil, flavor: String? = nil) {
         self.name = name
         self.steps = steps
+        self.buildVariant = buildVariant
+        self.flavor = flavor
     }
 
     /// Initialize using the `@WorkflowBuilder` result-builder DSL.
     ///
     /// - Parameters:
     ///   - name: The workflow identifier.
+    ///   - buildVariant: Optional build variant override for all steps.
+    ///   - flavor: Optional product flavor override for all steps.
     ///   - builder: A result builder closure producing workflow steps.
-    public init(_ name: String, @WorkflowBuilder _ builder: () -> [WorkflowStep]) {
+    public init(_ name: String, buildVariant: String? = nil, flavor: String? = nil, @WorkflowBuilder _ builder: () -> [WorkflowStep]) {
         self.name = name
         self.steps = builder()
+        self.buildVariant = buildVariant
+        self.flavor = flavor
     }
 
     /// Run all steps in this workflow sequentially.
@@ -121,10 +137,23 @@ public struct Workflow: Sendable {
         var stepResults: [ActionResultEnvelope] = []
         let startTime = Date()
 
+        // Apply workflow-level overrides to the context config
+        let effectiveContext: ActionContext
+        if buildVariant != nil || flavor != nil {
+            let overriddenConfig = context.config.overriding(
+                buildVariant: buildVariant,
+                flavor: flavor
+            )
+            effectiveContext = context.withConfig(overriddenConfig)
+            logger.info("Workflow '\(name)' overrides: build_variant=\(buildVariant ?? "(none)"), flavor=\(flavor ?? "(none)")")
+        } else {
+            effectiveContext = context
+        }
+
         // Auto-generate project before running any Xcode-dependent steps
         #if os(macOS)
         if Self.requiresXcodeContainer(steps: steps) {
-            try await context.ensureProjectGenerated()
+            try await effectiveContext.ensureProjectGenerated()
         }
         #endif
 
@@ -137,7 +166,7 @@ public struct Workflow: Sendable {
                 )
             }
 
-            let result = try await descriptor.runJSON(step.options, context)
+            let result = try await descriptor.runJSON(step.options, effectiveContext)
             stepResults.append(result)
             logger.info("Workflow '\(name)' step '\(step.action)' succeeded")
         }

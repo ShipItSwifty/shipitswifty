@@ -102,8 +102,8 @@ public struct ShipfileValidator: Sendable {
             )
         }
 
-        for (workflowName, steps) in resolvedConfig.workflows.sorted(by: { $0.key < $1.key }) {
-            for (index, step) in steps.enumerated() {
+        for (workflowName, workflowConfig) in resolvedConfig.workflows.sorted(by: { $0.key < $1.key }) {
+            for (index, step) in workflowConfig.steps.enumerated() {
                 let stepPath = "$.workflows.\(workflowName)[\(index)]"
 
                 guard let descriptor = descriptorsByName[step.action] else {
@@ -136,7 +136,7 @@ public struct ShipfileValidator: Sendable {
                         workflowName: workflowName,
                         stepIndex: index,
                         step: step,
-                        allSteps: steps,
+                        allSteps: workflowConfig.steps,
                         descriptor: descriptor,
                         config: resolvedConfig
                     ).map {
@@ -153,7 +153,7 @@ public struct ShipfileValidator: Sendable {
         workflowName: String,
         stepIndex: Int,
         step: WorkflowStepConfig,
-        allSteps: WorkflowConfig,
+        allSteps: [WorkflowStepConfig],
         descriptor: ActionDescriptor,
         config: ResolvedConfig
     ) -> [ValidationIssue] {
@@ -181,7 +181,7 @@ public struct ShipfileValidator: Sendable {
 
     private func ascWarningsIfNeeded(config: ResolvedConfig) -> [ValidationIssue] {
         let ascActions: Set<String> = ["upload", "testflight", "metadata", "provision", "dsym"]
-        let usesASC = config.workflows.values.flatMap { $0 }.contains { ascActions.contains($0.action.lowercased()) }
+        let usesASC = config.workflows.values.flatMap { $0.steps }.contains { ascActions.contains($0.action.lowercased()) }
         guard usesASC else { return [] }
 
         let credentialsPresent = config.ascKeyID != nil && config.ascIssuerID != nil && config.ascPrivateKeyData != nil

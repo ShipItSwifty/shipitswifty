@@ -134,4 +134,58 @@ struct PlayStoreActionTests {
             _ = try await PlayStoreAction().run(with: .init(), context: context)
         }
     }
+
+    @Test("PlayStoreAction uses per-step buildVariant for artifact path discovery")
+    func perStepBuildVariantOverridesConfig() async throws {
+        // Arrange: config says "release" but step options say "prodRelease"
+        let projectDir = try makeTempDirectory(prefix: "PlayStoreTests")
+        defer { try? FileManager.default.removeItem(at: projectDir) }
+
+        let aabRelative = "app/build/outputs/bundle/prodRelease/app-prodRelease.aab"
+        let aabURL = projectDir.appendingPathComponent(aabRelative, isDirectory: false)
+        try FileManager.default.createDirectory(
+            at: aabURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try Data("fake-aab".utf8).write(to: aabURL)
+
+        let session = makeMockSession { request in
+            let path = request.url?.path ?? ""
+            if path.contains("oauth2.googleapis.com") || path.hasSuffix("/token") {
+                return .json([
+                    "access_token": "test-access-token",
+                    "expires_in": 3600,
+                    "token_type": "Bearer",
+                ])
+            }
+            if path.hasSuffix("/edits") && request.httpMethod == "POST" {
+                return .json(["id": "edit-123", "expiryTimeSeconds": "86400"])
+            }
+            if path.contains("/bundles") {
+                return .json(["versionCode": 99])
+            }
+            if path.contains("/tracks/") {
+                return .json([
+                    "track": "beta",
+                    "releases": [["versionCodes": ["99"], "status": "completed"]],
+                ])
+            }
+            if path.hasSuffix(":commit") {
+                return .json(["id": "edit-123", "expiryTimeSeconds": "86400"])
+            }
+            return .error(statusCode: 404, body: "unexpected: \(path)")
+        }
+
+        let googlePlay = makeGooglePlayClient(session: session)
+        // Config has androidBuildVariant: "release" (default), but step overrides to "prodRelease"
+        let context = makeAndroidContext(
+            workingDirectory: projectDir.path, googlePlay: googlePlay)
+
+        let options = PlayStoreAction.Options(
+            track: "beta",
+            buildVariant: "prodRelease"
+        )
+        let result = try await PlayStoreAction().run(with: options, context: context)
+
+        #expect(result.versionCode == 99)
+        #expect(result.track == "beta")
+    }
 }

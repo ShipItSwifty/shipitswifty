@@ -237,6 +237,16 @@ When recommending changes to an agent:
 - For KMP, set `build_system: kmp` on **both** `ios:` and `android:`.
 - Suggest `versioning.source: kmp` when the user mentions `gradle.properties` versions or KMP-style version sharing.
 - Suggest `versioning.source: gradle` (or leave as default) when the user has a standard Android project with version info in `build.gradle.kts` / `build.gradle`.
+- When the user has multiple workflows targeting different Android build variants (e.g. `qa` → `stagingRelease`, `release` → `prodRelease`), use per-workflow `build_variant` / `flavor` overrides instead of duplicating `--aab` paths on each step. Example:
+  ```yaml
+  workflows:
+    release:
+      build_variant: prodRelease
+      steps:
+        - action: archive
+        - action: play-store
+          options: { track: production }
+  ```
 
 ### Source layout
 

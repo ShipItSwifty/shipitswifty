@@ -52,7 +52,7 @@ struct EnvCommand: AsyncParsableCommand {
                 if !config.workflows.isEmpty {
                     formatter.printHeader("Workflows")
                     for (name, workflow) in config.workflows.sorted(by: { $0.key < $1.key }) {
-                        formatter.printKV(name, "\(workflow.count) step(s): \(workflow.map { $0.action }.joined(separator: " -> "))")
+                        formatter.printKV(name, "\(workflow.steps.count) step(s): \(workflow.steps.map { $0.action }.joined(separator: " -> "))")
                     }
                 }
 

@@ -11,7 +11,7 @@ import Foundation
 ///   module: app
 ///   package_name: com.example.myapp
 ///   build_type: aab
-///   play_track: qa
+///   play_track: internal
 /// ```
 public struct AndroidConfig: Codable, Sendable {
 
@@ -45,7 +45,7 @@ public struct AndroidConfig: Codable, Sendable {
     public var packageName: String?
 
     /// Google Play distribution track. One of `qa`, `alpha`, `beta`, `production`.
-    /// Defaults to `"qa"` (internal testing).
+    /// Defaults to `"internal"` (internal testing).
     public var playTrack: String?
 
     /// Staged rollout fraction (0.0–1.0). `nil` means full rollout (`completed` status).

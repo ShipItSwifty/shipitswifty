@@ -325,13 +325,35 @@ Configuration for automatic project file generation (XcodeGen, Tuist) before Xco
 
 ## `workflows`
 
+Workflows can be defined as a plain array of steps (legacy) or as an object with optional workflow-level overrides:
+
 ```yaml
+# Legacy format: plain array of steps
 workflows:
-  <workflow-name>:
-    - action: <action-name>
-      options:
-        key: value
+  beta:
+    - action: archive
+    - action: testflight
+
+# New format: object with workflow-level overrides
+workflows:
+  release:
+    build_variant: prodRelease
+    steps:
+      - action: archive
+      - action: play-store
+        options:
+          track: production
 ```
+
+### Workflow-level overrides
+
+| Key | Type | Description |
+|---|---|---|
+| `build_variant` | string | Overrides `android.build_variant` for all steps in this workflow. Used by actions that auto-discover artifact paths (e.g. `play-store`, `validate bundle`). |
+| `flavor` | string | Overrides `android.gradle_properties.flavor` for all steps in this workflow. Used for Flutter artifact path discovery. |
+| `steps` | array | Required when using the object format. The ordered sequence of action steps. |
+
+### Step fields
 
 Each step:
 

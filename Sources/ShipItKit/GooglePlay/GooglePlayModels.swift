@@ -88,7 +88,7 @@ public struct GooglePlayRelease: Codable, Sendable {
 
 /// A Google Play distribution track (e.g. internal, alpha, beta, production).
 public struct GooglePlayTrack: Codable, Sendable {
-    /// Track identifier: `"qa"` (internal), `"alpha"`, `"beta"`, `"production"`.
+    /// Track identifier: `"internal"`, `"alpha"`, `"beta"`, `"production"`.
     public let track: String
     /// Current releases on this track.
     public let releases: [GooglePlayRelease]?

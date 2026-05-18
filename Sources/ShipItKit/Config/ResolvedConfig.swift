@@ -358,7 +358,7 @@ public struct ResolvedConfig: Sendable {
         androidKeyAlias: String? = nil,
         androidKeyPassword: String? = nil,
         androidPackageName: String? = nil,
-        androidPlayTrack: String = "qa",
+        androidPlayTrack: String = "internal",
         androidRolloutFraction: Double? = nil,
         androidGradleProperties: [String: String] = [:],
         googlePlayServiceAccountData: Data? = nil
@@ -441,5 +441,102 @@ public struct ResolvedConfig: Sendable {
         self.androidRolloutFraction = androidRolloutFraction
         self.androidGradleProperties = androidGradleProperties
         self.googlePlayServiceAccountData = googlePlayServiceAccountData
+    }
+
+    // MARK: - Workflow-Level Overrides
+
+    /// Returns a copy of this config with the specified Android build variant and/or flavor overridden.
+    ///
+    /// Used by `Workflow.run()` to apply per-workflow overrides before passing the context to steps.
+    ///
+    /// - Parameters:
+    ///   - buildVariant: If non-nil, replaces `androidBuildVariant`.
+    ///   - flavor: If non-nil, sets or replaces the `"flavor"` key in `androidGradleProperties`.
+    /// - Returns: A new `ResolvedConfig` with the specified overrides applied.
+    public func overriding(buildVariant: String? = nil, flavor: String? = nil) -> ResolvedConfig {
+        var updatedProperties = androidGradleProperties
+        if let flavor {
+            updatedProperties["flavor"] = flavor
+        }
+        return ResolvedConfig(
+            processedFiles: processedFiles,
+            appWorkspace: appWorkspace,
+            appProject: appProject,
+            appScheme: appScheme,
+            bundleID: bundleID,
+            bundleIDFromTargetBuildSettings: bundleIDFromTargetBuildSettings,
+            teamID: teamID,
+            teamIDFromTargetBuildSettings: teamIDFromTargetBuildSettings,
+            ascKeyID: ascKeyID,
+            ascIssuerID: ascIssuerID,
+            ascPrivateKeyData: ascPrivateKeyData,
+            buildConfiguration: buildConfiguration,
+            derivedDataPath: derivedDataPath,
+            xcargs: xcargs,
+            archiveExportMethod: archiveExportMethod,
+            archiveIncludeSymbols: archiveIncludeSymbols,
+            archiveOutputPath: archiveOutputPath,
+            exportArchivePath: exportArchivePath,
+            exportOutputDirectory: exportOutputDirectory,
+            codeSigningType: codeSigningType,
+            automaticCodeSigning: automaticCodeSigning,
+            codeSigningStorage: codeSigningStorage,
+            codeSigningGitUrl: codeSigningGitUrl,
+            vaultPassword: vaultPassword,
+            codeSigningP12Path: codeSigningP12Path,
+            codeSigningP12Data: codeSigningP12Data,
+            codeSigningP12Password: codeSigningP12Password,
+            codeSigningProvisioningProfilePath: codeSigningProvisioningProfilePath,
+            codeSigningProvisioningProfileData: codeSigningProvisioningProfileData,
+            skipWaitingForBuildProcessing: skipWaitingForBuildProcessing,
+            distributeExternal: distributeExternal,
+            testFlightGroups: testFlightGroups,
+            testFlightChangelog: testFlightChangelog,
+            screenshotDevices: screenshotDevices,
+            screenshotLocales: screenshotLocales,
+            screenshotScheme: screenshotScheme,
+            screenshotOutputDirectory: screenshotOutputDirectory,
+            metadataDirectory: metadataDirectory,
+            submitForReview: submitForReview,
+            automaticRelease: automaticRelease,
+            phasedRelease: phasedRelease,
+            versioningStrategy: versioningStrategy,
+            versioningSource: versioningSource,
+            versioningSpecPath: versioningSpecPath,
+            versioningBuildKey: versioningBuildKey,
+            versioningMarketingKey: versioningMarketingKey,
+            projectGenerationTool: projectGenerationTool,
+            projectGenerationCommand: projectGenerationCommand,
+            projectGenerationSpecPath: projectGenerationSpecPath,
+            projectGenerationOutputProject: projectGenerationOutputProject,
+            projectGenerationAutoGenerate: projectGenerationAutoGenerate,
+            slackWebhookUrl: slackWebhookUrl,
+            slackChannel: slackChannel,
+            workflows: workflows,
+            customActions: customActions,
+            platform: platform,
+            iosBuildSystem: iosBuildSystem,
+            androidBuildSystem: androidBuildSystem,
+            projectRoot: projectRoot,
+            kmpSharedModule: kmpSharedModule,
+            kmpBuildTarget: kmpBuildTarget,
+            kmpArchiveTarget: kmpArchiveTarget,
+            kmpTestTask: kmpTestTask,
+            androidModule: androidModule,
+            androidBuildVariant: buildVariant ?? androidBuildVariant,
+            androidBuildType: androidBuildType,
+            gradlewPath: gradlewPath,
+            gradleProjectDir: gradleProjectDir,
+            androidGradleFlags: androidGradleFlags,
+            androidKeystorePath: androidKeystorePath,
+            androidKeystorePassword: androidKeystorePassword,
+            androidKeyAlias: androidKeyAlias,
+            androidKeyPassword: androidKeyPassword,
+            androidPackageName: androidPackageName,
+            androidPlayTrack: androidPlayTrack,
+            androidRolloutFraction: androidRolloutFraction,
+            androidGradleProperties: updatedProperties,
+            googlePlayServiceAccountData: googlePlayServiceAccountData
+        )
     }
 }

@@ -95,7 +95,7 @@ public struct Shipfile: Codable, Sendable {
     ///   module: app
     ///   package_name: com.example.myapp
     ///   build_type: aab
-    ///   play_track: qa
+    ///   play_track: internal
     /// ```
     public var android: AndroidConfig?
 
@@ -728,7 +728,84 @@ public struct SlackConfig: Codable, Sendable {
 }
 
 /// A named workflow definition — an ordered list of steps.
-public typealias WorkflowConfig = [WorkflowStepConfig]
+/// Configuration for a named workflow, including optional workflow-level overrides
+/// and an ordered sequence of steps.
+///
+/// Supports two YAML forms for backward compatibility:
+/// ```yaml
+/// # Legacy: plain array of steps
+/// workflows:
+///   beta:
+///     - action: archive
+///     - action: testflight
+///
+/// # New: struct with workflow-level overrides
+/// workflows:
+///   release:
+///     build_variant: prodRelease
+///     steps:
+///       - action: archive
+///       - action: play-store
+///         options: { track: production }
+/// ```
+public struct WorkflowConfig: Codable, Sendable {
+    /// Gradle build variant override for all steps in this workflow.
+    /// When set, overrides `android.build_variant` from Shipfile for this workflow's execution.
+    public var buildVariant: String?
+
+    /// Product flavor override for all steps in this workflow.
+    /// When set, overrides `android.gradle_properties.flavor` for this workflow's execution.
+    public var flavor: String?
+
+    /// The ordered sequence of steps in this workflow.
+    public var steps: [WorkflowStepConfig]
+
+    /// Creates a `WorkflowConfig`.
+    public init(
+        buildVariant: String? = nil,
+        flavor: String? = nil,
+        steps: [WorkflowStepConfig]
+    ) {
+        self.buildVariant = buildVariant
+        self.flavor = flavor
+        self.steps = steps
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case buildVariant = "build_variant"
+        case flavor
+        case steps
+    }
+
+    public init(from decoder: any Decoder) throws {
+        // Try decoding as plain array first (legacy format)
+        if let container = try? decoder.singleValueContainer(),
+           let steps = try? container.decode([WorkflowStepConfig].self) {
+            self.buildVariant = nil
+            self.flavor = nil
+            self.steps = steps
+            return
+        }
+        // Decode as struct (new format)
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.buildVariant = try container.decodeIfPresent(String.self, forKey: .buildVariant)
+        self.flavor = try container.decodeIfPresent(String.self, forKey: .flavor)
+        self.steps = try container.decode([WorkflowStepConfig].self, forKey: .steps)
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        // If no overrides, encode as plain array for cleaner output
+        if buildVariant == nil && flavor == nil {
+            var container = encoder.singleValueContainer()
+            try container.encode(steps)
+        } else {
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            try container.encodeIfPresent(buildVariant, forKey: .buildVariant)
+            try container.encodeIfPresent(flavor, forKey: .flavor)
+            try container.encode(steps, forKey: .steps)
+        }
+    }
+}
 
 /// A single step within a workflow definition from the Shipfile.
 public struct WorkflowStepConfig: Codable, Sendable {

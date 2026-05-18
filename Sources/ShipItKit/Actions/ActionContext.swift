@@ -200,4 +200,30 @@ extension ActionContext {
 
         return gradle
     }
+
+    /// Returns a copy of this context with the given config, preserving all other fields.
+    ///
+    /// Used by `Workflow.run()` to apply per-workflow config overrides (e.g. `build_variant`).
+    public func withConfig(_ newConfig: ResolvedConfig) -> ActionContext {
+        #if os(macOS)
+        return ActionContext(
+            shell: shell,
+            logger: logger,
+            config: newConfig,
+            appStoreConnect: appStoreConnect,
+            googlePlay: googlePlay,
+            platform: platform,
+            verbose: verbose
+        )
+        #else
+        return ActionContext(
+            shell: shell,
+            logger: logger,
+            config: newConfig,
+            googlePlay: googlePlay,
+            platform: platform,
+            verbose: verbose
+        )
+        #endif
+    }
 }

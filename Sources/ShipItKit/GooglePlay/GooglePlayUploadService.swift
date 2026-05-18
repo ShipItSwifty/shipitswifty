@@ -21,7 +21,7 @@ import Logging
 /// let uploader = GooglePlayUploadService(client: client, packageName: "com.example.app")
 /// let result = try await uploader.uploadAndRelease(
 ///     aabPath: "./build/app-release.aab",
-///     track: "qa",
+///     track: "internal",
 ///     releaseNotes: [GooglePlayReleaseNote(language: "en-US", text: "Bug fixes")],
 ///     status: .completed
 /// )
@@ -47,7 +47,7 @@ public struct GooglePlayUploadService: Sendable {
     /// - Parameters:
     ///   - aabPath: Path to the `.aab` file. Use `apkPath` instead for APK uploads.
     ///   - apkPath: Path to the `.apk` file. Mutually exclusive with `aabPath`.
-    ///   - track: Play Store track (e.g. `"qa"`, `"alpha"`, `"beta"`, `"production"`).
+    ///   - track: Play Store track (e.g. `"internal"`, `"alpha"`, `"beta"`, `"production"`).
     ///   - releaseNotes: Per-language release notes.
     ///   - status: Release status (`.completed`, `.inProgress`, `.draft`).
     ///   - userFraction: Rollout fraction (0.0–1.0). Only used with `.inProgress` status.
