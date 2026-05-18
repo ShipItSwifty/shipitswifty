@@ -105,7 +105,7 @@ The same `BuildSystem` value applies to both iOS and Android in a single project
 
 KMP iOS builds need both `xcodebuild` and `gradlew`, so they run on macOS runners with a JDK 17+ available. Android-only KMP builds can run from Linux as long as JDK 17+ and the Android SDK are installed.
 
-The `doctor` command adds two probes when the resolved build system is `.kmp`:
+The `doctor` command is platform-scoped. For iOS it checks the full Xcode toolchain and App Store Connect credentials; for Android those iOS-specific checks are skipped. On top of that, `doctor` adds two probes when the resolved build system is `.kmp`:
 
 - `java on PATH (for Gradle/Kotlin)`
 - `gradlew present in project root`

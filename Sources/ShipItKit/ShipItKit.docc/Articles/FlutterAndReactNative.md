@@ -248,7 +248,7 @@ For Flutter flavors, ShipItKit derives the bundle path from `flavor + variant`, 
 | React Native iOS | required | — | required | — |
 | React Native Android | not required | — | required | — |
 
-The `shipit doctor` command probes for `flutter` and `node` on PATH when the resolved build system is `.flutter` or `.reactNative`.
+The `shipit doctor` command is platform-scoped. For iOS projects it checks the full Xcode toolchain (`xcode-select`, `xcodebuild`, `security`, `xcrun simctl`) plus App Store Connect credentials and network reachability. For Android projects those iOS-specific checks are skipped entirely. On top of that, `doctor` probes for `flutter` and `node` on PATH when the resolved build system is `.flutter` or `.reactNative`.
 
 ## Topics
 

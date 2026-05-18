@@ -264,12 +264,12 @@ struct GenerateCommand: AsyncParsableCommand {
         addOverride(
             &overrides, placeholder: "${SHIPIT_ANDROID__PACKAGE_NAME}",
             value: ask("Android package name", defaultValue: nil))
-        addOverride(
-            &overrides, placeholder: "${SHIPIT_ANDROID__KEYSTORE_PATH}",
-            value: ask("Keystore path", defaultValue: nil))
-        addOverride(
-            &overrides, placeholder: "${SHIPIT_ANDROID__KEY_ALIAS}",
-            value: ask("Keystore key alias", defaultValue: nil))
+
+        // --- Keystore setup ---
+        let (keystorePath, keystoreAlias, keystorePassword, keyPassword) = collectAndroidKeystore(
+            formatter: formatter)
+        addOverride(&overrides, placeholder: "${SHIPIT_ANDROID__KEYSTORE_PATH}", value: keystorePath)
+        addOverride(&overrides, placeholder: "${SHIPIT_ANDROID__KEY_ALIAS}", value: keystoreAlias)
 
         let uploadsToPlay =
             goal == .release
@@ -278,22 +278,312 @@ struct GenerateCommand: AsyncParsableCommand {
         if uploadsToPlay {
             formatter.printHeader("Google Play Environment")
             formatter.print("ShipIt will reference env vars instead of storing secrets in Shipfile.yml.")
-            collectEnvironmentVariables(
-                [
-                    EnvVarSpec(
-                        name: "GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_PATH", isSensitive: false,
-                        description: "Path to service account JSON (preferred)"),
-                    EnvVarSpec(
-                        name: "GOOGLE_PLAY_SERVICE_ACCOUNT_JSON", isSensitive: true,
-                        description: "Raw service account JSON content (CI fallback)"),
-                    EnvVarSpec(name: "SHIPIT_ANDROID__KEYSTORE_PASSWORD", isSensitive: true, description: "Keystore password"),
-                    EnvVarSpec(name: "SHIPIT_ANDROID__KEY_PASSWORD", isSensitive: true, description: "Key alias password"),
-                ],
-                formatter: formatter)
+
+            // Values already collected during keystore setup — treat as [collected].
+            var envOverrides: [String: String] = [:]
+            if !keystorePassword.isEmpty { envOverrides["SHIPIT_ANDROID__KEYSTORE_PASSWORD"] = keystorePassword }
+            if !keyPassword.isEmpty { envOverrides["SHIPIT_ANDROID__KEY_PASSWORD"] = keyPassword }
+
+            let processEnv = ProcessInfo.processInfo.environment
+            let envSpecs: [EnvVarSpec] = [
+                EnvVarSpec(
+                    name: "GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_PATH", isSensitive: false,
+                    description: "Path to service account JSON (preferred)"),
+                EnvVarSpec(
+                    name: "GOOGLE_PLAY_SERVICE_ACCOUNT_JSON", isSensitive: true,
+                    description: "Raw service account JSON content (CI fallback)"),
+                EnvVarSpec(
+                    name: "SHIPIT_ANDROID__KEYSTORE_PASSWORD", isSensitive: true,
+                    description: "Keystore password"),
+                EnvVarSpec(
+                    name: "SHIPIT_ANDROID__KEY_PASSWORD", isSensitive: true,
+                    description: "Key alias password"),
+            ]
+
+            // Show status for all specs so the user can see what's already handled.
+            for spec in envSpecs {
+                if envOverrides[spec.name] != nil {
+                    formatter.printKV(spec.name, "[collected]  \(spec.description)")
+                } else if processEnv[spec.name] != nil {
+                    formatter.printKV(spec.name, "[set]  \(spec.description)")
+                } else {
+                    formatter.printKV(spec.name, "(not set)  \(spec.description)")
+                }
+            }
+
+            // Only prompt for specs not yet answered in-memory or in the process env.
+            let filteredSpecs = envSpecs.filter {
+                envOverrides[$0.name] == nil && processEnv[$0.name] == nil
+            }
+            if !filteredSpecs.isEmpty {
+                formatter.print("")
+                let collected = collectEnvironmentVariables(filteredSpecs, formatter: formatter, showStatusTable: false)
+                envOverrides.merge(collected) { _, new in new }
+            }
+
+            if !envOverrides.isEmpty {
+                formatter.printHeader("Run These Exports in Your Shell")
+                formatter.print("Add these to your shell profile or CI secrets:")
+                for spec in envSpecs {
+                    guard let value = envOverrides[spec.name] else { continue }
+                    let display =
+                        spec.isSensitive ? String(repeating: "*", count: min(value.count, 8)) : value
+                    formatter.print("  export \(spec.name)=\(display)")
+                }
+                formatter.print("")
+                formatter.printWarning(
+                    "Sensitive values shown as **** above — copy from your input above before continuing.")
+            }
+
             overrides["    # - action: play-store"] = "    - action: play-store"
         }
 
         return overrides
+    }
+
+    /// Guides the user through keystore setup: either creating a new one via `keytool`
+    /// or reading alias information from an existing one.
+    ///
+    /// Returns `(keystorePath, keystoreAlias, keystorePassword, keyPassword)`.
+    private func collectAndroidKeystore(formatter: HumanFormatter)
+        -> (path: String, alias: String, keystorePassword: String, keyPassword: String)
+    {
+        formatter.printHeader("Android Keystore")
+
+        let hasKeystore = confirm("Do you already have an Android keystore (.jks / .keystore)?", defaultAnswer: true)
+
+        if hasKeystore {
+            return collectExistingKeystore(formatter: formatter)
+        } else {
+            return createNewKeystore(formatter: formatter)
+        }
+    }
+
+    /// Prompts for an existing keystore path and password, then tries to read aliases
+    /// via `keytool -list -v`.  Falls back to manual alias entry on any failure.
+    private func collectExistingKeystore(formatter: HumanFormatter)
+        -> (path: String, alias: String, keystorePassword: String, keyPassword: String)
+    {
+        let keystorePath = ask("Keystore path (.jks or .keystore)", defaultValue: nil)
+        guard !keystorePath.isEmpty else {
+            formatter.printWarning("No keystore path entered; you can set it manually in Shipfile.yml later.")
+            return ("", "", "", "")
+        }
+
+        formatter.print("Enter the keystore password to inspect aliases (leave blank to enter alias manually).")
+        let keystorePassword = askSecret("Keystore password")
+
+        var resolvedAlias = ""
+        if !keystorePassword.isEmpty {
+            resolvedAlias = readAliasFromKeystore(
+                path: keystorePath, password: keystorePassword, formatter: formatter)
+        }
+
+        if resolvedAlias.isEmpty {
+            resolvedAlias = ask("Keystore key alias", defaultValue: nil)
+        }
+
+        // Key password may differ from keystore password.
+        formatter.print(
+            "Key password (press Enter to use the same password as the keystore).")
+        let rawKeyPassword = askSecret("Key password")
+        let keyPassword = rawKeyPassword.isEmpty ? keystorePassword : rawKeyPassword
+
+        return (keystorePath, resolvedAlias, keystorePassword, keyPassword)
+    }
+
+    /// Runs `keytool -list -v` to extract aliases from an existing keystore.
+    /// Returns the selected alias, or an empty string on failure.
+    private func readAliasFromKeystore(
+        path: String, password: String, formatter: HumanFormatter
+    ) -> String {
+        let keytoolPath = resolveKeytoolPath()
+        guard let keytoolPath else {
+            formatter.printWarning("keytool not found on PATH — alias must be entered manually.")
+            return ""
+        }
+
+        let proc = Process()
+        proc.executableURL = URL(fileURLWithPath: keytoolPath)
+        proc.arguments = [
+            "-list", "-v",
+            "-keystore", path,
+            "-storepass", password,
+        ]
+        let pipe = Pipe()
+        proc.standardOutput = pipe
+        proc.standardError = Pipe()  // suppress keytool warnings
+
+        do {
+            try proc.run()
+            proc.waitUntilExit()
+        } catch {
+            formatter.printWarning("Could not run keytool: \(error.localizedDescription)")
+            return ""
+        }
+
+        guard proc.terminationStatus == 0 else {
+            formatter.printWarning("keytool exited with error — check keystore path and password.")
+            return ""
+        }
+
+        let data = pipe.fileHandleForReading.readDataToEndOfFile()
+        let output = String(data: data, encoding: .utf8) ?? ""
+        let aliases = parseAliases(from: output)
+
+        switch aliases.count {
+        case 0:
+            formatter.printWarning("No aliases found in keystore.")
+            return ""
+        case 1:
+            formatter.print("Found alias: \(aliases[0])")
+            return aliases[0]
+        default:
+            formatter.print("Multiple aliases found:")
+            for (i, alias) in aliases.enumerated() {
+                formatter.print("  \(i + 1). \(alias)")
+            }
+            let input = ask(
+                "Enter alias number or type the alias directly",
+                defaultValue: "1")
+            if let idx = Int(input), idx >= 1, idx <= aliases.count {
+                return aliases[idx - 1]
+            }
+            return input
+        }
+    }
+
+    /// Parses `Alias name: <value>` lines from `keytool -list -v` output.
+    private func parseAliases(from output: String) -> [String] {
+        output.components(separatedBy: "\n")
+            .compactMap { line -> String? in
+                let trimmed = line.trimmingCharacters(in: .whitespaces)
+                guard trimmed.lowercased().hasPrefix("alias name:") else { return nil }
+                let value = trimmed.dropFirst("alias name:".count)
+                    .trimmingCharacters(in: .whitespaces)
+                return value.isEmpty ? nil : value
+            }
+    }
+
+    /// Guides the user through creating a brand-new keystore by collecting distinguished
+    /// name fields and invoking `keytool -genkeypair`.
+    private func createNewKeystore(formatter: HumanFormatter)
+        -> (path: String, alias: String, keystorePassword: String, keyPassword: String)
+    {
+        formatter.printHeader("Create New Keystore")
+        formatter.print("ShipIt will run keytool to generate a new keystore for you.")
+        formatter.print("")
+
+        guard let keytoolPath = resolveKeytoolPath() else {
+            formatter.printWarning(
+                "keytool not found on PATH. Install a JDK (e.g. via `brew install openjdk`) and re-run.")
+            formatter.print("Then run: keytool -genkeypair -v -keystore ./keystore.jks -alias <alias> \\")
+            formatter.print("  -keyalg RSA -keysize 2048 -validity 10000 -storepass <pw> -keypass <pw>")
+            return ("", "", "", "")
+        }
+
+        // Output path
+        let outputPath = ask("Keystore output path", defaultValue: "./keystore.jks")
+
+        // Alias
+        let alias = ask("Key alias (e.g. my-app-key)", defaultValue: "release")
+
+        // Passwords
+        formatter.print("Choose a keystore password (min 6 characters).")
+        let keystorePassword = askSecret("Keystore password")
+        let confirm1 = askSecret("Confirm keystore password")
+        guard keystorePassword == confirm1, !keystorePassword.isEmpty else {
+            formatter.printWarning("Passwords did not match or were empty — keystore not created.")
+            return (outputPath, alias, "", "")
+        }
+
+        formatter.print("Key password (press Enter to use the same as keystore password).")
+        let rawKeyPassword = askSecret("Key password")
+        let keyPassword = rawKeyPassword.isEmpty ? keystorePassword : rawKeyPassword
+
+        // Distinguished name fields
+        formatter.print("")
+        formatter.print("These fields are embedded in the signing certificate (press Enter to skip any).")
+        let cn = ask("Your name or organisation (CN)", defaultValue: nil)
+        let ou = ask("Organisational unit (OU)", defaultValue: nil)
+        let o  = ask("Organisation (O)", defaultValue: nil)
+        let l  = ask("City / Locality (L)", defaultValue: nil)
+        let st = ask("State / Province (ST)", defaultValue: nil)
+        let c  = ask("Two-letter country code (C)", defaultValue: nil)
+        let validityDays = ask("Validity in days", defaultValue: "10000")
+
+        var dnParts: [String] = []
+        if !cn.isEmpty { dnParts.append("CN=\(cn)") }
+        if !ou.isEmpty { dnParts.append("OU=\(ou)") }
+        if !o.isEmpty  { dnParts.append("O=\(o)") }
+        if !l.isEmpty  { dnParts.append("L=\(l)") }
+        if !st.isEmpty { dnParts.append("ST=\(st)") }
+        if !c.isEmpty  { dnParts.append("C=\(c)") }
+        let dname = dnParts.isEmpty ? "CN=Unknown" : dnParts.joined(separator: ", ")
+
+        // Run keytool
+        formatter.print("")
+        formatter.print("Generating keystore…")
+
+        let proc = Process()
+        proc.executableURL = URL(fileURLWithPath: keytoolPath)
+        proc.arguments = [
+            "-genkeypair", "-v",
+            "-keystore", outputPath,
+            "-alias", alias,
+            "-keyalg", "RSA",
+            "-keysize", "2048",
+            "-validity", validityDays,
+            "-storepass", keystorePassword,
+            "-keypass", keyPassword,
+            "-dname", dname,
+        ]
+        proc.standardOutput = Pipe()
+        proc.standardError = Pipe()
+
+        do {
+            try proc.run()
+            proc.waitUntilExit()
+        } catch {
+            formatter.printWarning("Failed to run keytool: \(error.localizedDescription)")
+            return (outputPath, alias, keystorePassword, keyPassword)
+        }
+
+        if proc.terminationStatus == 0 {
+            formatter.print("Keystore created at: \(outputPath)")
+        } else {
+            formatter.printWarning(
+                "keytool exited with status \(proc.terminationStatus) — check output above.")
+        }
+
+        return (outputPath, alias, keystorePassword, keyPassword)
+    }
+
+    /// Returns the path to `keytool`, preferring `JAVA_HOME/bin/keytool` then PATH lookup.
+    private func resolveKeytoolPath() -> String? {
+        if let javaHome = ProcessInfo.processInfo.environment["JAVA_HOME"] {
+            let candidate = "\(javaHome)/bin/keytool"
+            if FileManager.default.fileExists(atPath: candidate) {
+                return candidate
+            }
+        }
+        // Fall back to PATH lookup via `which keytool`.
+        let which = Process()
+        which.executableURL = URL(fileURLWithPath: "/usr/bin/which")
+        which.arguments = ["keytool"]
+        let pipe = Pipe()
+        which.standardOutput = pipe
+        which.standardError = Pipe()
+        do {
+            try which.run()
+            which.waitUntilExit()
+        } catch {
+            return nil
+        }
+        guard which.terminationStatus == 0 else { return nil }
+        let found = (String(data: pipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return found.isEmpty ? nil : found
     }
 
     /// Describes a single environment variable that ShipIt needs.
@@ -315,17 +605,21 @@ struct GenerateCommand: AsyncParsableCommand {
     ///   the user typed so they can persist them in their shell / `.env`.
     /// - In `--non-interactive` or non-TTY mode the function prints the status table and
     ///   returns without prompting.
+    /// - Pass `showStatusTable: false` when the caller already printed a full status
+    ///   table and you only want the prompting loop.
     @discardableResult
     private func collectEnvironmentVariables(
-        _ specs: [EnvVarSpec], formatter: HumanFormatter
+        _ specs: [EnvVarSpec], formatter: HumanFormatter, showStatusTable: Bool = true
     ) -> [String: String] {
         let env = ProcessInfo.processInfo.environment
         var collected: [String: String] = [:]
 
-        for spec in specs {
-            let isSet = env[spec.name] != nil
-            let statusTag = isSet ? "[set]" : "(not set)"
-            formatter.printKV(spec.name, "\(statusTag)  \(spec.description)")
+        if showStatusTable {
+            for spec in specs {
+                let isSet = env[spec.name] != nil
+                let statusTag = isSet ? "[set]" : "(not set)"
+                formatter.printKV(spec.name, "\(statusTag)  \(spec.description)")
+            }
         }
 
         guard isInteractiveTerminal, !nonInteractive else { return collected }

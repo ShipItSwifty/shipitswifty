@@ -8,6 +8,11 @@ import SwiftyShell
 ///
 /// Runs a series of checks and prints a pass/fail table.
 /// Exit code is `0` if all checks pass, `2` if any check fails.
+///
+/// Checks are scoped to the platform detected from `Shipfile.yml`:
+/// - **iOS**: `git`, Xcode toolchain (`xcode-select`, `xcodebuild`, `security`, `xcrun simctl`),
+///   App Store Connect credentials, and ASC network reachability.
+/// - **Android**: `git`, `java` (required by Gradle). No Xcode or ASC checks.
 struct DoctorCommand: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "doctor",
@@ -44,12 +49,13 @@ struct DoctorCommand: AsyncParsableCommand {
             let shell = ShellContext()
             let formatter = makeHumanFormatter(global: global)
             let ascDiagnosticsMode = Self.ascDiagnosticsMode(for: config)
+            let platform = config.platform
 
             formatter.printHeader("ShipItSwifty Doctor")
 
             var allPassed = true
 
-            for toolCheck in Self.toolCheckCommands(shell: shell) {
+            for toolCheck in Self.toolCheckCommands(shell: shell, platform: platform) {
                 allPassed =
                     await check(
                         name: toolCheck.name,
@@ -79,53 +85,56 @@ struct DoctorCommand: AsyncParsableCommand {
                     true
                 } && allPassed
 
-            let ascCredentialsPresent = hasCompleteASCCredentials(config: config)
-            switch ascDiagnosticsMode {
-            case .optionalForLocalOnlyWorkflows:
-                if ascCredentialsPresent {
-                    formatter.printCheckmark("App Store Connect credentials present", passed: true)
-                } else {
-                    formatter.printWarning("App Store Connect credentials not configured (ok for local-only workflows)")
-                    formatter.print("  Configured workflows only use local actions, so ASC setup can be skipped.")
-                    formatter.print(
-                        "  If you later add upload, testflight, metadata, or provision, set ASC_KEY_ID + ASC_ISSUER_ID + exactly one of ASC_PRIVATE_KEY or ASC_PRIVATE_KEY_PATH."
-                    )
-                    formatter.print("  Find them in App Store Connect > Users and Access > Integrations > App Store Connect API")
-                }
-            case .required, .unknown:
-                let credentialsCheckPassed = await check(
-                    name: "App Store Connect credentials present",
-                    formatter: formatter
-                ) {
-                    ascCredentialsPresent
-                }
-                allPassed = credentialsCheckPassed && allPassed
-
-                if !credentialsCheckPassed {
-                    printASCCredentialsGuidance(formatter: formatter)
-                    if ascDiagnosticsMode == .unknown {
+            // ASC and network checks are iOS-only concerns.
+            if platform == .ios {
+                let ascCredentialsPresent = hasCompleteASCCredentials(config: config)
+                switch ascDiagnosticsMode {
+                case .optionalForLocalOnlyWorkflows:
+                    if ascCredentialsPresent {
+                        formatter.printCheckmark("App Store Connect credentials present", passed: true)
+                    } else {
+                        formatter.printWarning("App Store Connect credentials not configured (ok for local-only workflows)")
+                        formatter.print("  Configured workflows only use local actions, so ASC setup can be skipped.")
                         formatter.print(
-                            "  No workflows clearly indicate whether ASC is optional, so doctor keeps this as a required check.")
+                            "  If you later add upload, testflight, metadata, or provision, set ASC_KEY_ID + ASC_ISSUER_ID + exactly one of ASC_PRIVATE_KEY or ASC_PRIVATE_KEY_PATH."
+                        )
+                        formatter.print("  Find them in App Store Connect > Users and Access > Integrations > App Store Connect API")
                     }
-                }
-            }
-
-            switch ascDiagnosticsMode {
-            case .optionalForLocalOnlyWorkflows:
-                formatter.printWarning("Skipping App Store Connect reachability check for local-only workflows")
-            case .required, .unknown:
-                allPassed =
-                    await check(
-                        name: "Network: api.appstoreconnect.apple.com reachable",
+                case .required, .unknown:
+                    let credentialsCheckPassed = await check(
+                        name: "App Store Connect credentials present",
                         formatter: formatter
                     ) {
-                        guard let url = URL(string: "https://api.appstoreconnect.apple.com/v1/apps") else { return false }
-                        var request = URLRequest(url: url)
-                        request.timeoutInterval = 5
-                        let (_, response) = try await URLSession.shared.data(for: request)
-                        let statusCode = (response as? HTTPURLResponse)?.statusCode ?? 0
-                        return statusCode > 0
-                    } && allPassed
+                        ascCredentialsPresent
+                    }
+                    allPassed = credentialsCheckPassed && allPassed
+
+                    if !credentialsCheckPassed {
+                        printASCCredentialsGuidance(formatter: formatter)
+                        if ascDiagnosticsMode == .unknown {
+                            formatter.print(
+                                "  No workflows clearly indicate whether ASC is optional, so doctor keeps this as a required check.")
+                        }
+                    }
+                }
+
+                switch ascDiagnosticsMode {
+                case .optionalForLocalOnlyWorkflows:
+                    formatter.printWarning("Skipping App Store Connect reachability check for local-only workflows")
+                case .required, .unknown:
+                    allPassed =
+                        await check(
+                            name: "Network: api.appstoreconnect.apple.com reachable",
+                            formatter: formatter
+                        ) {
+                            guard let url = URL(string: "https://api.appstoreconnect.apple.com/v1/apps") else { return false }
+                            var request = URLRequest(url: url)
+                            request.timeoutInterval = 5
+                            let (_, response) = try await URLSession.shared.data(for: request)
+                            let statusCode = (response as? HTTPURLResponse)?.statusCode ?? 0
+                            return statusCode > 0
+                        } && allPassed
+                }
             }
 
             formatter.printDivider()
@@ -175,15 +184,35 @@ struct DoctorCommand: AsyncParsableCommand {
         formatter.print("  ASC_PRIVATE_KEY / ASC_PRIVATE_KEY_PATH: the downloaded .p8 contents or file path")
     }
 
-    static func toolCheckCommands(shell: ShellContext) -> [ToolCheck] {
-        [
-            ToolCheck(name: "Xcode installed", command: XcodeSelect(context: shell).printPath().command()),
-            ToolCheck(
-                name: "xcodebuild available", command: Xcrun(context: shell).tool("xcodebuild").trailingArgument("-version").command()),
+    /// Returns the universal and platform-specific tool presence checks.
+    ///
+    /// `git` is always checked. iOS adds the full Xcode toolchain (`xcode-select`,
+    /// `xcodebuild`, `security`, `xcrun simctl`). Android adds `java` (required by
+    /// Gradle). Build-system extras (Flutter, Node, KMP) are handled separately by
+    /// ``buildSystemToolCheckCommands(shell:config:)``.
+    static func toolCheckCommands(shell: ShellContext, platform: Platform) -> [ToolCheck] {
+        var checks: [ToolCheck] = [
+            // git is universal
             ToolCheck(name: "git on PATH", command: GitCLI(context: shell).version().command()),
-            ToolCheck(name: "security CLI available", command: SecurityCLI(context: shell).help().command()),
-            ToolCheck(name: "xcrun simctl available", command: Simctl(context: shell).list(json: true).command()),
         ]
+
+        switch platform {
+        case .ios:
+            checks += [
+                ToolCheck(name: "Xcode installed", command: XcodeSelect(context: shell).printPath().command()),
+                ToolCheck(
+                    name: "xcodebuild available",
+                    command: Xcrun(context: shell).tool("xcodebuild").trailingArgument("-version").command()),
+                ToolCheck(name: "security CLI available", command: SecurityCLI(context: shell).help().command()),
+                ToolCheck(name: "xcrun simctl available", command: Simctl(context: shell).list(json: true).command()),
+            ]
+        case .android:
+            checks += [
+                ToolCheck(name: "java on PATH (for Gradle)", command: Command("java", arguments: "-version")),
+            ]
+        }
+
+        return checks
     }
 
     /// Returns toolchain checks gated on the resolved build system for each platform.
