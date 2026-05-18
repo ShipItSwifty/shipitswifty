@@ -164,6 +164,18 @@ public struct PlayStoreAction: Action {
             }
         }
 
+        // Anchor relative paths against the shell's working directory so that
+        // shipit can be invoked from any directory and still locate the artifact.
+        let workingDirectory = context.shell.workingDirectory ?? FileManager.default.currentDirectoryPath
+        let anchoredAABPath = resolvedAABPath.map { path -> String in
+            guard !(path as NSString).isAbsolutePath else { return path }
+            return (workingDirectory as NSString).appendingPathComponent(path)
+        }
+        let anchoredAPKPath = resolvedAPKPath.map { path -> String in
+            guard !(path as NSString).isAbsolutePath else { return path }
+            return (workingDirectory as NSString).appendingPathComponent(path)
+        }
+
         let notes = buildReleaseNotes(from: options.releaseNotes)
         let releaseStatus: GooglePlayReleaseStatus = rolloutFraction != nil ? .inProgress : .completed
 
@@ -171,8 +183,8 @@ public struct PlayStoreAction: Action {
 
         let uploader = GooglePlayUploadService(client: googlePlay, packageName: packageName)
         let versionCode = try await uploader.uploadAndRelease(
-            aabPath: resolvedAABPath,
-            apkPath: resolvedAPKPath,
+            aabPath: anchoredAABPath,
+            apkPath: anchoredAPKPath,
             track: track,
             releaseNotes: notes,
             status: releaseStatus,
