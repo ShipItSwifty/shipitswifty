@@ -188,7 +188,7 @@ Android support ships in v1 alongside iOS. Platform is auto-detected from projec
 | **Archive** | `shipit archive --platform android` | `./gradlew bundleRelease` — produces an `.aab` |
 | **Test** | `shipit test --platform android` | `./gradlew test` (unit) or `./gradlew connectedAndroidTest` (instrumented) |
 | **Lint** | `shipit lint --platform android` | `./gradlew lint` |
-| **Play Store** | `shipit play-store` | Upload AAB to Google Play via service account JWT auth |
+| **Play Store** | `shipit play-store` | Upload AAB to Google Play via service account JWT auth. Supports per-workflow `build_variant` and `flavor` overrides for artifact path auto-discovery. |
 | **Validate Bundle** | `shipit validate bundle` | `bundletool validate --bundle` — AAB/APK pre-upload checks |
 
 ### Android Shipfile example

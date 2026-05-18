@@ -366,7 +366,7 @@ public enum BuiltInSchemaCatalog {
                         example: .string("com.example.myapp"), envVar: "SHIPIT_ANDROID__PACKAGE_NAME"),
                     .string(
                         "play_track", description: "Google Play distribution track.",
-                        allowedValues: ["qa", "alpha", "beta", "production"], example: .string("qa"),
+                        allowedValues: ["internal", "alpha", "beta", "production"], example: .string("internal"),
                         envVar: "SHIPIT_ANDROID__PLAY_TRACK"),
                     .string(
                         "gradlew_path",
@@ -402,13 +402,17 @@ public enum BuiltInSchemaCatalog {
                 "workflows",
                 description: "Named workflows executed with `shipit run <workflow>`.",
                 notes: [
-                    "Workflow names are dynamic keys.", "Each workflow is an ordered list of action steps.",
+                     "Workflow names are dynamic keys.", "Each workflow is an ordered list of action steps, or an object with workflow-level overrides and a `steps` array.",
                 ],
                 allowsAdditionalProperties: true,
-                additionalProperties: .array(
+                additionalProperties: .any(
                     "<workflow>",
-                    description: "Ordered action steps for a workflow.",
-                    items: workflowStepField()
+                    description:
+                        "Workflow definition. Can be a plain array of steps (legacy) or an object with optional `build_variant`, `flavor`, and required `steps`.",
+                    notes: [
+                        "Legacy format: a plain array of step objects [{action, options?}, ...].",
+                        "New format: an object with optional `build_variant` and `flavor` keys, plus a required `steps` array.",
+                    ]
                 )
             ),
             .object(
@@ -1302,6 +1306,16 @@ public enum BuiltInSchemaCatalog {
                 "package_name",
                 description: "Android package name. Overrides android.package_name in Shipfile.",
                 example: .string("com.example.myapp")),
+            .string(
+                "build_variant",
+                description:
+                    "Gradle build variant for artifact path auto-discovery. Overrides android.build_variant in Shipfile.",
+                example: .string("prodRelease")),
+            .string(
+                "flavor",
+                description:
+                    "Product flavor for Flutter artifact path auto-discovery. Overrides android.gradle_properties.flavor.",
+                example: .string("prod")),
         ]
     }
 

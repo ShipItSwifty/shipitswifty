@@ -60,6 +60,15 @@ public struct PlayStoreAction: Action {
         /// Defaults to `config.androidPackageName`.
         public var packageName: String?
 
+        /// Gradle build variant (e.g. `"prodRelease"`).
+        /// Used for auto-discovering the artifact path when `aabPath`/`apkPath` are not set.
+        /// Defaults to `config.androidBuildVariant`.
+        public var buildVariant: String?
+
+        /// Product flavor (e.g. `"prod"`). Used for Flutter artifact path auto-discovery.
+        /// Defaults to `config.androidGradleProperties["flavor"]`.
+        public var flavor: String?
+
         /// Creates `Options` for the Play Store action.
         public init(
             aabPath: String? = nil,
@@ -67,7 +76,9 @@ public struct PlayStoreAction: Action {
             track: String? = nil,
             releaseNotes: [String: String]? = nil,
             rolloutFraction: Double? = nil,
-            packageName: String? = nil
+            packageName: String? = nil,
+            buildVariant: String? = nil,
+            flavor: String? = nil
         ) {
             self.aabPath = aabPath
             self.apkPath = apkPath
@@ -75,6 +86,8 @@ public struct PlayStoreAction: Action {
             self.releaseNotes = releaseNotes
             self.rolloutFraction = rolloutFraction
             self.packageName = packageName
+            self.buildVariant = buildVariant
+            self.flavor = flavor
         }
     }
 
@@ -141,26 +154,27 @@ public struct PlayStoreAction: Action {
         } else {
             // Auto-discover well-known paths for Flutter / React Native
             let buildSystem = context.config.androidBuildSystem
+            let variant = options.buildVariant ?? context.config.androidBuildVariant
+            let flavor = options.flavor ?? context.config.androidGradleProperties["flavor"]
             switch buildSystem {
             case .flutter:
                 resolvedAABPath = CrossPlatformArtifactPaths.flutterAAB(
-                    flavor: context.config.androidGradleProperties["flavor"],
-                    variant: context.config.androidBuildVariant
+                    flavor: flavor,
+                    variant: variant
                 )
                 resolvedAPKPath = nil
                 logger.info("Auto-discovered \(buildSystem.rawValue) AAB path: \(resolvedAABPath!)")
             case .reactNative:
-                resolvedAABPath = CrossPlatformArtifactPaths.reactNativeAAB(variant: context.config.androidBuildVariant)
+                resolvedAABPath = CrossPlatformArtifactPaths.reactNativeAAB(variant: variant)
                 resolvedAPKPath = nil
                 logger.info("Auto-discovered \(buildSystem.rawValue) AAB path: \(resolvedAABPath!)")
             default:
                 // Native Gradle: derive the conventional AAB output path from module + variant
                 let module = context.config.androidModule
-                let variant = context.config.androidBuildVariant
                 let aab = "\(module)/build/outputs/bundle/\(variant)/\(module)-\(variant).aab"
                 resolvedAABPath = aab
                 resolvedAPKPath = nil
-                logger.info("Auto-discovered native AAB path: \(aab). Override with --aab if the path differs.")
+                logger.info("Auto-discovered native AAB path: \(aab). Override with --aab or build_variant option if the path differs.")
             }
         }
 

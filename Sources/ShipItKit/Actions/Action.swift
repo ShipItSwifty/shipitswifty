@@ -14,7 +14,7 @@ public struct ActionValidationContext: Sendable {
     public let stepIndex: Int
 
     /// All steps in the parent workflow, useful for checking step ordering dependencies.
-    public let allSteps: WorkflowConfig
+    public let allSteps: [WorkflowStepConfig]
 
     /// The fully-resolved configuration for the Shipfile being validated.
     public let config: ResolvedConfig
@@ -22,7 +22,7 @@ public struct ActionValidationContext: Sendable {
     public init(
         options: [String: JSONValue],
         stepIndex: Int,
-        allSteps: WorkflowConfig,
+        allSteps: [WorkflowStepConfig],
         config: ResolvedConfig
     ) {
         self.options = options

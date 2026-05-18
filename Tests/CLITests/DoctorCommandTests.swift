@@ -12,12 +12,12 @@ struct DoctorCommandTests {
     func ascDiagnosticsOptionalForLocalOnlyWorkflows() {
         let config = ResolvedConfig(
             workflows: [
-                "local": [
+                "local": WorkflowConfig(steps: [
                     WorkflowStepConfig(action: "build"),
                     WorkflowStepConfig(action: "test"),
                     WorkflowStepConfig(action: "archive"),
                     WorkflowStepConfig(action: "export"),
-                ]
+                ])
             ]
         )
 
@@ -28,10 +28,10 @@ struct DoctorCommandTests {
     func ascDiagnosticsRequiredForASCBackedWorkflows() {
         let config = ResolvedConfig(
             workflows: [
-                "beta": [
+                "beta": WorkflowConfig(steps: [
                     WorkflowStepConfig(action: "archive"),
                     WorkflowStepConfig(action: "testflight"),
-                ]
+                ])
             ]
         )
 

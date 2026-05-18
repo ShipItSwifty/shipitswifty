@@ -269,7 +269,7 @@ struct DoctorCommand: AsyncParsableCommand {
 
     static func ascDiagnosticsMode(for config: ResolvedConfig) -> ASCDiagnosticsMode {
         let actions = config.workflows.values.flatMap { workflow in
-            workflow.map { $0.action.lowercased() }
+            workflow.steps.map { $0.action.lowercased() }
         }
 
         guard !actions.isEmpty else {
