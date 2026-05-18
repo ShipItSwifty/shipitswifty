@@ -64,21 +64,36 @@ ShipItSwifty uses a Google Cloud service account with Play Console permissions f
 
 ### Typical setup flow
 
-1. Open `Google Cloud Console`.
+1. Open [Google Cloud Console](https://console.cloud.google.com).
 2. Create or select a Google Cloud project.
-3. Enable the `Google Play Developer API` for that project.
-4. Create a service account in the project.
+3. Enable the [Google Play Developer API](https://console.developers.google.com/apis/api/androidpublisher.googleapis.com/).
+4. Go to [Service Accounts](https://console.cloud.google.com/iam-admin/serviceaccounts) and create a service account.
 5. Create and download a JSON key for that service account.
-6. Open `Google Play Console`.
-7. Go to `Users and permissions`.
-8. Invite the service account email address as a user.
-9. Grant the Play Console permissions needed for your rollout.
+6. Open [Google Play Console → Users and permissions](https://play.google.com/console/users-and-permissions).
+7. Click **Invite new users** and paste the service account email address.
+8. Under the **App permissions** tab, add your app and grant the permissions below.
+9. Click **Invite user**.
+
+> **Important:** Only the Play Console **account owner** can invite users. If you cannot see the invite button, ask the account owner.
+
+> **Note:** Linking a Google Cloud project to Play Console is no longer required. Inviting the service account email via Users & permissions is sufficient.
 
 ### Typical Play Console permissions
 
-- `View app information (read-only)`
+- `View app information and download bulk reports (read-only)`
 - `Release apps to testing tracks` for `internal`, `alpha`, or `beta`
 - `Release to production, exclude devices, and use Play App Signing` for production rollout
+- `Manage store presence` — only if updating store listings via the API
+
+### Troubleshooting 403 PERMISSION_DENIED
+
+If `shipit play-store` returns HTTP 403 with `"The caller does not have permission"`:
+
+1. **Check app-level permissions** — Go to [Users & permissions](https://play.google.com/console/users-and-permissions), click the service account, and verify it has permissions for your specific app under the **App permissions** tab (account-level permissions alone are not enough).
+2. **Verify the API is enabled** — The [Google Play Developer API](https://console.developers.google.com/apis/api/androidpublisher.googleapis.com/) must be enabled in the same Cloud project that owns the service account.
+3. **Confirm the correct key** — The `client_email` in your JSON key must match the email invited in Play Console.
+4. **Wait for propagation** — Permission changes can take a few minutes to take effect.
+5. **Account owner required** — Only the account owner can grant permissions. Admin access is not sufficient for managing API users.
 
 ### Track notes
 

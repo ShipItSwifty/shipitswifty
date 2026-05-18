@@ -134,18 +134,24 @@ Use these values for Android setup:
 Set up Play API access:
 
 1. Open [Google Cloud Console](https://console.cloud.google.com) and create or choose a project.
-2. Enable the `Google Play Developer API` for that project.
-3. Create a service account in that Google Cloud project.
+2. Go to [APIs & Services](https://console.developers.google.com/apis/api/androidpublisher.googleapis.com/) and enable the **Google Play Developer API**.
+3. Go to [Service Accounts](https://console.cloud.google.com/iam-admin/serviceaccounts) and create a service account.
 4. Create and download a JSON key for that service account.
-5. Open Google Play Console -> `Users and permissions`.
-6. Invite the service account email address as a user.
-7. Grant the permissions needed for your target track.
+5. Open [Google Play Console → Users and permissions](https://play.google.com/console/users-and-permissions).
+6. Click **Invite new users** and paste the service account email (e.g. `my-sa@my-project.iam.gserviceaccount.com`).
+7. Under the **App permissions** tab, add your specific app and grant the permissions below.
+8. Click **Invite user**.
 
-Typical permissions:
+> **Important:** Only the Play Console **account owner** can invite new users. If you don't see the invite option, ask the account owner to perform steps 5–8.
 
-- `View app information (read-only)` so the account can read app state
-- `Release apps to testing tracks` for `internal`, `alpha`, or `beta`
-- `Release to production, exclude devices, and use Play App Signing` if you want production rollout
+> **Note:** You do **not** need to link your Google Cloud project to Play Console. Google removed that requirement — inviting the service account email directly via Users & permissions is sufficient.
+
+Required permissions (under **App permissions** for your app):
+
+- `View app information and download bulk reports (read-only)`
+- `Release apps to testing tracks` — for `internal`, `alpha`, or `beta` uploads
+- `Release to production, exclude devices, and use Play App Signing` — if you want production rollout
+- `Manage store presence` — only if you also update store listings via the API
 
 Then set one of these:
 
@@ -177,7 +183,20 @@ brew install bundletool
 
 **`Google Play upload failed: 401`**
 
-Check that your service account has the Release Manager role in Google Play Console (not just Google Cloud Console).
+Check that your service account has the required permissions in Google Play Console (not just Google Cloud Console). See the setup steps above.
+
+**`Google Play upload failed: 403 — PERMISSION_DENIED`**
+
+This means the service account lacks the required Play Console permissions for your app. Fix:
+
+1. Go to [Users & permissions](https://play.google.com/console/users-and-permissions) in Play Console.
+2. Find your service account email and click it.
+3. Under **App permissions**, ensure your app is listed and the account has at least `Release apps to testing tracks` (or `Release to production…` for production uploads).
+4. Verify the **Google Play Developer API** is enabled in your [Google Cloud project](https://console.developers.google.com/apis/api/androidpublisher.googleapis.com/).
+5. If you recently changed permissions, wait a few minutes for propagation.
+6. Confirm you're using the correct service account JSON key — the email in the key must match the invited user in Play Console.
+
+> **Common cause:** The service account was granted only account-level permissions but not app-level permissions for the specific package. Always check the **App permissions** tab.
 
 **Build uses `gradle` instead of `./gradlew`**
 
