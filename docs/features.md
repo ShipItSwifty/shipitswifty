@@ -24,10 +24,27 @@ This document covers the planned feature surface, current v1 scope, the long-ter
 |---|---|
 | **Schema export** | `shipit schema --output json` exposes the full Shipfile and workflow action contract. Use `--workflow <local\|beta\|release>` for a goal-scoped subset |
 | **Project inspection** | `shipit inspect project --output json` discovers workspaces, projects, schemes, bundle IDs, team IDs, and related release files |
-| **Guided Shipfile generation** | `shipit generate --goal <local\|beta\|release>` inspects iOS/Android project files, confirms inferred values, writes `Shipfile.yml`, and offers to run `doctor`. For Android signing, offers to create a `.env` file (auto-loaded) or append exports to shell profile. |
+| **Guided Shipfile generation** | `shipit generate --goal <local\|beta\|release>` inspects iOS/Android project files, confirms inferred values, writes `Shipfile.yml`, and offers to run `doctor`. For Android signing, guides keystore discovery (detects existing env vars or `.env` values), prompts for missing credentials, and offers three persistence options: `.env` file (recommended for local dev), shell profile (~/.zshrc), or manual export. When writing `.env`, uses `${VAR_NAME}` references for values already set in the environment — only inlines literals for user-provided values. |
 | **Config suggestion** | `shipit suggest-config --goal <local\|beta\|release>` produces a YAML draft plus missing-value hints without writing it |
 | **AI session** | `shipit ai-session --goal <local\|beta\|release>` returns a **versioned, stable JSON contract** (v1) containing inferred config with confidence + provenance, secret descriptors, ambiguity flags, readiness diagnosis, next deterministic action, agent system prompt, and the single best follow-up question to ask the user |
-| **Validation** | `shipit validate` (default: yml) checks YAML parsing, top-level schema, workflow action options, and common semantic mistakes. `shipit validate metadata` runs precheck rules. `shipit validate archive` validates xcarchive / ipa bundle readiness for upload. `shipit validate all` runs all stages. |
+| **Validation** | `shipit validate` (default: yml) checks YAML parsing, top-level schema, workflow action options, and common semantic mistakes. `shipit validate metadata` runs precheck rules. `shipit validate archive` validates xcarchive / ipa bundle readiness for upload. `shipit validate bundle` validates Android AAB/APK bundles via `bundletool validate`. `shipit validate all` runs all stages. |
+
+### Environment and credential management
+
+| Feature | Description |
+|---|---|
+| **`.env` auto-loading** | ShipIt automatically loads `KEY=VALUE` pairs from a `.env` file in the Shipfile's directory before running any action. Existing process environment variables take precedence (are never overwritten). |
+| **Smart `.env` generation** | When `shipit generate` writes a `.env` file and a value is already set in the process environment, it writes a `${VAR_NAME}` reference instead of inlining the literal — keeping the file portable and secret-free. |
+| **Shell profile export** | `shipit generate` can alternatively append `export` lines to `~/.zshrc` or `~/.bashrc`. Detects which profile exists, avoids duplicates, and offers overwrite if signing vars already present. |
+| **Config resolution priority** | CLI flags > `SHIPIT_*` env vars > `.env` file > `Shipfile.yml` > built-in defaults. Shipfile supports `${ENV_VAR}` expansion. |
+
+### Linux and Docker support
+
+| Feature | Description |
+|---|---|
+| **Linux builds** | Android actions (build, test, archive, lint, play-store, validate bundle) run natively on Linux. iOS-specific actions are gated behind `#if os(macOS)`. |
+| **Docker workflow** | `make build-linux` / `make test-linux` / `make shell-linux` — uses direct volume mount for fast iteration. `make docker-build` / `make docker-test` builds a local image with SPM dependency caching. |
+| **CI parity** | Same `swift build && swift test` on both macOS and Linux. Tests auto-skip macOS-only targets on Linux. |
 
 ### Workflow composition
 
@@ -129,6 +146,8 @@ ShipItSwifty follows Apple's two-version model:
 | **Version Source — kmp** | Reads and writes `versionName` / `versionCode` in `gradle.properties` for KMP projects that share version values across platforms. |
 | **Version Source — gradle** | Reads and writes `versionName` / `versionCode` directly in `build.gradle.kts` or `build.gradle`. Default versioning source for Android projects. |
 | **Version Target Override** | The `version` action accepts a `target` option (`source_of_truth`, `project_spec`, or `xcodeproj`) to override the configured versioning source per-step, enabling workflows that write to the spec file even when the default source is `xcodeproj`. |
+| **Version dry-run preview** | `shipit version --bump patch --dry-run` shows the current and next version without writing changes. Useful for CI validation and agent verification before committing to a bump. |
+| **Safe bump ordering** | When a workflow bumps marketing version (`patch`/`minor`/`major`) and build number in the same run, ShipIt enforces correct ordering: marketing version first (which resets build to 1), then build bump if needed separately. Prevents stale build numbers from a pre-bump read. |
 | **Git Tag** | Auto-tag releases with version |
 | **Changelog** | Generate from git commits between tags |
 
@@ -188,7 +207,7 @@ Android support ships in v1 alongside iOS. Platform is auto-detected from projec
 | **Archive** | `shipit archive --platform android` | `./gradlew bundleRelease` — produces an `.aab` |
 | **Test** | `shipit test --platform android` | `./gradlew test` (unit) or `./gradlew connectedAndroidTest` (instrumented) |
 | **Lint** | `shipit lint --platform android` | `./gradlew lint` |
-| **Play Store** | `shipit play-store` | Upload AAB to Google Play via service account JWT auth. Supports per-workflow `build_variant` and `flavor` overrides for artifact path auto-discovery. |
+| **Play Store** | `shipit play-store` | Upload AAB to Google Play via service account JWT auth. Supports per-workflow `build_variant` and `flavor` overrides for artifact path auto-discovery. Default `play_track` is `internal`. |
 | **Validate Bundle** | `shipit validate bundle` | `bundletool validate --bundle` — AAB/APK pre-upload checks |
 
 ### Android Shipfile example

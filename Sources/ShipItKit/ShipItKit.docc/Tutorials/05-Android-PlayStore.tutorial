@@ -29,7 +29,13 @@
 
     @Section(title: "Define and run the beta workflow") {
         @ContentAndMedia {
-            Wrap test, archive, and upload into a single workflow.
+            Wrap test, archive, and upload into a single workflow. The
+            `play_track` defaults to `internal` — use per-workflow
+            `build_variant` overrides when targeting different variants
+            (e.g. `stagingRelease` for QA, `prodRelease` for production).
+
+            Use `shipit version --bump build --dry-run` to preview version
+            changes before committing to a bump.
         }
 
         @Steps {

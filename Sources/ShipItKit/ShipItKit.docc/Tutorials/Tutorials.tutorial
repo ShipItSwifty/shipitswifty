@@ -4,6 +4,12 @@
         These tutorials walk through your first beta release, your first Android upload,
         and your first plugin — start to finish, no fastlane required.
 
+        Additional features such as `shipit generate` (guided setup with `.env` creation),
+        `shipit coverage`, `shipit validate`, custom actions, per-workflow `build_variant`
+        overrides, and Linux/Docker support are covered in the
+        [walkthrough](https://shipitswifty.github.io/documentation/shipitkit/gettingstarted)
+        and [configuration reference](https://shipitswifty.github.io/documentation/shipitkit/configurationreference).
+
         @Image(source: hero.png, alt: "ShipItKit hero image")
     }
 

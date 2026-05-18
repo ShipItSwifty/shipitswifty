@@ -62,7 +62,9 @@ ShipItSwifty is a pure-Swift CLI toolkit for automating iOS and Android app rele
 ## Core execution model
 
 ```
-Shipfile.yml / CLI flags / env vars
+Shipfile.yml / CLI flags / env vars / .env file
+        ↓
+  CLIHelpers.loadDotEnv()  →  fills unset env vars from .env
         ↓
   ConfigResolver  →  ResolvedConfig
         ↓
@@ -602,6 +604,10 @@ public actor RateLimiter: Sendable {
 | `NotifyAction` | iOS + Android | Post to Slack or custom webhook |
 | `GitAction` | iOS + Android | Git status, tagging, changelog |
 | `DsymAction` | iOS only | Download/upload dSYM files |
+| `CoverageAction` | iOS + Android | Read and summarize native coverage artifacts (`.xcresult` / JaCoCo XML) |
+| `GenerateAction` | iOS + Android | Guided Shipfile generation with project inspection and interactive prompts |
+| `GenerateProjectAction` | iOS only | Auto-generate `.xcodeproj` from spec file (XcodeGen/Tuist) before Xcode-dependent steps |
+| `ValidateAction` | iOS + Android | Validate Shipfile syntax, schema, metadata, archive, or bundle |
 
 ---
 
@@ -631,6 +637,24 @@ These types live in `Sources/ShipItKit/Introspection/` and power `ai-session`, `
 | `NextAction` | The single next step: `action` (stable key), `command` (exact CLI), `reason` |
 | `AIReadiness` | Readiness summary: `isReady`, `blockers`, `missingSecrets`, `signingRisk`, `unblockSteps` |
 | `AISessionPayload` | The full versioned contract returned by `shipit ai-session` |
+
+---
+
+## Linux and Docker support
+
+Android actions, config resolution, validation, and all introspection types run on Linux. iOS-specific actions (anything backed by `xcodebuild`, `xcrun`, code signing, or ASC upload) are gated behind `#if os(macOS)`.
+
+The Makefile provides Docker targets for local development and CI:
+
+```bash
+make build-linux            # swift build via volume mount
+make test-linux             # swift test (skips macOS-only targets)
+make test-linux-coverage    # same + --enable-code-coverage
+make docker-build           # build local image with SPM dep caching
+make docker-test            # run tests inside local image
+```
+
+Test targets are split so that `swift test` on Linux automatically skips macOS-only test suites without manual filtering.
 
 ---
 
