@@ -631,9 +631,22 @@ public struct TestAction: Action {
 
         let (pass, fail, skip) = parseGradleCounts(from: output.stdout + "\n" + output.stderr)
         context.logShellOutput(output, label: "gradlew test")
-        logger.info("Android tests complete — pass: \(pass), fail: \(fail), skip: \(skip)")
 
-        return Result(passCount: pass, failCount: fail, skipCount: skip)
+        // If stdout parsing found no counts, fall back to JUnit XML reports on disk
+        let finalCounts: (pass: Int, fail: Int, skip: Int)
+        if pass == 0 && fail == 0 && skip == 0 {
+            let xmlCounts = aggregateJUnitXMLResults(
+                projectDir: context.config.gradleProjectDir,
+                task: task.name
+            )
+            finalCounts = xmlCounts
+        } else {
+            finalCounts = (pass, fail, skip)
+        }
+
+        logger.info("Android tests complete — pass: \(finalCounts.pass), fail: \(finalCounts.fail), skip: \(finalCounts.skip)")
+
+        return Result(passCount: finalCounts.pass, failCount: finalCounts.fail, skipCount: finalCounts.skip)
     }
 
     // MARK: - Private Helpers
@@ -746,6 +759,64 @@ public struct TestAction: Action {
             }
         }
         return 0
+    }
+
+    // MARK: - JUnit XML Report Parsing
+
+    /// Aggregates test counts from JUnit XML reports written by Gradle.
+    ///
+    /// Gradle writes one XML file per test class to:
+    /// `<module>/build/test-results/<taskName>/TEST-*.xml`
+    ///
+    /// Each file has a `<testsuite>` root with attributes:
+    /// `tests`, `failures`, `errors`, `skipped`.
+    ///
+    /// - Parameters:
+    ///   - projectDir: The Gradle project root directory.
+    ///   - task: The Gradle task name (e.g. `"testDebugUnitTest"`) used to locate report directories.
+    /// - Returns: Aggregated (pass, fail, skip) counts across all XML reports.
+    func aggregateJUnitXMLResults(projectDir: String, task: String) -> (pass: Int, fail: Int, skip: Int) {
+        let fileManager = FileManager.default
+        var totalTests = 0
+        var totalFailures = 0
+        var totalErrors = 0
+        var totalSkipped = 0
+
+        // Find all test-results directories matching the task name
+        guard let enumerator = fileManager.enumerator(
+            at: URL(fileURLWithPath: projectDir),
+            includingPropertiesForKeys: [.isRegularFileKey],
+            options: [.skipsHiddenFiles]
+        ) else {
+            return (pass: 0, fail: 0, skip: 0)
+        }
+
+        for case let fileURL as URL in enumerator {
+            let path = fileURL.path
+            // Match: */build/test-results/<task>/TEST-*.xml
+            guard path.contains("/build/test-results/\(task)/"),
+                  path.hasSuffix(".xml"),
+                  fileURL.lastPathComponent.hasPrefix("TEST-")
+            else { continue }
+
+            guard let data = fileManager.contents(atPath: path) else { continue }
+            let counts = parseJUnitXML(data: data)
+            totalTests += counts.tests
+            totalFailures += counts.failures
+            totalErrors += counts.errors
+            totalSkipped += counts.skipped
+        }
+
+        let failures = totalFailures + totalErrors
+        let passed = totalTests - failures - totalSkipped
+        return (pass: max(0, passed), fail: failures, skip: totalSkipped)
+    }
+
+    /// Parses a single JUnit XML file for test counts from the `<testsuite>` element.
+    private func parseJUnitXML(data: Data) -> (tests: Int, failures: Int, errors: Int, skipped: Int) {
+        let parser = JUnitXMLParser(data: data)
+        parser.parse()
+        return (tests: parser.tests, failures: parser.failures, errors: parser.errors, skipped: parser.skipped)
     }
 
     // MARK: - Automatic Destination Discovery
