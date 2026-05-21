@@ -116,6 +116,25 @@ func makeTestActionContext(
     platform: Platform? = nil
 ) -> ActionContext {
     let shell = ShellContext(executor: executor)
+    return makeTestActionContext(shell: shell, executor: executor, config: config, platform: platform)
+}
+
+func makeTestActionContext(
+    shell: ShellContext,
+    config: ResolvedConfig,
+    platform: Platform? = nil
+) -> ActionContext {
+    // Extract executor from shell is not possible, so use a dummy for the mock base
+    let dummyExecutor = MockExecutor { _, _ in ShellOutput(stdout: "", stderr: "", exitCode: 0) }
+    return makeTestActionContext(shell: shell, executor: dummyExecutor, config: config, platform: platform)
+}
+
+private func makeTestActionContext(
+    shell: ShellContext,
+    executor: MockExecutor,
+    config: ResolvedConfig,
+    platform: Platform? = nil
+) -> ActionContext {
     let logger = Logger.forType(subsystem: "ShipItSwiftyTests", ActionContext.self)
     #if os(macOS)
     let base = ActionContext.mock(executor: executor, platform: platform ?? config.platform)

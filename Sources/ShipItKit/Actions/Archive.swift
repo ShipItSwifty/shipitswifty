@@ -361,7 +361,25 @@ public struct ArchiveAction: Action {
         let aabPath = parseAabPath(from: output.stdout, module: module, variant: variant)
         if let aabPath {
             logger.info("Android AAB path: \(aabPath)")
+
+            // Verify the AAB file actually exists on disk — Gradle may report success
+            // even when no artifact is produced (e.g. UP-TO-DATE with stale cache).
+            let baseDir = context.shell.workingDirectory ?? FileManager.default.currentDirectoryPath
+            let anchoredPath: String
+            if (aabPath as NSString).isAbsolutePath {
+                anchoredPath = aabPath
+            } else {
+                anchoredPath = (baseDir as NSString).appendingPathComponent(aabPath)
+            }
+            if !FileManager.default.fileExists(atPath: anchoredPath) {
+                logger.error("AAB file not found at expected path: \(anchoredPath)")
+                throw ShipItError.archiveFailed(
+                    exitCode: 0,
+                    log: "Gradle reported success but AAB was not produced at '\(anchoredPath)'. Check build variant and module configuration."
+                )
+            }
         }
+
         return Result(aabPath: aabPath, exitCode: Int(output.exitCode))
     }
 
