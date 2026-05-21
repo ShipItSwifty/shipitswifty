@@ -574,7 +574,7 @@ public struct TestAction: Action {
 
     private func runAndroid(options: Options, context: ActionContext) async throws -> Result {
         let module = options.module ?? context.config.androidModule
-        let variant = options.buildVariant ?? "debug"
+        let variant = options.buildVariant ?? context.config.androidBuildVariant
         let instrumented = options.instrumented ?? false
 
         // Choose task: connectedDebugAndroidTest (instrumented) or testDebugUnitTest (JVM)

@@ -62,6 +62,52 @@ struct TestActionKMPTests {
         #expect(hasUnitTest, "KMP Android target should reuse the native unit-test path")
     }
 
+    @Test("Android JVM tests default to the configured build variant")
+    func androidTestsUseConfiguredBuildVariant() async throws {
+        let (executor, commands) = makeCaptureExecutor { _, _ in
+            ShellOutput(
+                stdout: "12 tests completed, 0 failed, 0 skipped\n",
+                stderr: "",
+                exitCode: 0
+            )
+        }
+
+        let config = ResolvedConfig(
+            platform: .android,
+            androidBuildVariant: "release"
+        )
+        let context = makeTestActionContext(
+            executor: executor, config: config, platform: .android)
+
+        _ = try await TestAction().run(
+            with: TestAction.Options(module: "androidApp"),
+            context: context
+        )
+
+        #expect(commands().contains { $0.contains(":androidApp:testReleaseUnitTest") })
+    }
+
+    @Test("Android instrumented tests default to the configured build variant")
+    func androidInstrumentedTestsUseConfiguredBuildVariant() async throws {
+        let (executor, commands) = makeCaptureExecutor { _, _ in
+            ShellOutput(stdout: "", stderr: "", exitCode: 0)
+        }
+
+        let config = ResolvedConfig(
+            platform: .android,
+            androidBuildVariant: "release"
+        )
+        let context = makeTestActionContext(
+            executor: executor, config: config, platform: .android)
+
+        _ = try await TestAction().run(
+            with: TestAction.Options(module: "androidApp", instrumented: true),
+            context: context
+        )
+
+        #expect(commands().contains { $0.contains(":androidApp:connectedAndroidTest") })
+    }
+
     #if os(macOS)
     @Test("KMP iOS tests use configured module and test task")
     func kmpIOSTestsUseConfiguredTask() async throws {

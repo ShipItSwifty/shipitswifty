@@ -81,7 +81,7 @@ struct TestCommand: AsyncParsableCommand {
             if global.dryRun {
                 if config.platform == .android {
                     formatter.print(
-                        "DRY RUN: Would run Gradle tests for module '\(module ?? config.androidModule)' variant '\(buildVariant ?? "debug")'"
+                        "DRY RUN: Would run Gradle tests for module '\(module ?? config.androidModule)' variant '\(buildVariant ?? config.androidBuildVariant)'"
                     )
                 } else if config.iosBuildSystem == .kmp {
                     formatter.print(
