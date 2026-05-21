@@ -26,6 +26,7 @@ struct GooglePlayIntegrationTests {
             "play-store",
             "--platform", "android",
             "--shipfile", FixturePaths.androidReleaseShipfile.path,
+            "--track", "internal",
             "--dry-run",
             "--output", "json",
             environment: googlePlayEnvironment()

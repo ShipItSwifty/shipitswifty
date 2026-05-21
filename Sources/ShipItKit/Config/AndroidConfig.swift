@@ -11,7 +11,6 @@ import Foundation
 ///   module: app
 ///   package_name: com.example.myapp
 ///   build_type: aab
-///   play_track: internal
 /// ```
 public struct AndroidConfig: Codable, Sendable {
 
@@ -44,10 +43,6 @@ public struct AndroidConfig: Codable, Sendable {
     /// Android application package name (e.g. `com.example.myapp`).
     public var packageName: String?
 
-    /// Google Play distribution track. One of `qa`, `alpha`, `beta`, `production`.
-    /// Defaults to `"internal"` (internal testing).
-    public var playTrack: String?
-
     /// Staged rollout fraction (0.0–1.0). `nil` means full rollout (`completed` status).
     public var rolloutFraction: Double?
 
@@ -70,7 +65,6 @@ public struct AndroidConfig: Codable, Sendable {
         case keystorePath = "keystore_path"
         case keystoreAlias = "keystore_alias"
         case packageName = "package_name"
-        case playTrack = "play_track"
         case rolloutFraction = "rollout_fraction"
         case gradleProperties = "gradle_properties"
         case flavor
@@ -88,7 +82,6 @@ public struct AndroidConfig: Codable, Sendable {
         keystorePath: String? = nil,
         keystoreAlias: String? = nil,
         packageName: String? = nil,
-        playTrack: String? = nil,
         rolloutFraction: Double? = nil,
         gradleProperties: [String: String]? = nil,
         flavor: String? = nil,
@@ -103,7 +96,6 @@ public struct AndroidConfig: Codable, Sendable {
         self.keystorePath = keystorePath
         self.keystoreAlias = keystoreAlias
         self.packageName = packageName
-        self.playTrack = playTrack
         self.rolloutFraction = rolloutFraction
         self.gradleProperties = gradleProperties
         self.flavor = flavor

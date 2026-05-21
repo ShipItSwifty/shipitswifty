@@ -82,7 +82,10 @@ versioning:
 #   # gradle_project_dir: .
 #   # gradlew_path: ./gradlew
 #   # gradle_flags: ["--configuration-cache"]
-#   play_track: internal
+#   # When using play-store action, set track on the workflow step:
+#   # - action: play-store
+#   #   options:
+#   #     track: internal
 
 notifications:
   slack:

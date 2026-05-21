@@ -181,9 +181,6 @@ public struct Environment: Sendable {
     /// `SHIPIT_ANDROID__PACKAGE_NAME` — Android application package name (e.g. `com.example.app`)
     public var androidPackageName: String? { env["SHIPIT_ANDROID__PACKAGE_NAME"] }
 
-    /// `SHIPIT_ANDROID__PLAY_TRACK` — Google Play track (`qa`, `alpha`, `beta`, `production`)
-    public var androidPlayTrack: String? { env["SHIPIT_ANDROID__PLAY_TRACK"] }
-
     // MARK: - Google Play
 
     /// `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` — raw service account JSON contents (secret)

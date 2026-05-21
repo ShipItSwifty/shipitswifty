@@ -10,7 +10,6 @@ ios:
 android:
   build_system: react_native
   package_name: ${SHIPIT_ANDROID__PACKAGE_NAME}
-  play_track: internal
 
 code_signing:
   type: automatic
@@ -28,3 +27,5 @@ workflows:
     - action: test
     - action: archive   # npx react-native build-android --mode=release --tasks bundleRelease
     - action: play-store
+      options:
+        track: internal

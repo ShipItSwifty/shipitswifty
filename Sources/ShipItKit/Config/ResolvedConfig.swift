@@ -268,9 +268,6 @@ public struct ResolvedConfig: Sendable {
     /// Android application package name (e.g. `com.example.myapp`).
     public let androidPackageName: String?
 
-    /// Google Play distribution track.
-    public let androidPlayTrack: String
-
     /// Staged rollout fraction (0.0–1.0). `nil` means full rollout.
     public let androidRolloutFraction: Double?
 
@@ -358,7 +355,6 @@ public struct ResolvedConfig: Sendable {
         androidKeyAlias: String? = nil,
         androidKeyPassword: String? = nil,
         androidPackageName: String? = nil,
-        androidPlayTrack: String = "internal",
         androidRolloutFraction: Double? = nil,
         androidGradleProperties: [String: String] = [:],
         googlePlayServiceAccountData: Data? = nil
@@ -437,7 +433,6 @@ public struct ResolvedConfig: Sendable {
         self.androidKeyAlias = androidKeyAlias
         self.androidKeyPassword = androidKeyPassword
         self.androidPackageName = androidPackageName
-        self.androidPlayTrack = androidPlayTrack
         self.androidRolloutFraction = androidRolloutFraction
         self.androidGradleProperties = androidGradleProperties
         self.googlePlayServiceAccountData = googlePlayServiceAccountData
@@ -533,7 +528,6 @@ public struct ResolvedConfig: Sendable {
             androidKeyAlias: androidKeyAlias,
             androidKeyPassword: androidKeyPassword,
             androidPackageName: androidPackageName,
-            androidPlayTrack: androidPlayTrack,
             androidRolloutFraction: androidRolloutFraction,
             androidGradleProperties: updatedProperties,
             googlePlayServiceAccountData: googlePlayServiceAccountData

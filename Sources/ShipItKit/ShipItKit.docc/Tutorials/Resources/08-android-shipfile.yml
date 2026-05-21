@@ -4,7 +4,6 @@ android:
   module: app
   build_variant: release
   package_name: com.example.myapp
-  play_track: internal
 
 workflows:
   beta:
@@ -12,3 +11,5 @@ workflows:
     - action: test
     - action: archive
     - action: play-store
+      options:
+        track: internal

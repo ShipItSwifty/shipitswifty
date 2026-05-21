@@ -503,7 +503,6 @@ Platform-specific Android configuration. These values are merged on top of share
 | `keystore_password` | string | — | `ANDROID_KEYSTORE_PASSWORD` | Keystore password |
 | `keystore_alias` | string | — | `ANDROID_KEY_ALIAS` | Key alias in the keystore |
 | `key_password` | string | — | `ANDROID_KEY_PASSWORD` | Key password |
-| `play_track` | string | `internal` | — | Google Play release track (`internal`, `alpha`, `beta`, `production`) |
 | `rollout_fraction` | float | — | — | Staged rollout fraction (0.0–1.0), for `production` track |
 | `gradle_properties` | map | `{}` | — | Extra `-P key=value` properties passed to Gradle |
 | `gradlew_path` | string | — | `SHIPIT_ANDROID__GRADLEW_PATH` | Explicit path to the `gradlew` script (auto-detected when omitted) |
@@ -522,7 +521,6 @@ Set these environment variables for Google Play upload actions:
 Lookup notes:
 
 - `package_name` is your Android `applicationId`, usually from `app/build.gradle` or `app/build.gradle.kts`
-- `play_track` maps to the Play Console track you are targeting: `internal`, `alpha`, `beta`, or `production`
 - Create the service account in Google Cloud, enable the `Google Play Developer API`, then invite that service account in Play Console `Users and permissions`
 - Give the service account Play Console permissions that match the rollout you want to perform
 

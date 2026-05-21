@@ -141,13 +141,14 @@ android:
   module: app
   build_variant: release
   package_name: com.example.myapp
-  play_track: internal
 
 workflows:
   beta:
     - action: test
     - action: archive
     - action: play-store
+      options:
+        track: internal
 ```
 
 A minimal Kotlin Multiplatform `Shipfile.yml` (ships to both stores from one source tree):
@@ -227,7 +228,7 @@ Need help finding them? See [`docs/credential-lookup.md`](docs/credential-lookup
 | `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` | Raw service-account JSON (preferred for CI) |
 | `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_PATH` | Path to the JSON file (preferred locally) |
 
-Need help finding `package_name`, `play_track`, or setting up the service account? See [`docs/credential-lookup.md`](docs/credential-lookup.md).
+Need help finding `package_name` or setting up the service account? See [`docs/credential-lookup.md`](docs/credential-lookup.md).
 
 ## Output modes
 

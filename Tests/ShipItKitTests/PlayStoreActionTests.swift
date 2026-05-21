@@ -31,8 +31,7 @@ struct PlayStoreActionTests {
             platform: .android,
             androidModule: "app",
             androidBuildVariant: "release",
-            androidPackageName: "com.example.mock",
-            androidPlayTrack: "internal"
+            androidPackageName: "com.example.mock"
         )
         let logger = Logger.forType(subsystem: "ShipItSwiftyTests", ActionContext.self)
         #if os(macOS)
@@ -110,7 +109,7 @@ struct PlayStoreActionTests {
             workingDirectory: projectDir.path, googlePlay: googlePlay)
 
         // Act: run with no explicit aabPath — action must auto-discover and anchor to workingDirectory
-        let result = try await PlayStoreAction().run(with: .init(), context: context)
+        let result = try await PlayStoreAction().run(with: .init(track: "internal"), context: context)
 
         // Assert
         #expect(result.versionCode == 42)
@@ -131,7 +130,7 @@ struct PlayStoreActionTests {
             workingDirectory: projectDir.path, googlePlay: googlePlay)
 
         await #expect(throws: (any Error).self) {
-            _ = try await PlayStoreAction().run(with: .init(), context: context)
+            _ = try await PlayStoreAction().run(with: .init(track: "internal"), context: context)
         }
     }
 

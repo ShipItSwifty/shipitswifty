@@ -52,7 +52,6 @@ android:
   module: app
   build_variant: release
   package_name: com.example.myapp
-  play_track: internal
   keystore_path: ./certs/release.keystore
   keystore_password: ${ANDROID_KEYSTORE_PASSWORD}
   keystore_alias: release
@@ -64,6 +63,8 @@ workflows:
     - action: archive
     - action: validate-bundle
     - action: play-store
+      options:
+        track: internal
 ```
 
 ## 4. Set credentials
@@ -127,7 +128,6 @@ Use these values for Android setup:
 | Value | Where to find it |
 |---|---|
 | `package_name` | Your Android application ID, usually `applicationId` in `app/build.gradle` or `app/build.gradle.kts` (for example `com.example.myapp`) |
-| `play_track` | The Play Console release track you want to target: typically `internal`, `alpha`, `beta`, or `production` |
 | `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` | Raw contents of the service account key JSON file |
 | `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_PATH` | Local filesystem path to that JSON key file |
 
@@ -165,7 +165,7 @@ export GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_PATH=./service-account.json
 Notes:
 
 - `shipit generate --platform android` can usually infer `package_name`, but the source of truth is your Gradle `applicationId`.
-- `play_track` must match the kind of release you intend to publish. For early testing, start with `internal`.
+- The `track` option on the `play-store` step must match the kind of release you intend to publish. For early testing, start with `internal`.
 
 ## Troubleshooting
 

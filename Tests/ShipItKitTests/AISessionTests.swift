@@ -271,7 +271,6 @@ struct AISessionTests {
 
         #expect(payload.suggestedShipfile.contains("platform: android"))
         #expect(payload.suggestedShipfile.contains("android:"))
-        #expect(payload.suggestedShipfile.contains("play_track"))
     }
 
     // MARK: - Fixture helpers

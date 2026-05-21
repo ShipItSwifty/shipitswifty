@@ -284,7 +284,6 @@ public struct ConfigResolver: Sendable {
             androidKeyAlias: environment.androidKeyAlias ?? androidConfig?.keystoreAlias,
             androidKeyPassword: environment.androidKeyPassword,
             androidPackageName: environment.androidPackageName ?? androidConfig?.packageName,
-            androidPlayTrack: environment.androidPlayTrack ?? androidConfig?.playTrack ?? "internal",
             androidRolloutFraction: androidConfig?.rolloutFraction,
             androidGradleProperties: androidConfig?.gradleProperties ?? [:],
             googlePlayServiceAccountData: googlePlayData

@@ -95,7 +95,6 @@ public struct Shipfile: Codable, Sendable {
     ///   module: app
     ///   package_name: com.example.myapp
     ///   build_type: aab
-    ///   play_track: internal
     /// ```
     public var android: AndroidConfig?
 
