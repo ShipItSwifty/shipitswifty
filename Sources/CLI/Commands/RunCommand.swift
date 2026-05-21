@@ -1,4 +1,5 @@
 import ArgumentParser
+import Foundation
 import ShipItKit
 
 /// Execute a named workflow from Shipfile.yml.
@@ -94,6 +95,15 @@ struct RunCommand: AsyncParsableCommand {
                 )
                 print(try reporter.encode(envelope))
             case .human:
+                for (i, stepResult) in result.stepResults.enumerated() {
+                    let stepName = steps[i].action
+                    let summary = humanStepSummary(action: stepName, payload: stepResult.payload)
+                    if let summary {
+                        formatter.printSuccess("  \(stepName): \(summary)")
+                    } else {
+                        formatter.printSuccess("  \(stepName): ✓")
+                    }
+                }
                 formatter.printSuccess("Workflow '\(workflow)' completed in \(String(format: "%.1f", result.duration))s")
             }
         } catch let error as ShipItError {
@@ -212,5 +222,40 @@ func validationActionDescriptors() -> [ActionDescriptor] {
                 ActionResultEnvelope(action: schema.name, status: "success", payload: nil)
             }
         )
+    }
+}
+
+// MARK: - Workflow Step Summary Formatting
+
+/// Returns a human-readable summary for a workflow step result, or `nil` for generic steps.
+private func humanStepSummary(action: String, payload: JSONValue?) -> String? {
+    guard let payload, case let .object(dict) = payload else { return nil }
+
+    switch action {
+    case "test":
+        let pass = dict["passCount"]?.intValue ?? 0
+        let fail = dict["failCount"]?.intValue ?? 0
+        let skip = dict["skipCount"]?.intValue ?? 0
+        if pass == 0 && fail == 0 && skip == 0 { return nil }
+        var parts = ["\(pass) passed"]
+        if fail > 0 { parts.append("\(fail) failed") }
+        if skip > 0 { parts.append("\(skip) skipped") }
+        return parts.joined(separator: ", ")
+
+    case "version":
+        if let version = dict["version"]?.stringValue {
+            return version
+        }
+        return nil
+
+    case "archive":
+        if let path = dict["artifactPath"]?.stringValue {
+            let filename = URL(fileURLWithPath: path).lastPathComponent
+            return filename
+        }
+        return nil
+
+    default:
+        return nil
     }
 }
