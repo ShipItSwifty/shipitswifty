@@ -424,7 +424,27 @@ struct GenerateCommand: AsyncParsableCommand {
                     "Sensitive values shown as **** above — copy from your input above before continuing.")
             }
 
-            overrides["    # - action: play-store"] = "    - action: play-store"
+            // Ask which track to upload to
+            formatter.printHeader("Google Play Track")
+            formatter.print("Which Google Play track should this workflow upload to?")
+            formatter.print("  1) internal  — small internal testing group (recommended for beta)")
+            formatter.print("  2) alpha     — closed testing")
+            formatter.print("  3) beta      — open testing")
+            formatter.print("  4) production")
+            let trackChoices = ["internal", "alpha", "beta", "production"]
+            let defaultTrack = goal == .release ? "production" : "internal"
+            let defaultIndex = trackChoices.firstIndex(of: defaultTrack)! + 1
+            let trackInput = ask("Track", defaultValue: "\(defaultIndex)")
+            let selectedTrack: String
+            if let idx = Int(trackInput), (1...4).contains(idx) {
+                selectedTrack = trackChoices[idx - 1]
+            } else if trackChoices.contains(trackInput.lowercased()) {
+                selectedTrack = trackInput.lowercased()
+            } else {
+                selectedTrack = defaultTrack
+            }
+
+            overrides["    # Add this when you are ready to upload to Google Play:\n    # - action: play-store\n    #   options: { track: internal }"] = "    - action: play-store\n      options: { track: \(selectedTrack) }"
         }
 
         return overrides

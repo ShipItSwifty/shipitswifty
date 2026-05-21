@@ -672,15 +672,17 @@ public struct AISessionBuilder: Sendable {
             if goal == .beta {
                 lines += [
                     "",
-                    "The default Android beta workflow is: lint → test → archive (bundleRelease) → validate bundle → play-store (internal track).",
+                    "The default Android beta workflow is: lint → test → archive (bundleRelease) → validate bundle → play-store.",
+                    "The `track` option is REQUIRED on the play-store step (e.g. options: { track: internal }). Valid tracks: internal, alpha, beta, production.",
                     "Google Play credentials (GOOGLE_PLAY_SERVICE_ACCOUNT_JSON) are required for Play Store upload.",
                     "Android signing requires SHIPIT_ANDROID__KEYSTORE_PATH, SHIPIT_ANDROID__KEYSTORE_PASSWORD, SHIPIT_ANDROID__KEY_ALIAS, SHIPIT_ANDROID__KEY_PASSWORD.",
-                    "Ask about these credentials only after the user confirms they want to upload to Google Play.",
+                    "Ask which track to target before generating the workflow.",
                 ]
             } else if goal == .release {
                 lines += [
                     "",
-                    "The Android release workflow targets the production track on Google Play.",
+                    "The Android release workflow targets the production track on Google Play (options: { track: production }).",
+                    "The `track` option is REQUIRED on every play-store step. Valid tracks: internal, alpha, beta, production.",
                     "Staged rollout is supported via android.rollout_fraction (0.0–1.0) in Shipfile.yml.",
                 ]
             }
