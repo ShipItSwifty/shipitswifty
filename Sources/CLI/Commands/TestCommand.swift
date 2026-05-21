@@ -54,6 +54,9 @@ struct TestCommand: AsyncParsableCommand {
     @Flag(name: .long, help: "Run Android instrumented tests instead of JVM unit tests")
     var instrumented: Bool = false
 
+    @Option(name: .long, help: "Explicit Gradle task name (Android, overrides variant-based selection)")
+    var task: String?
+
     func run() async throws {
         do {
             let config = try await resolveRequiredConfig(
@@ -75,14 +78,21 @@ struct TestCommand: AsyncParsableCommand {
                 retryOnFailure: retryOnFailure ? true : nil,
                 module: module,
                 buildVariant: buildVariant,
-                instrumented: instrumented ? true : nil
+                instrumented: instrumented ? true : nil,
+                task: task
             )
 
             if global.dryRun {
                 if config.platform == .android {
-                    formatter.print(
-                        "DRY RUN: Would run Gradle tests for module '\(module ?? config.androidModule)' variant '\(buildVariant ?? config.androidBuildVariant)'"
-                    )
+                    let effectiveModule = module ?? config.androidModule
+                    let effectiveTask = task ?? "test\(buildVariant ?? config.androidBuildVariant)UnitTest"
+                    if effectiveModule.isEmpty {
+                        formatter.print("DRY RUN: Would run root Gradle task '\(effectiveTask)'")
+                    } else {
+                        formatter.print(
+                            "DRY RUN: Would run Gradle tests for module '\(effectiveModule)' variant '\(buildVariant ?? config.androidBuildVariant)'"
+                        )
+                    }
                 } else if config.iosBuildSystem == .kmp {
                     formatter.print(
                         "DRY RUN: Would run KMP iOS test task '\(config.kmpTestTask)' in module '\(module ?? config.kmpSharedModule)'")

@@ -119,6 +119,16 @@ public struct TestAction: Action {
         /// When `true`, runs `connectedAndroidTest` (instrumented) instead of `test` (JVM). Default: `false`. (Android only)
         public var instrumented: Bool?
 
+        /// Explicit Gradle task name to run (e.g. `"testDebugUnitTest"`). (Android only)
+        ///
+        /// When set, this overrides the automatic task selection based on `buildVariant`
+        /// and `instrumented`. Useful for running aggregate root-level tasks or
+        /// flavor-specific test tasks like `testProdDebugUnitTest`.
+        ///
+        /// Combine with `module: ""` (empty string) to run a root-level aggregate task
+        /// that executes tests across all subprojects.
+        public var task: String?
+
         /// Creates `Options` for the test action.
         ///
         /// All parameters are optional; unset values fall back to `ResolvedConfig`.
@@ -135,7 +145,8 @@ public struct TestAction: Action {
             retryOnFailure: Bool? = nil,
             module: String? = nil,
             buildVariant: String? = nil,
-            instrumented: Bool? = nil
+            instrumented: Bool? = nil,
+            task: String? = nil
         ) {
             self.scheme = scheme
             self.destinations = destinations
@@ -150,6 +161,7 @@ public struct TestAction: Action {
             self.module = module
             self.buildVariant = buildVariant
             self.instrumented = instrumented
+            self.task = task
         }
 
         /// Returns the effective list of destination strings to use (iOS).
@@ -577,15 +589,17 @@ public struct TestAction: Action {
         let variant = options.buildVariant ?? context.config.androidBuildVariant
         let instrumented = options.instrumented ?? false
 
-        // Choose task: connectedDebugAndroidTest (instrumented) or testDebugUnitTest (JVM)
+        // Choose task: explicit task name, or derive from variant/instrumented flags
         let task: GradleTask
-        if instrumented {
+        if let customTask = options.task, !customTask.isEmpty {
+            task = GradleTask(name: customTask)
+        } else if instrumented {
             task = variant.lowercased() == "debug" ? .connectedDebugAndroidTest : .connectedAndroidTest
         } else {
             task = variant.lowercased() == "debug" ? .testDebugUnitTest : .testReleaseUnitTest
         }
 
-        logger.info("Running Android test task '\(task.name)' for module '\(module)'")
+        logger.info("Running Android test task '\(task.qualified(module: module).name)'")
 
         let gradle = context.gradle()
             .task(task.qualified(module: module))

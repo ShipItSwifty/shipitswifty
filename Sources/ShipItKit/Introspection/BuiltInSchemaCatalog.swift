@@ -768,6 +768,10 @@ public enum BuiltInSchemaCatalog {
             .boolean(
                 "instrumented", description: "Run Android instrumented tests instead of JVM unit tests.",
                 defaultValue: .bool(false), example: .bool(false)),
+            .string(
+                "task",
+                description: "Explicit Gradle task name (Android). Overrides variant-based task selection.",
+                example: .string("testDebugUnitTest")),
         ]
     }
 
