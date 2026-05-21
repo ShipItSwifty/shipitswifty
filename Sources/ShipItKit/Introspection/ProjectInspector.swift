@@ -5,7 +5,7 @@ public struct ProjectInspector: Sendable {
     private let rootPath: String
     private let shell: ShellContext
 
-    public init(rootPath: String = FileManager.default.currentDirectoryPath, shell: ShellContext = ShellContext()) {
+    public init(rootPath: String = FileManager.default.currentDirectoryPath, shell: ShellContext = ShellContext(defaultOutputLimit: -1)) {
         self.rootPath = URL(fileURLWithPath: rootPath).resolvingSymlinksInPath().standardizedFileURL.path
         self.shell = shell
     }
