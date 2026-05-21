@@ -128,4 +128,57 @@ struct TestActionKMPTests {
         #expect(commands().contains { $0.contains(":coreShared:iosX64Test") })
     }
     #endif
+
+    @Test("Custom task option overrides variant-based task selection")
+    func customTaskOverridesVariantSelection() async throws {
+        let (executor, commands) = makeCaptureExecutor { _, _ in
+            ShellOutput(
+                stdout: "5 tests completed, 0 failed, 0 skipped\n",
+                stderr: "",
+                exitCode: 0
+            )
+        }
+
+        let config = ResolvedConfig(
+            platform: .android,
+            androidBuildVariant: "release"
+        )
+        let context = makeTestActionContext(
+            executor: executor, config: config, platform: .android)
+
+        _ = try await TestAction().run(
+            with: TestAction.Options(module: "app", task: "testProdDebugUnitTest"),
+            context: context
+        )
+
+        #expect(commands().contains { $0.contains(":app:testProdDebugUnitTest") })
+    }
+
+    @Test("Custom task with empty module runs root-level aggregate task")
+    func customTaskWithEmptyModuleRunsRootLevel() async throws {
+        let (executor, commands) = makeCaptureExecutor { _, _ in
+            ShellOutput(
+                stdout: "42 tests completed, 0 failed, 0 skipped\n",
+                stderr: "",
+                exitCode: 0
+            )
+        }
+
+        let config = ResolvedConfig(
+            platform: .android,
+            androidModule: "app",
+            androidBuildVariant: "release"
+        )
+        let context = makeTestActionContext(
+            executor: executor, config: config, platform: .android)
+
+        _ = try await TestAction().run(
+            with: TestAction.Options(module: "", task: "testDebugUnitTest"),
+            context: context
+        )
+
+        let captured = commands()
+        // Should NOT have a module prefix — just the bare task name
+        #expect(captured.contains { $0.contains("testDebugUnitTest") && !$0.contains(":app:") })
+    }
 }
