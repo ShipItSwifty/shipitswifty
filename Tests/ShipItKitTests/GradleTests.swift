@@ -35,11 +35,21 @@ struct AndroidArchiveActionTests {
 
     @Test("ArchiveAction on Android runs gradlew bundleRelease")
     func androidArchive() async throws {
+        // Create the expected AAB file so the post-archive verification passes
+        let tmpDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("shipit-archive-\(UUID().uuidString)", isDirectory: true)
+        let aabDir = tmpDir.appendingPathComponent("app/build/outputs/bundle/release", isDirectory: true)
+        try FileManager.default.createDirectory(at: aabDir, withIntermediateDirectories: true)
+        let aabFile = aabDir.appendingPathComponent("app-release.aab")
+        try Data("fake".utf8).write(to: aabFile)
+        defer { try? FileManager.default.removeItem(at: tmpDir) }
+
         let (executor, commands) = makeCaptureExecutor { _, _ in
             ShellOutput(stdout: "BUILD SUCCESSFUL\n", stderr: "", exitCode: 0)
         }
         let config = ResolvedConfig(platform: .android)
-        let context = makeTestActionContext(executor: executor, config: config, platform: .android)
+        let shell = ShellContext(executor: executor, workingDirectory: tmpDir.path)
+        let context = makeTestActionContext(shell: shell, config: config, platform: .android)
         let options = ArchiveAction.Options()
 
         _ = try await ArchiveAction().run(with: options, context: context)

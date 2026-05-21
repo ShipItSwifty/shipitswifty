@@ -66,6 +66,17 @@ public struct GooglePlayUploadService: Sendable {
             throw ShipItError.invalidConfiguration(reason: "GooglePlayUploadService: provide either aabPath or apkPath")
         }
 
+        // 0. Read artifact before creating an edit (validates existence and avoids orphaned edits)
+        let artifactData: Data
+        if let aab = aabPath {
+            artifactData = try readArtifact(path: aab)
+        } else if let apk = apkPath {
+            artifactData = try readArtifact(path: apk)
+        } else {
+            // Unreachable due to guard above, but satisfies the compiler
+            throw ShipItError.invalidConfiguration(reason: "GooglePlayUploadService: no artifact path provided")
+        }
+
         // 1. Create edit
         logger.info("Creating Play Store edit for package '\(self.packageName)'")
         let edit: GooglePlayEdit = try await client.post("/applications/\(packageName)/edits")
@@ -74,16 +85,14 @@ public struct GooglePlayUploadService: Sendable {
 
         // 2. Upload artifact
         let versionCode: Int
-        if let aab = aabPath {
-            let bundle = try await uploadBundle(editId: editId, aabPath: aab)
+        if aabPath != nil {
+            let bundle = try await uploadBundleData(editId: editId, data: artifactData)
             versionCode = bundle.versionCode
             logger.info("Uploaded AAB versionCode=\(versionCode)")
-        } else if let apk = apkPath {
-            let uploadedApk = try await uploadApk(editId: editId, apkPath: apk)
+        } else {
+            let uploadedApk = try await uploadApkData(editId: editId, data: artifactData)
             versionCode = uploadedApk.versionCode
             logger.info("Uploaded APK versionCode=\(versionCode)")
-        } else {
-            throw ShipItError.invalidConfiguration(reason: "GooglePlayUploadService: no artifact path provided")
         }
 
         // 3. Assign to track
@@ -110,6 +119,10 @@ public struct GooglePlayUploadService: Sendable {
 
     private func uploadBundle(editId: String, aabPath: String) async throws -> GooglePlayBundle {
         let data = try readArtifact(path: aabPath)
+        return try await uploadBundleData(editId: editId, data: data)
+    }
+
+    private func uploadBundleData(editId: String, data: Data) async throws -> GooglePlayBundle {
         let path = "/applications/\(packageName)/edits/\(editId)/bundles"
         let responseData = try await client.uploadBinary(
             path: path,
@@ -121,6 +134,10 @@ public struct GooglePlayUploadService: Sendable {
 
     private func uploadApk(editId: String, apkPath: String) async throws -> GooglePlayApk {
         let data = try readArtifact(path: apkPath)
+        return try await uploadApkData(editId: editId, data: data)
+    }
+
+    private func uploadApkData(editId: String, data: Data) async throws -> GooglePlayApk {
         let path = "/applications/\(packageName)/edits/\(editId)/apks"
         let responseData = try await client.uploadBinary(
             path: path,
