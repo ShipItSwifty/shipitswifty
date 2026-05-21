@@ -72,7 +72,6 @@ android:
   module: androidApp
   gradle_project_dir: .
   package_name: com.example.androidapp
-  play_track: internal
 
 versioning:
   source: kmp                     # read versionName/versionCode from gradle.properties
@@ -91,6 +90,8 @@ workflows:
     - action: archive
       options: { platform: android }
     - action: play-store
+      options:
+        track: internal
 ```
 
 And make sure your `gradle.properties` contains the version keys:

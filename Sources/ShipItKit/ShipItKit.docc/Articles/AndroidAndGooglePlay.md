@@ -21,7 +21,7 @@ ShipItKit treats Android as a first-class platform. The same actions you use for
 
 The service account needs the `Release manager` role on the app in the Play Console.
 
-If you need help locating `package_name`, choosing `play_track`, or setting up the service account, see <doc:CredentialLookup>.
+If you need help locating `package_name` or setting up the service account, see <doc:CredentialLookup>.
 
 ## Minimal Shipfile
 
@@ -32,7 +32,6 @@ android:
   module: app
   build_variant: release
   package_name: com.example.myapp
-  play_track: internal
 
 workflows:
   beta:

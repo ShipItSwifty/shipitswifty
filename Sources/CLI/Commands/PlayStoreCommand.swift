@@ -65,7 +65,11 @@ struct PlayStoreCommand: AsyncParsableCommand {
 
             if global.dryRun {
                 let artifact = aab ?? apk ?? "unknown"
-                let effectiveTrack = track ?? config.androidPlayTrack
+                guard let effectiveTrack = track else {
+                    throw ShipItError.invalidConfiguration(
+                        reason: "play-store: '--track' is required. Specify a Google Play track (e.g. --track internal)."
+                    )
+                }
                 formatter.print("DRY RUN: Would upload '\(artifact)' to Google Play track '\(effectiveTrack)'")
                 return
             }

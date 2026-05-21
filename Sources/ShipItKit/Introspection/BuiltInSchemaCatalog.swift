@@ -365,10 +365,6 @@ public enum BuiltInSchemaCatalog {
                         "package_name", description: "Android application package name.",
                         example: .string("com.example.myapp"), envVar: "SHIPIT_ANDROID__PACKAGE_NAME"),
                     .string(
-                        "play_track", description: "Google Play distribution track.",
-                        allowedValues: ["internal", "alpha", "beta", "production"], example: .string("internal"),
-                        envVar: "SHIPIT_ANDROID__PLAY_TRACK"),
-                    .string(
                         "gradlew_path",
                         description: "Path to the gradlew wrapper script. Auto-detected if omitted.",
                         example: .string("./gradlew"), envVar: "SHIPIT_ANDROID__GRADLEW_PATH"),

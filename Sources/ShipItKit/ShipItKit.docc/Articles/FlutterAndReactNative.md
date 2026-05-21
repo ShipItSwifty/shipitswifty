@@ -142,7 +142,6 @@ workflows:
 android:
   build_system: react_native
   package_name: ${SHIPIT_ANDROID__PACKAGE_NAME}
-  play_track: qa
 
 workflows:
   beta:
@@ -150,6 +149,8 @@ workflows:
     - action: test
     - action: archive
     - action: play-store
+      options:
+        track: qa
 ```
 
 ## CLI usage

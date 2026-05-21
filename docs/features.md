@@ -207,7 +207,7 @@ Android support ships in v1 alongside iOS. Platform is auto-detected from projec
 | **Archive** | `shipit archive --platform android` | `./gradlew bundleRelease` — produces an `.aab` |
 | **Test** | `shipit test --platform android` | `./gradlew test` (unit) or `./gradlew connectedAndroidTest` (instrumented) |
 | **Lint** | `shipit lint --platform android` | `./gradlew lint` |
-| **Play Store** | `shipit play-store` | Upload AAB to Google Play via service account JWT auth. Supports per-workflow `build_variant` and `flavor` overrides for artifact path auto-discovery. Default `play_track` is `internal`. |
+| **Play Store** | `shipit play-store` | Upload AAB to Google Play via service account JWT auth. Supports per-workflow `build_variant` and `flavor` overrides for artifact path auto-discovery. Requires `track` option on the workflow step. |
 | **Validate Bundle** | `shipit validate bundle` | `bundletool validate --bundle` — AAB/APK pre-upload checks |
 
 ### Android Shipfile example
@@ -219,17 +219,14 @@ android:
   module: app
   build_variant: release
   package_name: com.example.myapp
-  play_track: internal
-  keystore_path: ./certs/release.keystore
-  keystore_password: ${ANDROID_KEYSTORE_PASSWORD}
-  keystore_alias: release
-  key_password: ${ANDROID_KEY_PASSWORD}
 
 workflows:
   beta:
     - action: test
     - action: archive
     - action: play-store
+      options:
+        track: internal
 ```
 
 ### Platform-aware commands

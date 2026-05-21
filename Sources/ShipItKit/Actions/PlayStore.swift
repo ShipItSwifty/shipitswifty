@@ -46,7 +46,7 @@ public struct PlayStoreAction: Action {
         public var apkPath: String?
 
         /// Google Play distribution track (e.g. `"internal"`, `"alpha"`, `"beta"`, `"production"`).
-        /// Defaults to `config.androidPlayTrack`.
+        /// Required — specify in workflow step options (e.g. `options: { track: internal }`).
         public var track: String?
 
         /// Per-language release notes. Keys are BCP-47 language tags (e.g. `"en-US"`).
@@ -147,7 +147,11 @@ public struct PlayStoreAction: Action {
             )
         }
 
-        let track = options.track ?? context.config.androidPlayTrack
+        guard let track = options.track else {
+            throw ShipItError.invalidConfiguration(
+                reason: "play-store: 'track' is required. Specify it in the workflow step options (e.g. options: { track: internal })."
+            )
+        }
         let rolloutFraction = options.rolloutFraction ?? context.config.androidRolloutFraction
 
         // Resolve artifact path: explicit option → auto-discovery for Flutter/RN → error

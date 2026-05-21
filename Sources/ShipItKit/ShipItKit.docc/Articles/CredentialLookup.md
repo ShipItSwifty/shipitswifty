@@ -42,7 +42,6 @@ ShipItSwifty uses a Google Cloud service account with Play Console permissions f
 | Value | Where to find it |
 |---|---|
 | `package_name` | Your Android application ID, usually `applicationId` in `app/build.gradle` or `app/build.gradle.kts` |
-| `play_track` | The target Play Console release track: usually `internal`, `alpha`, `beta`, or `production` |
 | `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` | Raw contents of the downloaded service account JSON key |
 | `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_PATH` | Local filesystem path to that JSON key file |
 
