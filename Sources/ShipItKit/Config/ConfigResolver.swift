@@ -70,7 +70,7 @@ public struct ConfigResolver: Sendable {
     /// Creates a `ConfigResolver` reading from the current process environment.
     public init() {
         self.environment = Environment()
-        self.shell = ShellContext(defaultOutputLimit: -1)
+        self.shell = ShellContext()
     }
 
     /// Creates a `ConfigResolver` with a custom environment (for testing).
@@ -78,7 +78,7 @@ public struct ConfigResolver: Sendable {
     /// - Parameter environment: The environment to read variables from.
     public init(environment: Environment) {
         self.environment = environment
-        self.shell = ShellContext(defaultOutputLimit: -1)
+        self.shell = ShellContext()
     }
 
     /// Creates a `ConfigResolver` with a custom environment and shell context.
