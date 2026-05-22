@@ -143,6 +143,54 @@ extension Trait where Self == CredentialTrait {
             message: "No booted iOS simulator — boot one with: xcrun simctl boot <device-uuid> && open -a Simulator"
         )
     }
+
+    /// Requires `SHIPIT_EXTERNAL_FLUTTER_PROJECT` to point at a Flutter app checkout.
+    ///
+    /// Use on opt-in external validation tests that exercise ShipIt against a real
+    /// open-source Flutter project outside the repository fixtures.
+    static var requiresExternalFlutterProject: CredentialTrait {
+        let env = ProcessInfo.processInfo.environment
+        let path = env["SHIPIT_EXTERNAL_FLUTTER_PROJECT"]
+        let exists = path.map { FileManager.default.fileExists(atPath: $0) } ?? false
+        return CredentialTrait(
+            conditionMet: exists,
+            message:
+                "External Flutter project not configured — set SHIPIT_EXTERNAL_FLUTTER_PROJECT to a local Flutter app checkout."
+        )
+    }
+
+    /// Requires `SHIPIT_EXTERNAL_RN_PROJECT` to point at a React Native CLI app checkout.
+    ///
+    /// Use on opt-in external validation tests that exercise ShipIt against a real
+    /// open-source React Native project outside the repository fixtures.
+    static var requiresExternalReactNativeProject: CredentialTrait {
+        let env = ProcessInfo.processInfo.environment
+        let path = env["SHIPIT_EXTERNAL_RN_PROJECT"]
+        let exists = path.map { FileManager.default.fileExists(atPath: $0) } ?? false
+        return CredentialTrait(
+            conditionMet: exists,
+            message:
+                "External React Native project not configured — set SHIPIT_EXTERNAL_RN_PROJECT to a local React Native app checkout."
+        )
+    }
+
+    /// Requires `flutter` on PATH for real external Flutter validation tests.
+    static var requiresFlutterToolchain: CredentialTrait {
+        let flutter = (try? shellOutput("which", "flutter"))?.trimmingCharacters(in: .whitespacesAndNewlines)
+        return CredentialTrait(
+            conditionMet: flutter?.isEmpty == false,
+            message: "Flutter SDK not found on PATH — install Flutter and ensure `flutter` resolves in your shell."
+        )
+    }
+
+    /// Requires CocoaPods (`pod`) on PATH for React Native iOS project setup.
+    static var requiresCocoaPods: CredentialTrait {
+        let pod = (try? shellOutput("which", "pod"))?.trimmingCharacters(in: .whitespacesAndNewlines)
+        return CredentialTrait(
+            conditionMet: pod?.isEmpty == false,
+            message: "CocoaPods not found on PATH — install CocoaPods to validate React Native iOS builds."
+        )
+    }
 }
 
 // MARK: - Helpers

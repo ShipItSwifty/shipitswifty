@@ -73,6 +73,32 @@ func cliBuildDryRun() async throws {
 }
 ```
 
+The integration target also includes deterministic Flutter, React Native, and KMP fixture suites. These use lightweight tool shims to validate ShipIt's command dispatch and artifact path handling for cross-platform projects without requiring a real Flutter SDK, CocoaPods, a full Kotlin toolchain, or external OSS checkout on every machine.
+
+### External project validation
+
+`IntegrationTests` also supports opt-in validation against real open-source Flutter and React Native projects outside the repo. Point the tests at local checkouts with environment variables:
+
+```bash
+export SHIPIT_EXTERNAL_FLUTTER_PROJECT=/tmp/flutter-samples/testing_app
+export SHIPIT_EXTERNAL_RN_PROJECT=/tmp/rn-template/template
+yarn --cwd "$SHIPIT_EXTERNAL_RN_PROJECT" install
+
+swift build
+swift test --filter FlutterExternalIntegrationTests
+swift test --filter ReactNativeExternalIntegrationTests
+```
+
+These suites are skipped unless the paths are configured. Flutter tests also require `flutter` on `PATH`; React Native iOS tests require `pod` on `PATH`; React Native external tests expect `node_modules/` to already exist in the target checkout.
+
+For the built-in local verification flow that covers native, Flutter, React Native, and KMP fixture artifacts end-to-end, run:
+
+```bash
+./scripts/verify-cross-platform.sh
+# or:
+make verify-cross-platform
+```
+
 ---
 
 ## Rules

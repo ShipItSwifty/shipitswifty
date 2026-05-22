@@ -111,6 +111,48 @@ jobs:
           working-directory: ShipItSwifty
           fail_ci_if_error: false
 
+  cross-platform-fixture-integration:
+    name: Cross-Platform Fixture Integration
+    needs: lint
+    runs-on: macos-26
+
+    steps:
+      - name: Checkout ShipItSwifty
+        uses: actions/checkout@v6
+        with:
+          path: ShipItSwifty
+          persist-credentials: false
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_26.4.app
+
+      - name: Swift version
+        run: swift --version
+
+      - name: Cache SPM dependencies
+        uses: actions/cache@v5
+        with:
+          path: ShipItSwifty/.build/checkouts
+          key: ${{ runner.os }}-spm-${{ hashFiles('ShipItSwifty/Package.resolved') }}
+          restore-keys: |
+            ${{ runner.os }}-spm-
+
+      - name: Build
+        working-directory: ShipItSwifty
+        run: swift build
+
+      - name: Test Flutter fixture integration
+        working-directory: ShipItSwifty
+        run: swift test --filter FlutterFixtureIntegrationTests
+
+      - name: Test React Native fixture integration
+        working-directory: ShipItSwifty
+        run: swift test --filter ReactNativeFixtureIntegrationTests
+
+      - name: Test KMP fixture integration
+        working-directory: ShipItSwifty
+        run: swift test --filter KMPFixtureIntegrationTests
+
   build-and-test-linux:
     name: Build & Test (Linux)
     needs: lint

@@ -346,6 +346,14 @@ swift test --filter ShipItKitTests.BuildActionTests
 swift run shipit --help
 ```
 
+Cross-platform regression coverage is enforced in CI via dedicated Flutter, React Native, and KMP fixture integration suites. You can run the same local verification flow with:
+
+```bash
+./scripts/verify-cross-platform.sh
+# or:
+make verify-cross-platform
+```
+
 ### Linux / Docker
 
 The `GradleKit`, `ShipItKit` core, and `CLI` targets build and test on Linux. A `Dockerfile` and `Makefile` are included for local development without a native Swift toolchain:

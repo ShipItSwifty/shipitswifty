@@ -22,6 +22,18 @@ public struct AndroidConfig: Codable, Sendable {
     /// Gradle module name (e.g. `app`). Defaults to `"app"`.
     public var module: String?
 
+    /// Default scope for Android Gradle test tasks.
+    ///
+    /// - `module`: Qualify tasks with `module`, e.g. `:app:testDebugUnitTest`.
+    /// - `root`: Run tasks from the Gradle root, e.g. `testDebugUnitTest`.
+    public var testScope: TestScope?
+
+    /// Default test kind for Android test steps.
+    public var testKind: TestKind?
+
+    /// Default device configuration for Android instrumented tests.
+    public var testDevices: TestDeviceConfig?
+
     /// Build variant (e.g. `release`, `debug`). Defaults to `"release"`.
     public var buildVariant: String?
 
@@ -58,6 +70,9 @@ public struct AndroidConfig: Codable, Sendable {
     enum CodingKeys: String, CodingKey {
         case buildSystem = "build_system"
         case module
+        case testScope = "test_scope"
+        case testKind = "test_kind"
+        case testDevices = "test_devices"
         case buildVariant = "build_variant"
         case buildType = "build_type"
         case gradlewPath = "gradlew_path"
@@ -75,6 +90,9 @@ public struct AndroidConfig: Codable, Sendable {
     public init(
         buildSystem: BuildSystem? = nil,
         module: String? = nil,
+        testScope: TestScope? = nil,
+        testKind: TestKind? = nil,
+        testDevices: TestDeviceConfig? = nil,
         buildVariant: String? = nil,
         buildType: AndroidBuildType? = nil,
         gradlewPath: String? = nil,
@@ -89,6 +107,9 @@ public struct AndroidConfig: Codable, Sendable {
     ) {
         self.buildSystem = buildSystem
         self.module = module
+        self.testScope = testScope
+        self.testKind = testKind
+        self.testDevices = testDevices
         self.buildVariant = buildVariant
         self.buildType = buildType
         self.gradlewPath = gradlewPath

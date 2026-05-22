@@ -218,6 +218,9 @@ public struct ResolvedConfig: Sendable {
     /// `.flutter`, `.reactNative`, or `.kmp` when the Android app is produced by a cross-platform tool.
     public let androidBuildSystem: BuildSystem
 
+    /// Whether the current run is in CI mode.
+    public let ci: Bool
+
     /// Directory used for project-relative tool execution. Defaults to the Shipfile directory.
     public let projectRoot: String
 
@@ -238,19 +241,28 @@ public struct ResolvedConfig: Sendable {
     /// Gradle module name (e.g. `app`).
     public let androidModule: String
 
-    /// Gradle build variant (e.g. `release`).
+    /// Default Android Gradle test scope.
+    public let androidTestScope: TestScope
+
+    /// Default Android test kind.
+    public let androidTestKind: TestKind
+
+    /// Default Android test device configuration.
+    public let androidTestDevices: TestDeviceConfig
+
+    /// Default Android build variant (e.g. `release`, `debug`).
     public let androidBuildVariant: String
 
-    /// Android artifact type (`.aab` or `.apk`).
+    /// Default Android artifact type.
     public let androidBuildType: AndroidBuildType
 
-    /// Path to `gradlew` wrapper. Auto-detected from project root when nil.
+    /// Explicit path to the `gradlew` wrapper script.
     public let gradlewPath: String?
 
     /// Directory containing the Gradle root project.
     public let gradleProjectDir: String
 
-    /// Additional Gradle flags applied to ShipIt-managed Gradle invocations.
+    /// Additional Gradle flags applied to Android Gradle invocations.
     public let androidGradleFlags: [String]
 
     /// Path to the Android keystore file.
@@ -339,12 +351,16 @@ public struct ResolvedConfig: Sendable {
         platform: Platform = .ios,
         iosBuildSystem: BuildSystem = .native,
         androidBuildSystem: BuildSystem = .native,
+        ci: Bool = false,
         projectRoot: String = ".",
         kmpSharedModule: String = "shared",
         kmpBuildTarget: String = "IosSimulatorArm64",
         kmpArchiveTarget: String = "IosArm64",
         kmpTestTask: String = "iosSimulatorArm64Test",
         androidModule: String = "app",
+        androidTestScope: TestScope = .module,
+        androidTestKind: TestKind = .unit,
+        androidTestDevices: TestDeviceConfig = TestDeviceConfig(strategy: .none),
         androidBuildVariant: String = "release",
         androidBuildType: AndroidBuildType = .aab,
         gradlewPath: String? = nil,
@@ -417,12 +433,16 @@ public struct ResolvedConfig: Sendable {
         self.platform = platform
         self.iosBuildSystem = iosBuildSystem
         self.androidBuildSystem = androidBuildSystem
+        self.ci = ci
         self.projectRoot = projectRoot
         self.kmpSharedModule = kmpSharedModule
         self.kmpBuildTarget = kmpBuildTarget
         self.kmpArchiveTarget = kmpArchiveTarget
         self.kmpTestTask = kmpTestTask
         self.androidModule = androidModule
+        self.androidTestScope = androidTestScope
+        self.androidTestKind = androidTestKind
+        self.androidTestDevices = androidTestDevices
         self.androidBuildVariant = androidBuildVariant
         self.androidBuildType = androidBuildType
         self.gradlewPath = gradlewPath
@@ -512,12 +532,16 @@ public struct ResolvedConfig: Sendable {
             platform: platform,
             iosBuildSystem: iosBuildSystem,
             androidBuildSystem: androidBuildSystem,
+            ci: ci,
             projectRoot: projectRoot,
             kmpSharedModule: kmpSharedModule,
             kmpBuildTarget: kmpBuildTarget,
             kmpArchiveTarget: kmpArchiveTarget,
             kmpTestTask: kmpTestTask,
             androidModule: androidModule,
+            androidTestScope: androidTestScope,
+            androidTestKind: androidTestKind,
+            androidTestDevices: androidTestDevices,
             androidBuildVariant: buildVariant ?? androidBuildVariant,
             androidBuildType: androidBuildType,
             gradlewPath: gradlewPath,

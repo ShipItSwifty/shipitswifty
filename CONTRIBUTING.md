@@ -65,11 +65,13 @@ When you add a new action or change an existing one, the [`AGENTS.md`](AGENTS.md
 
 ## Integration tests
 
-`Tests/IntegrationTests/` exercises real flows: `xcodebuild`, the App Store Connect API, the Google Play API, code-signing keychains. Tests that need credentials skip silently when the env vars are absent, so you can run the whole target without any setup:
+`Tests/IntegrationTests/` exercises real flows: `xcodebuild`, Gradle, Flutter, React Native, KMP, the App Store Connect API, the Google Play API, code-signing keychains. The built-in iOS, Android, Flutter, React Native, and KMP fixture suites run locally without extra setup; tests that need credentials or external project paths skip silently when the env vars are absent, so you can run the whole target without any setup:
 
 ```bash
 swift build
 swift test --filter IntegrationTests
+# or run the full local verification flow used for cross-platform regression checks
+make verify-cross-platform
 ```
 
 If you want to run the credentialed tests:
@@ -114,6 +116,46 @@ cd -
 
 Without this, Android build tests skip with a descriptive message.
 
+### External Flutter / React Native project validation
+
+These opt-in tests validate ShipIt against real open-source app checkouts instead of the in-repo fixtures.
+
+Recommended starting points:
+
+```bash
+# Flutter
+git clone https://github.com/flutter/samples /tmp/flutter-samples
+export SHIPIT_EXTERNAL_FLUTTER_PROJECT=/tmp/flutter-samples/testing_app
+
+# React Native
+git clone https://github.com/react-native-community/template /tmp/rn-template
+export SHIPIT_EXTERNAL_RN_PROJECT=/tmp/rn-template/template
+yarn --cwd "$SHIPIT_EXTERNAL_RN_PROJECT" install
+```
+
+Tooling prerequisites:
+
+```bash
+# Flutter tests require the Flutter SDK on PATH
+which flutter
+
+# React Native iOS tests require CocoaPods
+which pod
+
+# React Native external tests expect JS dependencies to already be installed
+test -d "$SHIPIT_EXTERNAL_RN_PROJECT/node_modules"
+```
+
+Run only the external validation suites:
+
+```bash
+swift build
+swift test --filter FlutterExternalIntegrationTests
+swift test --filter ReactNativeExternalIntegrationTests
+```
+
+External tests are skipped unless the corresponding `SHIPIT_EXTERNAL_*` path is set.
+
 ### iOS Simulator setup (for `xcodebuild test`)
 
 ```bash
@@ -145,6 +187,10 @@ GitHub Actions secrets only accept text, so the binary `.p12` is base64-encoded 
    - `.requiresSimulator`
    - `.requiresSigningIdentity`
    - `.requiresP12Credentials`
+   - `.requiresExternalFlutterProject`
+   - `.requiresExternalReactNativeProject`
+   - `.requiresFlutterToolchain`
+   - `.requiresCocoaPods`
 3. Call `assertIntegrationScope(shipfile: ...)` before any credentialed API call.
 4. Run `swift test --filter IntegrationTests` locally — verify it skips cleanly without credentials, then verify it passes with credentials sourced from `.env.integration`.
 

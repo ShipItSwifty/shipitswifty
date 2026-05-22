@@ -117,20 +117,29 @@ struct CLIBuildTests {
         #expect(command.buildVariant == "release")
     }
 
-    @Test("Test command parses Gradle module variant and instrumented flag")
+    @Test("Test command parses Gradle module variant and device options")
     func testCommandParsesGradleOptions() throws {
         let command =
             try TestCommand.parseAsRoot([
                 "--platform", "android",
+                "--kind", "instrumented",
+                "--scope", "root",
                 "--module", "androidApp",
                 "--build-variant", "debug",
-                "--instrumented",
+                "--device-strategy", "named_emulators",
+                "--emulators", "Pixel_9_API_35",
+                "--emulators", "Pixel_Tablet_API_35",
+                "--prompt-locally",
             ]) as! TestCommand
 
         #expect(command.global.platform == .android)
+        #expect(command.kind == .instrumented)
+        #expect(command.scope == .root)
         #expect(command.module == "androidApp")
         #expect(command.buildVariant == "debug")
-        #expect(command.instrumented)
+        #expect(command.deviceStrategy == .namedEmulators)
+        #expect(command.emulators == ["Pixel_9_API_35", "Pixel_Tablet_API_35"])
+        #expect(command.promptLocally)
     }
 
     #if os(macOS)

@@ -265,12 +265,16 @@ public struct ConfigResolver: Sendable {
             platform: platform,
             iosBuildSystem: iosBuildSystem,
             androidBuildSystem: androidBuildSystem,
+            ci: cliOptions.ci,
             projectRoot: projectRoot,
             kmpSharedModule: environment.iosKMPSharedModule ?? shipfile?.ios?.kmpSharedModule ?? "shared",
             kmpBuildTarget: environment.iosKMPBuildTarget ?? shipfile?.ios?.kmpBuildTarget ?? "IosSimulatorArm64",
             kmpArchiveTarget: environment.iosKMPArchiveTarget ?? shipfile?.ios?.kmpArchiveTarget ?? "IosArm64",
             kmpTestTask: environment.iosKMPTestTask ?? shipfile?.ios?.kmpTestTask ?? "iosSimulatorArm64Test",
             androidModule: environment.androidModule ?? androidConfig?.module ?? "app",
+            androidTestScope: androidConfig?.testScope ?? .module,
+            androidTestKind: androidConfig?.testKind ?? .unit,
+            androidTestDevices: androidConfig?.testDevices ?? TestDeviceConfig(strategy: .none),
             androidBuildVariant: environment.androidBuildVariant ?? androidConfig?.buildVariant
                 ?? "release",
             androidBuildType: AndroidBuildType(

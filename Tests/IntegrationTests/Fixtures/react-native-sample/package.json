@@ -1,0 +1,12 @@
+{
+  "name": "HelloWorld",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "test": "node -e \"console.log('Tests: 5 passed, 5 total')\"",
+    "lint": "node -e \"console.log('Lint clean')\""
+  },
+  "dependencies": {
+    "react-native": "0.74.0"
+  }
+}
