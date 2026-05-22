@@ -78,7 +78,7 @@ func loadDotEnvIfPresent(directory: String) {
 ///     `ActionContext.verbose` so actions can emit additional diagnostic info.
 /// - Returns: An `ActionContext` ready for use by actions.
 func buildActionContext(config: ResolvedConfig, verbose: Bool = false) async throws -> ActionContext {
-    let shell = ShellContext(defaultOutputLimit: -1)
+    let shell = ShellContext()
     let logger = Logger.forType(subsystem: "ShipItSwifty", ActionContext.self)
 
     // Build Google Play client — only present when service account data is available

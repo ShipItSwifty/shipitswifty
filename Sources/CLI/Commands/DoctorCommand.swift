@@ -46,7 +46,7 @@ struct DoctorCommand: AsyncParsableCommand {
                 cliOptions: CLIOptions(ci: global.ci, dryRun: global.dryRun, platform: global.platform)
             )
 
-            let shell = ShellContext(defaultOutputLimit: -1)
+            let shell = ShellContext()
             let formatter = makeHumanFormatter(global: global)
             let ascDiagnosticsMode = Self.ascDiagnosticsMode(for: config)
             let platform = config.platform
