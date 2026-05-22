@@ -132,7 +132,8 @@ swift run shipit validate yml                      # Shipfile structure and work
 swift run shipit validate metadata                 # App Store metadata / precheck rules
 swift run shipit validate archive --archive-path ./build/MyApp.xcarchive
 swift run shipit validate archive --ipa ./build/export/MyApp.ipa
-swift run shipit validate bundle --bundle ./build/app-release.aab   # Android AAB / APK validation
+swift run shipit validate bundle --aab ./build/app-release.aab      # Android AAB validation
+swift run shipit validate bundle --apk ./build/app-release.apk      # Android APK validation
 swift run shipit validate all                      # yml + metadata + archive in sequence
 swift run shipit precheck                          # backwards-compat alias: validate metadata
 
@@ -212,6 +213,8 @@ workflows:
 - Composite-to-composite references must be acyclic.
 
 **Agent guidance:** `shipit ai-session` enumerates the user's declared custom actions in the generated `agentPrompt` so agents prefer reusing an existing composite over duplicating its step sequence in a new workflow.
+
+Workflow auto-generation also inspects `custom_actions` recursively, so a composite that expands to `build`, `test`, or `archive` still triggers `project_generation.auto_generate` when needed.
 
 See `docs/configuration-reference.md` for the full schema and examples.
 
@@ -300,7 +303,7 @@ CLI flags > `SHIPIT_*` env vars > `.env` file (auto-loaded from Shipfile directo
 - KMP defaults: `ios.kmp_shared_module: shared`, `ios.kmp_build_target: IosSimulatorArm64`, `ios.kmp_archive_target: IosArm64`, `ios.kmp_test_task: iosSimulatorArm64Test`.
 - `versioning.source: kmp` reads/writes `versionName` + `versionCode` in `gradle.properties` via `KMPVersionSource`.
 - `versioning.source: gradle` reads/writes `versionName` + `versionCode` directly in `build.gradle.kts` or `build.gradle` via `GradleVersionSource`. This is the default versioning source for Android projects.
-- `flutter` / `react_native` are fully implemented: `BuildAction`, `ArchiveAction`, `TestAction`, and `LintAction` all dispatch on `build_system` and invoke the appropriate Flutter/RN CLI. `ValidateBundle` and `PlayStoreAction` auto-discover artifact paths for both. Flutter iOS archive produces IPA directly (no export step); RN iOS uses `xcodebuild archive` + export.
+- `flutter` / `react_native` are fully implemented: `BuildAction`, `ArchiveAction`, `TestAction`, and `LintAction` all dispatch on `build_system` and invoke the appropriate Flutter/RN CLI. `ValidateBundle` and `PlayStoreAction` auto-discover conventional artifact paths for native Gradle, Flutter, and React Native projects. Flutter iOS archive produces IPA directly (no export step); RN iOS uses `xcodebuild archive` + export.
 
 When recommending changes to an agent:
 - Prefer setting `build_system` under the platform block over inventing a new top-level CLI flag.

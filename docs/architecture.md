@@ -622,7 +622,7 @@ These types live in `Sources/ShipItKit/Introspection/` and power `ai-session`, `
 | `BuiltInSchemaCatalog` | Static catalog of `SchemaField`/`SchemaSection`/`ActionSchema` descriptors for every Shipfile key and action option — both iOS and Android |
 | `SchemaValidator` | Validates a `JSONValue` tree against `SchemaField` rules |
 | `ShipfileValidator` | Full YAML parse + schema + semantic workflow rule validation |
-| `AISessionBuilder` | Builds a versioned `AISessionPayload` from a `ProjectInspection` + goal + platform. Android gets a Play Store-oriented agent prompt and Google Play secret descriptors. |
+| `AISessionBuilder` | Builds a versioned `AISessionPayload` from a `ProjectInspection` + goal + platform. Android gets a Play Store-oriented agent prompt, Google Play secret descriptors, and workflow guidance that reflects bundle auto-discovery and required Play track selection. |
 | `DestinationDiscovery` | Runs `xcodebuild -showdestinations` and parses the output into `[XcodebuildDestination]`; used by agents and `ai-session` to surface real simulator/device options instead of invented names |
 
 ### AI session model types (`AISessionTypes.swift`)

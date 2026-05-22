@@ -27,7 +27,7 @@ This document covers the planned feature surface, current v1 scope, the long-ter
 | **Guided Shipfile generation** | `shipit generate --goal <local\|beta\|release>` inspects iOS/Android project files, confirms inferred values, writes `Shipfile.yml`, and offers to run `doctor`. For Android signing, guides keystore discovery (detects existing env vars or `.env` values), prompts for missing credentials, and offers three persistence options: `.env` file (recommended for local dev), shell profile (~/.zshrc), or manual export. When writing `.env`, uses `${VAR_NAME}` references for values already set in the environment — only inlines literals for user-provided values. |
 | **Config suggestion** | `shipit suggest-config --goal <local\|beta\|release>` produces a YAML draft plus missing-value hints without writing it |
 | **AI session** | `shipit ai-session --goal <local\|beta\|release>` returns a **versioned, stable JSON contract** (v1) containing inferred config with confidence + provenance, secret descriptors, ambiguity flags, readiness diagnosis, next deterministic action, agent system prompt, and the single best follow-up question to ask the user |
-| **Validation** | `shipit validate` (default: yml) checks YAML parsing, top-level schema, workflow action options, and common semantic mistakes. `shipit validate metadata` runs precheck rules. `shipit validate archive` validates xcarchive / ipa bundle readiness for upload. `shipit validate bundle` validates Android AAB/APK bundles via `bundletool validate`. `shipit validate all` runs all stages. |
+| **Validation** | `shipit validate` (default: yml) checks YAML parsing, top-level schema, workflow action options, and common semantic mistakes. `shipit validate metadata` runs precheck rules. `shipit validate archive` validates xcarchive / ipa bundle readiness for upload. `shipit validate bundle` validates Android AAB/APK bundles via `bundletool validate`; when no explicit `aab_path` / `apk_path` is provided it auto-discovers conventional native Gradle, Flutter, and React Native outputs. `shipit validate all` runs all stages. |
 
 ### Environment and credential management
 
@@ -157,8 +157,8 @@ For iOS projects that use spec-driven project tools (XcodeGen, Tuist, etc.), Shi
 
 | Feature | Status | Description |
 |---|---|---|
-| **Auto-generation** | Implemented | When `project_generation.tool` is configured in Shipfile.yml, `Workflow.run()` automatically generates the Xcode project before the first Xcode-dependent step (build, test, archive, etc.). Skips generation when the output project already exists. |
-| **`generate_project` action** | Implemented | Explicit action for project generation. Supports `command`, `spec_path`, `output_project`, and `force` options. Registered as a first-class action in the action registry. |
+| **Auto-generation** | Implemented | When `project_generation.tool` is configured in Shipfile.yml, `Workflow.run()` automatically generates the Xcode project before the first Xcode-dependent step (build, test, archive, etc.), including when those steps are reached through nested `custom_actions`. Skips generation when the output project already exists. |
+| **`generate_project` action** | Implemented | Explicit action for project generation. Supports `command`, `spec_path`, `output_project`, and `force` options. Runs the configured command through `/bin/bash -c` so quoted arguments and non-trivial shell command strings are preserved. |
 | **XcodeGen support** | Implemented | Default command for `tool: xcodegen` is `xcodegen generate`. Custom commands are supported for non-standard invocations. |
 | **Auto-generate toggle** | Implemented | `project_generation.auto_generate: false` disables auto-generation; the `generate_project` action must be invoked explicitly. |
 | **Spec validation** | Implemented | Generation validates that the spec file exists before running and that the output project was created after the command completes. |
@@ -208,7 +208,7 @@ Android support ships in v1 alongside iOS. Platform is auto-detected from projec
 | **Test** | `shipit test --platform android` | `./gradlew test` (unit) or `./gradlew connectedAndroidTest` (instrumented) |
 | **Lint** | `shipit lint --platform android` | `./gradlew lint` |
 | **Play Store** | `shipit play-store` | Upload AAB to Google Play via service account JWT auth. Supports per-workflow `build_variant` and `flavor` overrides for artifact path auto-discovery. Requires `track` option on the workflow step. |
-| **Validate Bundle** | `shipit validate bundle` | `bundletool validate --bundle` — AAB/APK pre-upload checks |
+| **Validate Bundle** | `shipit validate bundle` | `bundletool validate --bundle` for AABs plus ZIP/size/extension checks for AAB/APK pre-upload validation. Auto-discovers conventional native Gradle, Flutter, and React Native artifact paths when no explicit path is provided. |
 
 ### Android Shipfile example
 
