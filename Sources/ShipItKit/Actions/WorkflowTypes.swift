@@ -152,7 +152,7 @@ public struct Workflow: Sendable {
 
         // Auto-generate project before running any Xcode-dependent steps
         #if os(macOS)
-        if Self.requiresXcodeContainer(steps: steps) {
+        if Self.requiresXcodeContainer(steps: steps, customActions: effectiveContext.config.customActions) {
             try await effectiveContext.ensureProjectGenerated()
         }
         #endif
@@ -182,8 +182,30 @@ public struct Workflow: Sendable {
     ]
 
     /// Returns `true` when any step in the workflow is an action that needs an Xcode container.
-    private static func requiresXcodeContainer(steps: [WorkflowStep]) -> Bool {
-        steps.contains { xcodeContainerActions.contains($0.action) }
+    private static func requiresXcodeContainer(
+        steps: [WorkflowStep],
+        customActions: [String: CustomActionConfig],
+        visited: Set<String> = []
+    ) -> Bool {
+        for step in steps {
+            if xcodeContainerActions.contains(step.action) {
+                return true
+            }
+
+            guard let customAction = customActions[step.action], !visited.contains(step.action) else {
+                continue
+            }
+
+            if requiresXcodeContainer(
+                steps: customAction.steps.map { WorkflowStep(action: $0.action, options: $0.options) },
+                customActions: customActions,
+                visited: visited.union([step.action])
+            ) {
+                return true
+            }
+        }
+
+        return false
     }
 }
 

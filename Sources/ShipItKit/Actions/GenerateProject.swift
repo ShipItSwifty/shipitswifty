@@ -115,17 +115,11 @@ public struct GenerateProjectAction: Action {
         // Execute the generation command
         logger.info("Generating project with command: \(command)")
 
-        let parts = command.components(separatedBy: " ").filter { !$0.isEmpty }
-        guard let executable = parts.first else {
-            throw ShipItError.invalidConfiguration(
-                reason: "Project generation command is empty after parsing: '\(command)'"
-            )
-        }
-        let args = Array(parts.dropFirst())
-
         let output: ShellOutput
         do {
-            output = try await Command(executable).args(args).run(in: context.shell)
+            output = try await Bash(context: context.shell)
+                .script(command)
+                .run()
         } catch let ShellError.exitFailure(cmd, shellOutput) {
             let combinedLog = [shellOutput.stdout, shellOutput.stderr]
                 .filter { !$0.isEmpty }
@@ -136,6 +130,8 @@ public struct GenerateProjectAction: Action {
                 log: "Project generation command '\(cmd)' failed:\n\(combinedLog)"
             )
         }
+
+        context.logShellOutput(output, label: "generate_project")
 
         // Verify the output was created
         if let outputProject {

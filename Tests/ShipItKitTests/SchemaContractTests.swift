@@ -43,24 +43,28 @@ struct SchemaContractTests {
 
     @Test("Build schema retains critical option keys")
     func buildSchemaRetainsCriticalKeys() {
-        let names = Set(BuiltInSchemaCatalog.optionSchema(for: BuildAction.name).map(\.name))
+        let fields = BuiltInSchemaCatalog.optionSchema(for: BuildAction.name)
+        let names = Set(fields.map(\.name))
         #expect(names.contains("scheme"))
         #expect(names.contains("configuration"))
         #expect(names.contains("clean"))
         #expect(names.contains("module"))
         #expect(names.contains("build_variant"))
         #expect(names.contains("gradle_properties"))
+        #expect(fields.first(where: { $0.name == "gradle_properties" })?.type == .object)
     }
 
     @Test("Archive schema retains critical option keys")
     func archiveSchemaRetainsCriticalKeys() {
-        let names = Set(BuiltInSchemaCatalog.optionSchema(for: ArchiveAction.name).map(\.name))
+        let fields = BuiltInSchemaCatalog.optionSchema(for: ArchiveAction.name)
+        let names = Set(fields.map(\.name))
         #expect(names.contains("scheme"))
         #expect(names.contains("output_path"))
         #expect(names.contains("include_symbols"))
         #expect(names.contains("include_bitcode"))
         #expect(names.contains("module"))
         #expect(names.contains("build_variant"))
+        #expect(fields.first(where: { $0.name == "gradle_properties" })?.type == .object)
     }
 
     @Test("TestFlight schema retains documented option keys")

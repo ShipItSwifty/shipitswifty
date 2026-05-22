@@ -318,6 +318,7 @@ struct AISessionTests {
         #expect(completePayload.agentPrompt.contains("shipit ai-session --goal local --platform android"))
         #expect(completePayload.agentPrompt.contains("shipit generate --goal local --platform android"))
         #expect(completePayload.agentPrompt.contains("shipit run local --platform android --ci --output json"))
+        #expect(completePayload.agentPrompt.contains("shipit validate bundle --aab <path> --output json"))
     }
 
     // MARK: - Fixture helpers

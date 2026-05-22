@@ -17,6 +17,14 @@ struct IntrospectionTests {
         #expect(uploadSchema?.options.contains(where: { $0.name == "submit_for_review" }) == true)
     }
 
+    @Test("validate bundle schema documents auto-discovery note")
+    func validateBundleSchemaDocumentsAutoDiscovery() {
+        let schema = BuiltInSchemaCatalog.actionSchemas().first { $0.name == "validate_bundle" }
+        let aabField = schema?.options.first { $0.name == "aab_path" }
+
+        #expect(aabField?.notes.contains(where: { $0.contains("Optional when using conventional native Gradle") }) == true)
+    }
+
     @Test("Project inspector prefers workspace and extracts schemes")
     func projectInspectorDetectsWorkspaceAndSchemes() async throws {
         let tempDirectory = try makeTempDirectory()

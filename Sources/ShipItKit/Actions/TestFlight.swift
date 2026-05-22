@@ -140,6 +140,12 @@ public struct TestFlightAction: Action {
             )
         }
 
+        if !processingComplete, !groups.isEmpty {
+            logger.info(
+                "Skipping TestFlight group distribution until build processing completes. Requested groups: \(groups.joined(separator: ", "))"
+            )
+        }
+
         logger.info("TestFlight upload complete. Build: \(buildID ?? "unknown"), Groups: \(distributedGroups.joined(separator: ", "))")
         return Result(
             buildID: buildID,

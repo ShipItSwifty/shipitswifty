@@ -397,6 +397,7 @@ public struct BuildAction: Action {
         }
 
         logger.info("Build succeeded for scheme '\(scheme)'")
+        context.logShellOutput(output, label: "xcodebuild build")
 
         return Result(
             appPath: parseAppPath(from: output.stdout),
@@ -428,16 +429,16 @@ public struct BuildAction: Action {
         var gradle = context.gradle()
             .task(task.qualified(module: module))
 
-        // Apply config-level Gradle properties
-        let allProps = context.config.androidGradleProperties.merging(options.gradleProperties ?? [:]) { _, new in new }
-        for (key, value) in allProps {
-            gradle = gradle.property(.custom(key: key, value: value))
-        }
-
         if options.clean == true {
             gradle = context.gradle()
                 .task(.clean)
                 .task(task.qualified(module: module))
+        }
+
+        // Apply config-level Gradle properties after the optional clean rebuild so they are not dropped.
+        let allProps = context.config.androidGradleProperties.merging(options.gradleProperties ?? [:]) { _, new in new }
+        for (key, value) in allProps {
+            gradle = gradle.property(.custom(key: key, value: value))
         }
 
         let output: ShellOutput

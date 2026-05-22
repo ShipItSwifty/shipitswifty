@@ -131,7 +131,7 @@ public struct ValidateBundleAction: Action {
             targetPath = apk
             isAAB = false
         } else {
-            // Auto-discover well-known paths for Flutter / React Native
+            // Auto-discover well-known paths for the resolved Android build system.
             let buildSystem = context.config.androidBuildSystem
             switch buildSystem {
             case .flutter:
@@ -144,63 +144,74 @@ public struct ValidateBundleAction: Action {
                 targetPath = CrossPlatformArtifactPaths.reactNativeAAB(variant: context.config.androidBuildVariant)
                 isAAB = true
             default:
-                throw ShipItError.invalidConfiguration(
-                    reason: "validate_bundle requires an artifact path. Pass --aab ./build/app-release.aab or --apk ./build/app-release.apk"
+                targetPath = CrossPlatformArtifactPaths.nativeAAB(
+                    module: context.config.androidModule,
+                    variant: context.config.androidBuildVariant
                 )
+                isAAB = true
+                logger.info("Auto-discovered native AAB path: \(targetPath)")
             }
         }
 
-        guard FileManager.default.fileExists(atPath: targetPath) else {
+        let workingDirectory = context.shell.workingDirectory ?? FileManager.default.currentDirectoryPath
+        let resolvedTargetPath: String
+        if (targetPath as NSString).isAbsolutePath {
+            resolvedTargetPath = targetPath
+        } else {
+            resolvedTargetPath = (workingDirectory as NSString).appendingPathComponent(targetPath)
+        }
+
+        guard FileManager.default.fileExists(atPath: resolvedTargetPath) else {
             throw ShipItError.invalidConfiguration(
-                reason: "validate_bundle: path not found: \(targetPath)"
+                reason: "validate_bundle: path not found: \(resolvedTargetPath)"
             )
         }
 
-        logger.info("ValidateBundle: validating '\(targetPath)'")
+        logger.info("ValidateBundle: validating '\(resolvedTargetPath)'")
 
         var issues: [BundleIssue] = []
 
         // 1. File format check (ZIP magic bytes — both AAB and APK are ZIP-based)
-        validateZipFormat(at: targetPath, isAAB: isAAB, issues: &issues)
+        validateZipFormat(at: resolvedTargetPath, isAAB: isAAB, issues: &issues)
 
         // 2. Extension check
-        if isAAB && !targetPath.hasSuffix(".aab") {
+        if isAAB && !resolvedTargetPath.hasSuffix(".aab") {
             issues.append(
                 .init(
                     code: "BUNDLE_INVALID_EXTENSION",
-                    message: "Expected a .aab file extension, got: \(targetPath)",
+                    message: "Expected a .aab file extension, got: \(resolvedTargetPath)",
                     severity: .warning
                 ))
-        } else if !isAAB && !targetPath.hasSuffix(".apk") {
+        } else if !isAAB && !resolvedTargetPath.hasSuffix(".apk") {
             issues.append(
                 .init(
                     code: "BUNDLE_INVALID_EXTENSION",
-                    message: "Expected a .apk file extension, got: \(targetPath)",
+                    message: "Expected a .apk file extension, got: \(resolvedTargetPath)",
                     severity: .warning
                 ))
         }
 
         // 3. Size sanity check
-        validateFileSize(at: targetPath, issues: &issues)
+        validateFileSize(at: resolvedTargetPath, issues: &issues)
 
         // 4. bundletool validate (if available)
-        await validateWithBundletool(path: targetPath, isAAB: isAAB, issues: &issues, context: context)
+        await validateWithBundletool(path: resolvedTargetPath, isAAB: isAAB, issues: &issues, context: context)
 
         let errorCount = issues.filter { $0.severity == .error }.count
         let warningCount = issues.filter { $0.severity == .warning }.count
 
         if errorCount > 0 {
-            logger.warning("ValidateBundle: found \(errorCount) error(s), \(warningCount) warning(s) in '\(targetPath)'")
+            logger.warning("ValidateBundle: found \(errorCount) error(s), \(warningCount) warning(s) in '\(resolvedTargetPath)'")
         } else {
-            logger.info("ValidateBundle: '\(targetPath)' passed all checks (\(warningCount) warning(s))")
+            logger.info("ValidateBundle: '\(resolvedTargetPath)' passed all checks (\(warningCount) warning(s))")
         }
 
-        let result = Result(validatedPath: targetPath, isAAB: isAAB, issues: issues)
+        let result = Result(validatedPath: resolvedTargetPath, isAAB: isAAB, issues: issues)
 
         let shouldFail = errorCount > 0 || ((options.failOnWarnings == true) && warningCount > 0)
         if shouldFail {
             throw ShipItError.invalidConfiguration(
-                reason: "Bundle validation failed with \(errorCount) error(s) and \(warningCount) warning(s). Path: \(targetPath)"
+                reason: "Bundle validation failed with \(errorCount) error(s) and \(warningCount) warning(s). Path: \(resolvedTargetPath)"
             )
         }
 
@@ -288,6 +299,7 @@ public struct ValidateBundleAction: Action {
             .run()
 
         if let output = validateOutput, output.exitCode != 0 {
+            context.logShellOutput(output, label: "bundletool validate")
             let stderr = output.stderr.isEmpty ? output.stdout : output.stderr
             issues.append(
                 .init(
@@ -295,6 +307,8 @@ public struct ValidateBundleAction: Action {
                     message: "bundletool validate reported errors: \(stderr.trimmingCharacters(in: .whitespacesAndNewlines))",
                     severity: .error
                 ))
+        } else if let output = validateOutput {
+            context.logShellOutput(output, label: "bundletool validate")
         } else if validateOutput == nil {
             // bundletool not installed or not on PATH
             issues.append(
