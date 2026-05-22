@@ -599,7 +599,7 @@ public struct AISessionBuilder: Sendable {
                 "Key commands:",
                 "  shipit ai-session --goal \(goal.rawValue) --platform android  # refresh session state",
                 "  shipit validate yml --output json                              # check Shipfile structure",
-                "  shipit validate bundle --aab <path>                            # validate AAB before upload",
+                "  shipit validate bundle --aab <path> --output json              # validate AAB before upload",
                 "  shipit generate --goal \(goal.rawValue) --platform android        # generate Shipfile.yml",
                 "  shipit run \(goal.rawValue)\(platformFlag) --ci --output json  # execute the workflow",
                 "  shipit schema --workflow \(goal.rawValue) --output json        # schema for this goal",
@@ -671,9 +671,10 @@ public struct AISessionBuilder: Sendable {
         case .android:
             if goal == .beta {
                 lines += [
-                    "",
+                    "", 
                     "The default Android beta workflow is: lint → test → archive (bundleRelease) → validate bundle → play-store.",
                     "The `track` option is REQUIRED on the play-store step (e.g. options: { track: internal }). Valid tracks: internal, alpha, beta, production.",
+                    "validate_bundle auto-discovers the conventional AAB path for native Gradle, Flutter, and React Native projects when no explicit path is provided.",
                     "Google Play credentials (GOOGLE_PLAY_SERVICE_ACCOUNT_JSON) are required for Play Store upload.",
                     "Android signing requires SHIPIT_ANDROID__KEYSTORE_PATH, SHIPIT_ANDROID__KEYSTORE_PASSWORD, SHIPIT_ANDROID__KEY_ALIAS, SHIPIT_ANDROID__KEY_PASSWORD.",
                     "Ask which track to target before generating the workflow.",

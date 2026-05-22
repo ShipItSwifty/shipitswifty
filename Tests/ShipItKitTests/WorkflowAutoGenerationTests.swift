@@ -107,6 +107,48 @@ struct WorkflowAutoGenerationTests {
         #expect(!commands().contains { $0.contains("xcodegen") })
     }
 
+    @Test("Workflow with custom action that expands to build triggers generation")
+    func workflowWithCustomXcodeActionTriggersGeneration() async throws {
+        let (executor, commands) = makeCaptureExecutor { _, _ in
+            ShellOutput(stdout: "Generated project\n", stderr: "", exitCode: 0)
+        }
+
+        let config = ResolvedConfig(
+            appScheme: "MockApp",
+            projectGenerationTool: "xcodegen",
+            projectGenerationCommand: "xcodegen generate",
+            projectGenerationAutoGenerate: true,
+            customActions: [
+                "build_wrapper": CustomActionConfig(steps: [WorkflowStepConfig(action: "build")])
+            ]
+        )
+        let dummyKeyData = Data(
+            "-----BEGIN EC PRIVATE KEY-----\nMHQCAQEEIBkg4DUVQ1fIFUHBABCLRrFwNVm7MAkGByqGSM49AgEFoWQDYgAE\n-----END EC PRIVATE KEY-----"
+                .utf8)
+        let ascClient = AppStoreConnectClient(keyID: "K", issuerID: "I", privateKeyData: dummyKeyData)
+        let context = ActionContext(
+            shell: ShellContext(executor: executor),
+            logger: .forType(subsystem: "ShipItSwiftyTests", Workflow.self),
+            config: config,
+            appStoreConnect: ascClient
+        )
+
+        let registry = ActionRegistry()
+        try await registry.register(makeNoOpDescriptor(name: "build"))
+        try await registry.registerCustomActions(config.customActions)
+
+        let workflow = Workflow(
+            "test-workflow",
+            steps: [
+                WorkflowStep(action: "build_wrapper")
+            ])
+
+        let result = try await workflow.run(context: context, registry: registry)
+
+        #expect(result.succeeded)
+        #expect(commands().contains { $0.contains("xcodegen") && $0.contains("generate") })
+    }
+
     @Test("Workflow skips generation when project generation is not configured")
     func workflowSkipsGenerationWhenNotConfigured() async throws {
         let (executor, commands) = makeCaptureExecutor { _, _ in

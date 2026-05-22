@@ -686,11 +686,12 @@ public enum BuiltInSchemaCatalog {
                 description:
                     "Product flavor name (e.g. free, paid). Combined with build_variant for task names. Also used by Flutter and React Native builds.",
                 example: .string("free")),
-            .array(
+            .object(
                 "gradle_properties",
                 description: "Additional -P key=value properties passed to Gradle (Android).",
-                example: .array([.string("versionCode=42")]),
-                items: .string("property", description: "Gradle property as key=value string.")
+                example: .object(["versionCode": .string("42")]),
+                allowsAdditionalProperties: true,
+                additionalProperties: .string("property", description: "Gradle property value.")
             ),
         ]
     }
@@ -809,11 +810,12 @@ public enum BuiltInSchemaCatalog {
                 description:
                     "Product flavor name (e.g. free, paid). Combined with build_variant for task names. Also used by Flutter and React Native archives.",
                 example: .string("free")),
-            .array(
+            .object(
                 "gradle_properties",
                 description: "Additional -P key=value properties passed to Gradle bundle task (Android).",
-                example: .array([.string("versionCode=42")]),
-                items: .string("property", description: "Gradle property as key=value string.")
+                example: .object(["versionCode": .string("42")]),
+                allowsAdditionalProperties: true,
+                additionalProperties: .string("property", description: "Gradle property value.")
             ),
         ]
     }
@@ -1332,7 +1334,8 @@ public enum BuiltInSchemaCatalog {
         [
             .string(
                 "aab_path", description: "Path to the .aab file to validate.",
-                example: .string("./app/build/outputs/bundle/release/app-release.aab")),
+                example: .string("./app/build/outputs/bundle/release/app-release.aab"),
+                notes: ["Optional when using conventional native Gradle, Flutter, or React Native output paths."]),
             .string(
                 "apk_path", description: "Path to the .apk file to validate.",
                 example: .string("./app/build/outputs/apk/release/app-release.apk")),

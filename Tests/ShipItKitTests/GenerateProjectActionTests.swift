@@ -127,6 +127,34 @@ struct GenerateProjectActionTests {
         #expect(commands().contains { $0.contains("alt.yml") })
     }
 
+    @Test("preserves quoted arguments in generation command")
+    func preservesQuotedArguments() async throws {
+        let (executor, commands) = makeCaptureExecutor { _, _ in
+            ShellOutput(stdout: "", stderr: "", exitCode: 0)
+        }
+
+        let config = ResolvedConfig(
+            appScheme: "MockApp",
+            projectGenerationTool: "xcodegen",
+            projectGenerationCommand: "xcodegen generate --spec \"Configs/Project Spec.yml\""
+        )
+        let dummyKeyData = Data(
+            "-----BEGIN EC PRIVATE KEY-----\nMHQCAQEEIBkg4DUVQ1fIFUHBABCLRrFwNVm7MAkGByqGSM49AgEFoWQDYgAE\n-----END EC PRIVATE KEY-----"
+                .utf8)
+        let ascClient = AppStoreConnectClient(keyID: "K", issuerID: "I", privateKeyData: dummyKeyData)
+        let context = ActionContext(
+            shell: ShellContext(executor: executor),
+            logger: .forType(subsystem: "ShipItSwiftyTests", GenerateProjectAction.self),
+            config: config,
+            appStoreConnect: ascClient
+        )
+
+        _ = try await GenerateProjectAction().run(with: .init(force: true), context: context)
+
+        #expect(commands().contains { $0.contains("/bin/bash -c") })
+        #expect(commands().contains { $0.contains("Configs/Project Spec.yml") })
+    }
+
     // MARK: - Spec path validation
 
     @Test("throws invalidConfiguration when specPath points to a nonexistent file")

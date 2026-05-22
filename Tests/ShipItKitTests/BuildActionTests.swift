@@ -78,6 +78,33 @@ struct BuildActionTests {
         #expect(result.warnings == 2)
     }
 
+    @Test("BuildAction keeps Gradle properties when clean is enabled")
+    func buildActionCleanPreservesGradleProperties() async throws {
+        nonisolated(unsafe) var capturedCommand: Command?
+        let executor = MockExecutor { command, _ in
+            capturedCommand = command
+            return ShellOutput(stdout: "BUILD SUCCESSFUL\n", stderr: "", exitCode: 0)
+        }
+
+        let config = ResolvedConfig(
+            platform: .android,
+            androidModule: "app",
+            androidBuildVariant: "release",
+            androidGradleProperties: ["ci": "true"]
+        )
+        let context = makeTestActionContext(executor: executor, config: config, platform: .android)
+
+        _ = try await BuildAction().run(
+            with: .init(clean: true, gradleProperties: ["versionCode": "42"]),
+            context: context
+        )
+
+        let arguments = capturedCommand?.arguments ?? []
+        #expect(arguments.contains("clean"))
+        #expect(arguments.contains(where: { $0 == "-Pci=true" }))
+        #expect(arguments.contains(where: { $0 == "-PversionCode=42" }))
+    }
+
     @Test("BuildAction enables provisioning updates for automatic signing")
     func buildActionAutomaticSigning() async throws {
         nonisolated(unsafe) var capturedCommand: Command?
