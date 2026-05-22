@@ -2,6 +2,77 @@
 
 This file is the single source of truth for AI agents working in this repository (Claude Code, OpenAI Codex, etc.).
 
+## Response modes
+
+Use the lightest mode that fits the user's request.
+
+- **Quick scan** — default for broad prompts like "what can improve here?" Read a small fixed set of files first, then answer with the highest-leverage findings. Prefer this unless the user asks for a deep review.
+- **Deep audit** — use when the user explicitly asks for a deep review, architecture audit, or repo-wide analysis. Cross-check code, tests, schema, docs, and agent-facing surfaces as needed.
+- **Implementation** — default for change requests. Gather only enough context to make safe edits, then implement and verify.
+
+Scope control rules:
+
+- For broad repo-level questions, default to **Quick scan**.
+- Before escalating a broad question into a **Deep audit**, ask one short scope question.
+- In **Quick scan**, start with the fast-start files below and avoid repo-wide cross-checking unless a likely contract/drift issue appears.
+- In **Deep audit**, it is appropriate to inspect docs, tests, schema, and agent-prompt surfaces for drift.
+- In **Implementation**, do not pause for a full audit unless the requested change clearly touches multiple contracts.
+
+Search budget guidance:
+
+- **Quick scan:** inspect the fast-start files plus only the most relevant implementation files.
+- **Deep audit:** broaden only after the first-pass files indicate where the risk lives.
+- **Implementation:** read the target code path, its immediate dependencies, and the tests you need to update.
+
+## Agent fast start
+
+Use this section to get oriented before reading the rest of the repository guidance.
+
+- ShipItSwifty is a Swift 6 CLI and library for iOS and Android release automation.
+- `ShipItKit` holds the domain logic; `shipit` is the thin CLI entrypoint.
+- The highest-value repo contracts are config resolution, action option schemas, and AI-session output.
+
+Read first on a cold start:
+
+- `Package.swift`
+- `AGENTS.md`
+- `Sources/ShipItKit/Config/ConfigResolver.swift`
+- `Sources/ShipItKit/Config/ResolvedConfig.swift`
+- `Sources/ShipItKit/Actions/`
+- `Sources/ShipItKit/Introspection/`
+- `Tests/ShipItKitTests/`
+
+Start here by task:
+
+- Config resolution: `Sources/ShipItKit/Config/`
+- Action behavior: `Sources/ShipItKit/Actions/`
+- Schema and AI contract: `Sources/ShipItKit/Introspection/`
+- CLI surface: `Sources/CLI/Commands/`
+- Regressions and executable specs: `Tests/ShipItKitTests/`, `Tests/CLITests/`
+
+Hard invariants to keep in mind immediately:
+
+- All shell execution must go through `SwiftyShell`.
+- All App Store Connect calls must go through `AppStoreConnectClient`.
+- All public types must be `Sendable`.
+- All async work must use structured concurrency.
+- Actions must derive behavior only from `Options` and `ActionContext`.
+
+Fast verification commands:
+
+```bash
+swift build
+swift test --filter ShipItKitTests
+swift test --filter CLITests
+swift test --enable-code-coverage
+```
+
+Do not over-read on first pass:
+
+- For open-ended reviews, do not start by reading all docs.
+- Treat `ConfigResolver` + `ResolvedConfig` as the runtime source of truth.
+- Treat `BuiltInSchemaCatalog` and `AISessionBuilder` as contract surfaces worth checking only when the change touches them.
+
 ## Skills
 
 When working on this project, invoke these skills as appropriate:
@@ -361,6 +432,7 @@ Every non-trivial code change (new feature, changed behaviour, new/renamed comma
 Detailed reference material lives in `docs/`:
 
 - [`docs/architecture.md`](docs/architecture.md) — layer diagram, core type definitions, CLI commands, ASC client
+- [`docs/agent-index.md`](docs/agent-index.md) — compact repo navigation map for agents: authoritative sources, start points by task, and change impact map
 - [`docs/features.md`](docs/features.md) — feature catalog, roadmap, tool comparison
 - [`docs/configuration-reference.md`](docs/configuration-reference.md) — Shipfile.yml keys, env vars, resolution order
 - [`docs/testing.md`](docs/testing.md) — testing strategy, examples, coverage goals
