@@ -6,7 +6,7 @@ Swift-native CLI for **iOS and Android** app release automation, built end-to-en
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Swift 6](https://img.shields.io/badge/Swift-6.0-orange.svg)](https://swift.org)
 
-> **Documentation:** browse the [`docs/`](docs/) folder for guides and configuration reference, or build the DocC archive locally (see [Documentation](#documentation) below).
+> **Documentation:** browse the [`docs/`](docs/) folder for guides and configuration reference. Contributors and agents should start with [`docs/agent-index.md`](docs/agent-index.md) for the quickest repo map, or build the DocC archive locally (see [Documentation](#documentation) below).
 
 ---
 
@@ -369,6 +369,8 @@ make help
 macOS-only targets (`XcodeBuildKit`, `XcodeGenKit`, and `IntegrationTests`) are automatically skipped on Linux.
 
 See [`CONTRIBUTING.md`](CONTRIBUTING.md) for the full contributor guide.
+
+If you are navigating the codebase or making changes across config, schema, actions, or AI-session behavior, start with [`docs/agent-index.md`](docs/agent-index.md).
 
 ## License
 

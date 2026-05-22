@@ -273,6 +273,53 @@ struct AISessionTests {
         #expect(payload.suggestedShipfile.contains("android:"))
     }
 
+    @Test("iOS next actions use canonical command strings")
+    func iosNextActionsUseCanonicalCommands() {
+        let createPayload = AISessionBuilder().build(
+            goal: .local,
+            inspection: localReadyInspection(),
+            hasExistingShipfile: false
+        )
+        #expect(createPayload.nextAction.command == "shipit generate --goal local")
+
+        let runPayload = AISessionBuilder().build(
+            goal: .beta,
+            inspection: fullInspection(),
+            hasExistingShipfile: true
+        )
+        #expect(runPayload.nextAction.command == "shipit run beta --ci --output json")
+
+        let completePayload = AISessionBuilder().build(
+            goal: .local,
+            inspection: localReadyInspection(),
+            hasExistingShipfile: true
+        )
+        #expect(completePayload.nextAction.command == "shipit validate yml --output json")
+    }
+
+    @Test("Android next actions use canonical command strings")
+    func androidNextActionsUseCanonicalCommands() {
+        let createPayload = AISessionBuilder().build(
+            goal: .local,
+            inspection: androidInspection(),
+            hasExistingShipfile: false,
+            platform: .android
+        )
+        #expect(createPayload.nextAction.command == "shipit generate --goal local --platform android")
+
+        let completePayload = AISessionBuilder().build(
+            goal: .local,
+            inspection: androidInspection(),
+            hasExistingShipfile: true,
+            platform: .android
+        )
+        #expect(completePayload.nextAction.command == "shipit validate yml --output json")
+
+        #expect(completePayload.agentPrompt.contains("shipit ai-session --goal local --platform android"))
+        #expect(completePayload.agentPrompt.contains("shipit generate --goal local --platform android"))
+        #expect(completePayload.agentPrompt.contains("shipit run local --platform android --ci --output json"))
+    }
+
     // MARK: - Fixture helpers
 
     private func fullInspection() -> ProjectInspection {
@@ -372,6 +419,22 @@ struct AISessionTests {
             fastlaneFiles: [],
             ciFiles: [".github/workflows"],
             warnings: []
+        )
+    }
+
+    private func androidInspection() -> ProjectInspection {
+        ProjectInspection(
+            rootPath: "/tmp/android-project",
+            xcodeContainers: [],
+            preferredContainer: nil,
+            schemes: [],
+            suggestedAppConfig: .init(),
+            existingShipfiles: [],
+            fastlaneFiles: [],
+            ciFiles: [],
+            warnings: [],
+            detectedPlatform: .android,
+            gradleFiles: ["gradlew", "build.gradle.kts"]
         )
     }
 }
