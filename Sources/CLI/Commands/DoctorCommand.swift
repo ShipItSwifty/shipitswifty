@@ -193,7 +193,7 @@ struct DoctorCommand: AsyncParsableCommand {
     static func toolCheckCommands(shell: ShellContext, platform: Platform) -> [ToolCheck] {
         var checks: [ToolCheck] = [
             // git is universal
-            ToolCheck(name: "git on PATH", command: GitCLI(context: shell).version().command()),
+            ToolCheck(name: "git on PATH", command: GitCLI(context: shell).version().command())
         ]
 
         switch platform {
@@ -208,7 +208,7 @@ struct DoctorCommand: AsyncParsableCommand {
             ]
         case .android:
             checks += [
-                ToolCheck(name: "java on PATH (for Gradle)", command: Command("java", arguments: "-version")),
+                ToolCheck(name: "java on PATH (for Gradle)", command: Command("java", arguments: "-version"))
             ]
         }
 

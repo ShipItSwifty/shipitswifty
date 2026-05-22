@@ -671,7 +671,7 @@ public struct AISessionBuilder: Sendable {
         case .android:
             if goal == .beta {
                 lines += [
-                    "", 
+                    "",
                     "The default Android beta workflow is: lint → test → archive (bundleRelease) → validate bundle → play-store.",
                     "The `track` option is REQUIRED on the play-store step (e.g. options: { track: internal }). Valid tracks: internal, alpha, beta, production.",
                     "validate_bundle auto-discovers the conventional AAB path for native Gradle, Flutter, and React Native projects when no explicit path is provided.",

@@ -156,6 +156,10 @@ func builtInActionDescriptors() -> [ActionDescriptor] {
             for: GitAction(),
             optionSchema: BuiltInSchemaCatalog.optionSchema(for: GitAction.name),
             validationRules: GitAction.validationRules),
+        VersionAction.descriptor(
+            for: VersionAction(),
+            optionSchema: BuiltInSchemaCatalog.optionSchema(for: VersionAction.name),
+            validationRules: VersionAction.validationRules),
     ]
     #if os(macOS)
     descriptors.append(contentsOf: [
@@ -182,10 +186,6 @@ func builtInActionDescriptors() -> [ActionDescriptor] {
         FrameAction.descriptor(
             for: FrameAction(),
             optionSchema: BuiltInSchemaCatalog.optionSchema(for: FrameAction.name)),
-        VersionAction.descriptor(
-            for: VersionAction(),
-            optionSchema: BuiltInSchemaCatalog.optionSchema(for: VersionAction.name),
-            validationRules: VersionAction.validationRules),
         MetadataAction.descriptor(
             for: MetadataAction(),
             optionSchema: BuiltInSchemaCatalog.optionSchema(for: MetadataAction.name),
@@ -229,7 +229,7 @@ func validationActionDescriptors() -> [ActionDescriptor] {
 
 /// Returns a human-readable summary for a workflow step result, or `nil` for generic steps.
 private func humanStepSummary(action: String, payload: JSONValue?) -> String? {
-    guard let payload, case let .object(dict) = payload else { return nil }
+    guard let payload, case .object(let dict) = payload else { return nil }
 
     switch action {
     case "test":

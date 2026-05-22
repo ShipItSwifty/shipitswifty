@@ -268,7 +268,7 @@ public struct LintAction: Action {
         // Determine task: lintRelease, lintDebug, or just lint
         let taskName: String
         if let variant = options.buildVariant {
-            taskName = "lint\(variant.prefix(1).uppercased() + variant.dropFirst())"
+            taskName = "lint\(String(variant.prefix(1)).uppercased() + String(variant.dropFirst()))"
         } else {
             taskName = "lint"
         }

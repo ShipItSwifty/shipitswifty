@@ -157,7 +157,7 @@ public struct GooglePlayClient: Sendable {
         request.setValue(contentType, forHTTPHeaderField: "Content-Type")
         request.setValue("\(data.count)", forHTTPHeaderField: "Content-Length")
         request.httpBody = data
-        request.timeoutInterval = 600 // 10 minutes — AAB uploads can be large
+        request.timeoutInterval = 600  // 10 minutes — AAB uploads can be large
 
         logger.info("Uploading \(data.count) bytes to \(path)")
         let (responseData, response) = try await session.data(for: request)
