@@ -2,6 +2,12 @@ import Foundation
 import Logging
 import SwiftyShell
 
+#if canImport(Darwin)
+import Darwin
+#elseif canImport(Glibc)
+import Glibc
+#endif
+
 /// Runs unit and UI tests.
 ///
 /// - **iOS**: Uses `xcodebuild test`. Supports running against one or more destinations
@@ -32,16 +38,121 @@ import SwiftyShell
 ///
 /// // Android
 /// let result = try await TestAction().run(
-///     with: .init(module: "app", instrumented: false),
+///     with: .init(kind: .unit, scope: .module, module: "app"),
 ///     context: androidContext
 /// )
 /// print("Passed: \(result.passCount), Failed: \(result.failCount)")
 /// ```
+/// What category of test is being run.
+///
+/// This drives whether ShipIt needs to orchestrate devices before executing.
+/// - `unit`: JVM/host tests — no device needed.
+/// - `instrumented`: Tests requiring the Android framework (emulator or physical device).
+/// - `e2e`: Full user-journey tests via an external tool (Maestro, Detox, etc.) — reserved for future use.
+public enum TestKind: String, Codable, Sendable, CaseIterable {
+    case unit
+    case instrumented
+    case e2e
+}
+
+/// Where the Gradle task is qualified from.
+///
+/// - `module`: Task is prefixed with the module path, e.g. `:app:testDebugUnitTest`.
+/// - `root`: Task runs from the Gradle root without qualification, e.g. `testDebugUnitTest`.
+public enum TestScope: String, Codable, Sendable, CaseIterable {
+    case module
+    case root
+}
+
+/// How devices are provisioned for instrumented or e2e tests.
+public enum TestDeviceStrategy: String, Codable, Sendable, CaseIterable {
+    /// No device needed (unit tests).
+    case none
+    /// Use whatever device/emulator is already connected.
+    case connected
+    /// Boot specific AVDs by name.
+    case namedEmulators = "named_emulators"
+    /// Use Gradle Managed Devices (task name encodes the device).
+    case managed
+}
+
+/// Device configuration for test runs requiring a device.
+///
+/// ## Shipfile.yml Example
+/// ```yaml
+/// devices:
+///   strategy: named_emulators
+///   emulators:
+///     - Pixel_9_API_35
+///   prompt_locally: true
+/// ```
+public struct TestDeviceConfig: Codable, Sendable {
+    /// How devices are provisioned.
+    public var strategy: TestDeviceStrategy
+
+    /// AVD names to boot (only for ``TestDeviceStrategy/namedEmulators``).
+    public var emulators: [String]?
+
+    /// Gradle managed device group name (only for ``TestDeviceStrategy/managed``).
+    public var group: String?
+
+    /// Allow interactive emulator selection when not in CI (only for ``TestDeviceStrategy/namedEmulators``).
+    public var promptLocally: Bool?
+
+    enum CodingKeys: String, CodingKey {
+        case strategy
+        case emulators
+        case group
+        case promptLocally = "prompt_locally"
+    }
+
+    /// Creates a `TestDeviceConfig`.
+    public init(
+        strategy: TestDeviceStrategy = .none,
+        emulators: [String]? = nil,
+        group: String? = nil,
+        promptLocally: Bool? = nil
+    ) {
+        self.strategy = strategy
+        self.emulators = emulators
+        self.group = group
+        self.promptLocally = promptLocally
+    }
+}
+
 public struct TestAction: Action {
     public static let name = "test"
     public static let description = "Run unit and UI tests (iOS: xcodebuild test, Android: gradlew test)"
 
     private let logger = Logger.forType(subsystem: "ShipItSwifty", TestAction.self)
+
+    public struct InfrastructureRetryOptions: Codable, Sendable {
+        public var enabled: Bool?
+        public var maxAttempts: Int?
+        public var initialDelaySeconds: Double?
+
+        enum CodingKeys: String, CodingKey {
+            case enabled
+            case maxAttempts = "max_attempts"
+            case initialDelaySeconds = "initial_delay_seconds"
+        }
+
+        public init(
+            enabled: Bool? = nil,
+            maxAttempts: Int? = nil,
+            initialDelaySeconds: Double? = nil
+        ) {
+            self.enabled = enabled
+            self.maxAttempts = maxAttempts
+            self.initialDelaySeconds = initialDelaySeconds
+        }
+
+        var isEnabled: Bool { enabled ?? false }
+        var resolvedMaxAttempts: Int { max(maxAttempts ?? 3, 1) }
+        var resolvedInitialDelay: Duration {
+            .milliseconds(Int((initialDelaySeconds ?? 2) * 1000))
+        }
+    }
 
     /// Creates a `TestAction`.
     public init() {}
@@ -108,7 +219,23 @@ public struct TestAction: Action {
         /// Automatically retry failing tests once before reporting failure. (iOS only)
         public var retryOnFailure: Bool?
 
+        /// Retries the entire iOS test invocation for transient simulator/runner failures.
+        public var infrastructureRetry: InfrastructureRetryOptions?
+
         // MARK: Android options
+
+        /// What category of test to run. Drives device orchestration behavior. (Android only)
+        ///
+        /// - `unit`: JVM tests — no device needed. Default when `devices` is nil.
+        /// - `instrumented`: Requires an emulator or device.
+        /// - `e2e`: Reserved for future external-tool tests (Maestro, Detox).
+        public var kind: TestKind?
+
+        /// Where to qualify the Gradle task from. (Android only)
+        ///
+        /// - `module`: Prefix with module path, e.g. `:app:testDebugUnitTest`.
+        /// - `root`: Run unqualified from Gradle root.
+        public var scope: TestScope?
 
         /// Gradle module to test (e.g. `"app"`). Defaults to `config.androidModule`. (Android only)
         public var module: String?
@@ -116,18 +243,18 @@ public struct TestAction: Action {
         /// Build variant to test (e.g. `"debug"`, `"release"`). Default: `debug`. (Android only)
         public var buildVariant: String?
 
-        /// When `true`, runs `connectedAndroidTest` (instrumented) instead of `test` (JVM). Default: `false`. (Android only)
-        public var instrumented: Bool?
-
         /// Explicit Gradle task name to run (e.g. `"testDebugUnitTest"`). (Android only)
         ///
         /// When set, this overrides the automatic task selection based on `buildVariant`
-        /// and `instrumented`. Useful for running aggregate root-level tasks or
+        /// and `kind`. Useful for running aggregate root-level tasks or
         /// flavor-specific test tasks like `testProdDebugUnitTest`.
-        ///
-        /// Combine with `module: ""` (empty string) to run a root-level aggregate task
-        /// that executes tests across all subprojects.
         public var task: String?
+
+        /// Device configuration for instrumented test runs. (Android only)
+        ///
+        /// When `kind` is `.instrumented`, this controls how devices are provisioned.
+        /// If nil and kind is `.instrumented`, defaults to `.connected` strategy.
+        public var devices: TestDeviceConfig?
 
         /// Creates `Options` for the test action.
         ///
@@ -143,10 +270,13 @@ public struct TestAction: Action {
             onlyTesting: [String]? = nil,
             skipTesting: [String]? = nil,
             retryOnFailure: Bool? = nil,
+            infrastructureRetry: InfrastructureRetryOptions? = nil,
+            kind: TestKind? = nil,
+            scope: TestScope? = nil,
             module: String? = nil,
             buildVariant: String? = nil,
-            instrumented: Bool? = nil,
-            task: String? = nil
+            task: String? = nil,
+            devices: TestDeviceConfig? = nil
         ) {
             self.scheme = scheme
             self.destinations = destinations
@@ -158,10 +288,13 @@ public struct TestAction: Action {
             self.onlyTesting = onlyTesting
             self.skipTesting = skipTesting
             self.retryOnFailure = retryOnFailure
+            self.infrastructureRetry = infrastructureRetry
+            self.kind = kind
+            self.scope = scope
             self.module = module
             self.buildVariant = buildVariant
-            self.instrumented = instrumented
             self.task = task
+            self.devices = devices
         }
 
         /// Returns the effective list of destination strings to use (iOS).
@@ -453,24 +586,6 @@ public struct TestAction: Action {
             effectiveResultBundlePath = options.resultBundlePath
         }
 
-        // Remove any stale .xcresult bundle before invoking xcodebuild.
-        // xcodebuild exits with code 64 when the result bundle path already exists,
-        // so we proactively remove it to make repeated runs safe.
-        if let bundlePath = effectiveResultBundlePath {
-            let fm = FileManager.default
-            if fm.fileExists(atPath: bundlePath) {
-                logger.info("Removing stale result bundle at '\(bundlePath)'")
-                do {
-                    try fm.removeItem(atPath: bundlePath)
-                } catch {
-                    logger.error("Failed to remove stale result bundle at '\(bundlePath)': \(error)")
-                    throw ShipItError.invalidConfiguration(
-                        reason: "Could not remove existing result bundle at '\(bundlePath)': \(error.localizedDescription)"
-                    )
-                }
-            }
-        }
-
         // Run a separate xcodebuild test pass for each destination, aggregating counts.
         var totalPass = 0
         var totalFail = 0
@@ -512,72 +627,112 @@ public struct TestAction: Action {
         options: Options,
         context: ActionContext
     ) async throws -> (pass: Int, fail: Int, skip: Int) {
-        var xcodeBuild = XcodeBuild(context: context.shell)
-            .option(.scheme(scheme))
-            .option(.configuration(configuration))
-            .option(.destination(destination))
-            .trailingArgument("test")
+        let maxAttempts = options.infrastructureRetry?.isEnabled == true
+            ? options.infrastructureRetry?.resolvedMaxAttempts ?? 1
+            : 1
+        var attempt = 1
+        var currentDelay = options.infrastructureRetry?.resolvedInitialDelay ?? .zero
 
-        if let workspace = context.config.appWorkspace {
-            xcodeBuild = xcodeBuild.option(.workspace(workspace))
-        } else if let project = context.config.appProject {
-            xcodeBuild = xcodeBuild.option(.project(project))
+        while true {
+            try removeStaleResultBundleIfNeeded(resultBundlePath)
+
+            var xcodeBuild = XcodeBuild(context: context.shell)
+                .option(.scheme(scheme))
+                .option(.configuration(configuration))
+                .option(.destination(destination))
+                .trailingArgument("test")
+
+            if let workspace = context.config.appWorkspace {
+                xcodeBuild = xcodeBuild.option(.workspace(workspace))
+            } else if let project = context.config.appProject {
+                xcodeBuild = xcodeBuild.option(.project(project))
+            }
+
+            if options.enableCodeCoverage == true {
+                xcodeBuild = xcodeBuild.option(.enableCodeCoverage("YES"))
+            }
+
+            if let resultPath = resultBundlePath {
+                xcodeBuild = xcodeBuild.option(.resultBundlePath(resultPath))
+            }
+
+            if let testPlan = options.testPlan {
+                xcodeBuild = xcodeBuild.option(.testPlan(testPlan))
+            }
+
+            for target in options.onlyTesting ?? [] {
+                xcodeBuild = xcodeBuild.option(.onlyTesting(target))
+            }
+
+            for target in options.skipTesting ?? [] {
+                xcodeBuild = xcodeBuild.option(.skipTesting(target))
+            }
+
+            if options.retryOnFailure == true {
+                xcodeBuild = xcodeBuild.option(.retryTestsOnFailure)
+            }
+
+            do {
+                let output = try await xcodeBuild.run()
+
+                if output.exitCode != 0 {
+                    let combinedLog = output.stdout + output.stderr
+                    let failCount = parseFailureCount(from: combinedLog)
+                    logger.error("Tests failed on '\(destination)' with \(failCount) failure(s)")
+                    throw ShipItError.testFailed(
+                        exitCode: Int(output.exitCode),
+                        failureCount: failCount,
+                        log: combinedLog
+                    )
+                }
+
+                let (pass, skip) = parseCounts(from: output.stdout)
+                logger.info("'\(destination)' — passed: \(pass), skipped: \(skip)")
+                return (pass: pass, fail: 0, skip: skip)
+            } catch let ShellError.exitFailure(_, shellOutput) {
+                let combinedLog = [shellOutput.stdout, shellOutput.stderr]
+                    .filter { !$0.isEmpty }
+                    .joined(separator: "\n")
+
+                if shouldRetryInfrastructureFailure(
+                    log: combinedLog,
+                    attempt: attempt,
+                    maxAttempts: maxAttempts,
+                    destination: destination,
+                    delay: currentDelay
+                ) {
+                    try await Task.sleep(for: currentDelay)
+                    currentDelay = nextRetryDelay(after: currentDelay)
+                    attempt += 1
+                    continue
+                }
+
+                let failCount = parseFailureCount(from: combinedLog)
+                logger.error("Tests failed on '\(destination)' with \(failCount) failure(s)")
+                throw ShipItError.testFailed(
+                    exitCode: Int(shellOutput.exitCode),
+                    failureCount: failCount,
+                    log: combinedLog
+                )
+            } catch let error as ShipItError {
+                guard case .testFailed(_, _, let log) = error else { throw error }
+
+                if shouldRetryInfrastructureFailure(
+                    log: log,
+                    attempt: attempt,
+                    maxAttempts: maxAttempts,
+                    destination: destination,
+                    delay: currentDelay
+                ) {
+                    try await Task.sleep(for: currentDelay)
+                    currentDelay = nextRetryDelay(after: currentDelay)
+                    attempt += 1
+                    continue
+                }
+
+                throw error
+            }
         }
-
-        if options.enableCodeCoverage == true {
-            xcodeBuild = xcodeBuild.option(.enableCodeCoverage("YES"))
-        }
-
-        if let resultPath = resultBundlePath {
-            xcodeBuild = xcodeBuild.option(.resultBundlePath(resultPath))
-        }
-
-        if let testPlan = options.testPlan {
-            xcodeBuild = xcodeBuild.option(.testPlan(testPlan))
-        }
-
-        for target in options.onlyTesting ?? [] {
-            xcodeBuild = xcodeBuild.option(.onlyTesting(target))
-        }
-
-        for target in options.skipTesting ?? [] {
-            xcodeBuild = xcodeBuild.option(.skipTesting(target))
-        }
-
-        if options.retryOnFailure == true {
-            xcodeBuild = xcodeBuild.option(.retryTestsOnFailure)
-        }
-
-        let output: ShellOutput
-        do {
-            output = try await xcodeBuild.run()
-        } catch let ShellError.exitFailure(_, shellOutput) {
-            let combinedLog = [shellOutput.stdout, shellOutput.stderr]
-                .filter { !$0.isEmpty }
-                .joined(separator: "\n")
-            let failCount = parseFailureCount(from: combinedLog)
-            logger.error("Tests failed on '\(destination)' with \(failCount) failure(s)")
-            throw ShipItError.testFailed(
-                exitCode: Int(shellOutput.exitCode),
-                failureCount: failCount,
-                log: combinedLog
-            )
-        }
-
-        if output.exitCode != 0 {
-            let combinedLog = output.stdout + output.stderr
-            let failCount = parseFailureCount(from: combinedLog)
-            logger.error("Tests failed on '\(destination)' with \(failCount) failure(s)")
-            throw ShipItError.testFailed(
-                exitCode: Int(output.exitCode),
-                failureCount: failCount,
-                log: combinedLog
-            )
-        }
-
-        let (pass, skip) = parseCounts(from: output.stdout)
-        logger.info("'\(destination)' — passed: \(pass), skipped: \(skip)")
-        return (pass: pass, fail: 0, skip: skip)
     }
 
     #endif
@@ -587,22 +742,58 @@ public struct TestAction: Action {
     private func runAndroid(options: Options, context: ActionContext) async throws -> Result {
         let module = options.module ?? context.config.androidModule
         let variant = options.buildVariant ?? context.config.androidBuildVariant
-        let instrumented = options.instrumented ?? false
+        let kind = options.kind ?? context.config.androidTestKind
+        let scope = options.scope ?? context.config.androidTestScope
+        let devices = options.devices ?? context.config.androidTestDevices
 
-        // Choose task: explicit task name, or derive from variant/instrumented flags
+        // Choose task: explicit task name, or derive from kind/variant
         let task: GradleTask
         if let customTask = options.task, !customTask.isEmpty {
             task = GradleTask(name: customTask)
-        } else if instrumented {
-            task = variant.lowercased() == "debug" ? .connectedDebugAndroidTest : .connectedAndroidTest
         } else {
-            task = variant.lowercased() == "debug" ? .testDebugUnitTest : .testReleaseUnitTest
+            switch kind {
+            case .instrumented:
+                task = variant.lowercased() == "debug"
+                    ? .connectedDebugAndroidTest
+                    : .connectedAndroidTest
+            case .unit, .e2e:
+                task = variant.lowercased() == "debug"
+                    ? .testDebugUnitTest
+                    : .testReleaseUnitTest
+            }
         }
 
-        logger.info("Running Android test task '\(task.qualified(module: module).name)'")
+        // Qualify based on scope
+        let scopedTask: GradleTask
+        switch scope {
+        case .root:
+            scopedTask = task
+        case .module:
+            scopedTask = task.qualified(module: module)
+        }
+
+        // Orchestrate devices if needed
+        var spawnedEmulators: [any SpawnedProcess] = []
+        if kind == .instrumented {
+            spawnedEmulators = try await prepareAndroidDevices(
+                devices: devices,
+                context: context
+            )
+        }
+
+        let emulatorsToTeardown = spawnedEmulators
+        defer {
+            Task {
+                for emulator in emulatorsToTeardown {
+                    _ = await emulator.teardownAndWait()
+                }
+            }
+        }
+
+        logger.info("Running Android test task '\(scopedTask.name)'")
 
         let gradle = context.gradle()
-            .task(task.qualified(module: module))
+            .task(scopedTask)
 
         let output: ShellOutput
         do {
@@ -647,6 +838,137 @@ public struct TestAction: Action {
         logger.info("Android tests complete — pass: \(finalCounts.pass), fail: \(finalCounts.fail), skip: \(finalCounts.skip)")
 
         return Result(passCount: finalCounts.pass, failCount: finalCounts.fail, skipCount: finalCounts.skip)
+    }
+
+    private func prepareAndroidDevices(
+        devices: TestDeviceConfig,
+        context: ActionContext
+    ) async throws -> [any SpawnedProcess] {
+        switch devices.strategy {
+        case .none:
+            return []
+        case .connected:
+            // Assume a device/emulator is already available — nothing to orchestrate.
+            return []
+        case .managed:
+            // Gradle Managed Devices handle their own lifecycle — nothing to orchestrate.
+            // The task name itself targets the managed device.
+            return []
+        case .namedEmulators:
+            let shouldPrompt = devices.promptLocally ?? true
+            let desiredEmulators = try await resolvedAndroidEmulators(
+                configured: devices.emulators,
+                shouldPrompt: shouldPrompt,
+                shell: context.shell,
+                allowInteractiveSelection: !context.configIsCI
+            )
+
+            guard !desiredEmulators.isEmpty else { return [] }
+
+            var spawned: [any SpawnedProcess] = []
+            for emulator in desiredEmulators {
+                if let existingSerial = try await findBootedEmulatorSerial(avdName: emulator, shell: context.shell) {
+                    logger.info("Using already booted emulator '\(emulator)' (\(existingSerial))")
+                    continue
+                }
+
+                logger.info("Booting emulator '\(emulator)'")
+                let process = try await Emulator(context: context.shell)
+                    .start(avd: emulator, headless: false)
+                    .spawn(teardown: .graceful)
+
+                spawned.append(process)
+                let serial = try await waitForEmulatorBoot(avdName: emulator, shell: context.shell)
+                logger.info("Emulator '\(emulator)' booted as \(serial)")
+            }
+
+            return spawned
+        }
+    }
+
+    private func resolvedAndroidEmulators(
+        configured: [String]?,
+        shouldPrompt: Bool,
+        shell: ShellContext,
+        allowInteractiveSelection: Bool
+    ) async throws -> [String] {
+        if let configured, !configured.isEmpty {
+            return configured
+        }
+
+        guard allowInteractiveSelection, shouldPrompt, isInteractiveTerminal() else {
+            return []
+        }
+
+        let available = try await listAvailableEmulators(shell: shell)
+        guard !available.isEmpty else { return [] }
+
+        logger.info("No emulators configured for instrumented tests; prompting for local selection")
+        return promptForAndroidEmulators(available: available)
+    }
+
+    private func listAvailableEmulators(shell: ShellContext) async throws -> [String] {
+        let output = try await Emulator(context: shell).list().run()
+        return output.stdout
+            .components(separatedBy: .newlines)
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+    }
+
+    private func promptForAndroidEmulators(available: [String]) -> [String] {
+        print("\nAvailable Android emulators:")
+        for (index, name) in available.enumerated() {
+            print("  \(index + 1). \(name)")
+        }
+        print("Select emulator numbers separated by commas (blank skips): ", terminator: "")
+
+        let answer = readLine()?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard !answer.isEmpty else { return [] }
+
+        let indexes = answer
+            .split(separator: ",")
+            .compactMap { Int($0.trimmingCharacters(in: .whitespaces)) }
+            .filter { $0 >= 1 && $0 <= available.count }
+
+        return indexes.map { available[$0 - 1] }
+    }
+
+    private func isInteractiveTerminal() -> Bool {
+        isatty(STDIN_FILENO) != 0 && isatty(STDOUT_FILENO) != 0
+    }
+
+    private func findBootedEmulatorSerial(avdName: String, shell: ShellContext) async throws -> String? {
+        let output = try await Adb(context: shell).devices(long: true).run()
+        for line in output.stdout.components(separatedBy: .newlines) {
+            let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard trimmed.hasPrefix("emulator-") else { continue }
+            if trimmed.contains("avd:\(avdName)") {
+                return trimmed.components(separatedBy: .whitespaces).first
+            }
+        }
+        return nil
+    }
+
+    private func waitForEmulatorBoot(avdName: String, shell: ShellContext) async throws -> String {
+        let deadline = Date().addingTimeInterval(180)
+
+        while Date() < deadline {
+            if let serial = try await findBootedEmulatorSerial(avdName: avdName, shell: shell) {
+                let boot = try? await Adb(context: shell)
+                    .serial(serial)
+                    .shell("getprop sys.boot_completed")
+                    .run()
+                if boot?.stdout.trimmingCharacters(in: .whitespacesAndNewlines) == "1" {
+                    return serial
+                }
+            }
+
+            try await Task.sleep(for: .seconds(2))
+        }
+
+        throw ShipItError.invalidConfiguration(
+            reason: "Timed out waiting for Android emulator '\(avdName)' to boot."
+        )
     }
 
     // MARK: - Private Helpers
@@ -719,6 +1041,61 @@ public struct TestAction: Action {
             $0.hasSuffix(": FAILED") || $0.hasSuffix("FAILED)")
         }.count
         return perTestFailures > 0 ? perTestFailures : 0
+    }
+
+    private func removeStaleResultBundleIfNeeded(_ resultBundlePath: String?) throws {
+        guard let bundlePath = resultBundlePath else { return }
+
+        let fm = FileManager.default
+        guard fm.fileExists(atPath: bundlePath) else { return }
+
+        logger.info("Removing stale result bundle at '\(bundlePath)'")
+        do {
+            try fm.removeItem(atPath: bundlePath)
+        } catch {
+            logger.error("Failed to remove stale result bundle at '\(bundlePath)': \(error)")
+            throw ShipItError.invalidConfiguration(
+                reason: "Could not remove existing result bundle at '\(bundlePath)': \(error.localizedDescription)"
+            )
+        }
+    }
+
+    private func shouldRetryInfrastructureFailure(
+        log: String,
+        attempt: Int,
+        maxAttempts: Int,
+        destination: String,
+        delay: Duration
+    ) -> Bool {
+        guard attempt < maxAttempts else { return false }
+        guard Self.isRetryableIOSInfrastructureFailure(log: log) else { return false }
+
+        logger.warning(
+            "Detected transient iOS test infrastructure failure on '\(destination)'. Retrying attempt \(attempt + 1)/\(maxAttempts) after \(delay)."
+        )
+        return true
+    }
+
+    private func nextRetryDelay(after currentDelay: Duration) -> Duration {
+        let seconds = currentDelay.components.seconds
+        let attoseconds = currentDelay.components.attoseconds
+        let currentSeconds = Double(seconds) + Double(attoseconds) / 1_000_000_000_000_000_000
+        let nextSeconds = max(currentSeconds * 2, 1)
+        return .milliseconds(Int(nextSeconds * 1000))
+    }
+
+    static func isRetryableIOSInfrastructureFailure(log: String) -> Bool {
+        let normalized = log.lowercased()
+        return [
+            "failed to launch app with identifier",
+            "simulator device failed to launch",
+            "the process failed to launch",
+            "fbsopenapplicationserviceerrordomain",
+            "requestdenied",
+            "launch failed",
+            "xctrunner",
+            "database is locked",
+        ].contains { normalized.contains($0) }
     }
 
     #endif

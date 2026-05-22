@@ -354,6 +354,25 @@ public enum BuiltInSchemaCatalog {
                         "module", description: "Gradle module name (e.g. app). Defaults to 'app'.",
                         example: .string("app"), envVar: "SHIPIT_ANDROID__MODULE"),
                     .string(
+                        "test_scope",
+                        description: "Default Android Gradle test scope: 'module' qualifies tasks with the module, 'root' runs the task from the Gradle root.",
+                        allowedValues: ["module", "root"],
+                        example: .string("module")),
+                    .string(
+                        "test_kind",
+                        description: "Default test kind: 'unit' for JVM tests (no device), 'instrumented' for on-device tests, 'e2e' for end-to-end.",
+                        allowedValues: ["unit", "instrumented", "e2e"],
+                        example: .string("unit")),
+                    .object(
+                        "test_devices",
+                        description: "Default device configuration for Android instrumented tests.",
+                        properties: [
+                            .string("strategy", description: "Device provisioning strategy.", allowedValues: ["none", "connected", "named_emulators", "managed"], example: .string("named_emulators")),
+                            .array("emulators", description: "AVD names to boot (named_emulators strategy).", example: .array([.string("Pixel_9_API_35")]), items: .string("avd", description: "Android emulator AVD name.")),
+                            .string("group", description: "Gradle managed device group name (managed strategy).", example: .string("phoneAndTablet")),
+                            .boolean("prompt_locally", description: "Allow interactive emulator selection when not in CI.", example: .bool(true)),
+                        ]),
+                    .string(
                         "build_variant",
                         description: "Gradle build variant (e.g. release, debug). Defaults to 'release'.",
                         example: .string("release"), envVar: "SHIPIT_ANDROID__BUILD_VARIANT"),
@@ -761,19 +780,61 @@ public enum BuiltInSchemaCatalog {
                 description:
                     "Automatically retry failing tests once before reporting failure (-retry-tests-on-failure).",
                 defaultValue: .bool(false), example: .bool(true)),
+            .object(
+                "infrastructure_retry",
+                description:
+                    "Retry the entire iOS xcodebuild test invocation for transient simulator or xctrunner infrastructure failures.",
+                properties: [
+                    .boolean(
+                        "enabled",
+                        description: "Enable infrastructure-level retries for iOS test runs.",
+                        defaultValue: .bool(false),
+                        example: .bool(true)
+                    ),
+                    .integer(
+                        "max_attempts",
+                        description: "Maximum number of full iOS test invocation attempts, including the first.",
+                        defaultValue: .int(3),
+                        example: .int(3)
+                    ),
+                    .number(
+                        "initial_delay_seconds",
+                        description: "Delay before the first infrastructure retry; later retries use exponential backoff.",
+                        defaultValue: .double(2),
+                        example: .double(2)
+                    ),
+                ]
+            ),
             .string(
                 "module", description: "Gradle module to test (Android) or KMP shared module (iOS KMP).",
                 example: .string("app")),
             .string(
+                "kind",
+                description: "Test kind: 'unit' for JVM tests (no device), 'instrumented' for on-device tests, 'e2e' for end-to-end.",
+                allowedValues: ["unit", "instrumented", "e2e"],
+                example: .string("unit")),
+            .string(
+                "scope",
+                description: "Android Gradle task scope: 'module' qualifies the task with the module, 'root' runs the task from the Gradle root.",
+                defaultValue: .string("module"),
+                allowedValues: ["module", "root"],
+                example: .string("root")),
+            .string(
                 "build_variant", description: "Gradle build variant to test (Android). Defaults to debug.",
                 example: .string("debug")),
-            .boolean(
-                "instrumented", description: "Run Android instrumented tests instead of JVM unit tests.",
-                defaultValue: .bool(false), example: .bool(false)),
             .string(
                 "task",
                 description: "Explicit Gradle task name (Android). Overrides variant-based task selection.",
                 example: .string("testDebugUnitTest")),
+            .object(
+                "devices",
+                description: "Device configuration for instrumented test runs.",
+                properties: [
+                    .string("strategy", description: "Device provisioning strategy.", allowedValues: ["none", "connected", "named_emulators", "managed"], example: .string("named_emulators")),
+                    .array("emulators", description: "AVD names to boot (named_emulators strategy).", example: .array([.string("Pixel_9_API_35")]), items: .string("avd", description: "Android emulator AVD name.")),
+                    .string("group", description: "Gradle managed device group name (managed strategy).", example: .string("phoneAndTablet")),
+                    .boolean("prompt_locally", description: "Allow interactive emulator selection when not in CI.", example: .bool(true)),
+                ]),
         ]
     }
 

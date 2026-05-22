@@ -17,6 +17,15 @@ enum FixturePaths {
     /// Minimal Android Gradle project wired to `com.shipitswifty.integration`.
     static let androidSample: URL = fixturesRoot.appendingPathComponent("android-sample")
 
+    /// Minimal Flutter-shaped project used for cross-platform integration tests.
+    static let flutterSample: URL = fixturesRoot.appendingPathComponent("flutter-sample")
+
+    /// Minimal React Native-shaped project used for cross-platform integration tests.
+    static let reactNativeSample: URL = fixturesRoot.appendingPathComponent("react-native-sample")
+
+    /// Minimal KMP-shaped project used for cross-platform integration tests.
+    static let kmpSample: URL = fixturesRoot.appendingPathComponent("kmp-sample")
+
     /// Pre-canned JaCoCo XML report with known coverage numbers.
     static let jacocoReport: URL = fixturesRoot.appendingPathComponent("jacoco-sample.xml")
 

@@ -1,5 +1,6 @@
 import Foundation
 import SwiftyShell
+import Synchronization
 import Testing
 
 @testable import ShipItKit
@@ -465,6 +466,95 @@ struct TestActionTests {
 
         let command = commands().first ?? ""
         #expect(!command.contains("-retry-tests-on-failure"))
+    }
+
+    @Test("Retries iOS infrastructure failures and succeeds on a later attempt")
+    func retriesInfrastructureFailureAndRecovers() async throws {
+        let attempts = Mutex(0)
+        let (executor, commands) = makeCaptureExecutor { _, _ in
+            let attempt = attempts.withLock {
+                $0 += 1
+                return $0
+            }
+
+            if attempt == 1 {
+                throw ShellError.exitFailure(
+                    command: "xcodebuild test",
+                    output: ShellOutput(
+                        stdout: "",
+                        stderr: "Simulator device failed to launch com.example.MyUITests.xctrunner. The process failed to launch.",
+                        exitCode: 65
+                    )
+                )
+            }
+
+            return ShellOutput(
+                stdout: "Executed 2 tests, with 0 failures (0 unexpected) in 1.0 seconds\n",
+                stderr: "",
+                exitCode: 0
+            )
+        }
+        let context = ActionContext.mock(executor: executor)
+
+        let result = try await TestAction().run(
+            with: .init(
+                scheme: "MockApp",
+                destination: "platform=iOS Simulator,name=iPhone 16",
+                infrastructureRetry: .init(enabled: true, maxAttempts: 2, initialDelaySeconds: 0)
+            ),
+            context: context
+        )
+
+        #expect(result.passCount == 2)
+        #expect(commands().count == 2)
+    }
+
+    @Test("Does not retry normal test assertion failures")
+    func doesNotRetryNormalTestFailures() async throws {
+        let (executor, commands) = makeCaptureExecutor { _, _ in
+            throw ShellError.exitFailure(
+                command: "xcodebuild test",
+                output: ShellOutput(
+                    stdout: "** TEST FAILED ** (1 failure)\nMyTests.testFoo: FAILED\n",
+                    stderr: "",
+                    exitCode: 65
+                )
+            )
+        }
+        let context = ActionContext.mock(executor: executor)
+
+        do {
+            _ = try await TestAction().run(
+                with: .init(
+                    scheme: "MockApp",
+                    destination: "platform=iOS Simulator,name=iPhone 16",
+                    infrastructureRetry: .init(enabled: true, maxAttempts: 3, initialDelaySeconds: 0)
+                ),
+                context: context
+            )
+            Issue.record("Expected normal test failure to be thrown")
+        } catch let error as ShipItError {
+            guard case .testFailed(_, let failureCount, _) = error else {
+                Issue.record("Unexpected error: \(error)")
+                return
+            }
+            #expect(failureCount == 1)
+            #expect(commands().count == 1)
+        }
+    }
+
+    @Test("Infrastructure failure classifier matches xctrunner launch errors")
+    func infrastructureFailureClassifierMatchesRunnerLaunch() {
+        #expect(
+            TestAction.isRetryableIOSInfrastructureFailure(
+                log: "Simulator device failed to launch com.example.UITests.xctrunner."
+            )
+        )
+        #expect(
+            !TestAction.isRetryableIOSInfrastructureFailure(
+                log: "** TEST FAILED ** (2 failures)"
+            )
+        )
     }
 
     // MARK: - Auto-discovery of simulator destinations

@@ -154,6 +154,8 @@ public struct ActionContext: Sendable {
 }
 
 extension ActionContext {
+    public var configIsCI: Bool { config.ci }
+
     /// Logs `stdout` and `stderr` from a shell command at `.debug` level when verbose is enabled.
     ///
     /// Call this immediately after any `.run()` that you want surfaced under `--verbose`.

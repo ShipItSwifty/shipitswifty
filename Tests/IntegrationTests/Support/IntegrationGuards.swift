@@ -72,6 +72,42 @@ func assertAndroidFixtureExists() throws {
     }
 }
 
+/// Asserts the Flutter fixture project exists on disk.
+func assertFlutterFixtureExists() throws {
+    let pubspecPath = FixturePaths.flutterSample
+        .appendingPathComponent("pubspec.yaml")
+        .path
+    guard FileManager.default.fileExists(atPath: pubspecPath) else {
+        throw IntegrationScopeError.fixtureMissing(
+            "Flutter fixture pubspec not found at \(pubspecPath) — ensure Tests/IntegrationTests/Fixtures/flutter-sample/ is present."
+        )
+    }
+}
+
+/// Asserts the React Native fixture project exists on disk.
+func assertReactNativeFixtureExists() throws {
+    let packageJSONPath = FixturePaths.reactNativeSample
+        .appendingPathComponent("package.json")
+        .path
+    guard FileManager.default.fileExists(atPath: packageJSONPath) else {
+        throw IntegrationScopeError.fixtureMissing(
+            "React Native fixture package.json not found at \(packageJSONPath) — ensure Tests/IntegrationTests/Fixtures/react-native-sample/ is present."
+        )
+    }
+}
+
+/// Asserts the KMP fixture project exists on disk.
+func assertKMPFixtureExists() throws {
+    let gradleFilePath = FixturePaths.kmpSample
+        .appendingPathComponent("build.gradle.kts")
+        .path
+    guard FileManager.default.fileExists(atPath: gradleFilePath) else {
+        throw IntegrationScopeError.fixtureMissing(
+            "KMP fixture build.gradle.kts not found at \(gradleFilePath) — ensure Tests/IntegrationTests/Fixtures/kmp-sample/ is present."
+        )
+    }
+}
+
 // MARK: - Error types
 
 enum IntegrationScopeError: Error, CustomStringConvertible, Sendable {

@@ -113,6 +113,45 @@ struct ConfigResolverTests {
         #expect(config.platform == .ios)
     }
 
+    @Test("Android task scope and test emulators resolve from Shipfile")
+    func androidTaskScopeAndTestEmulatorsResolveFromShipfile() async throws {
+        let tempDirectory = try makeTempDirectory()
+        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+
+        let shipfileURL = tempDirectory.appendingPathComponent("Shipfile.yml")
+        try """
+        platform: android
+        android:
+          module: app
+          test_scope: root
+          test_kind: instrumented
+          test_devices:
+            strategy: named_emulators
+            emulators:
+              - Pixel_9_API_35
+              - Pixel_Tablet_API_35
+            prompt_locally: true
+        """.write(to: shipfileURL, atomically: true, encoding: .utf8)
+
+        let resolver = ConfigResolver(environment: Environment(env: [:]))
+        let config = try await resolver.resolve(shipfilePath: shipfileURL.path)
+
+        #expect(config.platform == .android)
+        #expect(config.androidTestScope == .root)
+        #expect(config.androidTestKind == .instrumented)
+        #expect(config.androidTestDevices.strategy == .namedEmulators)
+        #expect(config.androidTestDevices.emulators == ["Pixel_9_API_35", "Pixel_Tablet_API_35"])
+        #expect(config.androidTestDevices.promptLocally == true)
+    }
+
+    @Test("CLI CI flag resolves into config")
+    func ciFlagResolvesIntoConfig() async throws {
+        let resolver = ConfigResolver(environment: Environment(env: [:]))
+        let config = try await resolver.resolve(cliOptions: CLIOptions(ci: true), shipfilePath: "/tmp/does-not-exist.yml")
+
+        #expect(config.ci)
+    }
+
     @Test("CLI scheme override preserves workspace resolution")
     func cliSchemePreservesWorkspace() async throws {
         let tempDirectory = try makeTempDirectory()

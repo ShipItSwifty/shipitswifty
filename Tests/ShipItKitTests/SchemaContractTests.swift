@@ -89,6 +89,22 @@ struct SchemaContractTests {
         #expect(fields.first(where: { $0.name == "gradle_properties" })?.type == .object)
     }
 
+    @Test("Test schema retains Android kind, scope, and device keys")
+    func testSchemaRetainsAndroidKindScopeAndDeviceKeys() {
+        let fields = BuiltInSchemaCatalog.optionSchema(for: TestAction.name)
+        let names = Set(fields.map(\.name))
+        #expect(names.contains("module"))
+        #expect(names.contains("kind"))
+        #expect(names.contains("scope"))
+        #expect(names.contains("task"))
+        #expect(names.contains("devices"))
+        #expect(names.contains("infrastructure_retry"))
+        #expect(fields.first(where: { $0.name == "kind" })?.type == .string)
+        #expect(fields.first(where: { $0.name == "scope" })?.type == .string)
+        #expect(fields.first(where: { $0.name == "devices" })?.type == .object)
+        #expect(fields.first(where: { $0.name == "infrastructure_retry" })?.type == .object)
+    }
+
     @Test("Archive schema retains critical option keys")
     func archiveSchemaRetainsCriticalKeys() {
         let fields = BuiltInSchemaCatalog.optionSchema(for: ArchiveAction.name)

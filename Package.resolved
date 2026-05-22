@@ -1,5 +1,5 @@
 {
-  "originHash" : "ed0366c9a4c11b0fb2ffcbf8a8dcd82fba99d049a4f4497174d87a5e8c546e3b",
+  "originHash" : "e7ca85bd9d623d7358d1163adb794b1f9f759224f60e9b7d369737b4cfbdd8ec",
   "pins" : [
     {
       "identity" : "jwt-kit",
@@ -74,12 +74,30 @@
       }
     },
     {
+      "identity" : "swift-subprocess",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/swiftlang/swift-subprocess.git",
+      "state" : {
+        "revision" : "13d087685b95d64d6aac9b94500d347bbe84c39b",
+        "version" : "0.4.0"
+      }
+    },
+    {
+      "identity" : "swift-system",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/apple/swift-system",
+      "state" : {
+        "revision" : "7c6ad0fc39d0763e0b699210e4124afd5041c5df",
+        "version" : "1.6.4"
+      }
+    },
+    {
       "identity" : "swiftyshell",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/maniramezan/SwiftyShell.git",
       "state" : {
-        "revision" : "16b3f5176c5dd81e2e881ae03d2b24fce6ef7358",
-        "version" : "0.1.0"
+        "revision" : "315082b1292fbc7417d0d43767806e16408acdce",
+        "version" : "0.3.0"
       }
     },
     {

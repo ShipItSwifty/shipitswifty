@@ -34,6 +34,10 @@ test-linux-coverage:  ## Run Linux-compatible tests with code coverage (direct m
 shell-linux:  ## Open an interactive shell inside the Linux container (direct mount)
 	$(DOCKER_RUN_IT) /bin/bash
 
+.PHONY: verify-cross-platform
+verify-cross-platform:  ## Run local cross-platform verification (RN/Flutter/native fixtures)
+	bash ./scripts/verify-cross-platform.sh
+
 # ── Image-based targets (uses Dockerfile with cached dep layer) ───────────────
 
 .PHONY: docker-build

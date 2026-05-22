@@ -1,6 +1,10 @@
 import ArgumentParser
 import ShipItKit
 
+extension TestKind: ExpressibleByArgument {}
+extension TestScope: ExpressibleByArgument {}
+extension TestDeviceStrategy: ExpressibleByArgument {}
+
 /// Run unit and UI tests using `xcodebuild test`.
 struct TestCommand: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
@@ -45,17 +49,36 @@ struct TestCommand: AsyncParsableCommand {
     @Flag(name: .long, help: "Retry failing tests once before reporting failure")
     var retryOnFailure: Bool = false
 
+    @Option(name: .long, help: "Test kind: unit | instrumented | e2e (Android)")
+    var kind: TestKind?
+
+    @Option(name: .long, help: "Gradle task scope: module | root (Android)")
+    var scope: TestScope?
+
     @Option(name: .long, help: "Gradle module to test (Android) or KMP shared module (iOS KMP)")
     var module: String?
 
     @Option(name: .long, help: "Gradle build variant to test (Android, default: debug)")
     var buildVariant: String?
 
-    @Flag(name: .long, help: "Run Android instrumented tests instead of JVM unit tests")
-    var instrumented: Bool = false
-
     @Option(name: .long, help: "Explicit Gradle task name (Android, overrides variant-based selection)")
     var task: String?
+
+    @Option(name: .long, help: "Device strategy: none | connected | named_emulators | managed (Android)")
+    var deviceStrategy: TestDeviceStrategy?
+
+    @Option(
+        name: .long,
+        parsing: .upToNextOption,
+        help: "Android emulator AVD names to boot for instrumented tests (repeatable)"
+    )
+    var emulators: [String] = []
+
+    @Option(name: .long, help: "Gradle managed device group name (Android)")
+    var deviceGroup: String?
+
+    @Flag(name: .long, help: "Prompt locally for Android emulator selection when running instrumented tests")
+    var promptLocally: Bool = false
 
     func run() async throws {
         do {
@@ -65,6 +88,19 @@ struct TestCommand: AsyncParsableCommand {
             )
             let context = try await buildActionContext(config: config, verbose: global.verbose)
             let formatter = makeHumanFormatter(global: global)
+
+            // Build device config from CLI flags
+            let devices: TestDeviceConfig?
+            if deviceStrategy != nil || !emulators.isEmpty || deviceGroup != nil || promptLocally {
+                devices = TestDeviceConfig(
+                    strategy: deviceStrategy ?? .none,
+                    emulators: emulators.isEmpty ? nil : emulators,
+                    group: deviceGroup,
+                    promptLocally: promptLocally ? true : nil
+                )
+            } else {
+                devices = nil
+            }
 
             let options = TestAction.Options(
                 scheme: scheme,
@@ -76,21 +112,27 @@ struct TestCommand: AsyncParsableCommand {
                 onlyTesting: onlyTesting.isEmpty ? nil : onlyTesting,
                 skipTesting: skipTesting.isEmpty ? nil : skipTesting,
                 retryOnFailure: retryOnFailure ? true : nil,
+                kind: kind,
+                scope: scope,
                 module: module,
                 buildVariant: buildVariant,
-                instrumented: instrumented ? true : nil,
-                task: task
+                task: task,
+                devices: devices
             )
 
             if global.dryRun {
                 if config.platform == .android {
                     let effectiveModule = module ?? config.androidModule
-                    let effectiveTask = task ?? "test\(buildVariant ?? config.androidBuildVariant)UnitTest"
-                    if effectiveModule.isEmpty {
+                    let effectiveKind = kind ?? config.androidTestKind
+                    let effectiveScope = scope ?? config.androidTestScope
+                    let effectiveTask = task ?? (effectiveKind == .instrumented
+                        ? "connectedDebugAndroidTest"
+                        : "test\(buildVariant ?? config.androidBuildVariant)UnitTest")
+                    if effectiveScope == .root {
                         formatter.print("DRY RUN: Would run root Gradle task '\(effectiveTask)'")
                     } else {
                         formatter.print(
-                            "DRY RUN: Would run Gradle tests for module '\(effectiveModule)' variant '\(buildVariant ?? config.androidBuildVariant)'"
+                            "DRY RUN: Would run Gradle task ':\(effectiveModule):\(effectiveTask)'"
                         )
                     }
                 } else if config.iosBuildSystem == .kmp {
