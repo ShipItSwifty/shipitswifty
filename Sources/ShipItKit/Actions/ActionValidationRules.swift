@@ -43,6 +43,7 @@ extension ArchiveAction {
 
 // MARK: ExportAction
 
+#if os(macOS)
 extension ExportAction {
     public static var validationRules: [ActionValidationRule] {
         [
@@ -194,44 +195,6 @@ extension SnapshotAction {
     }
 }
 
-// MARK: GitAction
-
-extension GitAction {
-    public static var validationRules: [ActionValidationRule] {
-        [
-            ActionValidationRule { ctx in
-                guard ctx.options["operation"]?.stringValue == "tag" else { return nil }
-                guard ctx.options["tag_name"]?.stringValue == nil else { return nil }
-                return ValidationIssue(severity: .error, path: ".options.tag_name", message: "git tag requires tag_name.")
-            },
-            ActionValidationRule { ctx in
-                guard ctx.options["operation"]?.stringValue == "commit" else { return nil }
-                guard ctx.options["commit_message"]?.stringValue == nil else { return nil }
-                return ValidationIssue(severity: .error, path: ".options.commit_message", message: "git commit requires commit_message.")
-            },
-        ]
-    }
-}
-
-// MARK: VersionAction
-
-extension VersionAction {
-    public static var validationRules: [ActionValidationRule] {
-        [
-            ActionValidationRule { ctx in
-                guard
-                    ctx.options["bump"]?.stringValue == "set",
-                    ctx.options["version"]?.stringValue == nil
-                else { return nil }
-                return ValidationIssue(
-                    severity: .error,
-                    path: ".options.version",
-                    message: "version bump `set` requires an explicit version value.")
-            }
-        ]
-    }
-}
-
 // MARK: ProvisionAction
 
 extension ProvisionAction {
@@ -273,6 +236,45 @@ extension DsymAction {
                 guard ctx.options["upload_url"]?.stringValue == nil else { return nil }
                 return ValidationIssue(severity: .error, path: ".options.upload_url", message: "dSYM upload requires upload_url.")
             },
+        ]
+    }
+}
+#endif
+
+// MARK: GitAction
+
+extension GitAction {
+    public static var validationRules: [ActionValidationRule] {
+        [
+            ActionValidationRule { ctx in
+                guard ctx.options["operation"]?.stringValue == "tag" else { return nil }
+                guard ctx.options["tag_name"]?.stringValue == nil else { return nil }
+                return ValidationIssue(severity: .error, path: ".options.tag_name", message: "git tag requires tag_name.")
+            },
+            ActionValidationRule { ctx in
+                guard ctx.options["operation"]?.stringValue == "commit" else { return nil }
+                guard ctx.options["commit_message"]?.stringValue == nil else { return nil }
+                return ValidationIssue(severity: .error, path: ".options.commit_message", message: "git commit requires commit_message.")
+            },
+        ]
+    }
+}
+
+// MARK: VersionAction
+
+extension VersionAction {
+    public static var validationRules: [ActionValidationRule] {
+        [
+            ActionValidationRule { ctx in
+                guard
+                    ctx.options["bump"]?.stringValue == "set",
+                    ctx.options["version"]?.stringValue == nil
+                else { return nil }
+                return ValidationIssue(
+                    severity: .error,
+                    path: ".options.version",
+                    message: "version bump `set` requires an explicit version value.")
+            }
         ]
     }
 }

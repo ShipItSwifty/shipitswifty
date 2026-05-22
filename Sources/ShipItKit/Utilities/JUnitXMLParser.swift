@@ -1,5 +1,9 @@
 import Foundation
 
+#if canImport(FoundationXML)
+import FoundationXML
+#endif
+
 /// Minimal SAX parser that extracts test counts from a JUnit XML `<testsuite>` element.
 ///
 /// JUnit XML format (as written by Gradle):

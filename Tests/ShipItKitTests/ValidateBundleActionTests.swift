@@ -11,7 +11,8 @@ struct ValidateBundleActionTests {
     func autodiscoversNativeAAB() async throws {
         let tempDirectory = URL(fileURLWithPath: NSTemporaryDirectory())
             .appendingPathComponent("ShipItValidateBundle-\(UUID().uuidString)")
-        let bundlePath = tempDirectory
+        let bundlePath =
+            tempDirectory
             .appendingPathComponent("app/build/outputs/bundle/release/app-release.aab")
         try FileManager.default.createDirectory(at: bundlePath.deletingLastPathComponent(), withIntermediateDirectories: true)
         try Data([UInt8](repeating: 0, count: 2048)).enumerated().map { index, value in

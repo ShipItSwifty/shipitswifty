@@ -155,7 +155,8 @@ struct GradleVersionSource: Sendable {
             return unquoted.isEmpty ? nil : unquoted
         } else {
             // Numeric — strip any trailing comments
-            let clean = valueStr.components(separatedBy: "//").first?
+            let clean =
+                valueStr.components(separatedBy: "//").first?
                 .trimmingCharacters(in: .whitespaces) ?? valueStr
             return clean.isEmpty ? nil : clean
         }

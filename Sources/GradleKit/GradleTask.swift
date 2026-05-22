@@ -83,8 +83,8 @@ public struct GradleTask: Sendable, Equatable, Hashable {
     ///   - flavor: Product flavor (e.g. `"free"`, `"paid"`).
     ///   - variant: Build variant (e.g. `"release"`, `"debug"`).
     public static func assemble(flavor: String, variant: String) -> GradleTask {
-        let f = flavor.prefix(1).uppercased() + flavor.dropFirst()
-        let v = variant.prefix(1).uppercased() + variant.dropFirst()
+        let f = String(flavor.prefix(1)).uppercased() + String(flavor.dropFirst())
+        let v = String(variant.prefix(1)).uppercased() + String(variant.dropFirst())
         return GradleTask(name: "assemble\(f)\(v)")
     }
 
@@ -94,8 +94,8 @@ public struct GradleTask: Sendable, Equatable, Hashable {
     ///   - flavor: Product flavor (e.g. `"free"`, `"paid"`).
     ///   - variant: Build variant (e.g. `"release"`, `"debug"`).
     public static func bundle(flavor: String, variant: String) -> GradleTask {
-        let f = flavor.prefix(1).uppercased() + flavor.dropFirst()
-        let v = variant.prefix(1).uppercased() + variant.dropFirst()
+        let f = String(flavor.prefix(1)).uppercased() + String(flavor.dropFirst())
+        let v = String(variant.prefix(1)).uppercased() + String(variant.dropFirst())
         return GradleTask(name: "bundle\(f)\(v)")
     }
 
@@ -148,8 +148,8 @@ public struct GradleTask: Sendable, Equatable, Hashable {
     ///   - configuration: Kotlin build configuration (e.g. `"Debug"`, `"Release"`).
     ///   - target: KMP iOS target name (e.g. `"IosArm64"`, `"IosSimulatorArm64"`, `"IosX64"`).
     public static func linkFramework(configuration: String, target: String) -> GradleTask {
-        let cfg = configuration.prefix(1).uppercased() + configuration.dropFirst()
-        let tgt = target.prefix(1).uppercased() + target.dropFirst()
+        let cfg = String(configuration.prefix(1)).uppercased() + String(configuration.dropFirst())
+        let tgt = String(target.prefix(1)).uppercased() + String(target.dropFirst())
         return GradleTask(name: "link\(cfg)Framework\(tgt)")
     }
 

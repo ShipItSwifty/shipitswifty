@@ -375,7 +375,8 @@ public struct ArchiveAction: Action {
                 logger.error("AAB file not found at expected path: \(anchoredPath)")
                 throw ShipItError.archiveFailed(
                     exitCode: 0,
-                    log: "Gradle reported success but AAB was not produced at '\(anchoredPath)'. Check build variant and module configuration."
+                    log:
+                        "Gradle reported success but AAB was not produced at '\(anchoredPath)'. Check build variant and module configuration."
                 )
             }
         }

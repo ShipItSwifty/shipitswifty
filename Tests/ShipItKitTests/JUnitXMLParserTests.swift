@@ -72,7 +72,8 @@ struct JUnitXMLParserTests {
     func aggregateFromDisk() throws {
         let tmpDir = FileManager.default.temporaryDirectory
             .appendingPathComponent("shipit-junit-test-\(UUID().uuidString)")
-        let taskDir = tmpDir
+        let taskDir =
+            tmpDir
             .appendingPathComponent("moduleA/build/test-results/testDebugUnitTest")
         try FileManager.default.createDirectory(at: taskDir, withIntermediateDirectories: true)
 

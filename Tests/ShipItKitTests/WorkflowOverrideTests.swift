@@ -1,6 +1,6 @@
 import Foundation
-import Synchronization
 import SwiftyShell
+import Synchronization
 import Testing
 
 @testable import ShipItKit
@@ -136,8 +136,8 @@ struct WorkflowOverrideTests {
     @Test("WorkflowConfig decodes from plain array (backward compat)")
     func decodesFromPlainArray() throws {
         let json = """
-        [{"action": "build"}, {"action": "test"}]
-        """
+            [{"action": "build"}, {"action": "test"}]
+            """
         let config = try JSONDecoder().decode(WorkflowConfig.self, from: Data(json.utf8))
         #expect(config.steps.count == 2)
         #expect(config.steps[0].action == "build")
@@ -149,8 +149,8 @@ struct WorkflowOverrideTests {
     @Test("WorkflowConfig decodes from struct with overrides")
     func decodesFromStructWithOverrides() throws {
         let json = """
-        {"build_variant": "prodRelease", "flavor": "prod", "steps": [{"action": "archive"}, {"action": "play-store"}]}
-        """
+            {"build_variant": "prodRelease", "flavor": "prod", "steps": [{"action": "archive"}, {"action": "play-store"}]}
+            """
         let config = try JSONDecoder().decode(WorkflowConfig.self, from: Data(json.utf8))
         #expect(config.buildVariant == "prodRelease")
         #expect(config.flavor == "prod")
@@ -172,9 +172,11 @@ struct WorkflowOverrideTests {
 
     @Test("WorkflowConfig encodes as object when overrides are set")
     func encodesAsObjectWithOverrides() throws {
-        let config = WorkflowConfig(buildVariant: "prodRelease", steps: [
-            WorkflowStepConfig(action: "archive"),
-        ])
+        let config = WorkflowConfig(
+            buildVariant: "prodRelease",
+            steps: [
+                WorkflowStepConfig(action: "archive")
+            ])
         let data = try JSONEncoder().encode(config)
         // Should have "build_variant" key
         let dict = try JSONDecoder().decode([String: JSONValue].self, from: data)

@@ -4,6 +4,10 @@ import Testing
 
 @testable import ShipItKit
 
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
+
 @Suite("PlayStoreAction", .serialized)
 struct PlayStoreActionTests {
 

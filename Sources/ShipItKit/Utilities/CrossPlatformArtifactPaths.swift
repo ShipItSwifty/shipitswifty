@@ -58,7 +58,7 @@ enum CrossPlatformArtifactPaths {
         } else {
             variantName = variant
         }
-        return prefix + variantName.prefix(1).uppercased() + variantName.dropFirst()
+        return prefix + String(variantName.prefix(1)).uppercased() + String(variantName.dropFirst())
     }
 
     static func locateExportedIPA(context: ActionContext, fileManager: FileManager = .default) -> String? {

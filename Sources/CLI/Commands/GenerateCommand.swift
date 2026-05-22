@@ -313,7 +313,8 @@ struct GenerateCommand: AsyncParsableCommand {
 
             let envFilePath = (path as NSString).appendingPathComponent(".env")
             let envFileExists = FileManager.default.fileExists(atPath: envFilePath)
-            let envOption = envFileExists
+            let envOption =
+                envFileExists
                 ? "Update existing .env file (auto-loaded by shipit)"
                 : "Create a .env file (recommended for local dev, auto-loaded by shipit)"
 
@@ -444,7 +445,9 @@ struct GenerateCommand: AsyncParsableCommand {
                 selectedTrack = defaultTrack
             }
 
-            overrides["    # Add this when you are ready to upload to Google Play:\n    # - action: play-store\n    #   options: { track: internal }"] = "    - action: play-store\n      options: { track: \(selectedTrack) }"
+            overrides[
+                "    # Add this when you are ready to upload to Google Play:\n    # - action: play-store\n    #   options: { track: internal }"
+            ] = "    - action: play-store\n      options: { track: \(selectedTrack) }"
         }
 
         return overrides
@@ -454,7 +457,9 @@ struct GenerateCommand: AsyncParsableCommand {
     /// or reading alias information from an existing one.
     ///
     /// Returns `(keystorePath, keystoreAlias, keystorePassword, keyPassword)`.
-    private func collectAndroidKeystore(formatter: HumanFormatter)
+    private func collectAndroidKeystore(
+        formatter: HumanFormatter
+    )
         -> (path: String, alias: String, keystorePassword: String, keyPassword: String)
     {
         formatter.printHeader("Android Keystore")
@@ -480,7 +485,9 @@ struct GenerateCommand: AsyncParsableCommand {
 
     /// Prompts for an existing keystore path and password, then tries to read aliases
     /// via `keytool -list -v`.  Falls back to manual alias entry on any failure.
-    private func collectExistingKeystore(formatter: HumanFormatter)
+    private func collectExistingKeystore(
+        formatter: HumanFormatter
+    )
         -> (path: String, alias: String, keystorePassword: String, keyPassword: String)
     {
         let env = ProcessInfo.processInfo.environment
@@ -517,7 +524,8 @@ struct GenerateCommand: AsyncParsableCommand {
         let keystorePath: String
         if prefillPath != nil {
             // Show the env var reference as default so Shipfile uses ${ENV_VAR} syntax
-            let envVarDefault = existingPath != nil
+            let envVarDefault =
+                existingPath != nil
                 ? "${SHIPIT_ANDROID__KEYSTORE_PATH}"
                 : (dotEnvValues["SHIPIT_ANDROID__KEYSTORE_PATH"].map { _ in "${SHIPIT_ANDROID__KEYSTORE_PATH}" } ?? prefillPath!)
             let answer = ask("Keystore path (.jks or .keystore)", defaultValue: envVarDefault)
@@ -584,7 +592,8 @@ struct GenerateCommand: AsyncParsableCommand {
             let key = String(keyValue[..<eq]).trimmingCharacters(in: .whitespaces)
             var value = String(keyValue[keyValue.index(after: eq)...]).trimmingCharacters(in: .whitespaces)
             if (value.hasPrefix("\"") && value.hasSuffix("\""))
-                || (value.hasPrefix("'") && value.hasSuffix("'")) {
+                || (value.hasPrefix("'") && value.hasSuffix("'"))
+            {
                 value = String(value.dropFirst().dropLast())
             }
             result[key] = value
@@ -667,7 +676,9 @@ struct GenerateCommand: AsyncParsableCommand {
 
     /// Guides the user through creating a brand-new keystore by collecting distinguished
     /// name fields and invoking `keytool -genkeypair`.
-    private func createNewKeystore(formatter: HumanFormatter)
+    private func createNewKeystore(
+        formatter: HumanFormatter
+    )
         -> (path: String, alias: String, keystorePassword: String, keyPassword: String)
     {
         formatter.printHeader("Create New Keystore")
@@ -706,19 +717,19 @@ struct GenerateCommand: AsyncParsableCommand {
         formatter.print("These fields are embedded in the signing certificate (press Enter to skip any).")
         let cn = ask("Your name or organisation (CN)", defaultValue: nil)
         let ou = ask("Organisational unit (OU)", defaultValue: nil)
-        let o  = ask("Organisation (O)", defaultValue: nil)
-        let l  = ask("City / Locality (L)", defaultValue: nil)
+        let o = ask("Organisation (O)", defaultValue: nil)
+        let l = ask("City / Locality (L)", defaultValue: nil)
         let st = ask("State / Province (ST)", defaultValue: nil)
-        let c  = ask("Two-letter country code (C)", defaultValue: nil)
+        let c = ask("Two-letter country code (C)", defaultValue: nil)
         let validityDays = ask("Validity in days", defaultValue: "10000")
 
         var dnParts: [String] = []
         if !cn.isEmpty { dnParts.append("CN=\(cn)") }
         if !ou.isEmpty { dnParts.append("OU=\(ou)") }
-        if !o.isEmpty  { dnParts.append("O=\(o)") }
-        if !l.isEmpty  { dnParts.append("L=\(l)") }
+        if !o.isEmpty { dnParts.append("O=\(o)") }
+        if !l.isEmpty { dnParts.append("L=\(l)") }
         if !st.isEmpty { dnParts.append("ST=\(st)") }
-        if !c.isEmpty  { dnParts.append("C=\(c)") }
+        if !c.isEmpty { dnParts.append("C=\(c)") }
         let dname = dnParts.isEmpty ? "CN=Unknown" : dnParts.joined(separator: ", ")
 
         // Run keytool

@@ -779,7 +779,8 @@ public struct WorkflowConfig: Codable, Sendable {
     public init(from decoder: any Decoder) throws {
         // Try decoding as plain array first (legacy format)
         if let container = try? decoder.singleValueContainer(),
-           let steps = try? container.decode([WorkflowStepConfig].self) {
+            let steps = try? container.decode([WorkflowStepConfig].self)
+        {
             self.buildVariant = nil
             self.flavor = nil
             self.steps = steps

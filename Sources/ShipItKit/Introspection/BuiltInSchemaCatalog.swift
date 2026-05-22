@@ -398,7 +398,8 @@ public enum BuiltInSchemaCatalog {
                 "workflows",
                 description: "Named workflows executed with `shipit run <workflow>`.",
                 notes: [
-                     "Workflow names are dynamic keys.", "Each workflow is an ordered list of action steps, or an object with workflow-level overrides and a `steps` array.",
+                    "Workflow names are dynamic keys.",
+                    "Each workflow is an ordered list of action steps, or an object with workflow-level overrides and a `steps` array.",
                 ],
                 allowsAdditionalProperties: true,
                 additionalProperties: .any(
@@ -501,6 +502,9 @@ public enum BuiltInSchemaCatalog {
             actionSchema(
                 name: GitAction.name, description: GitAction.description, options: gitOptions(),
                 example: gitExample()),
+            actionSchema(
+                name: VersionAction.name, description: VersionAction.description, options: versionOptions(),
+                example: versionExample()),
         ]
         #if os(macOS)
         schemas.append(contentsOf: [
@@ -522,9 +526,6 @@ public enum BuiltInSchemaCatalog {
             actionSchema(
                 name: FrameAction.name, description: FrameAction.description, options: frameOptions(),
                 example: frameExample()),
-            actionSchema(
-                name: VersionAction.name, description: VersionAction.description, options: versionOptions(),
-                example: versionExample()),
             actionSchema(
                 name: MetadataAction.name, description: MetadataAction.description,
                 options: metadataOptions(), example: metadataExample()),

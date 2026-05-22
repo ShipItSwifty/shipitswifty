@@ -783,11 +783,13 @@ public struct TestAction: Action {
         var totalSkipped = 0
 
         // Find all test-results directories matching the task name
-        guard let enumerator = fileManager.enumerator(
-            at: URL(fileURLWithPath: projectDir),
-            includingPropertiesForKeys: [.isRegularFileKey],
-            options: [.skipsHiddenFiles]
-        ) else {
+        guard
+            let enumerator = fileManager.enumerator(
+                at: URL(fileURLWithPath: projectDir),
+                includingPropertiesForKeys: [.isRegularFileKey],
+                options: [.skipsHiddenFiles]
+            )
+        else {
             return (pass: 0, fail: 0, skip: 0)
         }
 
@@ -795,8 +797,8 @@ public struct TestAction: Action {
             let path = fileURL.path
             // Match: */build/test-results/<task>/TEST-*.xml
             guard path.contains("/build/test-results/\(task)/"),
-                  path.hasSuffix(".xml"),
-                  fileURL.lastPathComponent.hasPrefix("TEST-")
+                path.hasSuffix(".xml"),
+                fileURL.lastPathComponent.hasPrefix("TEST-")
             else { continue }
 
             guard let data = fileManager.contents(atPath: path) else { continue }

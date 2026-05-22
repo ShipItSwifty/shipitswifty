@@ -2,43 +2,78 @@ import Testing
 
 @testable import ShipItKit
 
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
+
 @Suite("Schema contract")
 struct SchemaContractTests {
     private let builtInActionNames: Set<String> = [
         ArchiveAction.name,
         BuildAction.name,
         CoverageAction.name,
-        DsymAction.name,
-        ExportAction.name,
-        FrameAction.name,
-        GenerateProjectAction.name,
         GitAction.name,
         LintAction.name,
-        MetadataAction.name,
         NotifyAction.name,
         PlayStoreAction.name,
-        PrecheckAction.name,
-        ProvisionAction.name,
-        SignAction.name,
-        SnapshotAction.name,
         TestAction.name,
-        TestFlightAction.name,
-        UploadAction.name,
-        ValidateArchiveAction.name,
         ValidateBundleAction.name,
         VersionAction.name,
     ]
 
+    private let nonHostBuiltInActionNames: Set<String> = [
+        "dsym",
+        "export",
+        "frame",
+        "generate_project",
+        "metadata",
+        "precheck",
+        "provision",
+        "sign",
+        "snapshot",
+        "testflight",
+        "upload",
+        "validate_archive",
+    ]
+
+    #if os(macOS)
+    private let macOSOnlyActionNames: Set<String> = [
+        DsymAction.name,
+        ExportAction.name,
+        FrameAction.name,
+        GenerateProjectAction.name,
+        MetadataAction.name,
+        PrecheckAction.name,
+        ProvisionAction.name,
+        SignAction.name,
+        SnapshotAction.name,
+        TestFlightAction.name,
+        UploadAction.name,
+        ValidateArchiveAction.name,
+    ]
+    #endif
+
+    private var hostActionNames: Set<String> {
+        var names = builtInActionNames
+        #if os(macOS)
+        names.formUnion(macOSOnlyActionNames)
+        #endif
+        return names
+    }
+
     @Test("Every built-in action has an action schema entry")
     func everyBuiltInActionHasSchemaEntry() {
         let schemaNames = Set(BuiltInSchemaCatalog.actionSchemas().map(\.name))
-        #expect(schemaNames == builtInActionNames)
+        #expect(schemaNames == hostActionNames)
     }
 
     @Test("Validation schemas include every built-in action")
     func validationSchemasIncludeEveryBuiltInAction() {
         let validationNames = Set(BuiltInSchemaCatalog.validationActionSchemas().map(\.name))
-        #expect(validationNames == builtInActionNames)
+        #expect(validationNames == builtInActionNames.union(nonHostBuiltInActionNames))
+        #if os(macOS)
+        #expect(validationNames.isSuperset(of: macOSOnlyActionNames))
+        #endif
     }
 
     @Test("Build schema retains critical option keys")
@@ -67,6 +102,7 @@ struct SchemaContractTests {
         #expect(fields.first(where: { $0.name == "gradle_properties" })?.type == .object)
     }
 
+    #if os(macOS)
     @Test("TestFlight schema retains documented option keys")
     func testFlightSchemaRetainsCriticalKeys() {
         let names = Set(BuiltInSchemaCatalog.optionSchema(for: TestFlightAction.name).map(\.name))
@@ -93,4 +129,5 @@ struct SchemaContractTests {
         #expect(names.contains("output_project"))
         #expect(names.contains("force"))
     }
+    #endif
 }

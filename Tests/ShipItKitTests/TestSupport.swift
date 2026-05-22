@@ -164,13 +164,21 @@ func makeTempDirectory(prefix: String = "ShipItTests") throws -> URL {
 
 final class MockURLProtocol: URLProtocol {
     private static let handlers: Mutex<[String: @Sendable (URLRequest) -> MockHTTPResponse]> = .init([:])
+    private static let latestSessionID: Mutex<String?> = .init(nil)
 
     static func registerHandler(_ handler: @escaping @Sendable (URLRequest) -> MockHTTPResponse, for sessionID: String) {
         handlers.withLock { $0[sessionID] = handler }
+        latestSessionID.withLock { $0 = sessionID }
     }
 
     private static func handler(for sessionID: String) -> (@Sendable (URLRequest) -> MockHTTPResponse)? {
         handlers.withLock { $0[sessionID] }
+    }
+
+    private static func fallbackHandler() -> (@Sendable (URLRequest) -> MockHTTPResponse)? {
+        let sessionID = latestSessionID.withLock { $0 }
+        guard let sessionID else { return nil }
+        return handlers.withLock { $0[sessionID] }
     }
 
     override class func canInit(with request: URLRequest) -> Bool {
@@ -182,9 +190,12 @@ final class MockURLProtocol: URLProtocol {
     }
 
     override func startLoading() {
-        guard let sessionID = request.value(forHTTPHeaderField: "X-Mock-Session-ID"),
-            let handler = Self.handler(for: sessionID)
-        else {
+        let handler =
+            request
+            .value(forHTTPHeaderField: "X-Mock-Session-ID")
+            .flatMap(Self.handler(for:))
+            ?? Self.fallbackHandler()
+        guard let handler else {
             client?.urlProtocol(self, didFailWithError: URLError(.badServerResponse))
             return
         }
