@@ -45,13 +45,13 @@ public struct CLIOptions: Sendable {
     }
 }
 
-/// Merges configuration from CLI flags, environment variables,
-/// Shipfile.yml, and built-in defaults.
+/// Merges configuration from CLI flags, Shipfile.yml, environment variables,
+/// and built-in defaults.
 ///
 /// Resolution order (highest priority first):
 /// 1. CLI flags
-/// 2. Environment variables (`SHIPIT_*` prefix)
-/// 3. Shipfile.yml values
+/// 2. Shipfile.yml values
+/// 3. Environment variables (`SHIPIT_*` prefix)
 /// 4. Built-in defaults
 ///
 /// ## Usage
@@ -112,7 +112,7 @@ public struct ConfigResolver: Sendable {
                 URL(fileURLWithPath: $0).deletingLastPathComponent().path
             } ?? "."
 
-        // Resolve platform: CLI flag > SHIPIT_PLATFORM env var > Shipfile > auto-detect from project files
+        // Resolve platform: CLI flag > Shipfile > SHIPIT_PLATFORM env var > auto-detect from project files
         let platform = resolvePlatform(cliOptions: cliOptions, shipfile: shipfile, detectionRoot: projectRoot)
         logger.info("Resolved platform: \(platform.rawValue)")
 
@@ -167,15 +167,15 @@ public struct ConfigResolver: Sendable {
         let androidConfig = shipfile?.android
 
         let p12Resolution = try resolveSigningAsset(
-            path: environment.codeSigningP12Path ?? shipfile?.codeSigning?.p12Path,
-            base64: environment.codeSigningP12Base64 ?? shipfile?.codeSigning?.p12Base64,
+            path: shipfile?.codeSigning?.p12Path ?? environment.codeSigningP12Path,
+            base64: shipfile?.codeSigning?.p12Base64 ?? environment.codeSigningP12Base64,
             missingPathDescription: "Code signing .p12 file"
         )
         let provisioningProfileResolution = try resolveSigningAsset(
-            path: environment.codeSigningProvisioningProfilePath
-                ?? shipfile?.codeSigning?.provisioningProfilePath,
-            base64: environment.codeSigningProvisioningProfileBase64
-                ?? shipfile?.codeSigning?.provisioningProfileBase64,
+            path: shipfile?.codeSigning?.provisioningProfilePath
+                ?? environment.codeSigningProvisioningProfilePath,
+            base64: shipfile?.codeSigning?.provisioningProfileBase64
+                ?? environment.codeSigningProvisioningProfileBase64,
             missingPathDescription: "Code signing provisioning profile"
         )
         let processedFiles = [
@@ -204,40 +204,40 @@ public struct ConfigResolver: Sendable {
 
         return ResolvedConfig(
             processedFiles: processedFiles,
-            appWorkspace: environment.appWorkspace ?? effectiveApp?.workspace
+            appWorkspace: effectiveApp?.workspace ?? environment.appWorkspace
                 ?? autoDetectedAppConfig.workspace,
-            appProject: environment.appProject ?? effectiveApp?.project ?? autoDetectedAppConfig.project,
-            appScheme: cliOptions.scheme ?? environment.appScheme ?? effectiveApp?.scheme
+            appProject: effectiveApp?.project ?? environment.appProject ?? autoDetectedAppConfig.project,
+            appScheme: cliOptions.scheme ?? effectiveApp?.scheme ?? environment.appScheme
                 ?? autoDetectedAppConfig.scheme,
-            bundleID: environment.appBundleId ?? effectiveApp?.bundleId ?? autoDetectedAppConfig.bundleID,
+            bundleID: effectiveApp?.bundleId ?? environment.appBundleId ?? autoDetectedAppConfig.bundleID,
             bundleIDFromTargetBuildSettings: bundleIDFromTargetBuildSettings,
-            teamID: environment.appTeamId ?? effectiveApp?.teamId ?? autoDetectedAppConfig.teamID,
+            teamID: effectiveApp?.teamId ?? environment.appTeamId ?? autoDetectedAppConfig.teamID,
             teamIDFromTargetBuildSettings: teamIDFromTargetBuildSettings,
-            ascKeyID: environment.ascKeyId ?? shipfile?.appStoreConnect?.keyId,
-            ascIssuerID: environment.ascIssuerId ?? shipfile?.appStoreConnect?.issuerId,
+            ascKeyID: shipfile?.appStoreConnect?.keyId ?? environment.ascKeyId,
+            ascIssuerID: shipfile?.appStoreConnect?.issuerId ?? environment.ascIssuerId,
             ascPrivateKeyData: privateKeyResolution.data,
             buildConfiguration: cliOptions.configuration
-                ?? environment.buildConfiguration
                 ?? effectiveBuild?.configuration
+                ?? environment.buildConfiguration
                 ?? "Release",
-            derivedDataPath: environment.buildDerivedDataPath ?? effectiveBuild?.derivedDataPath,
+            derivedDataPath: effectiveBuild?.derivedDataPath ?? environment.buildDerivedDataPath,
             xcargs: effectiveBuild?.xcargs ?? [:],
-            archiveExportMethod: environment.archiveExportMethod
-                ?? shipfile?.archive?.exportMethod
+            archiveExportMethod: shipfile?.archive?.exportMethod
+                ?? environment.archiveExportMethod
                 ?? "app-store",
             archiveIncludeSymbols: shipfile?.archive?.includeSymbols ?? true,
-            archiveOutputPath: environment.archiveOutputPath ?? shipfile?.archive?.outputPath,
+            archiveOutputPath: shipfile?.archive?.outputPath ?? environment.archiveOutputPath,
             exportArchivePath: shipfile?.export?.archivePath,
             exportOutputDirectory: shipfile?.export?.outputDirectory,
             codeSigningType: shipfile?.codeSigning?.type ?? "vault",
             automaticCodeSigning: (shipfile?.codeSigning?.type == "automatic") ? true : nil,
             codeSigningStorage: shipfile?.codeSigning?.storage ?? "git",
-            codeSigningGitUrl: environment.codeSigningGitUrl ?? shipfile?.codeSigning?.gitUrl,
+            codeSigningGitUrl: shipfile?.codeSigning?.gitUrl ?? environment.codeSigningGitUrl,
             vaultPassword: environment.vaultPassword,
             codeSigningP12Path: p12Resolution.path,
             codeSigningP12Data: p12Resolution.data,
-            codeSigningP12Password: environment.codeSigningP12Password
-                ?? shipfile?.codeSigning?.p12Password,
+            codeSigningP12Password: shipfile?.codeSigning?.p12Password
+                ?? environment.codeSigningP12Password,
             codeSigningProvisioningProfilePath: provisioningProfileResolution.path,
             codeSigningProvisioningProfileData: provisioningProfileResolution.data,
             skipWaitingForBuildProcessing: shipfile?.testflight?.skipWaitingForBuildProcessing ?? false,
@@ -262,7 +262,7 @@ public struct ConfigResolver: Sendable {
             projectGenerationSpecPath: projGenSpecPath,
             projectGenerationOutputProject: projGenOutputProject,
             projectGenerationAutoGenerate: projGenAutoGenerate,
-            slackWebhookUrl: environment.slackWebhookUrl ?? shipfile?.notifications?.slack?.webhookUrl,
+            slackWebhookUrl: shipfile?.notifications?.slack?.webhookUrl ?? environment.slackWebhookUrl,
             slackChannel: shipfile?.notifications?.slack?.channel,
             workflows: shipfile?.workflows ?? [:],
             customActions: shipfile?.customActions ?? [:],
@@ -271,27 +271,27 @@ public struct ConfigResolver: Sendable {
             androidBuildSystem: androidBuildSystem,
             ci: cliOptions.ci,
             projectRoot: projectRoot,
-            kmpSharedModule: environment.iosKMPSharedModule ?? shipfile?.ios?.kmpSharedModule ?? "shared",
-            kmpBuildTarget: environment.iosKMPBuildTarget ?? shipfile?.ios?.kmpBuildTarget ?? "IosSimulatorArm64",
-            kmpArchiveTarget: environment.iosKMPArchiveTarget ?? shipfile?.ios?.kmpArchiveTarget ?? "IosArm64",
-            kmpTestTask: environment.iosKMPTestTask ?? shipfile?.ios?.kmpTestTask ?? "iosSimulatorArm64Test",
-            androidModule: environment.androidModule ?? androidConfig?.module ?? "app",
+            kmpSharedModule: shipfile?.ios?.kmpSharedModule ?? environment.iosKMPSharedModule ?? "shared",
+            kmpBuildTarget: shipfile?.ios?.kmpBuildTarget ?? environment.iosKMPBuildTarget ?? "IosSimulatorArm64",
+            kmpArchiveTarget: shipfile?.ios?.kmpArchiveTarget ?? environment.iosKMPArchiveTarget ?? "IosArm64",
+            kmpTestTask: shipfile?.ios?.kmpTestTask ?? environment.iosKMPTestTask ?? "iosSimulatorArm64Test",
+            androidModule: androidConfig?.module ?? environment.androidModule ?? "app",
             androidScope: androidConfig?.scope ?? .module,
             androidTestKind: androidConfig?.testKind ?? .unit,
             androidTestDevices: androidConfig?.testDevices ?? TestDeviceConfig(strategy: .none),
-            androidBuildVariant: environment.androidBuildVariant ?? androidConfig?.buildVariant
+            androidBuildVariant: androidConfig?.buildVariant ?? environment.androidBuildVariant
                 ?? "release",
-            androidBuildType: AndroidBuildType(
-                rawValue: environment.androidBuildType ?? androidConfig?.buildType?.rawValue ?? "")
-                ?? androidConfig?.buildType ?? .aab,
-            gradlewPath: environment.androidGradlewPath ?? androidConfig?.gradlewPath,
-            gradleProjectDir: environment.androidGradleProjectDir ?? androidConfig?.gradleProjectDir,
+            androidBuildType: androidConfig?.buildType
+                ?? AndroidBuildType(rawValue: environment.androidBuildType ?? "")
+                ?? .aab,
+            gradlewPath: androidConfig?.gradlewPath ?? environment.androidGradlewPath,
+            gradleProjectDir: androidConfig?.gradleProjectDir ?? environment.androidGradleProjectDir,
             androidGradleFlags: androidConfig?.gradleFlags ?? [],
-            androidKeystorePath: environment.androidKeystorePath ?? androidConfig?.keystorePath,
+            androidKeystorePath: androidConfig?.keystorePath ?? environment.androidKeystorePath,
             androidKeystorePassword: environment.androidKeystorePassword,
-            androidKeyAlias: environment.androidKeyAlias ?? androidConfig?.keystoreAlias,
+            androidKeyAlias: androidConfig?.keystoreAlias ?? environment.androidKeyAlias,
             androidKeyPassword: environment.androidKeyPassword,
-            androidPackageName: environment.androidPackageName ?? androidConfig?.packageName,
+            androidPackageName: androidConfig?.packageName ?? environment.androidPackageName,
             androidRolloutFraction: androidConfig?.rolloutFraction,
             androidGradleProperties: androidGradleProperties,
             googlePlayServiceAccountData: googlePlayData
@@ -302,20 +302,20 @@ public struct ConfigResolver: Sendable {
 
     /// Resolves the target platform.
     ///
-    /// Priority: CLI flag > `SHIPIT_PLATFORM` env var > Shipfile > auto-detect from project files.
+    /// Priority: CLI flag > Shipfile > `SHIPIT_PLATFORM` env var > auto-detect from project files.
     private func resolvePlatform(cliOptions: CLIOptions, shipfile: Shipfile?, detectionRoot: String) -> Platform {
         // 1. CLI flag (highest priority)
         if let platform = cliOptions.platform { return platform }
 
-        // 2. Environment variable
+        // 2. Shipfile value
+        if let platform = shipfile?.platform { return platform }
+
+        // 3. Environment variable
         if let rawValue = environment.platform,
             let platform = Platform(rawValue: rawValue.lowercased())
         {
             return platform
         }
-
-        // 3. Shipfile value
-        if let platform = shipfile?.platform { return platform }
 
         // 4. Auto-detect from file system
         let fm = FileManager.default
@@ -342,8 +342,8 @@ public struct ConfigResolver: Sendable {
 
     /// Resolves the build system for a given target platform.
     ///
-    /// Priority: env var (`SHIPIT_IOS__BUILD_SYSTEM` / `SHIPIT_ANDROID__BUILD_SYSTEM`)
-    /// > Shipfile `ios.build_system` / `android.build_system`
+    /// Priority: Shipfile `ios.build_system` / `android.build_system`
+    /// > env var (`SHIPIT_IOS__BUILD_SYSTEM` / `SHIPIT_ANDROID__BUILD_SYSTEM`)
     /// > auto-detected value
     /// > ``BuildSystem/native``.
     private func resolveBuildSystem(
@@ -362,14 +362,14 @@ public struct ConfigResolver: Sendable {
             shipfileValue = shipfile?.android?.buildSystem
         }
 
+        if let shipfileValue { return shipfileValue }
+
         if let raw = envValue?.trimmingCharacters(in: .whitespaces).lowercased(),
             !raw.isEmpty,
             let resolved = BuildSystem(rawValue: raw)
         {
             return resolved
         }
-
-        if let shipfileValue { return shipfileValue }
 
         return autoDetected ?? .native
     }
@@ -508,9 +508,9 @@ public struct ConfigResolver: Sendable {
         cliOptions: CLIOptions,
         platform: Platform
     ) async throws -> AutoDetectedAppConfig {
-        let workspace = environment.appWorkspace ?? effectiveApp?.workspace
-        let project = environment.appProject ?? effectiveApp?.project
-        let scheme = cliOptions.scheme ?? environment.appScheme ?? effectiveApp?.scheme
+        let workspace = effectiveApp?.workspace ?? environment.appWorkspace
+        let project = effectiveApp?.project ?? environment.appProject
+        let scheme = cliOptions.scheme ?? effectiveApp?.scheme ?? environment.appScheme
 
         // Skip xcodebuild auto-detection for Android or non-macOS hosts
         #if os(macOS)

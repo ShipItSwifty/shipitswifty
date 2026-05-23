@@ -60,8 +60,8 @@ struct ConfigResolverBuildSystemTests {
         #expect(config.iosBuildSystem == .native)
     }
 
-    @Test("Environment variable overrides Shipfile value (iOS)")
-    func envOverridesShipfileIOS() async throws {
+    @Test("Shipfile overrides environment variable (iOS)")
+    func shipfileOverridesEnvIOS() async throws {
         let tempDirectory = try makeTempDirectory()
         defer { try? FileManager.default.removeItem(at: tempDirectory) }
         let shipfileURL = tempDirectory.appendingPathComponent("Shipfile.yml")
@@ -76,11 +76,11 @@ struct ConfigResolverBuildSystemTests {
         let resolver = ConfigResolver(environment: environment)
         let config = try await resolver.resolve(shipfilePath: shipfileURL.path)
 
-        #expect(config.iosBuildSystem == .kmp)
+        #expect(config.iosBuildSystem == .native)
     }
 
-    @Test("Environment variable overrides Shipfile value (Android)")
-    func envOverridesShipfileAndroid() async throws {
+    @Test("Shipfile overrides environment variable (Android)")
+    func shipfileOverridesEnvAndroid() async throws {
         let tempDirectory = try makeTempDirectory()
         defer { try? FileManager.default.removeItem(at: tempDirectory) }
         let shipfileURL = tempDirectory.appendingPathComponent("Shipfile.yml")
@@ -95,7 +95,45 @@ struct ConfigResolverBuildSystemTests {
         let resolver = ConfigResolver(environment: environment)
         let config = try await resolver.resolve(shipfilePath: shipfileURL.path)
 
-        #expect(config.androidBuildSystem == .kmp)
+        #expect(config.androidBuildSystem == .native)
+    }
+
+    @Test("Environment variable is used when Shipfile does not set build_system (iOS)")
+    func envFallbackWhenNoShipfileIOS() async throws {
+        let tempDirectory = try makeTempDirectory()
+        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+        let shipfileURL = tempDirectory.appendingPathComponent("Shipfile.yml")
+        try """
+        app:
+          scheme: MyApp
+        """.write(to: shipfileURL, atomically: true, encoding: .utf8)
+
+        let environment = Environment(env: [
+            "SHIPIT_IOS__BUILD_SYSTEM": "kmp"
+        ])
+        let resolver = ConfigResolver(environment: environment)
+        let config = try await resolver.resolve(shipfilePath: shipfileURL.path)
+
+        #expect(config.iosBuildSystem == .kmp)
+    }
+
+    @Test("Environment variable is used when Shipfile does not set build_system (Android)")
+    func envFallbackWhenNoShipfileAndroid() async throws {
+        let tempDirectory = try makeTempDirectory()
+        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+        let shipfileURL = tempDirectory.appendingPathComponent("Shipfile.yml")
+        try """
+        app:
+          scheme: MyApp
+        """.write(to: shipfileURL, atomically: true, encoding: .utf8)
+
+        let environment = Environment(env: [
+            "SHIPIT_ANDROID__BUILD_SYSTEM": "flutter"
+        ])
+        let resolver = ConfigResolver(environment: environment)
+        let config = try await resolver.resolve(shipfilePath: shipfileURL.path)
+
+        #expect(config.androidBuildSystem == .flutter)
     }
 
     @Test("Environment variable parsing is case-insensitive and trims whitespace")
@@ -201,7 +239,7 @@ struct ConfigResolverBuildSystemTests {
         #expect(config.androidGradleFlags == ["--configuration-cache", "--stacktrace"])
     }
 
-    @Test("Unknown environment value falls through to Shipfile or default")
+    @Test("Unknown environment value is ignored; Shipfile value wins")
     func unknownEnvFallsThrough() async throws {
         let tempDirectory = try makeTempDirectory()
         defer { try? FileManager.default.removeItem(at: tempDirectory) }
