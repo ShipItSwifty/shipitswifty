@@ -740,8 +740,18 @@ public struct TestAction: Action {
         let module = options.module ?? context.config.androidModule
         let variant = options.buildVariant ?? context.config.androidBuildVariant
         let kind = options.kind ?? context.config.androidTestKind
-        let scope = options.scope ?? context.config.androidScope
         let devices = options.devices ?? context.config.androidTestDevices
+
+        // For connected/emulator instrumented tests, feature modules hold the tests while the
+        // app module typically has none. Default to root scope so the root-level
+        // connectedAndroidTest task cascades across every module. Managed-device tasks are
+        // module-specific by design (the group task is defined per module), so keep the module
+        // default there. Users can always override by setting scope explicitly.
+        let isUnscopedInstrumented = kind == .instrumented && options.scope == nil
+        let isManagedDevice = devices.strategy == .managed
+        let defaultScope: GradleTaskScope =
+            isUnscopedInstrumented && !isManagedDevice ? .root : context.config.androidScope
+        let scope = options.scope ?? defaultScope
 
         // Choose task: explicit task name, or derive from kind/variant
         let task: GradleTask

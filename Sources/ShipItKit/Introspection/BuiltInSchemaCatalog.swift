@@ -832,9 +832,13 @@ public enum BuiltInSchemaCatalog {
                 example: .string("unit")),
             .string(
                 "scope",
-                description:
-                    "Android Gradle task scope: 'module' qualifies the task with the module, 'root' runs the task from the Gradle root.",
-                defaultValue: .string("module"),
+                description: """
+                    Android Gradle task scope: 'module' qualifies the task with the module path \
+                    (e.g. :app:connectedDebugAndroidTest); 'root' runs the unqualified root-level task \
+                    which cascades across all modules. When kind is 'instrumented' and scope is not set, \
+                    ShipIt defaults to 'root' — instrumented tests typically live in feature modules, \
+                    not the app module. Set scope: module explicitly if you want single-module behaviour.
+                    """,
                 allowedValues: ["module", "root"],
                 example: .string("root")),
             .string(

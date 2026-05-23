@@ -651,6 +651,56 @@ struct TestActionTests {
         #expect(commands().contains { $0.contains(":app:testProdDebugUnitTest") })
     }
 
+    @Test("Android instrumented connected test defaults to root scope")
+    func androidInstrumentedConnectedDefaultsToRootScope() async throws {
+        let (executor, commands) = makeCaptureExecutor { _, _ in
+            ShellOutput(stdout: "5 tests completed, 0 failed, 0 skipped\n", stderr: "", exitCode: 0)
+        }
+        let config = ResolvedConfig(
+            platform: .android,
+            androidModule: "app",
+            androidBuildVariant: "prodDebug"
+        )
+        let context = makeTestActionContext(executor: executor, config: config, platform: .android)
+
+        // No explicit scope set — should default to root for connected instrumented tests
+        _ = try await TestAction().run(
+            with: .init(
+                kind: .instrumented,
+                devices: TestDeviceConfig(strategy: .connected)
+            ),
+            context: context
+        )
+
+        // Root scope: task is unqualified (no :app: prefix)
+        #expect(commands().contains { $0.contains("connectedProdDebugAndroidTest") && !$0.contains(":app:") })
+    }
+
+    @Test("Android instrumented connected test respects explicit scope: module")
+    func androidInstrumentedConnectedRespectsExplicitModuleScope() async throws {
+        let (executor, commands) = makeCaptureExecutor { _, _ in
+            ShellOutput(stdout: "2 tests completed, 0 failed, 0 skipped\n", stderr: "", exitCode: 0)
+        }
+        let config = ResolvedConfig(
+            platform: .android,
+            androidModule: "app",
+            androidBuildVariant: "prodDebug"
+        )
+        let context = makeTestActionContext(executor: executor, config: config, platform: .android)
+
+        // Explicit scope: module must be respected
+        _ = try await TestAction().run(
+            with: .init(
+                kind: .instrumented,
+                scope: .module,
+                devices: TestDeviceConfig(strategy: .connected)
+            ),
+            context: context
+        )
+
+        #expect(commands().contains { $0.contains(":app:connectedProdDebugAndroidTest") })
+    }
+
     @Test("Android managed device test derives group variant task")
     func androidManagedDeviceDerivesGroupTask() async throws {
         let (executor, commands) = makeCaptureExecutor { _, _ in
