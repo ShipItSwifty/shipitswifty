@@ -105,6 +105,23 @@ struct BuildActionTests {
         #expect(arguments.contains(where: { $0 == "-PversionCode=42" }))
     }
 
+    @Test("BuildAction uses full Android build variant in Gradle task")
+    func buildActionUsesFullAndroidVariantTask() async throws {
+        let (executor, commands) = makeCaptureExecutor { _, _ in
+            ShellOutput(stdout: "BUILD SUCCESSFUL\n", stderr: "", exitCode: 0)
+        }
+        let config = ResolvedConfig(
+            platform: .android,
+            androidModule: "app",
+            androidBuildVariant: "prodRelease"
+        )
+        let context = makeTestActionContext(executor: executor, config: config, platform: .android)
+
+        _ = try await BuildAction().run(with: .init(), context: context)
+
+        #expect(commands().contains { $0.contains(":app:assembleProdRelease") })
+    }
+
     @Test("BuildAction enables provisioning updates for automatic signing")
     func buildActionAutomaticSigning() async throws {
         nonisolated(unsafe) var capturedCommand: Command?

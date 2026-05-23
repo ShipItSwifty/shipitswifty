@@ -50,6 +50,19 @@ struct FlutterFixtureIntegrationTests {
 
             let ipaDirectory = tmpFixture.appendingPathComponent("build/ios/ipa")
             #expect(FileManager.default.fileExists(atPath: ipaDirectory.path), "Expected Flutter IPA output under \(ipaDirectory.path)")
+            let ipaPath = ipaDirectory.appendingPathComponent("Runner.ipa")
+            #expect(FileManager.default.fileExists(atPath: ipaPath.path), "Expected Flutter IPA at \(ipaPath.path)")
+
+            let validateResult = try await CLI.run(
+                "validate", "archive",
+                "--ipa", ipaPath.path,
+                "--output", "json",
+                "--shipfile", shipfile.path,
+                workingDirectory: tmpFixture,
+                environment: environment,
+                timeout: 300
+            )
+            #expect(validateResult.exitCode == 0, "Flutter IPA validation failed:\n\(validateResult.output)")
         }
     }
 

@@ -546,7 +546,7 @@ public struct BuildAction: Action {
         if let flavor {
             task = GradleTask.assemble(flavor: flavor, variant: variant)
         } else {
-            task = variant.lowercased() == "debug" ? .assembleDebug : .assembleRelease
+            task = GradleTask(name: CrossPlatformArtifactPaths.gradleTaskName(prefix: "assemble", variant: variant))
         }
 
         // Qualify based on scope

@@ -760,6 +760,9 @@ public struct AISessionBuilder: Sendable {
         lines += [
             "",
             "When config is incomplete, ask one focused question at a time, starting with the highest-impact missing value.",
+            "When generating or editing workflows with test steps, ask whether to enable `infrastructure_retry` for transient test infrastructure failures.",
+            "Use `infrastructure_retry: { max_attempts: 3, initial_delay_seconds: 2, max_delay_seconds: 30 }` as a safe default when the user wants retries.",
+            "Use `retry_on_failure` only for iOS test re-runs of failing test cases; use `infrastructure_retry` for whole-invocation simulator, emulator, Flutter tool, or JS worker failures.",
         ]
 
         // Custom composite actions are first-class. Always mention the feature;

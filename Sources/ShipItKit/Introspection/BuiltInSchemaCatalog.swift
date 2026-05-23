@@ -355,22 +355,32 @@ public enum BuiltInSchemaCatalog {
                         example: .string("app"), envVar: "SHIPIT_ANDROID__MODULE"),
                     .string(
                         "scope",
-                        description: "Default Android Gradle task scope: 'module' qualifies tasks with the module, 'root' runs the task from the Gradle root.",
+                        description:
+                            "Default Android Gradle task scope: 'module' qualifies tasks with the module, 'root' runs the task from the Gradle root.",
                         allowedValues: ["module", "root"],
                         example: .string("module")),
                     .string(
                         "test_kind",
-                        description: "Default test kind: 'unit' for JVM tests (no device), 'instrumented' for on-device tests, 'e2e' for end-to-end.",
+                        description:
+                            "Default test kind: 'unit' for JVM tests (no device), 'instrumented' for on-device tests, 'e2e' for end-to-end.",
                         allowedValues: ["unit", "instrumented", "e2e"],
                         example: .string("unit")),
                     .object(
                         "test_devices",
                         description: "Default device configuration for Android instrumented tests.",
                         properties: [
-                            .string("strategy", description: "Device provisioning strategy.", allowedValues: ["none", "connected", "named_emulators", "managed"], example: .string("named_emulators")),
-                            .array("emulators", description: "AVD names to boot (named_emulators strategy).", example: .array([.string("Pixel_9_API_35")]), items: .string("avd", description: "Android emulator AVD name.")),
-                            .string("group", description: "Gradle managed device group name (managed strategy).", example: .string("phoneAndTablet")),
-                            .boolean("prompt_locally", description: "Allow interactive emulator selection when not in CI.", example: .bool(true)),
+                            .string(
+                                "strategy", description: "Device provisioning strategy.",
+                                allowedValues: ["none", "connected", "named_emulators", "managed"], example: .string("named_emulators")),
+                            .array(
+                                "emulators", description: "AVD names to boot (named_emulators strategy).",
+                                example: .array([.string("Pixel_9_API_35")]),
+                                items: .string("avd", description: "Android emulator AVD name.")),
+                            .string(
+                                "group", description: "Gradle managed device group name (managed strategy).",
+                                example: .string("phoneAndTablet")),
+                            .boolean(
+                                "prompt_locally", description: "Allow interactive emulator selection when not in CI.", example: .bool(true)),
                         ]),
                     .string(
                         "build_variant",
@@ -715,7 +725,8 @@ public enum BuiltInSchemaCatalog {
             ),
             .string(
                 "scope",
-                description: "Android Gradle task scope: 'module' qualifies the task with the module, 'root' runs the task from the Gradle root.",
+                description:
+                    "Android Gradle task scope: 'module' qualifies the task with the module, 'root' runs the task from the Gradle root.",
                 defaultValue: .string("module"),
                 allowedValues: ["module", "root"],
                 example: .string("module")),
@@ -821,7 +832,8 @@ public enum BuiltInSchemaCatalog {
                 example: .string("unit")),
             .string(
                 "scope",
-                description: "Android Gradle task scope: 'module' qualifies the task with the module, 'root' runs the task from the Gradle root.",
+                description:
+                    "Android Gradle task scope: 'module' qualifies the task with the module, 'root' runs the task from the Gradle root.",
                 defaultValue: .string("module"),
                 allowedValues: ["module", "root"],
                 example: .string("root")),
@@ -836,9 +848,14 @@ public enum BuiltInSchemaCatalog {
                 "devices",
                 description: "Device configuration for instrumented test runs.",
                 properties: [
-                    .string("strategy", description: "Device provisioning strategy.", allowedValues: ["none", "connected", "named_emulators", "managed"], example: .string("named_emulators")),
-                    .array("emulators", description: "AVD names to boot (named_emulators strategy).", example: .array([.string("Pixel_9_API_35")]), items: .string("avd", description: "Android emulator AVD name.")),
-                    .string("group", description: "Gradle managed device group name (managed strategy).", example: .string("phoneAndTablet")),
+                    .string(
+                        "strategy", description: "Device provisioning strategy.",
+                        allowedValues: ["none", "connected", "named_emulators", "managed"], example: .string("named_emulators")),
+                    .array(
+                        "emulators", description: "AVD names to boot (named_emulators strategy).",
+                        example: .array([.string("Pixel_9_API_35")]), items: .string("avd", description: "Android emulator AVD name.")),
+                    .string(
+                        "group", description: "Gradle managed device group name (managed strategy).", example: .string("phoneAndTablet")),
                     .boolean("prompt_locally", description: "Allow interactive emulator selection when not in CI.", example: .bool(true)),
                 ]),
         ]
@@ -887,7 +904,8 @@ public enum BuiltInSchemaCatalog {
             ),
             .string(
                 "scope",
-                description: "Android Gradle task scope: 'module' qualifies the task with the module, 'root' runs the task from the Gradle root.",
+                description:
+                    "Android Gradle task scope: 'module' qualifies the task with the module, 'root' runs the task from the Gradle root.",
                 defaultValue: .string("module"),
                 allowedValues: ["module", "root"],
                 example: .string("module")),

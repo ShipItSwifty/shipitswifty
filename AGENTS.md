@@ -311,6 +311,8 @@ When recommending changes to an agent:
 - For KMP, set `build_system: kmp` on **both** `ios:` and `android:`.
 - Suggest `versioning.source: kmp` when the user mentions `gradle.properties` versions or KMP-style version sharing.
 - Suggest `versioning.source: gradle` (or leave as default) when the user has a standard Android project with version info in `build.gradle.kts` / `build.gradle`.
+- When adding or changing test workflow behavior, update both `AISessionBuilder` agent guidance and the guided `generate` questionnaire/templates so agents and humans see the same choices.
+- For transient test infrastructure failures, ask whether to add `infrastructure_retry` to test steps. Use `max_attempts: 3`, `initial_delay_seconds: 2`, and `max_delay_seconds: 30` as the safe default when the user wants retries.
 - When the user has multiple workflows targeting different Android build variants (e.g. `qa` → `stagingRelease`, `release` → `prodRelease`), use per-workflow `build_variant` / `flavor` overrides instead of duplicating `--aab` paths on each step. Example:
   ```yaml
   workflows:
@@ -417,6 +419,7 @@ Every non-trivial code change (new feature, changed behaviour, new/renamed comma
 | Changed exit code or error type | `ShipItError`, `CLIHelpers.errorSuggestions`, `docs/architecture.md` exit code table |
 | Changed `ai-session` JSON contract | `AISessionTypes.swift` version bump, `AISessionBuilder`, `docs/architecture.md`, `AGENTS.md` |
 | Changed Shipfile schema | `BuiltInSchemaCatalog`, `Shipfile.swift`, `docs/configuration-reference.md` |
+| Changed generated workflow guidance or test workflow options | `AISessionBuilder`, `ShipfileSuggester`, `GenerateCommand`, `docs/features.md`, `docs/configuration-reference.md`, tests |
 | New backwards-compat alias | Document in `AGENTS.md` Commands section with `# backwards-compat alias:` comment |
 
 ## Common task reference

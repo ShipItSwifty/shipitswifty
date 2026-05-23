@@ -145,7 +145,8 @@ struct GenerateCommand: AsyncParsableCommand {
 
         let overrides = collectOverrides(
             suggestion: suggestion, platform: platform, formatter: formatter)
-        let confirmedYAML = apply(overrides: overrides, to: suggestion.yaml)
+        var confirmedYAML = apply(overrides: overrides, to: suggestion.yaml)
+        confirmedYAML = applyTestRetryQuestionnaire(to: confirmedYAML, formatter: formatter)
 
         formatter.printHeader("Shipfile Preview")
         formatter.print(confirmedYAML)
@@ -156,6 +157,38 @@ struct GenerateCommand: AsyncParsableCommand {
         }
 
         return confirmedYAML
+    }
+
+    private func applyTestRetryQuestionnaire(to yaml: String, formatter: HumanFormatter) -> String {
+        guard yaml.contains("infrastructure_retry"), yaml.contains("# options: { infrastructure_retry") else {
+            return yaml
+        }
+
+        formatter.printHeader("Test Retry Policy")
+        formatter.print("ShipIt can retry the entire test invocation for transient infrastructure failures.")
+        formatter.print(
+            "Examples: iOS simulator launch crashes, Android emulator disconnects, Flutter tool crashes, and JS worker failures.")
+        let enableRetries = confirm("Enable infrastructure retries for generated test steps?", defaultAnswer: true)
+        guard enableRetries else { return yaml }
+
+        let attempts = ask("Maximum attempts including the first run", defaultValue: "3")
+        let initialDelay = ask("Initial retry delay in seconds", defaultValue: "2")
+        let maxDelay = ask("Maximum retry delay in seconds", defaultValue: "30")
+        let optionLine =
+            "      options: { infrastructure_retry: { max_attempts: \(attempts), initial_delay_seconds: \(initialDelay), max_delay_seconds: \(maxDelay) } }"
+        let nestedLine =
+            "        infrastructure_retry: { max_attempts: \(attempts), initial_delay_seconds: \(initialDelay), max_delay_seconds: \(maxDelay) }"
+
+        return
+            yaml
+            .replacingOccurrences(
+                of: "      # options: { infrastructure_retry: { max_attempts: 3, initial_delay_seconds: 2, max_delay_seconds: 30 } }",
+                with: optionLine
+            )
+            .replacingOccurrences(
+                of: "        # infrastructure_retry: { max_attempts: 3, initial_delay_seconds: 2, max_delay_seconds: 30 }",
+                with: nestedLine
+            )
     }
 
     private func collectOverrides(

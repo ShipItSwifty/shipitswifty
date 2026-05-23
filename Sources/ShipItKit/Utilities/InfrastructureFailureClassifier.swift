@@ -111,20 +111,18 @@ public struct AndroidInfrastructureClassifier: InfrastructureFailureClassifier {
     static let nonRetryablePatterns: [String] = [
         "compilation failed",
         "could not resolve",
-        "execution failed for task",
-        "build failed with an exception",
         "> configure project",
     ]
 
     public func isRetryable(log: String) -> Bool {
         let normalized = log.lowercased()
 
-        for pattern in Self.nonRetryablePatterns where normalized.contains(pattern) {
-            return false
-        }
-
         for pattern in Self.retryablePatterns where normalized.contains(pattern) {
             return true
+        }
+
+        for pattern in Self.nonRetryablePatterns where normalized.contains(pattern) {
+            return false
         }
 
         return false

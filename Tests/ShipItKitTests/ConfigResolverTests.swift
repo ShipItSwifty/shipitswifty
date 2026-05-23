@@ -144,6 +144,29 @@ struct ConfigResolverTests {
         #expect(config.androidTestDevices.promptLocally == true)
     }
 
+    @Test("Android flavor resolves into Gradle properties")
+    func androidFlavorResolvesIntoGradleProperties() async throws {
+        let tempDirectory = try makeTempDirectory()
+        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+
+        let shipfileURL = tempDirectory.appendingPathComponent("Shipfile.yml")
+        try """
+        platform: android
+        android:
+          module: app
+          build_variant: release
+          flavor: prod
+          gradle_properties:
+            ci: "true"
+        """.write(to: shipfileURL, atomically: true, encoding: .utf8)
+
+        let resolver = ConfigResolver(environment: Environment(env: [:]))
+        let config = try await resolver.resolve(shipfilePath: shipfileURL.path)
+
+        #expect(config.androidGradleProperties["flavor"] == "prod")
+        #expect(config.androidGradleProperties["ci"] == "true")
+    }
+
     @Test("CLI CI flag resolves into config")
     func ciFlagResolvesIntoConfig() async throws {
         let resolver = ConfigResolver(environment: Environment(env: [:]))
