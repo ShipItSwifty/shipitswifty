@@ -125,6 +125,8 @@ public struct TestAction: Action {
     public static let description = "Run unit and UI tests (iOS: xcodebuild test, Android: gradlew test)"
 
     private let logger = Logger.forType(subsystem: "ShipItSwifty", TestAction.self)
+    private let promptForAndroidEmulatorsHandler: @Sendable ([String]) -> [String]
+    private let isInteractiveTerminalHandler: @Sendable () -> Bool
 
     /// Cross-platform infrastructure retry options.
     ///
@@ -133,7 +135,18 @@ public struct TestAction: Action {
     public typealias InfrastructureRetryOptions = InfrastructureRetryScheduler.Options
 
     /// Creates a `TestAction`.
-    public init() {}
+    public init() {
+        self.promptForAndroidEmulatorsHandler = Self.defaultPromptForAndroidEmulators
+        self.isInteractiveTerminalHandler = Self.defaultIsInteractiveTerminal
+    }
+
+    init(
+        promptForAndroidEmulatorsHandler: @escaping @Sendable ([String]) -> [String],
+        isInteractiveTerminalHandler: @escaping @Sendable () -> Bool
+    ) {
+        self.promptForAndroidEmulatorsHandler = promptForAndroidEmulatorsHandler
+        self.isInteractiveTerminalHandler = isInteractiveTerminalHandler
+    }
 
     /// Configuration for the test action.
     public struct Options: Codable, Sendable {
@@ -910,10 +923,11 @@ public struct TestAction: Action {
             return []
         case .namedEmulators:
             let shouldPrompt = devices.promptLocally ?? true
+            let availableEmulators = try await listAvailableEmulators(shell: context.shell)
             let desiredEmulators = try await resolvedAndroidEmulators(
                 configured: devices.emulators,
+                available: availableEmulators,
                 shouldPrompt: shouldPrompt,
-                shell: context.shell,
                 allowInteractiveSelection: !context.configIsCI
             )
 
@@ -942,23 +956,43 @@ public struct TestAction: Action {
 
     private func resolvedAndroidEmulators(
         configured: [String]?,
+        available: [String],
         shouldPrompt: Bool,
-        shell: ShellContext,
         allowInteractiveSelection: Bool
     ) async throws -> [String] {
+        let availableSet = Set(available)
+
         if let configured, !configured.isEmpty {
-            return configured
+            let validConfigured = configured.filter { availableSet.contains($0) }
+            if !validConfigured.isEmpty {
+                return validConfigured
+            }
+
+            let configuredList = configured.joined(separator: ", ")
+            guard !available.isEmpty else {
+                throw ShipItError.invalidConfiguration(
+                    reason: "Configured Android emulator(s) not found locally: \(configuredList). `emulator -list-avds` returned none."
+                )
+            }
+
+            guard allowInteractiveSelection, shouldPrompt, isInteractiveTerminalHandler() else {
+                throw ShipItError.invalidConfiguration(
+                    reason: "Configured Android emulator(s) not found locally: \(configuredList). Available AVDs: \(available.joined(separator: ", "))."
+                )
+            }
+
+            logger.info("Configured Android emulators not found locally; prompting for local selection")
+            return promptForAndroidEmulatorsHandler(available)
         }
 
-        guard allowInteractiveSelection, shouldPrompt, isInteractiveTerminal() else {
+        guard allowInteractiveSelection, shouldPrompt, isInteractiveTerminalHandler() else {
             return []
         }
 
-        let available = try await listAvailableEmulators(shell: shell)
         guard !available.isEmpty else { return [] }
 
         logger.info("No emulators configured for instrumented tests; prompting for local selection")
-        return promptForAndroidEmulators(available: available)
+        return promptForAndroidEmulatorsHandler(available)
     }
 
     private func listAvailableEmulators(shell: ShellContext) async throws -> [String] {
@@ -969,7 +1003,7 @@ public struct TestAction: Action {
             .filter { !$0.isEmpty }
     }
 
-    private func promptForAndroidEmulators(available: [String]) -> [String] {
+    private static func defaultPromptForAndroidEmulators(available: [String]) -> [String] {
         print("\nAvailable Android emulators:")
         for (index, name) in available.enumerated() {
             print("  \(index + 1). \(name)")
@@ -988,7 +1022,7 @@ public struct TestAction: Action {
         return indexes.map { available[$0 - 1] }
     }
 
-    private func isInteractiveTerminal() -> Bool {
+    private static func defaultIsInteractiveTerminal() -> Bool {
         isatty(STDIN_FILENO) != 0 && isatty(STDOUT_FILENO) != 0
     }
 

@@ -673,7 +673,7 @@ public struct AISessionBuilder: Sendable {
                 lines += [
                     "",
                     "The default Android beta workflow is: lint → test → archive (bundleRelease) → validate bundle → play-store.",
-                    "When the workflow includes Android instrumented tests, prefer explicit `devices` config so ShipIt can boot the intended AVD locally (`strategy: named_emulators`) or use Gradle Managed Devices in CI.",
+                    "When the workflow includes Android instrumented tests, prefer explicit `devices` config so ShipIt can boot the intended AVD locally (`strategy: named_emulators`) or use Gradle Managed Devices in CI. On local interactive runs, ShipIt can fall back to prompting for another available AVD when the configured one is unavailable.",
                     "The `track` option is REQUIRED on the play-store step (e.g. options: { track: internal }). Valid tracks: internal, alpha, beta, production.",
                     "validate_bundle auto-discovers the conventional AAB path for native Gradle, Flutter, and React Native projects when no explicit path is provided.",
                     "Google Play credentials (GOOGLE_PLAY_SERVICE_ACCOUNT_JSON) are required for Play Store upload.",
