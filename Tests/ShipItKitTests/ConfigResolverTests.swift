@@ -7,8 +7,8 @@ import Testing
 @Suite("ConfigResolver")
 struct ConfigResolverTests {
 
-    @Test("Environment overrides shipfile values")
-    func environmentOverridesShipfile() async throws {
+    @Test("Shipfile overrides environment values")
+    func shipfileOverridesEnvironment() async throws {
         let tempDirectory = try makeTempDirectory()
         defer { try? FileManager.default.removeItem(at: tempDirectory) }
 
@@ -20,6 +20,9 @@ struct ConfigResolverTests {
           bundle_id: com.example.shipfile
         build:
           configuration: Debug
+        app_store_connect:
+          key_id: ShipfileKey
+          issuer_id: ShipfileIssuer
         versioning:
           strategy: sequential
         """.write(to: shipfileURL, atomically: true, encoding: .utf8)
@@ -30,20 +33,22 @@ struct ConfigResolverTests {
             "SHIPIT_APP__BUNDLE_ID": "com.example.env",
             "SHIPIT_APP__TEAM_ID": "ENVTEAM123",
             "SHIPIT_BUILD__CONFIGURATION": "Release",
-            "ASC_KEY_ID": "ENVKEY",
-            "ASC_ISSUER_ID": "ENVISSUER",
+            "ASC_KEY_ID": "EnvKey",
+            "ASC_ISSUER_ID": "EnvIssuer",
         ])
         let resolver = ConfigResolver(environment: environment)
 
         let config = try await resolver.resolve(shipfilePath: shipfileURL.path)
 
-        #expect(config.appScheme == "EnvScheme")
-        #expect(config.appWorkspace == "Env.xcworkspace")
-        #expect(config.bundleID == "com.example.env")
+        // Shipfile values win when both sources provide a value
+        #expect(config.appScheme == "ShipfileScheme")
+        #expect(config.appWorkspace == "Example.xcworkspace")
+        #expect(config.bundleID == "com.example.shipfile")
+        #expect(config.buildConfiguration == "Debug")
+        #expect(config.ascKeyID == "ShipfileKey")
+        #expect(config.ascIssuerID == "ShipfileIssuer")
+        // Env is used as fallback when Shipfile doesn't provide the value
         #expect(config.teamID == "ENVTEAM123")
-        #expect(config.buildConfiguration == "Release")
-        #expect(config.ascKeyID == "ENVKEY")
-        #expect(config.ascIssuerID == "ENVISSUER")
     }
 
     @Test("CLI overrides environment and shipfile values")
