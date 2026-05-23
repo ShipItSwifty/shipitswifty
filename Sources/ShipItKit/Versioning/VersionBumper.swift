@@ -92,7 +92,7 @@ public struct VersionBumper: Sendable {
             try await writeBuildNumber(newBuild, source: effectiveSource)
         }
 
-        logger.info("Version bumped: \(currentVersion) -> \(newVersion), build: \(currentBuild) -> \(newBuild)")
+        logger.info("Version bumped: \(currentVersion) (\(currentBuild)) -> \(newVersion) (\(newBuild))")
         return VersionAction.Result(version: newVersion, buildNumber: newBuild)
     }
 
