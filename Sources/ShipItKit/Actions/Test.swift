@@ -357,12 +357,11 @@ public struct TestAction: Action {
     private func runFlutterTests(options: Options, context: ActionContext) async throws -> Result {
         logger.info("Running Flutter tests (flutter test)")
 
-        let scheduler = InfrastructureRetryScheduler(
-            options: options.infrastructureRetry ?? .init(),
-            classifier: FlutterInfrastructureClassifier()
-        )
-
-        return try await scheduler.execute(label: "flutter test") {
+        return try await InfrastructureRetryScheduler.executeIfConfigured(
+            options: options.infrastructureRetry,
+            classifier: FlutterInfrastructureClassifier(),
+            label: "flutter test"
+        ) {
             let flutter = FlutterCLI(context: context.shell).test()
             let output: ShellOutput
             do {
@@ -415,12 +414,11 @@ public struct TestAction: Action {
             "Detected package manager: \(runner.resolvedPackageManager.rawValue)"
         )
 
-        let scheduler = InfrastructureRetryScheduler(
-            options: options.infrastructureRetry ?? .init(),
-            classifier: ReactNativeInfrastructureClassifier()
-        )
-
-        return try await scheduler.execute(label: "npm test") {
+        return try await InfrastructureRetryScheduler.executeIfConfigured(
+            options: options.infrastructureRetry,
+            classifier: ReactNativeInfrastructureClassifier(),
+            label: "npm test"
+        ) {
             let output = try await runner.run(script: "test")
             let (pass, fail, skip) = self.parseJSTestCounts(from: output.stdout + output.stderr)
             self.logger.info("React Native tests complete — pass: \(pass), fail: \(fail), skip: \(skip)")
@@ -529,12 +527,11 @@ public struct TestAction: Action {
 
         logger.info("Running KMP iOS test task '\(task.name)'")
 
-        let scheduler = InfrastructureRetryScheduler(
-            options: options.infrastructureRetry ?? .init(),
-            classifier: KMPInfrastructureClassifier()
-        )
-
-        return try await scheduler.execute(label: task.name) {
+        return try await InfrastructureRetryScheduler.executeIfConfigured(
+            options: options.infrastructureRetry,
+            classifier: KMPInfrastructureClassifier(),
+            label: task.name
+        ) {
             let gradle = context.gradle()
                 .task(task)
 
@@ -649,12 +646,11 @@ public struct TestAction: Action {
         options: Options,
         context: ActionContext
     ) async throws -> (pass: Int, fail: Int, skip: Int) {
-        let scheduler = InfrastructureRetryScheduler(
-            options: options.infrastructureRetry ?? .init(),
-            classifier: IOSInfrastructureClassifier()
-        )
-
-        return try await scheduler.execute(label: destination) {
+        return try await InfrastructureRetryScheduler.executeIfConfigured(
+            options: options.infrastructureRetry,
+            classifier: IOSInfrastructureClassifier(),
+            label: destination
+        ) {
             try self.removeStaleResultBundleIfNeeded(resultBundlePath)
 
             var xcodeBuild = XcodeBuild(context: context.shell)
@@ -789,12 +785,11 @@ public struct TestAction: Action {
 
         logger.info("Running Android test task '\(scopedTask.name)'")
 
-        let scheduler = InfrastructureRetryScheduler(
-            options: options.infrastructureRetry ?? .init(),
-            classifier: AndroidInfrastructureClassifier()
-        )
-
-        return try await scheduler.execute(label: scopedTask.name) {
+        return try await InfrastructureRetryScheduler.executeIfConfigured(
+            options: options.infrastructureRetry,
+            classifier: AndroidInfrastructureClassifier(),
+            label: scopedTask.name
+        ) {
             let gradle = context.gradle()
                 .task(scopedTask)
 

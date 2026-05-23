@@ -112,11 +112,10 @@ Test action configuration. Works across all platforms (iOS, Android, Flutter, Re
 
 ### `infrastructure_retry`
 
-Retries the entire test invocation for transient infrastructure failures. Each platform has its own failure classifier that distinguishes real test failures from infrastructure problems (simulator crashes, emulator disconnects, tool crashes, worker OOMs).
+Retries the entire test invocation for transient infrastructure failures. Each platform has its own failure classifier that distinguishes real test failures from infrastructure problems (simulator crashes, emulator disconnects, tool crashes, worker OOMs). Presence of this block enables retries; omit it to disable.
 
 | Key | Type | Default | Description |
 |---|---|---|---|
-| `enabled` | bool | `false` | Enable infrastructure retries |
 | `max_attempts` | int | `3` | Maximum total attempts including the first |
 | `initial_delay_seconds` | number | `2` | Delay before first retry (exponential backoff with ±25% jitter) |
 | `max_delay_seconds` | number | `60` | Maximum delay cap |
@@ -126,7 +125,6 @@ test:
   test_plan: Novalingo
   retry_on_failure: true
   infrastructure_retry:
-    enabled: true
     max_attempts: 3
     initial_delay_seconds: 2
     max_delay_seconds: 60

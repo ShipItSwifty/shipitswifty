@@ -38,10 +38,10 @@ public struct InfrastructureRetryScheduler: Sendable {
     ///
     /// This is the cross-platform version of the retry options. Each platform's test
     /// runner reads from the same `InfrastructureRetryOptions` in the Shipfile.
+    ///
+    /// Presence of the `infrastructure_retry` block in the Shipfile enables retries.
+    /// There is no explicit `enabled` flag — omit the block to disable.
     public struct Options: Codable, Sendable, Equatable {
-        /// Whether infrastructure retries are enabled.
-        public var enabled: Bool?
-
         /// Maximum total attempts (including the first try). Default: 3.
         public var maxAttempts: Int?
 
@@ -53,19 +53,16 @@ public struct InfrastructureRetryScheduler: Sendable {
         public var maxDelaySeconds: Double?
 
         enum CodingKeys: String, CodingKey {
-            case enabled
             case maxAttempts = "max_attempts"
             case initialDelaySeconds = "initial_delay_seconds"
             case maxDelaySeconds = "max_delay_seconds"
         }
 
         public init(
-            enabled: Bool? = nil,
             maxAttempts: Int? = nil,
             initialDelaySeconds: Double? = nil,
             maxDelaySeconds: Double? = nil
         ) {
-            self.enabled = enabled
             self.maxAttempts = maxAttempts
             self.initialDelaySeconds = initialDelaySeconds
             self.maxDelaySeconds = maxDelaySeconds
@@ -73,7 +70,6 @@ public struct InfrastructureRetryScheduler: Sendable {
 
         // MARK: Resolved values with defaults
 
-        public var isEnabled: Bool { enabled ?? false }
         public var resolvedMaxAttempts: Int { max(maxAttempts ?? 3, 1) }
         public var resolvedInitialDelay: Duration {
             .milliseconds(Int((initialDelaySeconds ?? 2.0) * 1000))
@@ -138,10 +134,6 @@ public struct InfrastructureRetryScheduler: Sendable {
         operation: @Sendable () async throws -> T,
         extractContext: @Sendable (any Error & Sendable) -> TestFailureContext?
     ) async throws -> T {
-        guard options.isEnabled else {
-            return try await operation()
-        }
-
         let maxAttempts = options.resolvedMaxAttempts
         var attempt = 1
         var currentDelay = options.resolvedInitialDelay
@@ -202,5 +194,21 @@ public struct InfrastructureRetryScheduler: Sendable {
         let jitter = Double.random(in: 0.75...1.25)
         let jittered = seconds * jitter
         return .milliseconds(Int(jittered * 1000))
+    }
+
+    /// Convenience: if options are nil (block absent), runs the operation once without retry.
+    /// If options are present, creates a scheduler and executes with retry.
+    public static func executeIfConfigured<T: Sendable>(
+        options: Options?,
+        classifier: any InfrastructureFailureClassifier,
+        label: String,
+        operation: @Sendable () async throws -> T,
+        extractContext: @Sendable (any Error & Sendable) -> TestFailureContext?
+    ) async throws -> T {
+        guard let options else {
+            return try await operation()
+        }
+        let scheduler = InfrastructureRetryScheduler(options: options, classifier: classifier)
+        return try await scheduler.execute(label: label, operation: operation, extractContext: extractContext)
     }
 }
