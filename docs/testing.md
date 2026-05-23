@@ -219,7 +219,7 @@ func retriesInfrastructureFailureAndRecovers() async throws {
         with: .init(
             scheme: "MockApp",
             destination: "platform=iOS Simulator,name=iPhone 16",
-            infrastructureRetry: .init(enabled: true, maxAttempts: 2, initialDelaySeconds: 0)
+            infrastructureRetry: .init(maxAttempts: 2, initialDelaySeconds: 0)
         ),
         context: context
     )

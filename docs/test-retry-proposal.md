@@ -72,8 +72,7 @@ Single unified config block in Shipfile, works for all platforms:
 ```yaml
 test:
   retry_on_failure: true          # Platform-native flaky test retry (iOS only today)
-  infrastructure_retry:
-    enabled: true                  # Enable cross-platform infrastructure retries
+  infrastructure_retry:           # Presence of this block enables retries; omit to disable
     max_attempts: 3                # Total attempts including first try
     initial_delay_seconds: 2       # Delay before first retry
     max_delay_seconds: 60          # Backoff cap
@@ -86,7 +85,6 @@ public typealias InfrastructureRetryOptions = InfrastructureRetryScheduler.Optio
 
 // In InfrastructureRetryScheduler:
 public struct Options: Codable, Sendable, Equatable {
-    public var enabled: Bool?               // default: false
     public var maxAttempts: Int?            // default: 3
     public var initialDelaySeconds: Double? // default: 2.0
     public var maxDelaySeconds: Double?     // default: 60.0
@@ -126,7 +124,7 @@ For each platform test runner:
 - Do not retry all action types (only `test`).
 - Do not add simulator reset/erase side effects.
 - Do not attempt perfect classification of every error.
-- Do not make retries enabled by default (opt-in for now).
+- Retries are opt-in: the user must add the `infrastructure_retry:` block to enable them.
 
 ## Testing
 
@@ -142,7 +140,7 @@ Unit tests cover:
 
 ## Rollout Strategy
 
-1. Ship as opt-in (`enabled: false` default).
+1. Ship as opt-in (block must be present to enable).
 2. Recommend for CI/beta workflows with UITests or instrumented Android tests.
 3. Collect field data on retry rates and false-positive/negative classification.
 4. Consider default-on for CI environments once field experience is positive.

@@ -789,14 +789,8 @@ public enum BuiltInSchemaCatalog {
             .object(
                 "infrastructure_retry",
                 description:
-                    "Retry the entire test invocation for transient infrastructure failures (works across all platforms: iOS simulator crashes, Android emulator disconnects, Flutter tool crashes, JS worker failures).",
+                    "Retry the entire test invocation for transient infrastructure failures (works across all platforms: iOS simulator crashes, Android emulator disconnects, Flutter tool crashes, JS worker failures). Presence of this block enables retries; omit it to disable.",
                 properties: [
-                    .boolean(
-                        "enabled",
-                        description: "Enable infrastructure-level retries for test runs.",
-                        defaultValue: .bool(false),
-                        example: .bool(true)
-                    ),
                     .integer(
                         "max_attempts",
                         description: "Maximum number of full test invocation attempts, including the first.",
