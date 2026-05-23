@@ -16,7 +16,9 @@ workflows:
     - action: test
       options:
         kind: instrumented
-        device_strategy: connected
+        scope: root
+        devices:
+          strategy: connected
     - action: archive
     - action: play-store
       options:
