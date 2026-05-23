@@ -90,7 +90,7 @@ The test action supports three **kinds** (`unit`, `instrumented`, `e2e`) and fou
       group: phoneAndTablet
 ```
 
-When `kind` is `instrumented` and `devices.strategy` is `named_emulators`, ShipIt boots the listed AVDs before running the test task and tears them down after. When `prompt_locally` is `true` and the run is interactive (not CI), ShipIt prompts the developer to select from available emulators if none are configured.
+When `kind` is `instrumented` and `devices.strategy` is `named_emulators`, ShipIt boots the listed AVDs before running the test task and tears them down after. When `prompt_locally` is `true` and the run is interactive (not CI), ShipIt prompts the developer to select from available emulators if none are configured or if the configured AVD names are not available locally.
 
 ## Typed Gradle wrapper
 

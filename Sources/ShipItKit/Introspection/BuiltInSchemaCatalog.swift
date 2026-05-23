@@ -380,7 +380,7 @@ public enum BuiltInSchemaCatalog {
                                 "group", description: "Gradle managed device group name (managed strategy).",
                                 example: .string("phoneAndTablet")),
                             .boolean(
-                                "prompt_locally", description: "Allow interactive emulator selection when not in CI.", example: .bool(true)),
+                                "prompt_locally", description: "Allow interactive emulator selection when not in CI when no AVDs are configured or the configured AVDs are unavailable locally.", example: .bool(true)),
                         ]),
                     .string(
                         "build_variant",
@@ -860,7 +860,7 @@ public enum BuiltInSchemaCatalog {
                         example: .array([.string("Pixel_9_API_35")]), items: .string("avd", description: "Android emulator AVD name.")),
                     .string(
                         "group", description: "Gradle managed device group name (managed strategy).", example: .string("phoneAndTablet")),
-                    .boolean("prompt_locally", description: "Allow interactive emulator selection when not in CI.", example: .bool(true)),
+                    .boolean("prompt_locally", description: "Allow interactive emulator selection when not in CI when no AVDs are configured or the configured AVDs are unavailable locally.", example: .bool(true)),
                 ]),
         ]
     }

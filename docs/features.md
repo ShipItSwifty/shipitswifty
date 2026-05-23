@@ -230,6 +230,7 @@ workflows:
         devices:
           strategy: named_emulators
           emulators: ["Pixel_9_API_35"]
+          # prompt_locally: true  # optional local fallback if the configured AVD is unavailable
     - action: archive
     - action: play-store
       options:

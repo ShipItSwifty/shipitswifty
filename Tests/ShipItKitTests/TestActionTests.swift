@@ -730,6 +730,113 @@ struct TestActionTests {
         #expect(commands().contains { $0.contains("connectedProdDebugAndroidTest") && !$0.contains(":app:") })
     }
 
+    @Test("Android named emulators fall back to local prompt when configured AVD is unavailable")
+    func androidNamedEmulatorsFallBackToLocalPromptWhenConfiguredAVDUnavailable() async throws {
+        let (executor, commands) = makeCaptureExecutor { command, _ in
+            let description = command.description
+
+            if description.contains("emulator -list-avds") {
+                return ShellOutput(stdout: "Medium_Phone_API_35\nPixel_Tablet_API_35\n", stderr: "", exitCode: 0)
+            }
+
+            if description.contains("emulator @Medium_Phone_API_35") {
+                return ShellOutput(stdout: "", stderr: "", exitCode: 0)
+            }
+
+            if description.contains("adb devices -l") {
+                return ShellOutput(
+                    stdout: "List of devices attached\nemulator-5554          device product:sdk_gphone64_arm64 model:Medium_Phone_API_35 device:emu64a transport_id:1 avd:Medium_Phone_API_35\n",
+                    stderr: "",
+                    exitCode: 0
+                )
+            }
+
+            if description.contains("getprop sys.boot_completed") {
+                return ShellOutput(stdout: "1\n", stderr: "", exitCode: 0)
+            }
+
+            if description.contains("connectedProdDebugAndroidTest") {
+                return ShellOutput(stdout: "5 tests completed, 0 failed, 0 skipped\n", stderr: "", exitCode: 0)
+            }
+
+            return ShellOutput(stdout: "", stderr: "", exitCode: 0)
+        }
+        let config = ResolvedConfig(
+            platform: .android,
+            androidModule: "app",
+            androidBuildVariant: "prodDebug"
+        )
+        let context = makeTestActionContext(executor: executor, config: config, platform: .android)
+        let selectedEmulators = Mutex<[String]>([])
+        let action = TestAction(
+            promptForAndroidEmulatorsHandler: { available in
+                selectedEmulators.withLock { $0 = available }
+                return ["Medium_Phone_API_35"]
+            },
+            isInteractiveTerminalHandler: { true }
+        )
+
+        _ = try await action.run(
+            with: .init(
+                kind: .instrumented,
+                devices: TestDeviceConfig(
+                    strategy: .namedEmulators,
+                    emulators: ["Missing_AVD"],
+                    promptLocally: true
+                )
+            ),
+            context: context
+        )
+
+        #expect(selectedEmulators.withLock { $0 } == ["Medium_Phone_API_35", "Pixel_Tablet_API_35"])
+        #expect(commands().contains { $0.contains("emulator -list-avds") })
+        #expect(commands().contains { $0.contains("adb devices -l") })
+        #expect(commands().contains { $0.contains("connectedProdDebugAndroidTest") && !$0.contains(":app:") })
+    }
+
+    @Test("Android named emulators fail clearly when configured AVD is unavailable and prompting is disabled")
+    func androidNamedEmulatorsFailClearlyWhenConfiguredAVDUnavailableAndPromptingDisabled() async throws {
+        let executor = MockExecutor { command, _ in
+            let description = command.description
+
+            if description.contains("emulator -list-avds") {
+                return ShellOutput(stdout: "Medium_Phone_API_35\nPixel_Tablet_API_35\n", stderr: "", exitCode: 0)
+            }
+
+            Issue.record("Unexpected command: \(description)")
+            return ShellOutput(stdout: "", stderr: "", exitCode: 0)
+        }
+        let config = ResolvedConfig(
+            platform: .android,
+            androidModule: "app",
+            androidBuildVariant: "prodDebug"
+        )
+        let context = makeTestActionContext(executor: executor, config: config, platform: .android)
+
+        do {
+            _ = try await TestAction().run(
+                with: .init(
+                    kind: .instrumented,
+                    devices: TestDeviceConfig(
+                        strategy: .namedEmulators,
+                        emulators: ["Missing_AVD"],
+                        promptLocally: false
+                    )
+                ),
+                context: context
+            )
+            Issue.record("Expected TestAction to throw when configured Android emulator is unavailable")
+        } catch let error as ShipItError {
+            guard case .invalidConfiguration(let reason) = error else {
+                Issue.record("Expected .invalidConfiguration, got \(error)")
+                return
+            }
+            #expect(reason.contains("Configured Android emulator(s) not found locally"))
+            #expect(reason.contains("Missing_AVD"))
+            #expect(reason.contains("Medium_Phone_API_35"))
+        }
+    }
+
     @Test("Android connected strategy in CI throws when no device is attached")
     func androidConnectedStrategyInCIThrowsWithoutAttachedDevice() async throws {
         let executor = MockExecutor { command, _ in
