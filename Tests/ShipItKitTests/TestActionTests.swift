@@ -654,7 +654,7 @@ struct TestActionTests {
     @Test("Android instrumented connected test defaults to root scope")
     func androidInstrumentedConnectedDefaultsToRootScope() async throws {
         let (executor, commands) = makeCaptureExecutor { _, _ in
-            ShellOutput(stdout: "5 tests completed, 0 failed, 0 skipped\n", stderr: "", exitCode: 0)
+            ShellOutput(stdout: "List of devices attached\nemulator-5554\tdevice\n", stderr: "", exitCode: 0)
         }
         let config = ResolvedConfig(
             platform: .android,
@@ -674,6 +674,98 @@ struct TestActionTests {
 
         // Root scope: task is unqualified (no :app: prefix)
         #expect(commands().contains { $0.contains("connectedProdDebugAndroidTest") && !$0.contains(":app:") })
+    }
+
+    @Test("Android connected strategy falls back to booting a local emulator when none are attached")
+    func androidConnectedStrategyFallsBackToLocalEmulator() async throws {
+        let (executor, commands) = makeCaptureExecutor { command, _ in
+            let description = command.description
+
+            if description.contains("adb devices") && !description.contains("-l") {
+                return ShellOutput(stdout: "List of devices attached\n\n", stderr: "", exitCode: 0)
+            }
+
+            if description.contains("emulator -list-avds") {
+                return ShellOutput(stdout: "Medium_Phone_API_35\n", stderr: "", exitCode: 0)
+            }
+
+            if description.contains("emulator @Medium_Phone_API_35") {
+                return ShellOutput(stdout: "", stderr: "", exitCode: 0)
+            }
+
+            if description.contains("adb devices -l") {
+                return ShellOutput(
+                    stdout: "List of devices attached\nemulator-5554          device product:sdk_gphone64_arm64 model:Medium_Phone_API_35 device:emu64a transport_id:1 avd:Medium_Phone_API_35\n",
+                    stderr: "",
+                    exitCode: 0
+                )
+            }
+
+            if description.contains("getprop sys.boot_completed") {
+                return ShellOutput(stdout: "1\n", stderr: "", exitCode: 0)
+            }
+
+            if description.contains("connectedProdDebugAndroidTest") {
+                return ShellOutput(stdout: "5 tests completed, 0 failed, 0 skipped\n", stderr: "", exitCode: 0)
+            }
+
+            return ShellOutput(stdout: "", stderr: "", exitCode: 0)
+        }
+        let config = ResolvedConfig(
+            platform: .android,
+            androidModule: "app",
+            androidBuildVariant: "prodDebug"
+        )
+        let context = makeTestActionContext(executor: executor, config: config, platform: .android)
+
+        _ = try await TestAction().run(
+            with: .init(
+                kind: .instrumented,
+                devices: TestDeviceConfig(strategy: .connected, promptLocally: false)
+            ),
+            context: context
+        )
+
+        #expect(commands().contains { $0.contains("emulator -list-avds") })
+        #expect(commands().contains { $0.contains("connectedProdDebugAndroidTest") && !$0.contains(":app:") })
+    }
+
+    @Test("Android connected strategy in CI throws when no device is attached")
+    func androidConnectedStrategyInCIThrowsWithoutAttachedDevice() async throws {
+        let executor = MockExecutor { command, _ in
+            let description = command.description
+
+            if description.contains("adb devices") && !description.contains("-l") {
+                return ShellOutput(stdout: "List of devices attached\n\n", stderr: "", exitCode: 0)
+            }
+
+            Issue.record("Unexpected command: \(description)")
+            return ShellOutput(stdout: "", stderr: "", exitCode: 0)
+        }
+        let config = ResolvedConfig(
+            platform: .android,
+            ci: true,
+            androidModule: "app",
+            androidBuildVariant: "prodDebug"
+        )
+        let context = makeTestActionContext(executor: executor, config: config, platform: .android)
+
+        do {
+            _ = try await TestAction().run(
+                with: .init(
+                    kind: .instrumented,
+                    devices: TestDeviceConfig(strategy: .connected)
+                ),
+                context: context
+            )
+            Issue.record("Expected TestAction to throw when CI has no Android device")
+        } catch let error as ShipItError {
+            guard case .invalidConfiguration(let reason) = error else {
+                Issue.record("Expected .invalidConfiguration, got \(error)")
+                return
+            }
+            #expect(reason.contains("connected device or emulator in CI"))
+        }
     }
 
     @Test("Android instrumented connected test respects explicit scope: module")

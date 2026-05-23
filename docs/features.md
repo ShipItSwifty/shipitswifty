@@ -205,7 +205,7 @@ Android support ships in v1 alongside iOS. Platform is auto-detected from projec
 |---|---|---|
 | **Build** | `shipit build --platform android` | `./gradlew assembleRelease` (or configured variant) |
 | **Archive** | `shipit archive --platform android` | `./gradlew bundleRelease` — produces an `.aab` |
-| **Test** | `shipit test --platform android` | `./gradlew test` (unit) or `./gradlew connectedAndroidTest` (instrumented) |
+| **Test** | `shipit test --platform android` | `./gradlew test` (unit) or `./gradlew connectedAndroidTest` (instrumented). Instrumented runs support connected devices, named AVD boot, and Gradle Managed Devices. |
 | **Lint** | `shipit lint --platform android` | `./gradlew lint` |
 | **Play Store** | `shipit play-store` | Upload AAB to Google Play via service account JWT auth. Supports per-workflow `build_variant` and `flavor` overrides for artifact path auto-discovery. Requires `track` option on the workflow step. |
 | **Validate Bundle** | `shipit validate bundle` | `bundletool validate --bundle` for AABs plus ZIP/size/extension checks for AAB/APK pre-upload validation. Auto-discovers conventional native Gradle, Flutter, and React Native artifact paths when no explicit path is provided. |
@@ -223,6 +223,13 @@ android:
 workflows:
   beta:
     - action: test
+    - action: test
+      options:
+        kind: instrumented
+        scope: root
+        devices:
+          strategy: named_emulators
+          emulators: ["Pixel_9_API_35"]
     - action: archive
     - action: play-store
       options:

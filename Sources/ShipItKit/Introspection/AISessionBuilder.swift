@@ -673,6 +673,7 @@ public struct AISessionBuilder: Sendable {
                 lines += [
                     "",
                     "The default Android beta workflow is: lint → test → archive (bundleRelease) → validate bundle → play-store.",
+                    "When the workflow includes Android instrumented tests, prefer explicit `devices` config so ShipIt can boot the intended AVD locally (`strategy: named_emulators`) or use Gradle Managed Devices in CI.",
                     "The `track` option is REQUIRED on the play-store step (e.g. options: { track: internal }). Valid tracks: internal, alpha, beta, production.",
                     "validate_bundle auto-discovers the conventional AAB path for native Gradle, Flutter, and React Native projects when no explicit path is provided.",
                     "Google Play credentials (GOOGLE_PLAY_SERVICE_ACCOUNT_JSON) are required for Play Store upload.",
@@ -763,6 +764,7 @@ public struct AISessionBuilder: Sendable {
             "When generating or editing workflows with test steps, ask whether to enable `infrastructure_retry` for transient test infrastructure failures.",
             "Use `infrastructure_retry: { max_attempts: 3, initial_delay_seconds: 2, max_delay_seconds: 30 }` as a safe default when the user wants retries.",
             "Use `retry_on_failure` only for iOS test re-runs of failing test cases; use `infrastructure_retry` for whole-invocation simulator, emulator, Flutter tool, or JS worker failures.",
+            "For Android instrumented tests, ask whether ShipIt should boot named local emulators (`devices.strategy: named_emulators`) or rely on CI-managed devices before generating the workflow.",
         ]
 
         // Custom composite actions are first-class. Always mention the feature;

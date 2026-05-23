@@ -876,8 +876,34 @@ public struct TestAction: Action {
         case .none:
             return []
         case .connected:
-            // Assume a device/emulator is already available — nothing to orchestrate.
-            return []
+            if try await hasConnectedAndroidDevice(shell: context.shell) {
+                return []
+            }
+
+            guard !context.configIsCI else {
+                throw ShipItError.invalidConfiguration(
+                    reason:
+                        "Android instrumented tests require a connected device or emulator in CI. Configure `devices.strategy: named_emulators` or `managed`, or start a device before running the workflow."
+                )
+            }
+
+            let available = try await listAvailableEmulators(shell: context.shell)
+            guard !available.isEmpty else {
+                throw ShipItError.invalidConfiguration(
+                    reason:
+                        "Android instrumented tests require a connected device or available AVD. No connected devices were found and `emulator -list-avds` returned none."
+                )
+            }
+
+            logger.info("No connected Android devices found; falling back to a local emulator selection")
+            return try await prepareAndroidDevices(
+                devices: TestDeviceConfig(
+                    strategy: .namedEmulators,
+                    emulators: devices.emulators,
+                    promptLocally: devices.promptLocally ?? true
+                ),
+                context: context
+            )
         case .managed:
             // Gradle Managed Devices handle their own lifecycle — nothing to orchestrate.
             // The task name itself targets the managed device.
@@ -976,6 +1002,20 @@ public struct TestAction: Action {
             }
         }
         return nil
+    }
+
+    private func hasConnectedAndroidDevice(shell: ShellContext) async throws -> Bool {
+        let output = try await Adb(context: shell).devices().run()
+        for line in output.stdout.components(separatedBy: .newlines) {
+            let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty, trimmed != "List of devices attached" else { continue }
+            let columns = trimmed.components(separatedBy: .whitespaces).filter { !$0.isEmpty }
+            guard columns.count >= 2 else { continue }
+            if columns[1] == "device" {
+                return true
+            }
+        }
+        return false
     }
 
     private func waitForEmulatorBoot(avdName: String, shell: ShellContext) async throws -> String {
