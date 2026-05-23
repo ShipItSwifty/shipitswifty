@@ -913,6 +913,31 @@ public enum BuiltInSchemaCatalog {
                 defaultValue: .string("module"),
                 allowedValues: ["module", "root"],
                 example: .string("module")),
+            .object(
+                "infrastructure_retry",
+                description:
+                    "Retry the iOS archive for transient Apple provisioning-server or network failures that occur when -allowProvisioningUpdates contacts Apple's servers. Presence of this block enables retries; omit it to disable. Permanent failures (missing certificate, invalid team ID) are never retried.",
+                properties: [
+                    .integer(
+                        "max_attempts",
+                        description: "Maximum number of archive attempts, including the first.",
+                        defaultValue: .int(3),
+                        example: .int(3)
+                    ),
+                    .number(
+                        "initial_delay_seconds",
+                        description: "Delay before the first retry; later retries use exponential backoff with jitter.",
+                        defaultValue: .double(5),
+                        example: .double(5)
+                    ),
+                    .number(
+                        "max_delay_seconds",
+                        description: "Maximum delay cap in seconds. Backoff will not exceed this value.",
+                        defaultValue: .double(30),
+                        example: .double(30)
+                    ),
+                ]
+            ),
         ]
     }
 

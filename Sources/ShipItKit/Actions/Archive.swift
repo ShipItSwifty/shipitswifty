@@ -73,6 +73,13 @@ public struct ArchiveAction: Action {
         /// Gradle task scope — `module` (default) or `root`. (Android only)
         public var scope: GradleTaskScope?
 
+        /// Retry policy for transient infrastructure failures. (iOS only)
+        ///
+        /// Covers transient Apple provisioning-server and network failures that occur
+        /// when `-allowProvisioningUpdates` contacts Apple's servers during archive.
+        /// Permanent failures (missing certificate, invalid team ID) are never retried.
+        public var infrastructureRetry: InfrastructureRetryScheduler.Options?
+
         /// Creates `Options` for the archive action.
         ///
         /// All parameters are optional; unset values fall back to `ResolvedConfig`.
@@ -87,7 +94,8 @@ public struct ArchiveAction: Action {
             buildVariant: String? = nil,
             flavor: String? = nil,
             gradleProperties: [String: String]? = nil,
-            scope: GradleTaskScope? = nil
+            scope: GradleTaskScope? = nil,
+            infrastructureRetry: InfrastructureRetryScheduler.Options? = nil
         ) {
             self.scheme = scheme
             self.configuration = configuration
@@ -100,6 +108,7 @@ public struct ArchiveAction: Action {
             self.flavor = flavor
             self.gradleProperties = gradleProperties
             self.scope = scope
+            self.infrastructureRetry = infrastructureRetry
         }
     }
 
@@ -417,15 +426,42 @@ public struct ArchiveAction: Action {
             xcodeBuild = xcodeBuild.buildSetting(key, value)
         }
 
-        let output = try await xcodeBuild.run()
-
-        if output.exitCode != 0 {
-            logger.error("Archive failed with exit code \(output.exitCode)")
-            throw ShipItError.archiveFailed(exitCode: Int(output.exitCode), log: output.stderr)
+        let attempt = makeArchiveAttempt(xcodeBuild: xcodeBuild, archivePath: archivePath)
+        return try await InfrastructureRetryScheduler.executeIfConfigured(
+            options: options.infrastructureRetry,
+            classifier: IOSArchiveInfrastructureClassifier(),
+            label: "\(scheme) archive",
+            operation: attempt
+        ) { error in
+            if let shipItError = error as? ShipItError,
+                case .archiveFailed(_, let log) = shipItError
+            {
+                return .init(log: log)
+            }
+            return nil
         }
+    }
 
-        logger.info("Archive succeeded: \(archivePath)")
-        return Result(archivePath: archivePath, exitCode: Int(output.exitCode))
+    private func makeArchiveAttempt(
+        xcodeBuild: XcodeBuild,
+        archivePath: String
+    ) -> @Sendable () async throws -> Result {
+        { [logger] in
+            do {
+                let output = try await xcodeBuild.run()
+                if output.exitCode != 0 {
+                    let log = [output.stdout, output.stderr].filter { !$0.isEmpty }.joined(separator: "\n")
+                    logger.error("Archive failed with exit code \(output.exitCode)")
+                    throw ShipItError.archiveFailed(exitCode: Int(output.exitCode), log: log)
+                }
+                logger.info("Archive succeeded: \(archivePath)")
+                return Result(archivePath: archivePath, exitCode: Int(output.exitCode))
+            } catch let ShellError.exitFailure(_, shellOutput) {
+                let log = [shellOutput.stdout, shellOutput.stderr].filter { !$0.isEmpty }.joined(separator: "\n")
+                logger.error("Archive failed with exit code \(shellOutput.exitCode)")
+                throw ShipItError.archiveFailed(exitCode: Int(shellOutput.exitCode), log: log)
+            }
+        }
     }
 
     #endif
