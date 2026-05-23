@@ -28,6 +28,9 @@ struct LintCommand: AsyncParsableCommand {
     @Flag(name: .long, help: "Do not fail the build on lint errors (Android only)")
     var noFailOnError: Bool = false
 
+    @Option(name: .long, help: "Gradle task scope: module | root (Android)")
+    var scope: GradleTaskScope?
+
     func run() async throws {
         do {
             let config = try await resolveRequiredConfig(
@@ -43,7 +46,8 @@ struct LintCommand: AsyncParsableCommand {
                 module: module,
                 buildVariant: variant,
                 reportPath: reportPath,
-                failOnError: noFailOnError ? false : nil
+                failOnError: noFailOnError ? false : nil,
+                scope: scope
             )
 
             if global.dryRun {

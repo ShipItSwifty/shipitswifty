@@ -2,7 +2,7 @@ import ArgumentParser
 import ShipItKit
 
 extension TestKind: ExpressibleByArgument {}
-extension TestScope: ExpressibleByArgument {}
+extension GradleTaskScope: ExpressibleByArgument {}
 extension TestDeviceStrategy: ExpressibleByArgument {}
 
 /// Run unit and UI tests using `xcodebuild test`.
@@ -53,7 +53,7 @@ struct TestCommand: AsyncParsableCommand {
     var kind: TestKind?
 
     @Option(name: .long, help: "Gradle task scope: module | root (Android)")
-    var scope: TestScope?
+    var scope: GradleTaskScope?
 
     @Option(name: .long, help: "Gradle module to test (Android) or KMP shared module (iOS KMP)")
     var module: String?
@@ -124,7 +124,7 @@ struct TestCommand: AsyncParsableCommand {
                 if config.platform == .android {
                     let effectiveModule = module ?? config.androidModule
                     let effectiveKind = kind ?? config.androidTestKind
-                    let effectiveScope = scope ?? config.androidTestScope
+                    let effectiveScope = scope ?? config.androidScope
                     let effectiveTask = task ?? (effectiveKind == .instrumented
                         ? "connectedDebugAndroidTest"
                         : "test\(buildVariant ?? config.androidBuildVariant)UnitTest")

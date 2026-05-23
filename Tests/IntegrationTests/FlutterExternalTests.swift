@@ -92,7 +92,18 @@ struct FlutterExternalIntegrationTests {
         )
         #expect(result.exitCode == 0, "flutter Android archive failed:\n\(result.output)")
 
-        let aabDir = project.appendingPathComponent("build/app/outputs/bundle")
-        #expect(FileManager.default.fileExists(atPath: aabDir.path), "Expected Flutter AAB output under \(aabDir.path)")
+        let aabPath = project.appendingPathComponent("build/app/outputs/bundle/release/app-release.aab")
+        #expect(FileManager.default.fileExists(atPath: aabPath.path), "Expected Flutter AAB at \(aabPath.path)")
+
+        let validateResult = try await CLI.run(
+            "validate", "bundle",
+            "--platform", "android",
+            "--aab", aabPath.path,
+            "--output", "json",
+            "--shipfile", shipfile.path,
+            workingDirectory: project,
+            timeout: 600
+        )
+        #expect(validateResult.exitCode == 0, "flutter Android AAB validation failed:\n\(validateResult.output)")
     }
 }

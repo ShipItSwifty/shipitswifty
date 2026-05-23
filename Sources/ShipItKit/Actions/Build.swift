@@ -83,6 +83,10 @@ public struct BuildAction: Action {
         /// Additional Gradle `-P` properties. (Android only)
         public var gradleProperties: [String: String]?
 
+        /// Gradle task scope — `module` (default) qualifies the task with the module name,
+        /// `root` runs the task at the project root across all modules. (Android only)
+        public var scope: GradleTaskScope?
+
         /// Creates `Options` for the build action.
         public init(
             scheme: String? = nil,
@@ -95,7 +99,8 @@ public struct BuildAction: Action {
             module: String? = nil,
             buildVariant: String? = nil,
             flavor: String? = nil,
-            gradleProperties: [String: String]? = nil
+            gradleProperties: [String: String]? = nil,
+            scope: GradleTaskScope? = nil
         ) {
             self.scheme = scheme
             self.configuration = configuration
@@ -108,6 +113,7 @@ public struct BuildAction: Action {
             self.buildVariant = buildVariant
             self.flavor = flavor
             self.gradleProperties = gradleProperties
+            self.scope = scope
         }
     }
 
@@ -268,13 +274,30 @@ public struct BuildAction: Action {
         let rn = ReactNativeCLI(context: context.shell)
             .buildIOS(mode: configuration, scheme: scheme)
 
-        let output = try await ShellRunHelpers.run(rn) { exitCode, log in
-            logger.error("React Native iOS build failed with exit code \(exitCode)")
-            return .buildFailed(exitCode: exitCode, log: log)
-        }
+        do {
+            let output = try await rn.run()
+            guard output.exitCode == 0 else {
+                let log = ShellRunHelpers.combinedLog(output)
+                if shouldFallbackFromReactNativeBuildCommand(log: log) {
+                    logger.warning("React Native build-ios command unavailable; falling back to xcodebuild build")
+                    return try await runIOS(options: options, context: context)
+                }
+                logger.error("React Native iOS build failed with exit code \(output.exitCode)")
+                throw ShipItError.buildFailed(exitCode: Int(output.exitCode), log: log)
+            }
 
-        logger.info("React Native iOS build succeeded")
-        return Result(exitCode: Int(output.exitCode), warnings: countWarnings(in: output.stdout))
+            logger.info("React Native iOS build succeeded")
+            return Result(exitCode: Int(output.exitCode), warnings: countWarnings(in: output.stdout))
+        } catch let ShellError.exitFailure(_, shellOutput) {
+            let log = ShellRunHelpers.combinedLog(shellOutput)
+            if shouldFallbackFromReactNativeBuildCommand(log: log) {
+                logger.warning("React Native build-ios command unavailable; falling back to xcodebuild build")
+                return try await runIOS(options: options, context: context)
+            }
+
+            logger.error("React Native iOS build failed with exit code \(shellOutput.exitCode)")
+            throw ShipItError.buildFailed(exitCode: Int(shellOutput.exitCode), log: log)
+        }
     }
     #endif
 
@@ -290,17 +313,118 @@ public struct BuildAction: Action {
         let rn = ReactNativeCLI(context: context.shell)
             .buildAndroid(mode: variant)
 
-        let output = try await ShellRunHelpers.run(rn) { exitCode, log in
-            logger.error("React Native Android build failed with exit code \(exitCode)")
-            return .buildFailed(exitCode: exitCode, log: log)
-        }
+        do {
+            let output = try await rn.run()
+            guard output.exitCode == 0 else {
+                let log = ShellRunHelpers.combinedLog(output)
+                if shouldFallbackFromReactNativeBuildCommand(log: log) {
+                    logger.warning("React Native build-android command unavailable; falling back to Gradle assemble")
+                    return try await runReactNativeAndroidGradleBuild(options: options, context: context)
+                }
+                logger.error("React Native Android build failed with exit code \(output.exitCode)")
+                throw ShipItError.buildFailed(exitCode: Int(output.exitCode), log: log)
+            }
 
-        logger.info("React Native Android build succeeded")
+            logger.info("React Native Android build succeeded")
+            return Result(
+                apkPath: CrossPlatformArtifactPaths.reactNativeAPK(variant: variant),
+                exitCode: Int(output.exitCode),
+                warnings: countWarnings(in: output.stdout)
+            )
+        } catch let ShellError.exitFailure(_, shellOutput) {
+            let log = ShellRunHelpers.combinedLog(shellOutput)
+            if shouldFallbackFromReactNativeBuildCommand(log: log) {
+                logger.warning("React Native build-android command unavailable; falling back to Gradle assemble")
+                return try await runReactNativeAndroidGradleBuild(options: options, context: context)
+            }
+
+            logger.error("React Native Android build failed with exit code \(shellOutput.exitCode)")
+            throw ShipItError.buildFailed(exitCode: Int(shellOutput.exitCode), log: log)
+        }
+    }
+
+    private func runReactNativeAndroidGradleBuild(
+        options: Options,
+        context: ActionContext
+    ) async throws -> Result {
+        let module = reactNativeAndroidModule(context: context)
+        let variant = options.buildVariant ?? context.config.androidBuildVariant
+        let task: GradleTask = variant.lowercased() == "debug" ? .assembleDebug : .assembleRelease
+
+        let output = try await runReactNativeGradleTask(
+            task: task.qualified(module: module),
+            gradleProperties: options.gradleProperties,
+            context: context,
+            failureMapper: { exitCode, log in
+                .buildFailed(exitCode: exitCode, log: log)
+            }
+        )
+
         return Result(
             apkPath: CrossPlatformArtifactPaths.reactNativeAPK(variant: variant),
             exitCode: Int(output.exitCode),
             warnings: countWarnings(in: output.stdout)
         )
+    }
+
+    private func runReactNativeGradleTask(
+        task: GradleTask,
+        gradleProperties: [String: String]?,
+        context: ActionContext,
+        failureMapper: (Int, String) -> ShipItError
+    ) async throws -> ShellOutput {
+        var gradle = Gradle(context: context.shell)
+            .projectDir(reactNativeGradleProjectDir(context: context))
+            .flag(.noDaemon)
+            .task(task)
+
+        if let gradlewPath = reactNativeGradlewPath(context: context) {
+            gradle = gradle.settingGradlewPath(gradlewPath)
+        }
+
+        for flag in context.config.androidGradleFlags where flag != "--no-daemon" {
+            gradle = gradle.flag(.custom(flag))
+        }
+
+        let allProps = context.config.androidGradleProperties.merging(gradleProperties ?? [:]) { _, new in new }
+        for (key, value) in allProps {
+            gradle = gradle.property(.custom(key: key, value: value))
+        }
+
+        do {
+            let output = try await gradle.run()
+            if output.exitCode != 0 {
+                throw failureMapper(Int(output.exitCode), ShellRunHelpers.combinedLog(output))
+            }
+            context.logShellOutput(output, label: "gradlew react-native fallback")
+            return output
+        } catch let ShellError.exitFailure(_, shellOutput) {
+            throw failureMapper(Int(shellOutput.exitCode), ShellRunHelpers.combinedLog(shellOutput))
+        }
+    }
+
+    private func reactNativeAndroidModule(context: ActionContext) -> String {
+        let module = context.config.androidModule
+        return module.isEmpty ? "app" : module
+    }
+
+    private func reactNativeGradleProjectDir(context: ActionContext) -> String {
+        context.config.gradleProjectDir == context.config.projectRoot ? "./android" : context.config.gradleProjectDir
+    }
+
+    private func reactNativeGradlewPath(context: ActionContext) -> String? {
+        if let gradlewPath = context.config.gradlewPath {
+            return gradlewPath
+        }
+        return "\(reactNativeGradleProjectDir(context: context))/gradlew"
+    }
+
+    private func shouldFallbackFromReactNativeBuildCommand(log: String) -> Bool {
+        let normalized = log.lowercased()
+        return normalized.contains("unknown command 'build-ios'")
+            || normalized.contains("unknown command 'build-android'")
+            || normalized.contains("depends on @react-native-community/cli for cli commands")
+            || normalized.contains("is not a recognized command")
     }
 
     // MARK: - KMP iOS Build
@@ -415,6 +539,7 @@ public struct BuildAction: Action {
         let module = options.module ?? context.config.androidModule
         let variant = options.buildVariant ?? context.config.androidBuildVariant
         let flavor = options.flavor ?? context.config.androidGradleProperties["flavor"]
+        let scope = options.scope ?? context.config.androidScope
 
         // Determine task: assembleFreeRelease or assembleRelease
         let task: GradleTask
@@ -424,15 +549,24 @@ public struct BuildAction: Action {
             task = variant.lowercased() == "debug" ? .assembleDebug : .assembleRelease
         }
 
-        logger.info("Building Android module '\(module)' with task '\(task.name)'")
+        // Qualify based on scope
+        let scopedTask: GradleTask
+        switch scope {
+        case .root:
+            scopedTask = task
+        case .module:
+            scopedTask = task.qualified(module: module)
+        }
+
+        logger.info("Building Android module '\(module)' with task '\(scopedTask.name)'")
 
         var gradle = context.gradle()
-            .task(task.qualified(module: module))
+            .task(scopedTask)
 
         if options.clean == true {
             gradle = context.gradle()
                 .task(.clean)
-                .task(task.qualified(module: module))
+                .task(scopedTask)
         }
 
         // Apply config-level Gradle properties after the optional clean rebuild so they are not dropped.

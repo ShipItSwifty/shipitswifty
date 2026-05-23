@@ -112,5 +112,73 @@ struct BuildActionFlutterTests {
         let captured = commands()
         #expect(captured.contains { $0.contains("npx") && $0.contains("react-native") && $0.contains("build-ios") })
     }
+
+    @Test("React Native iOS build falls back to xcodebuild when RN build-ios is unavailable")
+    func rnIOSBuildFallsBackToXcodebuild() async throws {
+        let (executor, commands) = makeCaptureExecutor { command, _ in
+            if command.description.contains("npx") && command.description.contains("build-ios") {
+                throw ShellError.exitFailure(
+                    command: command.description,
+                    output: ShellOutput(
+                        stdout: "",
+                        stderr: "react-native depends on @react-native-community/cli for cli commands",
+                        exitCode: 1
+                    )
+                )
+            }
+
+            return ShellOutput(stdout: "Build Succeeded\n", stderr: "", exitCode: 0)
+        }
+        let config = ResolvedConfig(
+            appProject: "ios/MyApp.xcodeproj",
+            appScheme: "MyApp",
+            platform: .ios,
+            iosBuildSystem: .reactNative
+        )
+        let context = makeTestActionContext(executor: executor, config: config, platform: .ios)
+
+        _ = try await BuildAction().run(with: BuildAction.Options(scheme: "MyApp"), context: context)
+
+        let captured = commands()
+        #expect(captured.contains { $0.contains("npx") && $0.contains("build-ios") })
+        #expect(captured.contains { $0.contains("xcodebuild") && $0.contains("build") })
+    }
     #endif
+
+    @Test("React Native Android build falls back to gradlew when RN build-android is unavailable")
+    func rnAndroidBuildFallsBackToGradle() async throws {
+        let (executor, commands) = makeCaptureExecutor { command, _ in
+            if command.description.contains("npx") && command.description.contains("build-android") {
+                throw ShellError.exitFailure(
+                    command: command.description,
+                    output: ShellOutput(
+                        stdout: "",
+                        stderr: "error: unknown command 'build-android'",
+                        exitCode: 1
+                    )
+                )
+            }
+
+            return ShellOutput(stdout: "BUILD SUCCESSFUL\n", stderr: "", exitCode: 0)
+        }
+        let config = ResolvedConfig(
+            platform: .android,
+            androidBuildSystem: .reactNative,
+            androidModule: "app",
+            androidBuildVariant: "release",
+            gradlewPath: "./android/gradlew",
+            gradleProjectDir: "./android"
+        )
+        let context = makeTestActionContext(executor: executor, config: config, platform: .android)
+
+        let result = try await BuildAction().run(
+            with: BuildAction.Options(buildVariant: "release"),
+            context: context
+        )
+
+        let captured = commands()
+        #expect(captured.contains { $0.contains("npx") && $0.contains("build-android") })
+        #expect(captured.contains { $0.contains("./android/gradlew") && $0.contains(":app:assembleRelease") })
+        #expect(result.apkPath == "android/app/build/outputs/apk/release/app-release.apk")
+    }
 }

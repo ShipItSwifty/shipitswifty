@@ -19,7 +19,7 @@ shipit schema --action build --output json
 | Action | iOS | Android | KMP | Notes |
 |---|:-:|:-:|:-:|---|
 | ``BuildAction`` | ✅ | ✅ | ✅ | `xcodebuild build` / `gradlew :<module>:assemble<Variant>`; KMP iOS links the shared framework via Gradle first |
-| ``TestAction`` | ✅ | ✅ | ✅ | Multi-destination on iOS; unit + instrumented on Android; KMP iOS dispatches to `gradlew :shared:iosSimulatorArm64Test` |
+| ``TestAction`` | ✅ | ✅ | ✅ | Multi-destination on iOS; unit/instrumented/e2e on Android with device strategy support; KMP iOS dispatches to `gradlew :shared:iosSimulatorArm64Test`. Cross-platform infrastructure retry available via `infrastructure_retry` config — see <doc:ConfigurationReference> |
 | ``ArchiveAction`` | ✅ | ✅ | ✅ | KMP iOS links the device framework target before `xcodebuild archive`; Android uses `gradlew :<module>:bundle<Variant>` |
 | ``CoverageAction`` | ✅ | ✅ | ⚠️ | Reads `.xcresult` / JaCoCo XML. KMP support inherits per-target behaviour — see <doc:Coverage> |
 | ``LintAction`` | ✅ | ✅ | ✅ | `xcodebuild analyze` / `gradlew lint` |

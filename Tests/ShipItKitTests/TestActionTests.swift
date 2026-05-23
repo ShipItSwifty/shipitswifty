@@ -545,16 +545,71 @@ struct TestActionTests {
 
     @Test("Infrastructure failure classifier matches xctrunner launch errors")
     func infrastructureFailureClassifierMatchesRunnerLaunch() {
+        let classifier = IOSInfrastructureClassifier()
         #expect(
-            TestAction.isRetryableIOSInfrastructureFailure(
+            classifier.isRetryable(
                 log: "Simulator device failed to launch com.example.UITests.xctrunner."
             )
         )
         #expect(
-            !TestAction.isRetryableIOSInfrastructureFailure(
+            !classifier.isRetryable(
                 log: "** TEST FAILED ** (2 failures)"
             )
         )
+    }
+
+    @Test("Android infrastructure classifier matches emulator disconnects")
+    func androidClassifierMatchesEmulatorDisconnect() {
+        let classifier = AndroidInfrastructureClassifier()
+        #expect(
+            classifier.isRetryable(log: "error: device offline\nINSTRUMENTATION_STATUS: Error")
+        )
+        #expect(
+            !classifier.isRetryable(log: "Compilation failed; see the compiler error output for details.")
+        )
+    }
+
+    @Test("Flutter infrastructure classifier matches tool crashes")
+    func flutterClassifierMatchesToolCrash() {
+        let classifier = FlutterInfrastructureClassifier()
+        #expect(
+            classifier.isRetryable(log: "The Flutter tool crashed. Report at github.com/flutter/flutter")
+        )
+        #expect(
+            !classifier.isRetryable(log: "Error: Target of URI doesn't exist: 'package:foo/bar.dart'")
+        )
+    }
+
+    @Test("ReactNative infrastructure classifier matches worker failures")
+    func reactNativeClassifierMatchesWorkerFailure() {
+        let classifier = ReactNativeInfrastructureClassifier()
+        #expect(
+            classifier.isRetryable(log: "FATAL ERROR: CALL_AND_RETRY_LAST Allocation failed - JavaScript heap out of memory")
+        )
+        #expect(
+            !classifier.isRetryable(log: "SyntaxError: Unexpected token '<' at module.js:1")
+        )
+    }
+
+    @Test("InfrastructureRetryScheduler respects backoff and jitter bounds")
+    func schedulerBackoffAndJitter() {
+        let delay = Duration.seconds(2)
+        let cap = Duration.seconds(30)
+
+        let next = InfrastructureRetryScheduler.nextDelay(current: delay, cap: cap)
+        #expect(next == .seconds(4))
+
+        // Cap enforcement
+        let atCap = InfrastructureRetryScheduler.nextDelay(current: .seconds(20), cap: cap)
+        #expect(atCap == cap)
+
+        // Jitter should be within 75%-125% of delay
+        for _ in 0..<20 {
+            let jittered = InfrastructureRetryScheduler.applyJitter(to: .seconds(10))
+            let seconds = Double(jittered.components.seconds)
+                + Double(jittered.components.attoseconds) / 1_000_000_000_000_000_000
+            #expect(seconds >= 7.5 && seconds <= 12.5)
+        }
     }
 
     // MARK: - Auto-discovery of simulator destinations

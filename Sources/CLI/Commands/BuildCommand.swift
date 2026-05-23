@@ -36,6 +36,9 @@ struct BuildCommand: AsyncParsableCommand {
     @Option(name: .long, help: "Gradle build variant to assemble (Android, default: release)")
     var buildVariant: String?
 
+    @Option(name: .long, help: "Gradle task scope: module | root (Android)")
+    var scope: GradleTaskScope?
+
     func run() async throws {
         do {
             let config = try await resolveRequiredConfig(
@@ -56,7 +59,8 @@ struct BuildCommand: AsyncParsableCommand {
                 configuration: configuration.map { BuildAction.BuildConfiguration(rawValue: $0) } ?? nil,
                 clean: clean ? true : nil,
                 module: module,
-                buildVariant: buildVariant
+                buildVariant: buildVariant,
+                scope: scope
             )
 
             if global.dryRun {

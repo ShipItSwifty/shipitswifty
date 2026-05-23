@@ -4,11 +4,19 @@ android:
   module: app
   build_variant: release
   package_name: com.example.myapp
+  test_kind: unit
+  test_scope: module
+  test_devices:
+    strategy: none
 
 workflows:
   beta:
     - action: lint
     - action: test
+    - action: test
+      options:
+        kind: instrumented
+        device_strategy: connected
     - action: archive
     - action: play-store
       options:

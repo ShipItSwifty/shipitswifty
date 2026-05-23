@@ -54,7 +54,8 @@ func shipfileForExternalReactNativeProject(at projectURL: URL) -> String {
     let appBlock = iosProject.map {
         """
         app:
-          project: \($0)
+          project: \($0.project)
+          scheme: \($0.scheme)
         """
     } ?? ""
 
@@ -67,16 +68,29 @@ func shipfileForExternalReactNativeProject(at projectURL: URL) -> String {
 
     android:
       build_system: react_native
+      module: app
+      gradle_project_dir: ./android
+      gradlew_path: ./android/gradlew
 
     """
 }
 
-private func detectReactNativeIOSProject(in projectURL: URL) -> String? {
+private struct ReactNativeIOSProjectInfo: Sendable {
+    let project: String
+    let scheme: String
+}
+
+private func detectReactNativeIOSProject(in projectURL: URL) -> ReactNativeIOSProjectInfo? {
     let iosDirectory = projectURL.appendingPathComponent("ios")
     guard let entries = try? FileManager.default.contentsOfDirectory(atPath: iosDirectory.path) else {
         return nil
     }
-    return entries.first(where: { $0.hasSuffix(".xcodeproj") }).map { "ios/\($0)" }
+    return entries.first(where: { $0.hasSuffix(".xcodeproj") }).map {
+        ReactNativeIOSProjectInfo(
+            project: "ios/\($0)",
+            scheme: URL(fileURLWithPath: $0).deletingPathExtension().lastPathComponent
+        )
+    }
 }
 
 func externalProjectHasNodeModules(_ projectURL: URL) -> Bool {

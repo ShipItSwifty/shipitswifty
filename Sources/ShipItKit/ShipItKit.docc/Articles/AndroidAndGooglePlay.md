@@ -49,12 +49,48 @@ workflows:
 | Action | Gradle task it runs |
 |---|---|
 | ``BuildAction`` | `./gradlew assemble<Variant>` |
-| ``TestAction`` | `./gradlew test<Variant>UnitTest` (and instrumented tests when configured) |
+| ``TestAction`` | `./gradlew test<Variant>UnitTest` (unit) or `connectedAndroidTest` (instrumented) |
 | ``LintAction`` | `./gradlew lint<Variant>` |
 | ``ArchiveAction`` | `./gradlew bundle<Variant>` (AAB) or `assemble` (APK) |
 | ``CoverageAction`` | Reads `jacocoTestReport` XML output |
 
 Flavors are first-class: pass `flavor` (CLI: `--flavor`) and ShipItKit composes the right `assembleFreeRelease`-style task name.
+
+### Test kinds and device strategies
+
+The test action supports three **kinds** (`unit`, `instrumented`, `e2e`) and four **device strategies** (`none`, `connected`, `named_emulators`, `managed`):
+
+```yaml
+# Unit tests — no device needed
+- action: test
+  options:
+    kind: unit
+    scope: module
+    module: app
+
+# Instrumented tests with explicit emulators
+- action: test
+  options:
+    kind: instrumented
+    scope: root
+    devices:
+      strategy: named_emulators
+      emulators:
+        - Pixel_9_API_35
+      prompt_locally: true
+
+# Instrumented tests with Gradle Managed Devices
+- action: test
+  options:
+    kind: instrumented
+    scope: module
+    module: app
+    devices:
+      strategy: managed
+      group: phoneAndTablet
+```
+
+When `kind` is `instrumented` and `devices.strategy` is `named_emulators`, ShipIt boots the listed AVDs before running the test task and tears them down after. When `prompt_locally` is `true` and the run is interactive (not CI), ShipIt prompts the developer to select from available emulators if none are configured.
 
 ## Typed Gradle wrapper
 
