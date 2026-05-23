@@ -60,19 +60,20 @@ struct VersionCommand: AsyncParsableCommand {
                     )
                     print(try reporter.encode(envelope))
                 case .human:
-                    formatter.print("DRY RUN: Would bump \(bump) (source: \(preview.source))")
-                    if preview.currentVersion != preview.newVersion {
-                        formatter.print("  version:      \(preview.currentVersion) → \(preview.newVersion)")
-                    }
-                    if preview.currentBuildNumber != preview.newBuildNumber {
-                        formatter.print("  build number: \(preview.currentBuildNumber) → \(preview.newBuildNumber)")
-                    }
+                    let current = "\(preview.currentVersion) (\(preview.currentBuildNumber))"
+                    let new = "\(preview.newVersion) (\(preview.newBuildNumber))"
+                    formatter.print("DRY RUN: Would bump \(bump): \(current) → \(new) (source: \(preview.source))")
                 }
                 return
             }
 
             let result = try await VersionAction().run(with: options, context: context)
-            outputResult(action: "version", result: result, format: global.output, colorMode: global.effectiveColorMode)
+            switch global.output {
+            case .human:
+                formatter.printSuccess("version \(result.version) (\(result.buildNumber))")
+            case .json:
+                outputResult(action: "version", result: result, format: global.output, colorMode: global.effectiveColorMode)
+            }
         } catch let error as ShipItError {
             outputError(error: error, format: global.output, colorMode: global.effectiveColorMode)
             throw ExitCode(error.exitCode)
