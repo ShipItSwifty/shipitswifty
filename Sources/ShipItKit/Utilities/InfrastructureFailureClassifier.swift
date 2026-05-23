@@ -75,6 +75,63 @@ public struct IOSInfrastructureClassifier: InfrastructureFailureClassifier {
     }
 }
 
+// MARK: - iOS Archive Classifier
+
+/// Classifies iOS xcodebuild archive infrastructure failures.
+///
+/// Retryable patterns are limited to transient provisioning-server and network failures
+/// from `-allowProvisioningUpdates`. Permanent errors (missing certificate, missing
+/// private key, account not signed in) are never retried.
+public struct IOSArchiveInfrastructureClassifier: InfrastructureFailureClassifier {
+    public let platformName = "iOSArchive"
+
+    public init() {}
+
+    static let retryablePatterns: [String] = [
+        "failed to update provisioning profile",
+        "unable to reach apple",
+        "could not connect to apple",
+        "communication with apple failed",
+        "the network connection was lost",
+        "timed out waiting",
+        "request timed out",
+        "failed to register",
+        "error communicating with apple",
+        "failed to communicate with apple",
+        "an ssl error has occurred",
+        "the request timed out",
+        "server error",
+        "service temporarily unavailable",
+    ]
+
+    /// Permanent failures: configuration or credential issues that retrying cannot fix.
+    static let nonRetryablePatterns: [String] = [
+        "no account for team",
+        "no signing certificate",
+        "missing private key",
+        "sign in to xcode",
+        "no profiles for your app",
+        "compile error",
+        "linker command failed",
+        "build input file cannot be found",
+        "unable to find a destination matching",
+    ]
+
+    public func isRetryable(log: String) -> Bool {
+        let normalized = log.lowercased()
+
+        for pattern in Self.nonRetryablePatterns where normalized.contains(pattern) {
+            return false
+        }
+
+        for pattern in Self.retryablePatterns where normalized.contains(pattern) {
+            return true
+        }
+
+        return false
+    }
+}
+
 // MARK: - Android Classifier
 
 /// Classifies Android Gradle/emulator infrastructure failures.
