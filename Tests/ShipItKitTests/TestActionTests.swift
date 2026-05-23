@@ -569,6 +569,16 @@ struct TestActionTests {
         )
     }
 
+    @Test("Android infrastructure classifier retries infra signatures inside Gradle wrappers")
+    func androidClassifierRetriesInfraInsideGradleWrapper() {
+        let classifier = AndroidInfrastructureClassifier()
+        #expect(
+            classifier.isRetryable(
+                log: "Execution failed for task ':app:connectedDebugAndroidTest'.\nCaused by: device offline"
+            )
+        )
+    }
+
     @Test("Flutter infrastructure classifier matches tool crashes")
     func flutterClassifierMatchesToolCrash() {
         let classifier = FlutterInfrastructureClassifier()
@@ -606,10 +616,62 @@ struct TestActionTests {
         // Jitter should be within 75%-125% of delay
         for _ in 0..<20 {
             let jittered = InfrastructureRetryScheduler.applyJitter(to: .seconds(10))
-            let seconds = Double(jittered.components.seconds)
+            let seconds =
+                Double(jittered.components.seconds)
                 + Double(jittered.components.attoseconds) / 1_000_000_000_000_000_000
             #expect(seconds >= 7.5 && seconds <= 12.5)
         }
+    }
+
+    @Test("InfrastructureRetryScheduler caps jittered delay")
+    func schedulerCapsJitteredDelay() {
+        for _ in 0..<20 {
+            let delay = InfrastructureRetryScheduler.capped(
+                InfrastructureRetryScheduler.applyJitter(to: .seconds(10)),
+                at: .seconds(5)
+            )
+            #expect(delay <= .seconds(5))
+        }
+    }
+
+    @Test("Android test derives flavored unit test task")
+    func androidTestDerivesFlavoredUnitTask() async throws {
+        let (executor, commands) = makeCaptureExecutor { _, _ in
+            ShellOutput(stdout: "3 tests completed, 0 failed, 0 skipped\n", stderr: "", exitCode: 0)
+        }
+        let config = ResolvedConfig(
+            platform: .android,
+            androidModule: "app",
+            androidBuildVariant: "prodDebug"
+        )
+        let context = makeTestActionContext(executor: executor, config: config, platform: .android)
+
+        _ = try await TestAction().run(with: .init(kind: .unit), context: context)
+
+        #expect(commands().contains { $0.contains(":app:testProdDebugUnitTest") })
+    }
+
+    @Test("Android managed device test derives group variant task")
+    func androidManagedDeviceDerivesGroupTask() async throws {
+        let (executor, commands) = makeCaptureExecutor { _, _ in
+            ShellOutput(stdout: "3 tests completed, 0 failed, 0 skipped\n", stderr: "", exitCode: 0)
+        }
+        let config = ResolvedConfig(
+            platform: .android,
+            androidModule: "app",
+            androidBuildVariant: "prodDebug"
+        )
+        let context = makeTestActionContext(executor: executor, config: config, platform: .android)
+
+        _ = try await TestAction().run(
+            with: .init(
+                kind: .instrumented,
+                devices: TestDeviceConfig(strategy: .managed, group: "pixel2api30")
+            ),
+            context: context
+        )
+
+        #expect(commands().contains { $0.contains(":app:pixel2api30ProdDebugAndroidTest") })
     }
 
     // MARK: - Auto-discovery of simulator destinations

@@ -231,6 +231,31 @@ struct ArchiveExportActionTests {
         #expect(plistContents.contains("<string>ad-hoc</string>"), "Plist should contain ad-hoc export method")
     }
 
+    @Test("ArchiveAction uses full Android build variant in Gradle task")
+    func archiveActionUsesFullAndroidVariantTask() async throws {
+        let tmpDir = try makeTempDirectory()
+        defer { try? FileManager.default.removeItem(at: tmpDir) }
+        let aabPath = tmpDir.appendingPathComponent("app/build/outputs/bundle/prodRelease/app-prod-release.aab")
+        try FileManager.default.createDirectory(at: aabPath.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try Data("aab".utf8).write(to: aabPath)
+
+        let (executor, commands) = makeCaptureExecutor { _, _ in
+            ShellOutput(stdout: "BUILD SUCCESSFUL\n", stderr: "", exitCode: 0)
+        }
+        let config = ResolvedConfig(
+            platform: .android,
+            androidModule: "app",
+            androidBuildVariant: "prodRelease",
+            gradleProjectDir: tmpDir.path
+        )
+        let shell = ShellContext(executor: executor, workingDirectory: tmpDir.path)
+        let context = makeTestActionContext(shell: shell, config: config, platform: .android)
+
+        _ = try await ArchiveAction().run(with: .init(), context: context)
+
+        #expect(commands().contains { $0.contains(":app:bundleProdRelease") })
+    }
+
     private func makeTempDirectory() throws -> URL {
         let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)

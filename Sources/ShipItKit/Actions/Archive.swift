@@ -443,7 +443,7 @@ public struct ArchiveAction: Action {
         if let flavor {
             task = GradleTask.bundle(flavor: flavor, variant: variant)
         } else {
-            task = variant.lowercased() == "debug" ? .bundleDebug : .bundleRelease
+            task = GradleTask(name: CrossPlatformArtifactPaths.gradleTaskName(prefix: "bundle", variant: variant))
         }
 
         // Qualify based on scope

@@ -390,8 +390,9 @@ public struct TestAction: Action {
             return Result(passCount: pass, failCount: fail, skipCount: skip)
         } extractContext: { error in
             if let shipItError = error as? ShipItError,
-               case .testFailed(_, _, let log) = shipItError {
-                return .init(log: log, underlyingError: shipItError)
+                case .testFailed(_, _, let log) = shipItError
+            {
+                return .init(log: log)
             }
             return nil
         }
@@ -426,11 +427,12 @@ public struct TestAction: Action {
         } extractContext: { error in
             // JSScriptRunner throws ShipItError.testFailed or generic errors
             if let shipItError = error as? ShipItError,
-               case .testFailed(_, _, let log) = shipItError {
-                return .init(log: log, underlyingError: shipItError)
+                case .testFailed(_, _, let log) = shipItError
+            {
+                return .init(log: log)
             }
             // For non-ShipItError throws, try to extract message
-            return .init(log: error.localizedDescription, underlyingError: error)
+            return .init(log: error.localizedDescription)
         }
     }
 
@@ -566,8 +568,9 @@ public struct TestAction: Action {
             return Result(passCount: pass, failCount: fail, skipCount: skip)
         } extractContext: { error in
             if let shipItError = error as? ShipItError,
-               case .testFailed(_, _, let log) = shipItError {
-                return .init(log: log, underlyingError: shipItError)
+                case .testFailed(_, _, let log) = shipItError
+            {
+                return .init(log: log)
             }
             return nil
         }
@@ -721,8 +724,9 @@ public struct TestAction: Action {
             }
         } extractContext: { error in
             if let shipItError = error as? ShipItError,
-               case .testFailed(_, _, let log) = shipItError {
-                return .init(log: log, underlyingError: shipItError)
+                case .testFailed(_, _, let log) = shipItError
+            {
+                return .init(log: log)
             }
             return nil
         }
@@ -746,13 +750,16 @@ public struct TestAction: Action {
         } else {
             switch kind {
             case .instrumented:
-                task = variant.lowercased() == "debug"
-                    ? .connectedDebugAndroidTest
-                    : .connectedAndroidTest
+                if devices.strategy == .managed, let group = devices.group, !group.isEmpty {
+                    task = GradleTask(name: CrossPlatformArtifactPaths.gradleTaskName(prefix: group, variant: variant) + "AndroidTest")
+                } else if variant.lowercased() == "release" {
+                    task = .connectedAndroidTest
+                } else {
+                    task = GradleTask(
+                        name: CrossPlatformArtifactPaths.gradleTaskName(prefix: "connected", variant: variant) + "AndroidTest")
+                }
             case .unit, .e2e:
-                task = variant.lowercased() == "debug"
-                    ? .testDebugUnitTest
-                    : .testReleaseUnitTest
+                task = GradleTask(name: CrossPlatformArtifactPaths.gradleTaskName(prefix: "test", variant: variant) + "UnitTest")
             }
         }
 
@@ -774,75 +781,80 @@ public struct TestAction: Action {
             )
         }
 
-        let emulatorsToTeardown = spawnedEmulators
-        defer {
-            Task {
-                for emulator in emulatorsToTeardown {
-                    _ = await emulator.teardownAndWait()
-                }
-            }
-        }
-
         logger.info("Running Android test task '\(scopedTask.name)'")
 
-        return try await InfrastructureRetryScheduler.executeIfConfigured(
-            options: options.infrastructureRetry,
-            classifier: AndroidInfrastructureClassifier(),
-            label: scopedTask.name
-        ) {
-            let gradle = context.gradle()
-                .task(scopedTask)
+        do {
+            let result = try await InfrastructureRetryScheduler.executeIfConfigured(
+                options: options.infrastructureRetry,
+                classifier: AndroidInfrastructureClassifier(),
+                label: scopedTask.name
+            ) {
+                let gradle = context.gradle()
+                    .task(scopedTask)
 
-            let output: ShellOutput
-            do {
-                output = try await gradle.run()
-            } catch let ShellError.exitFailure(_, shellOutput) {
-                let combinedLog = [shellOutput.stdout, shellOutput.stderr]
-                    .filter { !$0.isEmpty }
-                    .joined(separator: "\n")
-                let failCount = self.parseGradleFailureCount(from: combinedLog)
-                self.logger.error("Android tests failed with \(failCount) failure(s)")
-                throw ShipItError.testFailed(
-                    exitCode: Int(shellOutput.exitCode),
-                    failureCount: failCount,
-                    log: combinedLog
-                )
+                let output: ShellOutput
+                do {
+                    output = try await gradle.run()
+                } catch let ShellError.exitFailure(_, shellOutput) {
+                    let combinedLog = [shellOutput.stdout, shellOutput.stderr]
+                        .filter { !$0.isEmpty }
+                        .joined(separator: "\n")
+                    let failCount = self.parseGradleFailureCount(from: combinedLog)
+                    self.logger.error("Android tests failed with \(failCount) failure(s)")
+                    throw ShipItError.testFailed(
+                        exitCode: Int(shellOutput.exitCode),
+                        failureCount: failCount,
+                        log: combinedLog
+                    )
+                }
+
+                if output.exitCode != 0 {
+                    let combinedLog = output.stdout + "\n" + output.stderr
+                    let failCount = self.parseGradleFailureCount(from: combinedLog)
+                    throw ShipItError.testFailed(
+                        exitCode: Int(output.exitCode),
+                        failureCount: failCount,
+                        log: combinedLog
+                    )
+                }
+
+                let (pass, fail, skip) = self.parseGradleCounts(from: output.stdout + "\n" + output.stderr)
+                context.logShellOutput(output, label: "gradlew test")
+
+                // If stdout parsing found no counts, fall back to JUnit XML reports on disk
+                let finalCounts: (pass: Int, fail: Int, skip: Int)
+                if pass == 0 && fail == 0 && skip == 0 {
+                    let xmlCounts = self.aggregateJUnitXMLResults(
+                        projectDir: context.config.gradleProjectDir,
+                        task: task.name
+                    )
+                    finalCounts = xmlCounts
+                } else {
+                    finalCounts = (pass, fail, skip)
+                }
+
+                self.logger.info("Android tests complete — pass: \(finalCounts.pass), fail: \(finalCounts.fail), skip: \(finalCounts.skip)")
+
+                return Result(passCount: finalCounts.pass, failCount: finalCounts.fail, skipCount: finalCounts.skip)
+            } extractContext: { error in
+                if let shipItError = error as? ShipItError,
+                    case .testFailed(_, _, let log) = shipItError
+                {
+                    return .init(log: log)
+                }
+                return nil
             }
+            await teardown(spawnedEmulators)
+            return result
+        } catch {
+            await teardown(spawnedEmulators)
+            throw error
+        }
+    }
 
-            if output.exitCode != 0 {
-                let combinedLog = output.stdout + "\n" + output.stderr
-                let failCount = self.parseGradleFailureCount(from: combinedLog)
-                throw ShipItError.testFailed(
-                    exitCode: Int(output.exitCode),
-                    failureCount: failCount,
-                    log: combinedLog
-                )
-            }
-
-            let (pass, fail, skip) = self.parseGradleCounts(from: output.stdout + "\n" + output.stderr)
-            context.logShellOutput(output, label: "gradlew test")
-
-            // If stdout parsing found no counts, fall back to JUnit XML reports on disk
-            let finalCounts: (pass: Int, fail: Int, skip: Int)
-            if pass == 0 && fail == 0 && skip == 0 {
-                let xmlCounts = self.aggregateJUnitXMLResults(
-                    projectDir: context.config.gradleProjectDir,
-                    task: task.name
-                )
-                finalCounts = xmlCounts
-            } else {
-                finalCounts = (pass, fail, skip)
-            }
-
-            self.logger.info("Android tests complete — pass: \(finalCounts.pass), fail: \(finalCounts.fail), skip: \(finalCounts.skip)")
-
-            return Result(passCount: finalCounts.pass, failCount: finalCounts.fail, skipCount: finalCounts.skip)
-        } extractContext: { error in
-            if let shipItError = error as? ShipItError,
-               case .testFailed(_, _, let log) = shipItError {
-                return .init(log: log, underlyingError: shipItError)
-            }
-            return nil
+    private func teardown(_ emulators: [any SpawnedProcess]) async {
+        for emulator in emulators {
+            _ = await emulator.teardownAndWait()
         }
     }
 
@@ -931,7 +943,8 @@ public struct TestAction: Action {
         let answer = readLine()?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         guard !answer.isEmpty else { return [] }
 
-        let indexes = answer
+        let indexes =
+            answer
             .split(separator: ",")
             .compactMap { Int($0.trimmingCharacters(in: .whitespaces)) }
             .filter { $0 >= 1 && $0 <= available.count }

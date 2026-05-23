@@ -84,12 +84,8 @@ public struct InfrastructureRetryScheduler: Sendable {
         /// Combined stdout+stderr from the test process.
         public let log: String
 
-        /// The underlying error.
-        public let underlyingError: any Error & Sendable
-
-        public init(log: String, underlyingError: any Error & Sendable) {
+        public init(log: String) {
             self.log = log
-            self.underlyingError = underlyingError
         }
     }
 
@@ -132,7 +128,7 @@ public struct InfrastructureRetryScheduler: Sendable {
     public func execute<T: Sendable>(
         label: String,
         operation: @Sendable () async throws -> T,
-        extractContext: @Sendable (any Error & Sendable) -> TestFailureContext?
+        extractContext: @Sendable (any Error) -> TestFailureContext?
     ) async throws -> T {
         let maxAttempts = options.resolvedMaxAttempts
         var attempt = 1
@@ -140,9 +136,13 @@ public struct InfrastructureRetryScheduler: Sendable {
         let maxDelay = options.resolvedMaxDelay
 
         while true {
+            try Task.checkCancellation()
             do {
                 return try await operation()
             } catch {
+                if error is CancellationError || Task.isCancelled {
+                    throw error
+                }
                 guard attempt < maxAttempts else {
                     logger.error(
                         "[\(classifier.platformName)] All \(maxAttempts) attempts exhausted for '\(label)'. Failing."
@@ -164,7 +164,8 @@ public struct InfrastructureRetryScheduler: Sendable {
                 }
 
                 // Infrastructure failure — retry with backoff + jitter
-                let jitteredDelay = Self.applyJitter(to: currentDelay)
+                let cappedDelay = Self.capped(currentDelay, at: maxDelay)
+                let jitteredDelay = Self.capped(Self.applyJitter(to: cappedDelay), at: maxDelay)
                 logger.warning(
                     "[\(classifier.platformName)] Transient infrastructure failure on '\(label)'. Retrying attempt \(attempt + 1)/\(maxAttempts) after \(jitteredDelay)."
                 )
@@ -172,7 +173,7 @@ public struct InfrastructureRetryScheduler: Sendable {
                 try await Task.sleep(for: jitteredDelay)
 
                 // Advance backoff: double with cap
-                currentDelay = Self.nextDelay(current: currentDelay, cap: maxDelay)
+                currentDelay = Self.nextDelay(current: cappedDelay, cap: maxDelay)
                 attempt += 1
             }
         }
@@ -188,12 +189,17 @@ public struct InfrastructureRetryScheduler: Sendable {
 
     /// Applies ±25% jitter to a delay to decorrelate parallel retries.
     static func applyJitter(to delay: Duration) -> Duration {
-        let seconds = Double(delay.components.seconds)
+        let seconds =
+            Double(delay.components.seconds)
             + Double(delay.components.attoseconds) / 1_000_000_000_000_000_000
         // Jitter factor: random between 0.75 and 1.25
         let jitter = Double.random(in: 0.75...1.25)
         let jittered = seconds * jitter
         return .milliseconds(Int(jittered * 1000))
+    }
+
+    static func capped(_ delay: Duration, at cap: Duration) -> Duration {
+        delay < cap ? delay : cap
     }
 
     /// Convenience: if options are nil (block absent), runs the operation once without retry.
@@ -203,7 +209,7 @@ public struct InfrastructureRetryScheduler: Sendable {
         classifier: any InfrastructureFailureClassifier,
         label: String,
         operation: @Sendable () async throws -> T,
-        extractContext: @Sendable (any Error & Sendable) -> TestFailureContext?
+        extractContext: @Sendable (any Error) -> TestFailureContext?
     ) async throws -> T {
         guard let options else {
             return try await operation()

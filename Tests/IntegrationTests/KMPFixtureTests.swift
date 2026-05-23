@@ -215,19 +215,19 @@ struct KMPFixtureIntegrationTests {
 }
 
 private let kmpFixtureShipfile = """
-app:
-  scheme: iosApp
-  project: iosApp/iosApp.xcodeproj
+    app:
+      scheme: iosApp
+      project: iosApp/iosApp.xcodeproj
 
-ios:
-  build_system: kmp
-  kmp_shared_module: shared
-  kmp_build_target: IosSimulatorArm64
-  kmp_archive_target: IosArm64
-  kmp_test_task: iosSimulatorArm64Test
+    ios:
+      build_system: kmp
+      kmp_shared_module: shared
+      kmp_build_target: IosSimulatorArm64
+      kmp_archive_target: IosArm64
+      kmp_test_task: iosSimulatorArm64Test
 
-android:
-  build_system: kmp
-  module: androidApp
-"""
+    android:
+      build_system: kmp
+      module: androidApp
+    """
 #endif

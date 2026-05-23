@@ -190,10 +190,10 @@ struct ReactNativeFixtureIntegrationTests {
 }
 
 private let reactNativeIOSArchiveShipfile = """
-app:
-  project: ios/HelloWorld.xcodeproj
-  scheme: HelloWorld
+    app:
+      project: ios/HelloWorld.xcodeproj
+      scheme: HelloWorld
 
-ios:
-  build_system: react_native
-"""
+    ios:
+      build_system: react_native
+    """

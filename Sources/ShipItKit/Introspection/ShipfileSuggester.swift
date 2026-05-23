@@ -259,12 +259,15 @@ public struct ShipfileSuggester: Sendable {
                 "  local:",
                 "    - action: lint",
                 "    - action: test",
+                "      # Optional: retry whole test runs for transient simulator/tool failures.",
+                "      # options: { infrastructure_retry: { max_attempts: 3, initial_delay_seconds: 2, max_delay_seconds: 30 } }",
                 "    - action: build",
             ])
         case .beta:
             lines.append(contentsOf: [
                 "  beta-ios:",
                 "    - action: test",
+                "      # options: { infrastructure_retry: { max_attempts: 3, initial_delay_seconds: 2, max_delay_seconds: 30 } }",
                 "    - action: archive",
                 "      options: { platform: ios }",
                 "    # Flutter iOS: archive produces build/ios/ipa/*.ipa directly (no export step needed).",
@@ -272,6 +275,7 @@ public struct ShipfileSuggester: Sendable {
                 "    # - action: testflight",
                 "  beta-android:",
                 "    - action: test",
+                "      # options: { infrastructure_retry: { max_attempts: 3, initial_delay_seconds: 2, max_delay_seconds: 30 } }",
                 "    - action: archive",
                 "      options: { platform: android }",
                 "    # - action: play-store",
@@ -281,11 +285,13 @@ public struct ShipfileSuggester: Sendable {
             lines.append(contentsOf: [
                 "  release-ios:",
                 "    - action: test",
+                "      # options: { infrastructure_retry: { max_attempts: 3, initial_delay_seconds: 2, max_delay_seconds: 30 } }",
                 "    - action: archive",
                 "      options: { platform: ios }",
                 "    - action: testflight",
                 "  release-android:",
                 "    - action: test",
+                "      # options: { infrastructure_retry: { max_attempts: 3, initial_delay_seconds: 2, max_delay_seconds: 30 } }",
                 "    - action: archive",
                 "      options: { platform: android }",
                 "    - action: play-store",
@@ -332,6 +338,7 @@ public struct ShipfileSuggester: Sendable {
                     "  local:",
                     "    - action: lint",
                     "    - action: test",
+                    "      # options: { infrastructure_retry: { max_attempts: 3, initial_delay_seconds: 2, max_delay_seconds: 30 } }",
                     "    - action: build",
                 ])
             case .beta:
@@ -339,6 +346,7 @@ public struct ShipfileSuggester: Sendable {
                     "  beta:",
                     "    - action: lint",
                     "    - action: test",
+                    "      # options: { infrastructure_retry: { max_attempts: 3, initial_delay_seconds: 2, max_delay_seconds: 30 } }",
                     "    # RN iOS: build validates the bundle, archive+export produces the IPA.",
                     "    - action: archive",
                     "    - action: export",
@@ -349,6 +357,7 @@ public struct ShipfileSuggester: Sendable {
                     "  release:",
                     "    - action: lint",
                     "    - action: test",
+                    "      # options: { infrastructure_retry: { max_attempts: 3, initial_delay_seconds: 2, max_delay_seconds: 30 } }",
                     "    - action: archive",
                     "    - action: export",
                     "    - action: testflight",
@@ -361,6 +370,7 @@ public struct ShipfileSuggester: Sendable {
                     "  local:",
                     "    - action: lint",
                     "    - action: test",
+                    "      # options: { infrastructure_retry: { max_attempts: 3, initial_delay_seconds: 2, max_delay_seconds: 30 } }",
                     "    - action: build",
                 ])
             case .beta:
@@ -368,6 +378,7 @@ public struct ShipfileSuggester: Sendable {
                     "  beta:",
                     "    - action: lint",
                     "    - action: test",
+                    "      # options: { infrastructure_retry: { max_attempts: 3, initial_delay_seconds: 2, max_delay_seconds: 30 } }",
                     "    - action: archive",
                     "    # - action: play-store",
                     "    #   options: { track: internal }",
@@ -377,6 +388,7 @@ public struct ShipfileSuggester: Sendable {
                     "  release:",
                     "    - action: lint",
                     "    - action: test",
+                    "      # options: { infrastructure_retry: { max_attempts: 3, initial_delay_seconds: 2, max_delay_seconds: 30 } }",
                     "    - action: archive",
                     "    - action: play-store",
                     "      options: { track: production }",
@@ -502,6 +514,7 @@ public struct ShipfileSuggester: Sendable {
                 "      options:",
                 "        destinations:",
                 "          # - \"platform=iOS Simulator,name=<SimulatorName>,OS=<Version>\"",
+                "        # infrastructure_retry: { max_attempts: 3, initial_delay_seconds: 2, max_delay_seconds: 30 }",
                 "    - action: archive",
                 "    - action: export",
             ])
@@ -571,6 +584,7 @@ public struct ShipfileSuggester: Sendable {
                 "  local:",
                 "    - action: lint",
                 "    - action: test",
+                "      # options: { infrastructure_retry: { max_attempts: 3, initial_delay_seconds: 2, max_delay_seconds: 30 } }",
                 "    - action: build",
             ])
         case .beta:
@@ -581,6 +595,7 @@ public struct ShipfileSuggester: Sendable {
                 "      options: { bump: build }",
                 "    - action: lint",
                 "    - action: test",
+                "      # options: { infrastructure_retry: { max_attempts: 3, initial_delay_seconds: 2, max_delay_seconds: 30 } }",
                 "    - action: archive",
                 "    # Add this when you are ready to upload to Google Play:",
                 "    # - action: play-store",
@@ -593,6 +608,7 @@ public struct ShipfileSuggester: Sendable {
                 "      options: { bump: build }",
                 "    - action: lint",
                 "    - action: test",
+                "      # options: { infrastructure_retry: { max_attempts: 3, initial_delay_seconds: 2, max_delay_seconds: 30 } }",
                 "    - action: archive",
                 "    - action: play-store",
                 "      options: { track: production }",

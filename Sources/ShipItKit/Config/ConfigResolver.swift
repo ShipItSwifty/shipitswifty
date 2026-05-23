@@ -197,6 +197,10 @@ public struct ConfigResolver: Sendable {
         let versioningSourceDefault = platform == .android ? "gradle" : "xcodeproj"
         let versioningSource = shipfile?.versioning?.source ?? versioningSourceDefault
         let versioningSpecPath = shipfile?.versioning?.specPath ?? projGenSpecPath
+        var androidGradleProperties = androidConfig?.gradleProperties ?? [:]
+        if let flavor = androidConfig?.flavor, !flavor.isEmpty {
+            androidGradleProperties["flavor"] = flavor
+        }
 
         return ResolvedConfig(
             processedFiles: processedFiles,
@@ -289,7 +293,7 @@ public struct ConfigResolver: Sendable {
             androidKeyPassword: environment.androidKeyPassword,
             androidPackageName: environment.androidPackageName ?? androidConfig?.packageName,
             androidRolloutFraction: androidConfig?.rolloutFraction,
-            androidGradleProperties: androidConfig?.gradleProperties ?? [:],
+            androidGradleProperties: androidGradleProperties,
             googlePlayServiceAccountData: googlePlayData
         )
     }

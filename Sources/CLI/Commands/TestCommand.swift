@@ -125,9 +125,11 @@ struct TestCommand: AsyncParsableCommand {
                     let effectiveModule = module ?? config.androidModule
                     let effectiveKind = kind ?? config.androidTestKind
                     let effectiveScope = scope ?? config.androidScope
-                    let effectiveTask = task ?? (effectiveKind == .instrumented
-                        ? "connectedDebugAndroidTest"
-                        : "test\(buildVariant ?? config.androidBuildVariant)UnitTest")
+                    let effectiveTask =
+                        task
+                        ?? (effectiveKind == .instrumented
+                            ? "connectedDebugAndroidTest"
+                            : "test\(buildVariant ?? config.androidBuildVariant)UnitTest")
                     if effectiveScope == .root {
                         formatter.print("DRY RUN: Would run root Gradle task '\(effectiveTask)'")
                     } else {

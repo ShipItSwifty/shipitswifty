@@ -21,7 +21,8 @@ func makeTempShipfile(
     directory: URL,
     contents: String
 ) throws -> URL {
-    let url = directory
+    let url =
+        directory
         .appendingPathComponent("\(prefix)-\(UUID().uuidString).yml")
     try contents.write(to: url, atomically: true, encoding: .utf8)
     return url
@@ -51,28 +52,29 @@ func shipfileForExternalFlutterProject(at projectURL: URL) -> String {
 
 func shipfileForExternalReactNativeProject(at projectURL: URL) -> String {
     let iosProject = detectReactNativeIOSProject(in: projectURL)
-    let appBlock = iosProject.map {
-        """
-        app:
-          project: \($0.project)
-          scheme: \($0.scheme)
-        """
-    } ?? ""
+    let appBlock =
+        iosProject.map {
+            """
+            app:
+              project: \($0.project)
+              scheme: \($0.scheme)
+            """
+        } ?? ""
 
     return """
-    platform: ios
-    \(appBlock)
+        platform: ios
+        \(appBlock)
 
-    ios:
-      build_system: react_native
+        ios:
+          build_system: react_native
 
-    android:
-      build_system: react_native
-      module: app
-      gradle_project_dir: ./android
-      gradlew_path: ./android/gradlew
+        android:
+          build_system: react_native
+          module: app
+          gradle_project_dir: ./android
+          gradlew_path: ./android/gradlew
 
-    """
+        """
 }
 
 private struct ReactNativeIOSProjectInfo: Sendable {

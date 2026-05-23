@@ -205,6 +205,14 @@ struct AISessionTests {
         #expect(payload.agentPrompt.contains("generate"))
     }
 
+    @Test("Agent prompt instructs agents to ask about infrastructure retries")
+    func agentPromptMentionsInfrastructureRetries() {
+        let payload = AISessionBuilder().build(
+            goal: .beta, inspection: fullInspection(), hasExistingShipfile: false)
+        #expect(payload.agentPrompt.contains("infrastructure_retry"))
+        #expect(payload.agentPrompt.contains("transient test infrastructure failures"))
+    }
+
     @Test("Agent prompt mentions NOT READY when blockers exist")
     func agentPromptMentionsNotReadyWhenBlocked() {
         let payload = AISessionBuilder().build(
