@@ -242,7 +242,7 @@ public struct ResolvedConfig: Sendable {
     public let androidModule: String
 
     /// Default Android Gradle test scope.
-    public let androidTestScope: TestScope
+    public let androidScope: GradleTaskScope
 
     /// Default Android test kind.
     public let androidTestKind: TestKind
@@ -358,7 +358,7 @@ public struct ResolvedConfig: Sendable {
         kmpArchiveTarget: String = "IosArm64",
         kmpTestTask: String = "iosSimulatorArm64Test",
         androidModule: String = "app",
-        androidTestScope: TestScope = .module,
+        androidScope: GradleTaskScope = .module,
         androidTestKind: TestKind = .unit,
         androidTestDevices: TestDeviceConfig = TestDeviceConfig(strategy: .none),
         androidBuildVariant: String = "release",
@@ -440,7 +440,7 @@ public struct ResolvedConfig: Sendable {
         self.kmpArchiveTarget = kmpArchiveTarget
         self.kmpTestTask = kmpTestTask
         self.androidModule = androidModule
-        self.androidTestScope = androidTestScope
+        self.androidScope = androidScope
         self.androidTestKind = androidTestKind
         self.androidTestDevices = androidTestDevices
         self.androidBuildVariant = androidBuildVariant
@@ -539,7 +539,7 @@ public struct ResolvedConfig: Sendable {
             kmpArchiveTarget: kmpArchiveTarget,
             kmpTestTask: kmpTestTask,
             androidModule: androidModule,
-            androidTestScope: androidTestScope,
+            androidScope: androidScope,
             androidTestKind: androidTestKind,
             androidTestDevices: androidTestDevices,
             androidBuildVariant: buildVariant ?? androidBuildVariant,

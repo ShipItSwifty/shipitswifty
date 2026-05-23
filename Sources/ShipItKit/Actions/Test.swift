@@ -59,7 +59,7 @@ public enum TestKind: String, Codable, Sendable, CaseIterable {
 ///
 /// - `module`: Task is prefixed with the module path, e.g. `:app:testDebugUnitTest`.
 /// - `root`: Task runs from the Gradle root without qualification, e.g. `testDebugUnitTest`.
-public enum TestScope: String, Codable, Sendable, CaseIterable {
+public enum GradleTaskScope: String, Codable, Sendable, CaseIterable {
     case module
     case root
 }
@@ -126,33 +126,11 @@ public struct TestAction: Action {
 
     private let logger = Logger.forType(subsystem: "ShipItSwifty", TestAction.self)
 
-    public struct InfrastructureRetryOptions: Codable, Sendable {
-        public var enabled: Bool?
-        public var maxAttempts: Int?
-        public var initialDelaySeconds: Double?
-
-        enum CodingKeys: String, CodingKey {
-            case enabled
-            case maxAttempts = "max_attempts"
-            case initialDelaySeconds = "initial_delay_seconds"
-        }
-
-        public init(
-            enabled: Bool? = nil,
-            maxAttempts: Int? = nil,
-            initialDelaySeconds: Double? = nil
-        ) {
-            self.enabled = enabled
-            self.maxAttempts = maxAttempts
-            self.initialDelaySeconds = initialDelaySeconds
-        }
-
-        var isEnabled: Bool { enabled ?? false }
-        var resolvedMaxAttempts: Int { max(maxAttempts ?? 3, 1) }
-        var resolvedInitialDelay: Duration {
-            .milliseconds(Int((initialDelaySeconds ?? 2) * 1000))
-        }
-    }
+    /// Cross-platform infrastructure retry options.
+    ///
+    /// This is a typealias to `InfrastructureRetryScheduler.Options` which provides
+    /// retry configuration shared across all platforms (iOS, Android, Flutter, RN, KMP).
+    public typealias InfrastructureRetryOptions = InfrastructureRetryScheduler.Options
 
     /// Creates a `TestAction`.
     public init() {}
@@ -235,7 +213,7 @@ public struct TestAction: Action {
         ///
         /// - `module`: Prefix with module path, e.g. `:app:testDebugUnitTest`.
         /// - `root`: Run unqualified from Gradle root.
-        public var scope: TestScope?
+        public var scope: GradleTaskScope?
 
         /// Gradle module to test (e.g. `"app"`). Defaults to `config.androidModule`. (Android only)
         public var module: String?
@@ -272,7 +250,7 @@ public struct TestAction: Action {
             retryOnFailure: Bool? = nil,
             infrastructureRetry: InfrastructureRetryOptions? = nil,
             kind: TestKind? = nil,
-            scope: TestScope? = nil,
+            scope: GradleTaskScope? = nil,
             module: String? = nil,
             buildVariant: String? = nil,
             task: String? = nil,
@@ -378,32 +356,46 @@ public struct TestAction: Action {
     /// Runs `flutter test` for Flutter projects (both iOS and Android platforms).
     private func runFlutterTests(options: Options, context: ActionContext) async throws -> Result {
         logger.info("Running Flutter tests (flutter test)")
-        let flutter = FlutterCLI(context: context.shell).test()
-        let output: ShellOutput
-        do {
-            output = try await flutter.run()
-        } catch let ShellError.exitFailure(_, shellOutput) {
-            let combinedLog = ShellRunHelpers.combinedLog(shellOutput)
-            let failCount = parseFlutterFailureCount(from: combinedLog)
-            logger.error("Flutter tests failed with \(failCount) failure(s)")
-            throw ShipItError.testFailed(
-                exitCode: Int(shellOutput.exitCode),
-                failureCount: failCount,
-                log: combinedLog
-            )
+
+        let scheduler = InfrastructureRetryScheduler(
+            options: options.infrastructureRetry ?? .init(),
+            classifier: FlutterInfrastructureClassifier()
+        )
+
+        return try await scheduler.execute(label: "flutter test") {
+            let flutter = FlutterCLI(context: context.shell).test()
+            let output: ShellOutput
+            do {
+                output = try await flutter.run()
+            } catch let ShellError.exitFailure(_, shellOutput) {
+                let combinedLog = ShellRunHelpers.combinedLog(shellOutput)
+                let failCount = self.parseFlutterFailureCount(from: combinedLog)
+                self.logger.error("Flutter tests failed with \(failCount) failure(s)")
+                throw ShipItError.testFailed(
+                    exitCode: Int(shellOutput.exitCode),
+                    failureCount: failCount,
+                    log: combinedLog
+                )
+            }
+            if output.exitCode != 0 {
+                let combinedLog = ShellRunHelpers.combinedLog(output)
+                let failCount = self.parseFlutterFailureCount(from: combinedLog)
+                throw ShipItError.testFailed(
+                    exitCode: Int(output.exitCode),
+                    failureCount: failCount,
+                    log: combinedLog
+                )
+            }
+            let (pass, fail, skip) = self.parseFlutterCounts(from: output.stdout)
+            self.logger.info("Flutter tests complete — pass: \(pass), fail: \(fail), skip: \(skip)")
+            return Result(passCount: pass, failCount: fail, skipCount: skip)
+        } extractContext: { error in
+            if let shipItError = error as? ShipItError,
+               case .testFailed(_, _, let log) = shipItError {
+                return .init(log: log, underlyingError: shipItError)
+            }
+            return nil
         }
-        if output.exitCode != 0 {
-            let combinedLog = ShellRunHelpers.combinedLog(output)
-            let failCount = parseFlutterFailureCount(from: combinedLog)
-            throw ShipItError.testFailed(
-                exitCode: Int(output.exitCode),
-                failureCount: failCount,
-                log: combinedLog
-            )
-        }
-        let (pass, fail, skip) = parseFlutterCounts(from: output.stdout)
-        logger.info("Flutter tests complete — pass: \(pass), fail: \(fail), skip: \(skip)")
-        return Result(passCount: pass, failCount: fail, skipCount: skip)
     }
 
     // MARK: - React Native Tests (package manager run test)
@@ -422,10 +414,26 @@ public struct TestAction: Action {
         logger.info(
             "Detected package manager: \(runner.resolvedPackageManager.rawValue)"
         )
-        let output = try await runner.run(script: "test")
-        let (pass, fail, skip) = parseJSTestCounts(from: output.stdout + output.stderr)
-        logger.info("React Native tests complete — pass: \(pass), fail: \(fail), skip: \(skip)")
-        return Result(passCount: pass, failCount: fail, skipCount: skip)
+
+        let scheduler = InfrastructureRetryScheduler(
+            options: options.infrastructureRetry ?? .init(),
+            classifier: ReactNativeInfrastructureClassifier()
+        )
+
+        return try await scheduler.execute(label: "npm test") {
+            let output = try await runner.run(script: "test")
+            let (pass, fail, skip) = self.parseJSTestCounts(from: output.stdout + output.stderr)
+            self.logger.info("React Native tests complete — pass: \(pass), fail: \(fail), skip: \(skip)")
+            return Result(passCount: pass, failCount: fail, skipCount: skip)
+        } extractContext: { error in
+            // JSScriptRunner throws ShipItError.testFailed or generic errors
+            if let shipItError = error as? ShipItError,
+               case .testFailed(_, _, let log) = shipItError {
+                return .init(log: log, underlyingError: shipItError)
+            }
+            // For non-ShipItError throws, try to extract message
+            return .init(log: error.localizedDescription, underlyingError: error)
+        }
     }
 
     // MARK: - Flutter / RN parse helpers
@@ -521,37 +529,51 @@ public struct TestAction: Action {
 
         logger.info("Running KMP iOS test task '\(task.name)'")
 
-        let gradle = context.gradle()
-            .task(task)
+        let scheduler = InfrastructureRetryScheduler(
+            options: options.infrastructureRetry ?? .init(),
+            classifier: KMPInfrastructureClassifier()
+        )
 
-        let output: ShellOutput
-        do {
-            output = try await gradle.run()
-        } catch let ShellError.exitFailure(_, shellOutput) {
-            let combinedLog = [shellOutput.stdout, shellOutput.stderr]
-                .filter { !$0.isEmpty }
-                .joined(separator: "\n")
-            let failCount = parseGradleFailureCount(from: combinedLog)
-            logger.error("KMP iOS tests failed with \(failCount) failure(s)")
-            throw ShipItError.testFailed(
-                exitCode: Int(shellOutput.exitCode),
-                failureCount: failCount,
-                log: combinedLog
-            )
+        return try await scheduler.execute(label: task.name) {
+            let gradle = context.gradle()
+                .task(task)
+
+            let output: ShellOutput
+            do {
+                output = try await gradle.run()
+            } catch let ShellError.exitFailure(_, shellOutput) {
+                let combinedLog = [shellOutput.stdout, shellOutput.stderr]
+                    .filter { !$0.isEmpty }
+                    .joined(separator: "\n")
+                let failCount = self.parseGradleFailureCount(from: combinedLog)
+                self.logger.error("KMP iOS tests failed with \(failCount) failure(s)")
+                throw ShipItError.testFailed(
+                    exitCode: Int(shellOutput.exitCode),
+                    failureCount: failCount,
+                    log: combinedLog
+                )
+            }
+
+            if output.exitCode != 0 {
+                let combinedLog = output.stdout + "\n" + output.stderr
+                let failCount = self.parseGradleFailureCount(from: combinedLog)
+                throw ShipItError.testFailed(
+                    exitCode: Int(output.exitCode),
+                    failureCount: failCount,
+                    log: combinedLog
+                )
+            }
+
+            let (pass, fail, skip) = self.parseGradleCounts(from: output.stdout)
+            self.logger.info("KMP iOS tests complete — pass: \(pass), fail: \(fail), skip: \(skip)")
+            return Result(passCount: pass, failCount: fail, skipCount: skip)
+        } extractContext: { error in
+            if let shipItError = error as? ShipItError,
+               case .testFailed(_, _, let log) = shipItError {
+                return .init(log: log, underlyingError: shipItError)
+            }
+            return nil
         }
-
-        if output.exitCode != 0 {
-            let failCount = parseGradleFailureCount(from: output.stdout)
-            throw ShipItError.testFailed(
-                exitCode: Int(output.exitCode),
-                failureCount: failCount,
-                log: output.stderr
-            )
-        }
-
-        let (pass, fail, skip) = parseGradleCounts(from: output.stdout)
-        logger.info("KMP iOS tests complete — pass: \(pass), fail: \(fail), skip: \(skip)")
-        return Result(passCount: pass, failCount: fail, skipCount: skip)
     }
 
     #if os(macOS)
@@ -627,14 +649,13 @@ public struct TestAction: Action {
         options: Options,
         context: ActionContext
     ) async throws -> (pass: Int, fail: Int, skip: Int) {
-        let maxAttempts = options.infrastructureRetry?.isEnabled == true
-            ? options.infrastructureRetry?.resolvedMaxAttempts ?? 1
-            : 1
-        var attempt = 1
-        var currentDelay = options.infrastructureRetry?.resolvedInitialDelay ?? .zero
+        let scheduler = InfrastructureRetryScheduler(
+            options: options.infrastructureRetry ?? .init(),
+            classifier: IOSInfrastructureClassifier()
+        )
 
-        while true {
-            try removeStaleResultBundleIfNeeded(resultBundlePath)
+        return try await scheduler.execute(label: destination) {
+            try self.removeStaleResultBundleIfNeeded(resultBundlePath)
 
             var xcodeBuild = XcodeBuild(context: context.shell)
                 .option(.scheme(scheme))
@@ -677,8 +698,8 @@ public struct TestAction: Action {
 
                 if output.exitCode != 0 {
                     let combinedLog = output.stdout + output.stderr
-                    let failCount = parseFailureCount(from: combinedLog)
-                    logger.error("Tests failed on '\(destination)' with \(failCount) failure(s)")
+                    let failCount = self.parseFailureCount(from: combinedLog)
+                    self.logger.error("Tests failed on '\(destination)' with \(failCount) failure(s)")
                     throw ShipItError.testFailed(
                         exitCode: Int(output.exitCode),
                         failureCount: failCount,
@@ -686,52 +707,28 @@ public struct TestAction: Action {
                     )
                 }
 
-                let (pass, skip) = parseCounts(from: output.stdout)
-                logger.info("'\(destination)' — passed: \(pass), skipped: \(skip)")
+                let (pass, skip) = self.parseCounts(from: output.stdout)
+                self.logger.info("'\(destination)' — passed: \(pass), skipped: \(skip)")
                 return (pass: pass, fail: 0, skip: skip)
             } catch let ShellError.exitFailure(_, shellOutput) {
                 let combinedLog = [shellOutput.stdout, shellOutput.stderr]
                     .filter { !$0.isEmpty }
                     .joined(separator: "\n")
 
-                if shouldRetryInfrastructureFailure(
-                    log: combinedLog,
-                    attempt: attempt,
-                    maxAttempts: maxAttempts,
-                    destination: destination,
-                    delay: currentDelay
-                ) {
-                    try await Task.sleep(for: currentDelay)
-                    currentDelay = nextRetryDelay(after: currentDelay)
-                    attempt += 1
-                    continue
-                }
-
-                let failCount = parseFailureCount(from: combinedLog)
-                logger.error("Tests failed on '\(destination)' with \(failCount) failure(s)")
+                let failCount = self.parseFailureCount(from: combinedLog)
+                self.logger.error("Tests failed on '\(destination)' with \(failCount) failure(s)")
                 throw ShipItError.testFailed(
                     exitCode: Int(shellOutput.exitCode),
                     failureCount: failCount,
                     log: combinedLog
                 )
-            } catch let error as ShipItError {
-                guard case .testFailed(_, _, let log) = error else { throw error }
-
-                if shouldRetryInfrastructureFailure(
-                    log: log,
-                    attempt: attempt,
-                    maxAttempts: maxAttempts,
-                    destination: destination,
-                    delay: currentDelay
-                ) {
-                    try await Task.sleep(for: currentDelay)
-                    currentDelay = nextRetryDelay(after: currentDelay)
-                    attempt += 1
-                    continue
-                }
-
-                throw error
             }
+        } extractContext: { error in
+            if let shipItError = error as? ShipItError,
+               case .testFailed(_, _, let log) = shipItError {
+                return .init(log: log, underlyingError: shipItError)
+            }
+            return nil
         }
     }
 
@@ -743,7 +740,7 @@ public struct TestAction: Action {
         let module = options.module ?? context.config.androidModule
         let variant = options.buildVariant ?? context.config.androidBuildVariant
         let kind = options.kind ?? context.config.androidTestKind
-        let scope = options.scope ?? context.config.androidTestScope
+        let scope = options.scope ?? context.config.androidScope
         let devices = options.devices ?? context.config.androidTestDevices
 
         // Choose task: explicit task name, or derive from kind/variant
@@ -792,52 +789,66 @@ public struct TestAction: Action {
 
         logger.info("Running Android test task '\(scopedTask.name)'")
 
-        let gradle = context.gradle()
-            .task(scopedTask)
+        let scheduler = InfrastructureRetryScheduler(
+            options: options.infrastructureRetry ?? .init(),
+            classifier: AndroidInfrastructureClassifier()
+        )
 
-        let output: ShellOutput
-        do {
-            output = try await gradle.run()
-        } catch let ShellError.exitFailure(_, shellOutput) {
-            let combinedLog = [shellOutput.stdout, shellOutput.stderr]
-                .filter { !$0.isEmpty }
-                .joined(separator: "\n")
-            let failCount = parseGradleFailureCount(from: combinedLog)
-            logger.error("Android tests failed with \(failCount) failure(s)")
-            throw ShipItError.testFailed(
-                exitCode: Int(shellOutput.exitCode),
-                failureCount: failCount,
-                log: combinedLog
-            )
+        return try await scheduler.execute(label: scopedTask.name) {
+            let gradle = context.gradle()
+                .task(scopedTask)
+
+            let output: ShellOutput
+            do {
+                output = try await gradle.run()
+            } catch let ShellError.exitFailure(_, shellOutput) {
+                let combinedLog = [shellOutput.stdout, shellOutput.stderr]
+                    .filter { !$0.isEmpty }
+                    .joined(separator: "\n")
+                let failCount = self.parseGradleFailureCount(from: combinedLog)
+                self.logger.error("Android tests failed with \(failCount) failure(s)")
+                throw ShipItError.testFailed(
+                    exitCode: Int(shellOutput.exitCode),
+                    failureCount: failCount,
+                    log: combinedLog
+                )
+            }
+
+            if output.exitCode != 0 {
+                let combinedLog = output.stdout + "\n" + output.stderr
+                let failCount = self.parseGradleFailureCount(from: combinedLog)
+                throw ShipItError.testFailed(
+                    exitCode: Int(output.exitCode),
+                    failureCount: failCount,
+                    log: combinedLog
+                )
+            }
+
+            let (pass, fail, skip) = self.parseGradleCounts(from: output.stdout + "\n" + output.stderr)
+            context.logShellOutput(output, label: "gradlew test")
+
+            // If stdout parsing found no counts, fall back to JUnit XML reports on disk
+            let finalCounts: (pass: Int, fail: Int, skip: Int)
+            if pass == 0 && fail == 0 && skip == 0 {
+                let xmlCounts = self.aggregateJUnitXMLResults(
+                    projectDir: context.config.gradleProjectDir,
+                    task: task.name
+                )
+                finalCounts = xmlCounts
+            } else {
+                finalCounts = (pass, fail, skip)
+            }
+
+            self.logger.info("Android tests complete — pass: \(finalCounts.pass), fail: \(finalCounts.fail), skip: \(finalCounts.skip)")
+
+            return Result(passCount: finalCounts.pass, failCount: finalCounts.fail, skipCount: finalCounts.skip)
+        } extractContext: { error in
+            if let shipItError = error as? ShipItError,
+               case .testFailed(_, _, let log) = shipItError {
+                return .init(log: log, underlyingError: shipItError)
+            }
+            return nil
         }
-
-        if output.exitCode != 0 {
-            let failCount = parseGradleFailureCount(from: output.stdout)
-            throw ShipItError.testFailed(
-                exitCode: Int(output.exitCode),
-                failureCount: failCount,
-                log: output.stderr
-            )
-        }
-
-        let (pass, fail, skip) = parseGradleCounts(from: output.stdout + "\n" + output.stderr)
-        context.logShellOutput(output, label: "gradlew test")
-
-        // If stdout parsing found no counts, fall back to JUnit XML reports on disk
-        let finalCounts: (pass: Int, fail: Int, skip: Int)
-        if pass == 0 && fail == 0 && skip == 0 {
-            let xmlCounts = aggregateJUnitXMLResults(
-                projectDir: context.config.gradleProjectDir,
-                task: task.name
-            )
-            finalCounts = xmlCounts
-        } else {
-            finalCounts = (pass, fail, skip)
-        }
-
-        logger.info("Android tests complete — pass: \(finalCounts.pass), fail: \(finalCounts.fail), skip: \(finalCounts.skip)")
-
-        return Result(passCount: finalCounts.pass, failCount: finalCounts.fail, skipCount: finalCounts.skip)
     }
 
     private func prepareAndroidDevices(
@@ -1058,44 +1069,6 @@ public struct TestAction: Action {
                 reason: "Could not remove existing result bundle at '\(bundlePath)': \(error.localizedDescription)"
             )
         }
-    }
-
-    private func shouldRetryInfrastructureFailure(
-        log: String,
-        attempt: Int,
-        maxAttempts: Int,
-        destination: String,
-        delay: Duration
-    ) -> Bool {
-        guard attempt < maxAttempts else { return false }
-        guard Self.isRetryableIOSInfrastructureFailure(log: log) else { return false }
-
-        logger.warning(
-            "Detected transient iOS test infrastructure failure on '\(destination)'. Retrying attempt \(attempt + 1)/\(maxAttempts) after \(delay)."
-        )
-        return true
-    }
-
-    private func nextRetryDelay(after currentDelay: Duration) -> Duration {
-        let seconds = currentDelay.components.seconds
-        let attoseconds = currentDelay.components.attoseconds
-        let currentSeconds = Double(seconds) + Double(attoseconds) / 1_000_000_000_000_000_000
-        let nextSeconds = max(currentSeconds * 2, 1)
-        return .milliseconds(Int(nextSeconds * 1000))
-    }
-
-    static func isRetryableIOSInfrastructureFailure(log: String) -> Bool {
-        let normalized = log.lowercased()
-        return [
-            "failed to launch app with identifier",
-            "simulator device failed to launch",
-            "the process failed to launch",
-            "fbsopenapplicationserviceerrordomain",
-            "requestdenied",
-            "launch failed",
-            "xctrunner",
-            "database is locked",
-        ].contains { normalized.contains($0) }
     }
 
     #endif

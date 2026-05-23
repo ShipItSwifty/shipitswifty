@@ -272,7 +272,7 @@ public struct ConfigResolver: Sendable {
             kmpArchiveTarget: environment.iosKMPArchiveTarget ?? shipfile?.ios?.kmpArchiveTarget ?? "IosArm64",
             kmpTestTask: environment.iosKMPTestTask ?? shipfile?.ios?.kmpTestTask ?? "iosSimulatorArm64Test",
             androidModule: environment.androidModule ?? androidConfig?.module ?? "app",
-            androidTestScope: androidConfig?.testScope ?? .module,
+            androidScope: androidConfig?.scope ?? .module,
             androidTestKind: androidConfig?.testKind ?? .unit,
             androidTestDevices: androidConfig?.testDevices ?? TestDeviceConfig(strategy: .none),
             androidBuildVariant: environment.androidBuildVariant ?? androidConfig?.buildVariant

@@ -26,7 +26,7 @@ public struct AndroidConfig: Codable, Sendable {
     ///
     /// - `module`: Qualify tasks with `module`, e.g. `:app:testDebugUnitTest`.
     /// - `root`: Run tasks from the Gradle root, e.g. `testDebugUnitTest`.
-    public var testScope: TestScope?
+    public var scope: GradleTaskScope?
 
     /// Default test kind for Android test steps.
     public var testKind: TestKind?
@@ -70,7 +70,7 @@ public struct AndroidConfig: Codable, Sendable {
     enum CodingKeys: String, CodingKey {
         case buildSystem = "build_system"
         case module
-        case testScope = "test_scope"
+        case scope
         case testKind = "test_kind"
         case testDevices = "test_devices"
         case buildVariant = "build_variant"
@@ -90,7 +90,7 @@ public struct AndroidConfig: Codable, Sendable {
     public init(
         buildSystem: BuildSystem? = nil,
         module: String? = nil,
-        testScope: TestScope? = nil,
+        scope: GradleTaskScope? = nil,
         testKind: TestKind? = nil,
         testDevices: TestDeviceConfig? = nil,
         buildVariant: String? = nil,
@@ -107,7 +107,7 @@ public struct AndroidConfig: Codable, Sendable {
     ) {
         self.buildSystem = buildSystem
         self.module = module
-        self.testScope = testScope
+        self.scope = scope
         self.testKind = testKind
         self.testDevices = testDevices
         self.buildVariant = buildVariant

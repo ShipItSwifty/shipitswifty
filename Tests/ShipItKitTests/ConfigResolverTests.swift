@@ -123,7 +123,7 @@ struct ConfigResolverTests {
         platform: android
         android:
           module: app
-          test_scope: root
+          scope: root
           test_kind: instrumented
           test_devices:
             strategy: named_emulators
@@ -137,7 +137,7 @@ struct ConfigResolverTests {
         let config = try await resolver.resolve(shipfilePath: shipfileURL.path)
 
         #expect(config.platform == .android)
-        #expect(config.androidTestScope == .root)
+        #expect(config.androidScope == .root)
         #expect(config.androidTestKind == .instrumented)
         #expect(config.androidTestDevices.strategy == .namedEmulators)
         #expect(config.androidTestDevices.emulators == ["Pixel_9_API_35", "Pixel_Tablet_API_35"])

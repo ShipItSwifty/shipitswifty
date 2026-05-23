@@ -108,8 +108,19 @@ struct ReactNativeExternalIntegrationTests {
         )
         #expect(result.exitCode == 0, "react native Android archive failed:\n\(result.output)")
 
-        let aabDir = project.appendingPathComponent("android/app/build/outputs/bundle")
-        #expect(FileManager.default.fileExists(atPath: aabDir.path), "Expected React Native AAB output under \(aabDir.path)")
+        let aabPath = project.appendingPathComponent("android/app/build/outputs/bundle/release/app-release.aab")
+        #expect(FileManager.default.fileExists(atPath: aabPath.path), "Expected React Native AAB at \(aabPath.path)")
+
+        let validateResult = try await CLI.run(
+            "validate", "bundle",
+            "--platform", "android",
+            "--aab", aabPath.path,
+            "--output", "json",
+            "--shipfile", shipfile.path,
+            workingDirectory: project,
+            timeout: 600
+        )
+        #expect(validateResult.exitCode == 0, "react native Android AAB validation failed:\n\(validateResult.output)")
     }
 
     @Test("react native iOS build succeeds for external project", .requiresCocoaPods)

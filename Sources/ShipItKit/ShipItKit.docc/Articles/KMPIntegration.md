@@ -45,7 +45,7 @@ Custom key names are supported via `versioning.marketing_key` and `versioning.bu
 
 ## Test action
 
-For KMP iOS tests, ``TestAction`` dispatches to `gradlew :shared:iosSimulatorArm64Test` rather than `xcodebuild test`. Override it with `ios.kmp_test_task` and `ios.kmp_shared_module` when needed. The Android side reuses the native unit-test path with a module-qualified Gradle task.
+For KMP iOS tests, ``TestAction`` dispatches to `gradlew :shared:iosSimulatorArm64Test` rather than `xcodebuild test`. Override it with `ios.kmp_test_task` and `ios.kmp_shared_module` when needed. The Android side reuses the native test path — set `kind: unit` for JVM tests or `kind: instrumented` for on-device tests, with `scope` and `devices` controlling task qualification and device provisioning.
 
 ## Minimal Shipfile
 

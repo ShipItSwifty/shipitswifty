@@ -354,8 +354,8 @@ public enum BuiltInSchemaCatalog {
                         "module", description: "Gradle module name (e.g. app). Defaults to 'app'.",
                         example: .string("app"), envVar: "SHIPIT_ANDROID__MODULE"),
                     .string(
-                        "test_scope",
-                        description: "Default Android Gradle test scope: 'module' qualifies tasks with the module, 'root' runs the task from the Gradle root.",
+                        "scope",
+                        description: "Default Android Gradle task scope: 'module' qualifies tasks with the module, 'root' runs the task from the Gradle root.",
                         allowedValues: ["module", "root"],
                         example: .string("module")),
                     .string(
@@ -713,6 +713,12 @@ public enum BuiltInSchemaCatalog {
                 allowsAdditionalProperties: true,
                 additionalProperties: .string("property", description: "Gradle property value.")
             ),
+            .string(
+                "scope",
+                description: "Android Gradle task scope: 'module' qualifies the task with the module, 'root' runs the task from the Gradle root.",
+                defaultValue: .string("module"),
+                allowedValues: ["module", "root"],
+                example: .string("module")),
         ]
     }
 
@@ -783,25 +789,31 @@ public enum BuiltInSchemaCatalog {
             .object(
                 "infrastructure_retry",
                 description:
-                    "Retry the entire iOS xcodebuild test invocation for transient simulator or xctrunner infrastructure failures.",
+                    "Retry the entire test invocation for transient infrastructure failures (works across all platforms: iOS simulator crashes, Android emulator disconnects, Flutter tool crashes, JS worker failures).",
                 properties: [
                     .boolean(
                         "enabled",
-                        description: "Enable infrastructure-level retries for iOS test runs.",
+                        description: "Enable infrastructure-level retries for test runs.",
                         defaultValue: .bool(false),
                         example: .bool(true)
                     ),
                     .integer(
                         "max_attempts",
-                        description: "Maximum number of full iOS test invocation attempts, including the first.",
+                        description: "Maximum number of full test invocation attempts, including the first.",
                         defaultValue: .int(3),
                         example: .int(3)
                     ),
                     .number(
                         "initial_delay_seconds",
-                        description: "Delay before the first infrastructure retry; later retries use exponential backoff.",
+                        description: "Delay before the first infrastructure retry; later retries use exponential backoff with jitter.",
                         defaultValue: .double(2),
                         example: .double(2)
+                    ),
+                    .number(
+                        "max_delay_seconds",
+                        description: "Maximum delay cap in seconds. Backoff will not exceed this value.",
+                        defaultValue: .double(60),
+                        example: .double(60)
                     ),
                 ]
             ),
@@ -879,6 +891,12 @@ public enum BuiltInSchemaCatalog {
                 allowsAdditionalProperties: true,
                 additionalProperties: .string("property", description: "Gradle property value.")
             ),
+            .string(
+                "scope",
+                description: "Android Gradle task scope: 'module' qualifies the task with the module, 'root' runs the task from the Gradle root.",
+                defaultValue: .string("module"),
+                allowedValues: ["module", "root"],
+                example: .string("module")),
         ]
     }
 
@@ -1335,6 +1353,12 @@ public enum BuiltInSchemaCatalog {
             .boolean(
                 "fail_on_error", description: "Fail the build on lint errors. Default: true.",
                 defaultValue: .bool(true), example: .bool(true)),
+            .string(
+                "scope",
+                description: "Android Gradle task scope: 'module' qualifies the task with the module, 'root' runs lint across all modules.",
+                defaultValue: .string("module"),
+                allowedValues: ["module", "root"],
+                example: .string("module")),
         ]
     }
 

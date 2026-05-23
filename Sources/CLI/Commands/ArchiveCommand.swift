@@ -28,6 +28,9 @@ struct ArchiveCommand: AsyncParsableCommand {
     @Option(name: .long, help: "Gradle build variant to bundle (Android, default: release)")
     var buildVariant: String?
 
+    @Option(name: .long, help: "Gradle task scope: module | root (Android)")
+    var scope: GradleTaskScope?
+
     func run() async throws {
         do {
             let config = try await resolveRequiredConfig(
@@ -44,7 +47,8 @@ struct ArchiveCommand: AsyncParsableCommand {
                 exportMethod: exportMethod,
                 outputPath: outputPath,
                 module: module,
-                buildVariant: buildVariant
+                buildVariant: buildVariant,
+                scope: scope
             )
 
             if global.dryRun {

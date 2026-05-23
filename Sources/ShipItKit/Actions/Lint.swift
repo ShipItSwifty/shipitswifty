@@ -66,6 +66,9 @@ public struct LintAction: Action {
         /// Whether to fail the build if lint errors are found. Default: `true`.
         public var failOnError: Bool?
 
+        /// Gradle task scope — `module` (default) or `root`. (Android only)
+        public var scope: GradleTaskScope?
+
         /// Creates `Options` for the lint action.
         public init(
             scheme: String? = nil,
@@ -73,7 +76,8 @@ public struct LintAction: Action {
             module: String? = nil,
             buildVariant: String? = nil,
             reportPath: String? = nil,
-            failOnError: Bool? = nil
+            failOnError: Bool? = nil,
+            scope: GradleTaskScope? = nil
         ) {
             self.scheme = scheme
             self.configuration = configuration
@@ -81,6 +85,7 @@ public struct LintAction: Action {
             self.buildVariant = buildVariant
             self.reportPath = reportPath
             self.failOnError = failOnError
+            self.scope = scope
         }
     }
 
@@ -264,6 +269,7 @@ public struct LintAction: Action {
         let module = options.module ?? context.config.androidModule
         let reportPath = options.reportPath ?? "./build/reports/lint-results.html"
         let failOnError = options.failOnError ?? true
+        let scope = options.scope ?? context.config.androidScope
 
         // Determine task: lintRelease, lintDebug, or just lint
         let taskName: String
@@ -273,10 +279,20 @@ public struct LintAction: Action {
             taskName = "lint"
         }
 
-        logger.info("Running Android lint task '\(taskName)' for module '\(module)'")
+        // Qualify based on scope
+        let task = GradleTask(name: taskName)
+        let scopedTask: GradleTask
+        switch scope {
+        case .root:
+            scopedTask = task
+        case .module:
+            scopedTask = task.qualified(module: module)
+        }
+
+        logger.info("Running Android lint task '\(scopedTask.name)' for module '\(module)'")
 
         let gradle = context.gradle()
-            .task(GradleTask(name: taskName).qualified(module: module))
+            .task(scopedTask)
 
         let output: ShellOutput
         do {

@@ -86,6 +86,52 @@ xcodebuild build settings.
 | `derived_data_path` | string | — | Custom derived data directory |
 | `xcargs` | map | `{}` | Additional flags passed to `xcodebuild` |
 
+## `test`
+
+Test action configuration. Works across all platforms (iOS, Android, Flutter, React Native, KMP).
+
+| Key | Type | Default | Description |
+|---|---|---|---|
+| `scheme` | string | from `app.scheme` | Xcode scheme containing test targets (iOS) |
+| `destinations` | [string] | auto-discovered | List of xcodebuild destination strings (iOS) |
+| `destination` | string | — | Single destination (backward compat; prefer `destinations`) |
+| `configuration` | string | `Debug` | Build configuration (iOS) |
+| `test_plan` | string | — | Xcode test plan name (iOS) |
+| `only_testing` | [string] | — | Restrict to specific test targets/cases (iOS) |
+| `skip_testing` | [string] | — | Skip specific test targets/cases (iOS) |
+| `enable_code_coverage` | bool | `false` | Collect code coverage (iOS) |
+| `result_bundle_path` | string | — | Custom `.xcresult` output path (iOS) |
+| `retry_on_failure` | bool | `false` | Enable Xcode's `-retry-tests-on-failure` (iOS) |
+| `kind` | string | `unit` | Test kind: `unit`, `instrumented`, `e2e` (Android) |
+| `scope` | string | `module` | Gradle task scope: `module` or `root` (Android) |
+| `module` | string | from config | Gradle module to test (Android/KMP) |
+| `build_variant` | string | `debug` | Gradle build variant (Android) |
+| `task` | string | — | Explicit Gradle task name override (Android) |
+| `devices` | object | — | Device config for instrumented tests (Android) |
+| `infrastructure_retry` | object | — | Cross-platform infrastructure retry. See below. |
+
+### `infrastructure_retry`
+
+Retries the entire test invocation for transient infrastructure failures. Each platform has its own failure classifier that distinguishes real test failures from infrastructure problems (simulator crashes, emulator disconnects, tool crashes, worker OOMs).
+
+| Key | Type | Default | Description |
+|---|---|---|---|
+| `enabled` | bool | `false` | Enable infrastructure retries |
+| `max_attempts` | int | `3` | Maximum total attempts including the first |
+| `initial_delay_seconds` | number | `2` | Delay before first retry (exponential backoff with ±25% jitter) |
+| `max_delay_seconds` | number | `60` | Maximum delay cap |
+
+```yaml
+test:
+  test_plan: Novalingo
+  retry_on_failure: true
+  infrastructure_retry:
+    enabled: true
+    max_attempts: 3
+    initial_delay_seconds: 2
+    max_delay_seconds: 60
+```
+
 ## `archive`
 
 Archive configuration.
@@ -161,6 +207,9 @@ Per-platform overrides merged on top of the shared config when the resolved plat
 | `kmp_archive_target` (iOS) | string | `IosArm64` | KMP framework target used before archives. |
 | `kmp_test_task` (iOS) | string | `iosSimulatorArm64Test` | KMP Gradle task used for iOS-side Kotlin tests. |
 | `module` / `build_variant` / `build_type` (Android) | string | varies | Override the Gradle module name and variant. |
+| `test_scope` (Android) | string | `module` | Default test task scope: `module` or `root`. |
+| `test_kind` (Android) | string | `unit` | Default test kind: `unit`, `instrumented`, or `e2e`. |
+| `test_devices` (Android) | object | `{strategy: none}` | Default device config for instrumented tests. See below. |
 | `gradlew_path` / `gradle_project_dir` (Android) | string | Shipfile directory | Controls local Gradle wrapper and working directory. |
 
 ```yaml
@@ -174,6 +223,13 @@ android:
   build_system: kmp
   module: androidApp
   gradle_project_dir: .
+  test_scope: root
+  test_kind: instrumented
+  test_devices:
+    strategy: named_emulators
+    emulators:
+      - Pixel_9_API_35
+    prompt_locally: true
 ```
 
 Flutter and React Native markers are reported by inspection, but runtime support is not active unless you explicitly set those values.

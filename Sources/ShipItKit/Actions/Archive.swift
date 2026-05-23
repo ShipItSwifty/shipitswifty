@@ -70,6 +70,9 @@ public struct ArchiveAction: Action {
         /// Additional Gradle `-P` properties. (Android only)
         public var gradleProperties: [String: String]?
 
+        /// Gradle task scope — `module` (default) or `root`. (Android only)
+        public var scope: GradleTaskScope?
+
         /// Creates `Options` for the archive action.
         ///
         /// All parameters are optional; unset values fall back to `ResolvedConfig`.
@@ -83,7 +86,8 @@ public struct ArchiveAction: Action {
             module: String? = nil,
             buildVariant: String? = nil,
             flavor: String? = nil,
-            gradleProperties: [String: String]? = nil
+            gradleProperties: [String: String]? = nil,
+            scope: GradleTaskScope? = nil
         ) {
             self.scheme = scheme
             self.configuration = configuration
@@ -95,6 +99,7 @@ public struct ArchiveAction: Action {
             self.buildVariant = buildVariant
             self.flavor = flavor
             self.gradleProperties = gradleProperties
+            self.scope = scope
         }
     }
 
@@ -235,13 +240,126 @@ public struct ArchiveAction: Action {
         logger.info("Archiving React Native Android app (npx react-native build-android --mode=\(variant) --tasks \(task))")
 
         let rn = ReactNativeCLI(context: context.shell).buildAndroid(mode: variant, task: task)
-        let output = try await ShellRunHelpers.run(rn) { exitCode, log in
-            logger.error("React Native Android archive failed with exit code \(exitCode)")
-            return .archiveFailed(exitCode: exitCode, log: log)
+
+        do {
+            let output = try await rn.run()
+            guard output.exitCode == 0 else {
+                let log = ShellRunHelpers.combinedLog(output)
+                if shouldFallbackFromReactNativeBuildCommand(log: log) {
+                    logger.warning("React Native build-android archive command unavailable; falling back to Gradle bundle")
+                    return try await runReactNativeAndroidGradleArchive(options: options, context: context)
+                }
+                logger.error("React Native Android archive failed with exit code \(output.exitCode)")
+                throw ShipItError.archiveFailed(exitCode: Int(output.exitCode), log: log)
+            }
+
+            let aabPath = CrossPlatformArtifactPaths.reactNativeAAB(variant: variant)
+            logger.info("React Native Android archive succeeded. AAB: \(aabPath)")
+            return Result(aabPath: aabPath, exitCode: Int(output.exitCode))
+        } catch let ShellError.exitFailure(_, shellOutput) {
+            let log = ShellRunHelpers.combinedLog(shellOutput)
+            if shouldFallbackFromReactNativeBuildCommand(log: log) {
+                logger.warning("React Native build-android archive command unavailable; falling back to Gradle bundle")
+                return try await runReactNativeAndroidGradleArchive(options: options, context: context)
+            }
+            logger.error("React Native Android archive failed with exit code \(shellOutput.exitCode)")
+            throw ShipItError.archiveFailed(exitCode: Int(shellOutput.exitCode), log: log)
         }
+    }
+
+    private func runReactNativeAndroidGradleArchive(
+        options: Options,
+        context: ActionContext
+    ) async throws -> Result {
+        let module = reactNativeAndroidModule(context: context)
+        let variant = options.buildVariant ?? context.config.androidBuildVariant
+        let task: GradleTask = variant.lowercased() == "debug" ? .bundleDebug : .bundleRelease
+
+        let output = try await runReactNativeGradleTask(
+            task: task.qualified(module: module),
+            gradleProperties: options.gradleProperties,
+            context: context,
+            failureMapper: { exitCode, log in
+                .archiveFailed(exitCode: exitCode, log: log)
+            }
+        )
+
         let aabPath = CrossPlatformArtifactPaths.reactNativeAAB(variant: variant)
-        logger.info("React Native Android archive succeeded. AAB: \(aabPath)")
+        let baseDir = context.shell.workingDirectory ?? FileManager.default.currentDirectoryPath
+        let anchoredPath: String
+        if (aabPath as NSString).isAbsolutePath {
+            anchoredPath = aabPath
+        } else {
+            anchoredPath = (baseDir as NSString).appendingPathComponent(aabPath)
+        }
+        guard FileManager.default.fileExists(atPath: anchoredPath) else {
+            throw ShipItError.archiveFailed(
+                exitCode: 0,
+                log: "Gradle reported success but AAB was not produced at '\(anchoredPath)'."
+            )
+        }
+
         return Result(aabPath: aabPath, exitCode: Int(output.exitCode))
+    }
+
+    private func runReactNativeGradleTask(
+        task: GradleTask,
+        gradleProperties: [String: String]?,
+        context: ActionContext,
+        failureMapper: (Int, String) -> ShipItError
+    ) async throws -> ShellOutput {
+        var gradle = Gradle(context: context.shell)
+            .projectDir(reactNativeGradleProjectDir(context: context))
+            .flag(.noDaemon)
+            .task(task)
+
+        if let gradlewPath = reactNativeGradlewPath(context: context) {
+            gradle = gradle.settingGradlewPath(gradlewPath)
+        }
+
+        for flag in context.config.androidGradleFlags where flag != "--no-daemon" {
+            gradle = gradle.flag(.custom(flag))
+        }
+
+        let allProps = context.config.androidGradleProperties.merging(gradleProperties ?? [:]) { _, new in new }
+        for (key, value) in allProps {
+            gradle = gradle.property(.custom(key: key, value: value))
+        }
+
+        do {
+            let output = try await gradle.run()
+            if output.exitCode != 0 {
+                throw failureMapper(Int(output.exitCode), ShellRunHelpers.combinedLog(output))
+            }
+            context.logShellOutput(output, label: "gradlew react-native fallback")
+            return output
+        } catch let ShellError.exitFailure(_, shellOutput) {
+            throw failureMapper(Int(shellOutput.exitCode), ShellRunHelpers.combinedLog(shellOutput))
+        }
+    }
+
+    private func reactNativeAndroidModule(context: ActionContext) -> String {
+        let module = context.config.androidModule
+        return module.isEmpty ? "app" : module
+    }
+
+    private func reactNativeGradleProjectDir(context: ActionContext) -> String {
+        context.config.gradleProjectDir == context.config.projectRoot ? "./android" : context.config.gradleProjectDir
+    }
+
+    private func reactNativeGradlewPath(context: ActionContext) -> String? {
+        if let gradlewPath = context.config.gradlewPath {
+            return gradlewPath
+        }
+        return "\(reactNativeGradleProjectDir(context: context))/gradlew"
+    }
+
+    private func shouldFallbackFromReactNativeBuildCommand(log: String) -> Bool {
+        let normalized = log.lowercased()
+        return normalized.contains("unknown command 'build-ios'")
+            || normalized.contains("unknown command 'build-android'")
+            || normalized.contains("depends on @react-native-community/cli for cli commands")
+            || normalized.contains("is not a recognized command")
     }
 
     #if os(macOS)
@@ -318,6 +436,7 @@ public struct ArchiveAction: Action {
         let module = options.module ?? context.config.androidModule
         let variant = options.buildVariant ?? context.config.androidBuildVariant
         let flavor = options.flavor ?? context.config.androidGradleProperties["flavor"]
+        let scope = options.scope ?? context.config.androidScope
 
         // Determine task: bundleFreeRelease or bundleRelease
         let task: GradleTask
@@ -327,10 +446,19 @@ public struct ArchiveAction: Action {
             task = variant.lowercased() == "debug" ? .bundleDebug : .bundleRelease
         }
 
-        logger.info("Bundling Android module '\(module)' with task '\(task.name)'")
+        // Qualify based on scope
+        let scopedTask: GradleTask
+        switch scope {
+        case .root:
+            scopedTask = task
+        case .module:
+            scopedTask = task.qualified(module: module)
+        }
+
+        logger.info("Bundling Android module '\(module)' with task '\(scopedTask.name)'")
 
         var gradle = context.gradle()
-            .task(task.qualified(module: module))
+            .task(scopedTask)
 
         let allProps = context.config.androidGradleProperties.merging(options.gradleProperties ?? [:]) { _, new in new }
         for (key, value) in allProps {

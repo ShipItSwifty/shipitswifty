@@ -176,3 +176,55 @@ make shell-linux                 # interactive shell for debugging
 # Image-based (caches SPM deps as a Docker layer)
 make docker-build && make docker-test
 ```
+
+---
+
+## Infrastructure Retry Testing
+
+The `InfrastructureRetryScheduler` and platform-specific classifiers have dedicated tests:
+
+```bash
+swift test --filter "TestActionTests/retriesInfrastructureFailureAndRecovers"
+swift test --filter "TestActionTests/doesNotRetryNormalTestFailures"
+swift test --filter "TestActionTests/infrastructureFailureClassifierMatchesRunnerLaunch"
+swift test --filter "TestActionTests/androidClassifierMatchesEmulatorDisconnect"
+swift test --filter "TestActionTests/flutterClassifierMatchesToolCrash"
+swift test --filter "TestActionTests/reactNativeClassifierMatchesWorkerFailure"
+swift test --filter "TestActionTests/schedulerBackoffAndJitter"
+```
+
+### Testing with infrastructure retry enabled
+
+```swift
+@Test("Retries iOS infrastructure failures and succeeds on a later attempt")
+func retriesInfrastructureFailureAndRecovers() async throws {
+    let attempts = Mutex(0)
+    let (executor, commands) = makeCaptureExecutor { _, _ in
+        let attempt = attempts.withLock { $0 += 1; return $0 }
+        if attempt == 1 {
+            throw ShellError.exitFailure(
+                command: "xcodebuild test",
+                output: ShellOutput(
+                    stdout: "",
+                    stderr: "Simulator device failed to launch com.example.xctrunner. The process failed to launch.",
+                    exitCode: 65
+                )
+            )
+        }
+        return ShellOutput(stdout: "Executed 2 tests, with 0 failures\n", stderr: "", exitCode: 0)
+    }
+    let context = ActionContext.mock(executor: executor)
+
+    let result = try await TestAction().run(
+        with: .init(
+            scheme: "MockApp",
+            destination: "platform=iOS Simulator,name=iPhone 16",
+            infrastructureRetry: .init(enabled: true, maxAttempts: 2, initialDelaySeconds: 0)
+        ),
+        context: context
+    )
+
+    #expect(result.passCount == 2)
+    #expect(commands().count == 2) // one failure + one success
+}
+```

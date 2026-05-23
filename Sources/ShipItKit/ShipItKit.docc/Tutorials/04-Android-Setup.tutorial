@@ -76,4 +76,35 @@
             }
         }
     }
+
+    @Section(title: "Run tests") {
+        @ContentAndMedia {
+            ShipIt supports JVM unit tests, on-device instrumented tests, and
+            Gradle Managed Devices — all controlled by `kind`, `scope`, and
+            `device_strategy`.
+
+            - **kind**: `unit` (JVM, default), `instrumented` (on-device), or
+              `e2e` (external tools).
+            - **scope**: `module` (default, scoped to `android.module`) or
+              `root` (runs all modules).
+            - **device_strategy**: `none` (default for unit), `connected`,
+              `named_emulators` (boots AVDs), or `managed` (Gradle handles
+              the device lifecycle).
+        }
+
+        @Steps {
+            @Step {
+                Run unit and instrumented tests from the CLI.
+
+                @Code(name: "Terminal", file: 10-android-test.sh)
+            }
+
+            @Step {
+                Or configure defaults in your Shipfile so `shipit test` does
+                the right thing without flags.
+
+                @Code(name: "Shipfile.yml", file: 08-android-shipfile.yml)
+            }
+        }
+    }
 }
