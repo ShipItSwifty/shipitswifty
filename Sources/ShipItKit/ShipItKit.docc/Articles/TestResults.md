@@ -22,18 +22,19 @@ Use this article together with <doc:ActionsCatalog> and <doc:OutputFormats>.
 ## Current status
 
 The shared result model is available as a public SwiftPM surface.
-Parser implementations, the `shipit test-results` command, rerun orchestration,
-and tutorials are documented here as they land.
+Native parsers currently cover:
+
+- iOS `.xcresult` bundles via `xcresulttool`
+- Android Gradle JUnit XML reports
+
+The `shipit test-results` command, rerun orchestration, and tutorials are
+documented here as they land.
 
 ## Example
 
 ```swift
-let run = ParsedTestRun(
-    platform: "ios",
-    runner: "xcodebuild",
-    source: "./build/MyApp-tests.xcresult",
-    summary: TestSummary(passed: 42, failed: 1, skipped: 0)
-)
+let iosParser = IOSXCResultTestParser(shell: context.shell)
+let run = try await iosParser.parse(xcresultPath: "./build/MyApp-tests.xcresult")
 
 let report = TestRunReport(
     platform: run.platform,
@@ -66,3 +67,8 @@ let report = TestRunReport(
 - ``TestParseContext``
 - ``TestArtifact``
 - ``TestArtifactKind``
+
+### Native parsers
+
+- ``IOSXCResultTestParser``
+- ``AndroidJUnitTestParser``
