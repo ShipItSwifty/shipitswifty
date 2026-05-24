@@ -467,7 +467,7 @@ public struct TestAction: Action {
             classifier: FlutterInfrastructureClassifier(),
             label: "flutter test"
         ) {
-            let flutter = FlutterCLI(context: context.shell).test()
+            let flutter = FlutterCLI(context: context.shell).testMachine()
             let output: ShellOutput
             do {
                 output = try await flutter.run()
@@ -490,17 +490,50 @@ public struct TestAction: Action {
                     log: combinedLog
                 )
             }
+            if let parsedRun = try? await FlutterMachineOutputParser(logger: logger).parse(machineOutput: output.stdout) {
+                let named = legacyNamedResults(from: parsedRun)
+                let report = TestRunReport(
+                    platform: "flutter",
+                    runner: "flutter-test",
+                    source: "machine-output",
+                    attempts: [TestAttempt(attemptNumber: 1, summary: parsedRun.summary, failedTests: parsedRun.testCases.filter { $0.status == .failed || $0.status == .errored })],
+                    initialFailedTests: parsedRun.testCases.filter { $0.status == .failed || $0.status == .errored },
+                    flakyTests: [],
+                    persistentFailedTests: parsedRun.testCases.filter { $0.status == .failed || $0.status == .errored },
+                    summary: parsedRun.summary
+                )
+                try writeTestReportIfNeeded(report, to: options.reportPath)
+                self.logger.info("Flutter tests complete — pass: \(parsedRun.summary.passed), fail: \(parsedRun.summary.failed), skip: \(parsedRun.summary.skipped)")
+                return Result(
+                    passCount: parsedRun.summary.passed,
+                    failCount: parsedRun.summary.failed,
+                    skipCount: parsedRun.summary.skipped,
+                    passedTests: named.passedTests,
+                    failedTests: named.failedTests,
+                    report: report
+                )
+            }
+
             let parsed = self.parseFlutterCounts(from: output.stdout)
-            let pass = parsed.pass
-            let fail = parsed.fail
-            let skip = parsed.skip
-            self.logger.info("Flutter tests complete — pass: \(pass), fail: \(fail), skip: \(skip)")
+            let report = TestRunReport(
+                platform: "flutter",
+                runner: "flutter-test",
+                source: "stdout",
+                attempts: [TestAttempt(attemptNumber: 1, summary: TestSummary(passed: parsed.pass, failed: parsed.fail, skipped: parsed.skip))],
+                initialFailedTests: parsed.failedTests.map { ParsedTestCase(stableID: $0, name: $0, status: .failed, rerunSelector: .flutter(name: $0)) },
+                flakyTests: [],
+                persistentFailedTests: parsed.failedTests.map { ParsedTestCase(stableID: $0, name: $0, status: .failed, rerunSelector: .flutter(name: $0)) },
+                summary: TestSummary(passed: parsed.pass, failed: parsed.fail, skipped: parsed.skip)
+            )
+            try writeTestReportIfNeeded(report, to: options.reportPath)
+            self.logger.info("Flutter tests complete — pass: \(parsed.pass), fail: \(parsed.fail), skip: \(parsed.skip)")
             return Result(
-                passCount: pass,
-                failCount: fail,
-                skipCount: skip,
+                passCount: parsed.pass,
+                failCount: parsed.fail,
+                skipCount: parsed.skip,
                 passedTests: parsed.passedTests,
-                failedTests: parsed.failedTests
+                failedTests: parsed.failedTests,
+                report: report
             )
         } extractContext: { error in
             if let shipItError = error as? ShipItError,
@@ -535,17 +568,60 @@ public struct TestAction: Action {
             label: "npm test"
         ) {
             let output = try await runner.run(script: "test")
+            let outputFile = URL(fileURLWithPath: projectRoot).appendingPathComponent(".shipit-jest-results.json")
+            let command = Command(runner.resolvedPackageManager.runCommand)
+                .args(runner.resolvedPackageManager.scriptArguments(for: "test") + ["--", "--json", "--outputFile", outputFile.path])
+                .workingDirectory(projectRoot)
+                .stdout(.capture)
+                .stderr(.capture)
+            _ = try? await command.run(in: context.shell)
+
+            if FileManager.default.fileExists(atPath: outputFile.path),
+                let parsedRun = try? await JestJSONTestParser(logger: logger).parse(jsonFilePath: outputFile.path)
+            {
+                let named = legacyNamedResults(from: parsedRun)
+                let report = TestRunReport(
+                    platform: "react_native",
+                    runner: "jest",
+                    source: outputFile.path,
+                    attempts: [TestAttempt(attemptNumber: 1, summary: parsedRun.summary, failedTests: parsedRun.testCases.filter { $0.status == .failed || $0.status == .errored })],
+                    initialFailedTests: parsedRun.testCases.filter { $0.status == .failed || $0.status == .errored },
+                    flakyTests: [],
+                    persistentFailedTests: parsedRun.testCases.filter { $0.status == .failed || $0.status == .errored },
+                    summary: parsedRun.summary
+                )
+                try writeTestReportIfNeeded(report, to: options.reportPath)
+                self.logger.info("React Native tests complete — pass: \(parsedRun.summary.passed), fail: \(parsedRun.summary.failed), skip: \(parsedRun.summary.skipped)")
+                return Result(
+                    passCount: parsedRun.summary.passed,
+                    failCount: parsedRun.summary.failed,
+                    skipCount: parsedRun.summary.skipped,
+                    passedTests: named.passedTests,
+                    failedTests: named.failedTests,
+                    report: report
+                )
+            }
+
             let parsed = self.parseJSTestCounts(from: output.stdout + output.stderr)
-            let pass = parsed.pass
-            let fail = parsed.fail
-            let skip = parsed.skip
-            self.logger.info("React Native tests complete — pass: \(pass), fail: \(fail), skip: \(skip)")
+            let report = TestRunReport(
+                platform: "react_native",
+                runner: "jest",
+                source: "stdout",
+                attempts: [TestAttempt(attemptNumber: 1, summary: TestSummary(passed: parsed.pass, failed: parsed.fail, skipped: parsed.skip))],
+                initialFailedTests: parsed.failedTests.map { ParsedTestCase(stableID: $0, name: $0, status: .failed, rerunSelector: .unsupported(rawIdentifier: $0)) },
+                flakyTests: [],
+                persistentFailedTests: parsed.failedTests.map { ParsedTestCase(stableID: $0, name: $0, status: .failed, rerunSelector: .unsupported(rawIdentifier: $0)) },
+                summary: TestSummary(passed: parsed.pass, failed: parsed.fail, skipped: parsed.skip)
+            )
+            try writeTestReportIfNeeded(report, to: options.reportPath)
+            self.logger.info("React Native tests complete — pass: \(parsed.pass), fail: \(parsed.fail), skip: \(parsed.skip)")
             return Result(
-                passCount: pass,
-                failCount: fail,
-                skipCount: skip,
+                passCount: parsed.pass,
+                failCount: parsed.fail,
+                skipCount: parsed.skip,
                 passedTests: parsed.passedTests,
-                failedTests: parsed.failedTests
+                failedTests: parsed.failedTests,
+                report: report
             )
         } extractContext: { error in
             // JSScriptRunner throws ShipItError.testFailed or generic errors

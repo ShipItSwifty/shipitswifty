@@ -26,6 +26,8 @@ Native parsers currently cover:
 
 - iOS `.xcresult` bundles via `xcresulttool`
 - Android Gradle JUnit XML reports
+- React Native Jest `--json --outputFile` artifacts
+- Flutter `flutter test --machine` event streams
 
 The `shipit test-results` command, rerun orchestration, and tutorials are
 documented here as they land.
@@ -72,3 +74,5 @@ let report = TestRunReport(
 
 - ``IOSXCResultTestParser``
 - ``AndroidJUnitTestParser``
+- ``JestJSONTestParser``
+- ``FlutterMachineOutputParser``

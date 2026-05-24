@@ -58,7 +58,8 @@
     @Section(title: "Run lint and tests") {
         @ContentAndMedia {
             Before archiving, validate the Dart code with `flutter analyze` and
-            run `flutter test`. Both map to `shipit lint` and `shipit test`.
+            run `flutter test`. ShipIt invokes Flutter's machine-readable test output
+            under the hood so parsed failures can feed `TestRunReport`.
         }
 
         @Steps {
