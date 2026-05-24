@@ -49,6 +49,15 @@ struct TestCommand: AsyncParsableCommand {
     @Flag(name: .long, help: "Retry failing tests once before reporting failure")
     var retryOnFailure: Bool = false
 
+    @Flag(name: .customLong("rerun-failed-tests"), help: "Rerun only the failed tests when the runner supports it")
+    var rerunFailedTests: Bool = false
+
+    @Option(name: .customLong("max-rerun-attempts"), help: "Maximum attempts including the initial run when rerunning failed tests")
+    var maxRerunAttempts: Int?
+
+    @Option(name: .customLong("report-path"), help: "Write the structured JSON test report to a file")
+    var reportPath: String?
+
     @Option(name: .long, help: "Test kind: unit | instrumented | e2e (Android)")
     var kind: TestKind?
 
@@ -112,6 +121,8 @@ struct TestCommand: AsyncParsableCommand {
                 onlyTesting: onlyTesting.isEmpty ? nil : onlyTesting,
                 skipTesting: skipTesting.isEmpty ? nil : skipTesting,
                 retryOnFailure: retryOnFailure ? true : nil,
+                rerunFailedTests: rerunFailedTests ? .init(enabled: true, maxAttempts: maxRerunAttempts ?? 2) : nil,
+                reportPath: reportPath,
                 kind: kind,
                 scope: scope,
                 module: module,

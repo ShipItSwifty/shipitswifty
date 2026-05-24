@@ -219,6 +219,8 @@ struct SchemaCommandGoalFilterTests {
             return
         }
         #expect(testSchema.options.contains { $0.name == "retry_on_failure" })
+        #expect(testSchema.options.contains { $0.name == "rerun_failed_tests" })
+        #expect(testSchema.options.contains { $0.name == "report_path" })
         #expect(testSchema.options.contains { $0.name == "infrastructure_retry" })
         #expect(testSchema.options.contains { $0.name == "only_testing" })
         #expect(testSchema.options.contains { $0.name == "skip_testing" })

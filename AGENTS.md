@@ -122,6 +122,7 @@ swift run shipit run beta --ci --output json
 # Android build / test / archive
 swift run shipit build --platform android
 swift run shipit test --platform android
+swift run shipit test --rerun-failed-tests --max-rerun-attempts 2 --report-path ./artifacts/test-report.json
 swift run shipit archive --platform android
 swift run shipit lint --platform android
 swift run shipit play-store --platform android

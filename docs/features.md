@@ -78,6 +78,7 @@ This document covers the planned feature surface, current v1 scope, the long-ter
 | **Structured test artifact parsing** | Implemented | `shipit test-results` and `TestResultsAction` parse native `.xcresult` and Gradle JUnit XML artifacts into `ParsedTestRun` and `TestRunReport`, with optional JSON report export for CI artifacts. |
 | **Test Plans** | Implemented | `--test-plan` selects a named `.xctestplan` |
 | **Retry on Failure** | Implemented | `retry_on_failure: true` passes `-retry-tests-on-failure` to xcodebuild |
+| **Selective failed-test reruns** | Implemented | `rerun_failed_tests: { enabled: true, max_attempts: 2 }` reruns only the failing iOS tests and Android JVM tests once, then reports flaky vs persistent failures in `TestRunReport`. |
 
 ### Coverage Reporting
 

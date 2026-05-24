@@ -142,6 +142,20 @@ struct CLIBuildTests {
         #expect(command.promptLocally)
     }
 
+    @Test("Test command parses rerun and report options")
+    func testCommandParsesRerunOptions() throws {
+        let command =
+            try TestCommand.parseAsRoot([
+                "--rerun-failed-tests",
+                "--max-rerun-attempts", "2",
+                "--report-path", "./artifacts/test-report.json",
+            ]) as! TestCommand
+
+        #expect(command.rerunFailedTests)
+        #expect(command.maxRerunAttempts == 2)
+        #expect(command.reportPath == "./artifacts/test-report.json")
+    }
+
     #if os(macOS)
     @Test("BuildAction returns Result with exitCode 0 on success")
     func buildSuccessResult() async throws {

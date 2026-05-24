@@ -70,6 +70,88 @@ struct TestActionTests {
         #expect(result.failCount == 0)
     }
 
+    @Test("Selective iOS rerun reports flaky tests and writes report")
+    func selectiveIOSRerunReportsFlakyTests() async throws {
+        let tempDirectory = try makeTempDirectory(prefix: "IOSRerunReport")
+        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+
+        let resultBundlePath = tempDirectory.appendingPathComponent("Tests.xcresult").path
+        let reportPath = tempDirectory.appendingPathComponent("test-report.json").path
+
+        let initialTestsJSON = """
+            {
+              "subtests": [
+                {
+                  "name": "MyAppTests/LoginTests",
+                  "subtests": [
+                    { "identifier": "MyAppTests/LoginTests/testHappyPath()", "name": "testHappyPath()", "testStatus": "Success" },
+                    { "identifier": "MyAppTests/LoginTests/testFlaky()", "name": "testFlaky()", "testStatus": "Failure" }
+                  ]
+                }
+              ]
+            }
+            """
+        let rerunTestsJSON = """
+            {
+              "subtests": [
+                {
+                  "name": "MyAppTests/LoginTests",
+                  "subtests": [
+                    { "identifier": "MyAppTests/LoginTests/testFlaky()", "name": "testFlaky()", "testStatus": "Success" }
+                  ]
+                }
+              ]
+            }
+            """
+
+        let commandCounter = Mutex(0)
+        let (executor, commands) = makeCaptureExecutor { command, _ in
+            let description = command.description
+            if description.contains("xcresulttool get test-results summary") {
+                let count = commandCounter.withLock { count in
+                    count += 1
+                    return count
+                }
+                if count == 1 {
+                    return ShellOutput(stdout: "{ \"metrics\": { \"testsCount\": 2, \"testsFailedCount\": 1, \"testsSkippedCount\": 0 } }", stderr: "", exitCode: 0)
+                }
+                return ShellOutput(stdout: "{ \"metrics\": { \"testsCount\": 1, \"testsFailedCount\": 0, \"testsSkippedCount\": 0 } }", stderr: "", exitCode: 0)
+            }
+            if description.contains("xcresulttool get test-results tests") {
+                let count = commandCounter.withLock { $0 }
+                if count <= 1 {
+                    return ShellOutput(stdout: initialTestsJSON, stderr: "", exitCode: 0)
+                }
+                return ShellOutput(stdout: rerunTestsJSON, stderr: "", exitCode: 0)
+            }
+            if description.contains("xcodebuild") && description.contains(" test") {
+                if description.contains("-only-testing MyAppTests/LoginTests/testFlaky()") {
+                    return ShellOutput(stdout: "Executed 1 test, with 0 failures (0 unexpected) in 0.500 seconds\n", stderr: "", exitCode: 0)
+                }
+                return ShellOutput(stdout: "Executed 2 tests, with 1 failure (0 unexpected) in 1.000 seconds\n", stderr: "", exitCode: 0)
+            }
+            return ShellOutput(stdout: "", stderr: "", exitCode: 0)
+        }
+
+        let context = ActionContext.mock(executor: executor)
+        let result = try await TestAction().run(
+            with: .init(
+                scheme: "MockApp",
+                destination: "platform=iOS Simulator,name=iPhone 16",
+                resultBundlePath: resultBundlePath,
+                rerunFailedTests: .init(enabled: true, maxAttempts: 2),
+                reportPath: reportPath
+            ),
+            context: context
+        )
+
+        #expect(result.failCount == 0)
+        #expect(result.report?.flakyTests.count == 1)
+        #expect(result.report?.persistentFailedTests.isEmpty == true)
+        #expect(FileManager.default.fileExists(atPath: reportPath))
+        #expect(commands().contains { $0.contains("-only-testing MyAppTests/LoginTests/testFlaky()") })
+    }
+
     // MARK: - Multi-destination
 
     @Test("Aggregates pass/skip counts across multiple destinations")
@@ -1220,6 +1302,47 @@ struct TestActionTests {
         #expect(result.failCount == 1)
         #expect(result.passedTests == ["com.example.FeatureTests.testHappyPath"])
         #expect(result.failedTests == ["com.example.FeatureTests.testOfflineMode"])
+    }
+
+    @Test("Android unit rerun uses --tests filters and writes report")
+    func androidUnitRerunUsesGradleTestFilters() async throws {
+        let tempDirectory = try makeTempDirectory(prefix: "AndroidRerun")
+        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+
+        let reportPath = tempDirectory.appendingPathComponent("android-test-report.json").path
+        let (executor, commands) = makeCaptureExecutor { command, _ in
+            let description = command.description
+            if description.contains("--tests com.example.FeatureTests.testOfflineMode") {
+                return ShellOutput(stdout: "1 tests completed, 0 failed, 0 skipped\n", stderr: "", exitCode: 0)
+            }
+            return ShellOutput(
+                stdout: "2 tests completed, 1 failed, 0 skipped\ncom.example.FeatureTests.testHappyPath PASSED\ncom.example.FeatureTests.testOfflineMode FAILED\n",
+                stderr: "",
+                exitCode: 0
+            )
+        }
+
+        let config = ResolvedConfig(
+            platform: .android,
+            androidModule: "app",
+            androidBuildVariant: "debug",
+            gradleProjectDir: tempDirectory.path
+        )
+        let context = makeTestActionContext(executor: executor, config: config, platform: .android)
+
+        let result = try await TestAction().run(
+            with: .init(
+                rerunFailedTests: .init(enabled: true, maxAttempts: 2),
+                reportPath: reportPath,
+                kind: .unit
+            ),
+            context: context
+        )
+
+        #expect(result.failCount == 0)
+        #expect(result.report?.flakyTests.count == 1)
+        #expect(FileManager.default.fileExists(atPath: reportPath))
+        #expect(commands().contains { $0.contains("--tests") && $0.contains("com.example.FeatureTests.testOfflineMode") })
     }
     #endif
 }
