@@ -312,6 +312,12 @@ public struct TestAction: Action {
         /// Number of tests that were skipped (summed across all destinations).
         public let skipCount: Int
 
+        /// Names of tests that passed when they can be extracted from tool output.
+        public let passedTests: [String]
+
+        /// Names of tests that failed when they can be extracted from tool output.
+        public let failedTests: [String]
+
         /// Path to the `.xcresult` bundle (present when `resultBundlePath` was set
         /// or auto-derived because `enableCodeCoverage` was `true`). (iOS only)
         public let resultBundlePath: String?
@@ -324,11 +330,15 @@ public struct TestAction: Action {
             passCount: Int = 0,
             failCount: Int = 0,
             skipCount: Int = 0,
+            passedTests: [String] = [],
+            failedTests: [String] = [],
             resultBundlePath: String? = nil
         ) {
             self.passCount = passCount
             self.failCount = failCount
             self.skipCount = skipCount
+            self.passedTests = passedTests
+            self.failedTests = failedTests
             self.resultBundlePath = resultBundlePath
         }
     }
@@ -398,9 +408,18 @@ public struct TestAction: Action {
                     log: combinedLog
                 )
             }
-            let (pass, fail, skip) = self.parseFlutterCounts(from: output.stdout)
+            let parsed = self.parseFlutterCounts(from: output.stdout)
+            let pass = parsed.pass
+            let fail = parsed.fail
+            let skip = parsed.skip
             self.logger.info("Flutter tests complete — pass: \(pass), fail: \(fail), skip: \(skip)")
-            return Result(passCount: pass, failCount: fail, skipCount: skip)
+            return Result(
+                passCount: pass,
+                failCount: fail,
+                skipCount: skip,
+                passedTests: parsed.passedTests,
+                failedTests: parsed.failedTests
+            )
         } extractContext: { error in
             if let shipItError = error as? ShipItError,
                 case .testFailed(_, _, let log) = shipItError
@@ -434,9 +453,18 @@ public struct TestAction: Action {
             label: "npm test"
         ) {
             let output = try await runner.run(script: "test")
-            let (pass, fail, skip) = self.parseJSTestCounts(from: output.stdout + output.stderr)
+            let parsed = self.parseJSTestCounts(from: output.stdout + output.stderr)
+            let pass = parsed.pass
+            let fail = parsed.fail
+            let skip = parsed.skip
             self.logger.info("React Native tests complete — pass: \(pass), fail: \(fail), skip: \(skip)")
-            return Result(passCount: pass, failCount: fail, skipCount: skip)
+            return Result(
+                passCount: pass,
+                failCount: fail,
+                skipCount: skip,
+                passedTests: parsed.passedTests,
+                failedTests: parsed.failedTests
+            )
         } extractContext: { error in
             // JSScriptRunner throws ShipItError.testFailed or generic errors
             if let shipItError = error as? ShipItError,
@@ -452,20 +480,24 @@ public struct TestAction: Action {
     // MARK: - Flutter / RN parse helpers
 
     static func parseFlutterTestCountsForTesting(from output: String) -> (pass: Int, fail: Int, skip: Int) {
-        Self().parseFlutterCounts(from: output)
+        let parsed = Self().parseFlutterCounts(from: output)
+        return (pass: parsed.pass, fail: parsed.fail, skip: parsed.skip)
     }
 
     static func parseJSTestCountsForTesting(from output: String) -> (pass: Int, fail: Int, skip: Int) {
-        Self().parseJSTestCounts(from: output)
+        let parsed = Self().parseJSTestCounts(from: output)
+        return (pass: parsed.pass, fail: parsed.fail, skip: parsed.skip)
     }
 
-    private func parseFlutterCounts(from output: String) -> (pass: Int, fail: Int, skip: Int) {
+    private func parseFlutterCounts(from output: String) -> (pass: Int, fail: Int, skip: Int, passedTests: [String], failedTests: [String]) {
         // Flutter test output format (one status line per test result, final line is summary):
         //   "00:01 +12: All tests passed!"       → 12 passed
         //   "00:02 +11 -2: Some tests failed."   → 11 passed (cumulative), 2 failed
         var bestPass = 0
         var bestFail = 0
         var bestSkip = 0
+        var passedTests: [String] = []
+        var failedTests: [String] = []
         for line in output.components(separatedBy: "\n") {
             let tokens = line.components(separatedBy: .whitespaces).filter { !$0.isEmpty }
             var lineHasCount = false
@@ -487,19 +519,41 @@ public struct TestAction: Action {
             guard lineHasCount else { continue }
             bestFail = lineFail
             bestSkip = lineSkip
+
+            if let bracketIndex = line.firstIndex(of: ":") {
+                let candidate = line[line.index(after: bracketIndex)...].trimmingCharacters(in: .whitespacesAndNewlines)
+                if !candidate.isEmpty,
+                    !candidate.contains("All tests passed"),
+                    !candidate.contains("Some tests failed")
+                {
+                    if lineFail > 0 {
+                        failedTests.append(candidate)
+                    } else if lineSkip == 0 {
+                        passedTests.append(candidate)
+                    }
+                }
+            }
         }
-        return (pass: bestPass, fail: bestFail, skip: bestSkip)
+        return (
+            pass: bestPass,
+            fail: bestFail,
+            skip: bestSkip,
+            passedTests: passedTests,
+            failedTests: failedTests
+        )
     }
 
     private func parseFlutterFailureCount(from output: String) -> Int {
         parseFlutterCounts(from: output).fail
     }
 
-    private func parseJSTestCounts(from output: String) -> (pass: Int, fail: Int, skip: Int) {
+    private func parseJSTestCounts(from output: String) -> (pass: Int, fail: Int, skip: Int, passedTests: [String], failedTests: [String]) {
         // Jest output: "Tests: 1 failed, 2 skipped, 12 passed, 15 total"
         var pass = 0
         var fail = 0
         var skip = 0
+        var passedTests: [String] = []
+        var failedTests: [String] = []
         for line in output.components(separatedBy: "\n") {
             guard line.contains("Tests:") else { continue }
             let words =
@@ -526,7 +580,15 @@ public struct TestAction: Action {
                 }
             }
         }
-        return (pass: pass, fail: fail, skip: skip)
+        for line in output.components(separatedBy: "\n") {
+            let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
+            if trimmed.hasPrefix("PASS ") {
+                passedTests.append(String(trimmed.dropFirst(5)))
+            } else if trimmed.hasPrefix("FAIL ") {
+                failedTests.append(String(trimmed.dropFirst(5)))
+            }
+        }
+        return (pass: pass, fail: fail, skip: skip, passedTests: passedTests, failedTests: failedTests)
     }
 
     // MARK: - KMP iOS Test (gradlew iosSimulatorArm64Test)
@@ -576,9 +638,18 @@ public struct TestAction: Action {
                 )
             }
 
-            let (pass, fail, skip) = self.parseGradleCounts(from: output.stdout)
+            let parsed = self.parseGradleCounts(from: output.stdout)
+            let pass = parsed.pass
+            let fail = parsed.fail
+            let skip = parsed.skip
             self.logger.info("KMP iOS tests complete — pass: \(pass), fail: \(fail), skip: \(skip)")
-            return Result(passCount: pass, failCount: fail, skipCount: skip)
+            return Result(
+                passCount: pass,
+                failCount: fail,
+                skipCount: skip,
+                passedTests: parsed.passedTests,
+                failedTests: parsed.failedTests
+            )
         } extractContext: { error in
             if let shipItError = error as? ShipItError,
                 case .testFailed(_, _, let log) = shipItError
@@ -625,11 +696,13 @@ public struct TestAction: Action {
         var totalPass = 0
         var totalFail = 0
         var totalSkip = 0
+        var passedTests: [String] = []
+        var failedTests: [String] = []
 
         for destination in effectiveDestinations {
             logger.info("Testing scheme '\(scheme)' on '\(destination)'")
 
-            let (pass, fail, skip) = try await runSingle(
+            let singleResult = try await runSingle(
                 scheme: scheme,
                 destination: destination,
                 configuration: configuration,
@@ -637,9 +710,11 @@ public struct TestAction: Action {
                 options: options,
                 context: context
             )
-            totalPass += pass
-            totalFail += fail
-            totalSkip += skip
+            totalPass += singleResult.pass
+            totalFail += singleResult.fail
+            totalSkip += singleResult.skip
+            passedTests += singleResult.passedTests
+            failedTests += singleResult.failedTests
         }
 
         logger.info("Tests complete — pass: \(totalPass), fail: \(totalFail), skip: \(totalSkip)")
@@ -648,6 +723,8 @@ public struct TestAction: Action {
             passCount: totalPass,
             failCount: totalFail,
             skipCount: totalSkip,
+            passedTests: passedTests,
+            failedTests: failedTests,
             resultBundlePath: effectiveResultBundlePath
         )
     }
@@ -661,12 +738,17 @@ public struct TestAction: Action {
         resultBundlePath: String?,
         options: Options,
         context: ActionContext
-    ) async throws -> (pass: Int, fail: Int, skip: Int) {
+    ) async throws -> (pass: Int, fail: Int, skip: Int, passedTests: [String], failedTests: [String]) {
         return try await InfrastructureRetryScheduler.executeIfConfigured(
             options: options.infrastructureRetry,
             classifier: IOSInfrastructureClassifier(),
             label: destination
         ) {
+            try await self.resetIOSAppInstallationIfNeeded(
+                scheme: scheme,
+                destination: destination,
+                context: context
+            )
             try self.removeStaleResultBundleIfNeeded(resultBundlePath)
 
             var xcodeBuild = XcodeBuild(context: context.shell)
@@ -719,9 +801,17 @@ public struct TestAction: Action {
                     )
                 }
 
-                let (pass, skip) = self.parseCounts(from: output.stdout)
+                let parsed = self.parseCounts(from: output.stdout)
+                let pass = parsed.pass
+                let skip = parsed.skip
                 self.logger.info("'\(destination)' — passed: \(pass), skipped: \(skip)")
-                return (pass: pass, fail: 0, skip: skip)
+                return (
+                    pass: pass,
+                    fail: 0,
+                    skip: skip,
+                    passedTests: parsed.passedTests,
+                    failedTests: []
+                )
             } catch let ShellError.exitFailure(_, shellOutput) {
                 let combinedLog = [shellOutput.stdout, shellOutput.stderr]
                     .filter { !$0.isEmpty }
@@ -802,6 +892,7 @@ public struct TestAction: Action {
                 devices: devices,
                 context: context
             )
+            try await resetAndroidAppInstallationsIfNeeded(context: context)
         }
 
         logger.info("Running Android test task '\(scopedTask.name)'")
@@ -841,11 +932,14 @@ public struct TestAction: Action {
                     )
                 }
 
-                let (pass, fail, skip) = self.parseGradleCounts(from: output.stdout + "\n" + output.stderr)
+                let parsed = self.parseGradleCounts(from: output.stdout + "\n" + output.stderr)
+                let pass = parsed.pass
+                let fail = parsed.fail
+                let skip = parsed.skip
                 context.logShellOutput(output, label: "gradlew test")
 
                 // If stdout parsing found no counts, fall back to JUnit XML reports on disk
-                let finalCounts: (pass: Int, fail: Int, skip: Int)
+                let finalCounts: (pass: Int, fail: Int, skip: Int, passedTests: [String], failedTests: [String])
                 if pass == 0 && fail == 0 && skip == 0 {
                     let xmlCounts = self.aggregateJUnitXMLResults(
                         projectDir: context.config.gradleProjectDir,
@@ -853,12 +947,24 @@ public struct TestAction: Action {
                     )
                     finalCounts = xmlCounts
                 } else {
-                    finalCounts = (pass, fail, skip)
+                    finalCounts = (
+                        pass: pass,
+                        fail: fail,
+                        skip: skip,
+                        passedTests: parsed.passedTests,
+                        failedTests: parsed.failedTests
+                    )
                 }
 
                 self.logger.info("Android tests complete — pass: \(finalCounts.pass), fail: \(finalCounts.fail), skip: \(finalCounts.skip)")
 
-                return Result(passCount: finalCounts.pass, failCount: finalCounts.fail, skipCount: finalCounts.skip)
+                return Result(
+                    passCount: finalCounts.pass,
+                    failCount: finalCounts.fail,
+                    skipCount: finalCounts.skip,
+                    passedTests: finalCounts.passedTests,
+                    failedTests: finalCounts.failedTests
+                )
             } extractContext: { error in
                 if let shipItError = error as? ShipItError,
                     case .testFailed(_, _, let log) = shipItError
@@ -940,13 +1046,21 @@ public struct TestAction: Action {
                     continue
                 }
 
+                let connectedSerialsBeforeBoot = try await listConnectedAndroidDeviceSerials(
+                    shell: context.shell,
+                    emulatorOnly: true
+                )
                 logger.info("Booting emulator '\(emulator)'")
                 let process = try await Emulator(context: context.shell)
                     .start(avd: emulator, headless: false)
                     .spawn(teardown: .graceful)
 
                 spawned.append(process)
-                let serial = try await waitForEmulatorBoot(avdName: emulator, shell: context.shell)
+                let serial = try await waitForEmulatorBoot(
+                    avdName: emulator,
+                    shell: context.shell,
+                    excluding: Set(connectedSerialsBeforeBoot)
+                )
                 logger.info("Emulator '\(emulator)' booted as \(serial)")
             }
 
@@ -1039,29 +1153,27 @@ public struct TestAction: Action {
     }
 
     private func hasConnectedAndroidDevice(shell: ShellContext) async throws -> Bool {
-        let output = try await Adb(context: shell).devices().run()
-        for line in output.stdout.components(separatedBy: .newlines) {
-            let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !trimmed.isEmpty, trimmed != "List of devices attached" else { continue }
-            let columns = trimmed.components(separatedBy: .whitespaces).filter { !$0.isEmpty }
-            guard columns.count >= 2 else { continue }
-            if columns[1] == "device" {
-                return true
-            }
-        }
-        return false
+        try await !listConnectedAndroidDeviceSerials(shell: shell).isEmpty
     }
 
-    private func waitForEmulatorBoot(avdName: String, shell: ShellContext) async throws -> String {
+    private func waitForEmulatorBoot(
+        avdName: String,
+        shell: ShellContext,
+        excluding knownSerials: Set<String> = []
+    ) async throws -> String {
         let deadline = Date().addingTimeInterval(180)
 
         while Date() < deadline {
             if let serial = try await findBootedEmulatorSerial(avdName: avdName, shell: shell) {
-                let boot = try? await Adb(context: shell)
-                    .serial(serial)
-                    .shell("getprop sys.boot_completed")
-                    .run()
-                if boot?.stdout.trimmingCharacters(in: .whitespacesAndNewlines) == "1" {
+                if try await isAndroidDeviceBooted(serial: serial, shell: shell) {
+                    return serial
+                }
+            }
+
+            let emulatorSerials = try await listConnectedAndroidDeviceSerials(shell: shell, emulatorOnly: true)
+            let newSerials = emulatorSerials.filter { !knownSerials.contains($0) }
+            for serial in newSerials {
+                if try await isAndroidDeviceBooted(serial: serial, shell: shell) {
                     return serial
                 }
             }
@@ -1073,6 +1185,121 @@ public struct TestAction: Action {
             reason: "Timed out waiting for Android emulator '\(avdName)' to boot."
         )
     }
+
+    private func listConnectedAndroidDeviceSerials(
+        shell: ShellContext,
+        emulatorOnly: Bool = false
+    ) async throws -> [String] {
+        let output = try await Adb(context: shell).devices().run()
+        var serials: [String] = []
+
+        for line in output.stdout.components(separatedBy: .newlines) {
+            let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty, trimmed != "List of devices attached" else { continue }
+            let columns = trimmed.components(separatedBy: .whitespaces).filter { !$0.isEmpty }
+            guard columns.count >= 2, columns[1] == "device" else { continue }
+
+            let serial = columns[0]
+            guard !emulatorOnly || serial.hasPrefix("emulator-") else { continue }
+            serials.append(serial)
+        }
+
+        return serials
+    }
+
+    private func isAndroidDeviceBooted(serial: String, shell: ShellContext) async throws -> Bool {
+        let boot = try? await Adb(context: shell)
+            .serial(serial)
+            .shell("getprop sys.boot_completed")
+            .run()
+        return boot?.stdout.trimmingCharacters(in: .whitespacesAndNewlines) == "1"
+    }
+
+    private func resetAndroidAppInstallationsIfNeeded(context: ActionContext) async throws {
+        guard let packageName = context.config.androidPackageName, !packageName.isEmpty else { return }
+
+        let serials = try await listConnectedAndroidDeviceSerials(shell: context.shell)
+        for serial in serials {
+            logger.info("Uninstalling existing Android app '\(packageName)' from '\(serial)' before test run")
+            do {
+                _ = try await Adb(context: context.shell)
+                    .serial(serial)
+                    .uninstall(package: packageName)
+                    .run()
+            } catch let ShellError.exitFailure(_, shellOutput) {
+                let combinedLog = [shellOutput.stdout, shellOutput.stderr]
+                    .filter { !$0.isEmpty }
+                    .joined(separator: "\n")
+                logger.debug("Android uninstall skipped for '\(serial)': \(combinedLog)")
+            } catch {
+                logger.debug("Android uninstall skipped for '\(serial)': \(error.localizedDescription)")
+            }
+        }
+    }
+
+    #if os(macOS)
+    private func resetIOSAppInstallationIfNeeded(
+        scheme: String,
+        destination: String,
+        context: ActionContext
+    ) async throws {
+        guard let bundleID = context.config.bundleID, !bundleID.isEmpty else { return }
+        guard let simulatorUDID = try await resolveSimulatorUDID(
+            scheme: scheme,
+            destination: destination,
+            context: context
+        ) else { return }
+
+        logger.info("Uninstalling existing iOS app '\(bundleID)' from simulator '\(simulatorUDID)' before test run")
+        do {
+            _ = try await Simctl(context: context.shell)
+                .uninstall(simulatorUDID, bundleIdentifier: bundleID)
+                .run()
+        } catch let ShellError.exitFailure(_, shellOutput) {
+            let combinedLog = [shellOutput.stdout, shellOutput.stderr]
+                .filter { !$0.isEmpty }
+                .joined(separator: "\n")
+            logger.debug("iOS uninstall skipped for simulator '\(simulatorUDID)': \(combinedLog)")
+        } catch {
+            logger.debug("iOS uninstall skipped for simulator '\(simulatorUDID)': \(error.localizedDescription)")
+        }
+    }
+
+    private func resolveSimulatorUDID(
+        scheme: String,
+        destination: String,
+        context: ActionContext
+    ) async throws -> String? {
+        let requestedParts = parseDestinationComponents(destination)
+        guard let platform = requestedParts["platform"], platform.contains("Simulator") else { return nil }
+
+        let discoverer = DestinationDiscovery(shell: context.shell)
+        let destinations = try await discoverer.availableDestinations(
+            scheme: scheme,
+            workspace: context.config.appWorkspace,
+            project: context.config.appProject
+        )
+
+        return destinations.first {
+            $0.isSimulator
+                && $0.platform == platform
+                && (requestedParts["name"] == nil || $0.name == requestedParts["name"])
+                && (requestedParts["OS"] == nil || $0.os == requestedParts["OS"])
+        }?.udid
+    }
+
+    private func parseDestinationComponents(_ destination: String) -> [String: String] {
+        var parts: [String: String] = [:]
+        for segment in destination.split(separator: ",") {
+            let trimmed = segment.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard let separator = trimmed.firstIndex(of: "=") else { continue }
+            let key = String(trimmed[..<separator])
+            let value = String(trimmed[trimmed.index(after: separator)...])
+            parts[key] = value
+        }
+        return parts
+    }
+    #endif
 
     // MARK: - Private Helpers
 
@@ -1087,7 +1314,14 @@ public struct TestAction: Action {
     /// ```
     /// Executed 12 tests, with 2 skipped and 0 failures (0 unexpected) in 1.234 (1.567) seconds
     /// ```
-    private func parseCounts(from output: String) -> (pass: Int, skip: Int) {
+    private func parseCounts(from output: String) -> (pass: Int, skip: Int, passedTests: [String]) {
+        let passedTests = output.components(separatedBy: "\n").compactMap { line -> String? in
+            let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard trimmed.hasPrefix("Test Case '-[") || trimmed.hasPrefix("Test Case '") else { return nil }
+            guard trimmed.contains(" passed") else { return nil }
+            let withoutPrefix = trimmed.replacingOccurrences(of: "Test Case '", with: "")
+            return withoutPrefix.components(separatedBy: "' ").first
+        }
         for line in output.components(separatedBy: "\n") {
             guard line.contains("Executed") else { continue }
 
@@ -1106,9 +1340,9 @@ public struct TestAction: Action {
                 skipped = s
             }
 
-            return (pass: total - skipped, skip: skipped)
+            return (pass: total - skipped, skip: skipped, passedTests: passedTests)
         }
-        return (pass: 0, skip: 0)
+        return (pass: 0, skip: 0, passedTests: passedTests)
     }
 
     /// Parses failure count from xcodebuild failure summary output.
@@ -1171,7 +1405,7 @@ public struct TestAction: Action {
     /// ```
     /// 12 tests completed, 2 failed, 1 skipped
     /// ```
-    private func parseGradleCounts(from output: String) -> (pass: Int, fail: Int, skip: Int) {
+    private func parseGradleCounts(from output: String) -> (pass: Int, fail: Int, skip: Int, passedTests: [String], failedTests: [String]) {
         for line in output.components(separatedBy: "\n") {
             guard line.contains("tests completed") else { continue }
 
@@ -1186,9 +1420,23 @@ public struct TestAction: Action {
                 if (word == "skipped" || word == "skipped,") && i > 0, let n = Int(words[i - 1]) { skipped = n }
             }
 
-            return (pass: total - failed - skipped, fail: failed, skip: skipped)
+            let namedResults = parseGradleNamedTests(from: output)
+            return (
+                pass: total - failed - skipped,
+                fail: failed,
+                skip: skipped,
+                passedTests: namedResults.passedTests,
+                failedTests: namedResults.failedTests
+            )
         }
-        return (pass: 0, fail: 0, skip: 0)
+        let namedResults = parseGradleNamedTests(from: output)
+        return (
+            pass: 0,
+            fail: 0,
+            skip: 0,
+            passedTests: namedResults.passedTests,
+            failedTests: namedResults.failedTests
+        )
     }
 
     /// Parses failure count from Gradle test failure output.
@@ -1217,12 +1465,14 @@ public struct TestAction: Action {
     ///   - projectDir: The Gradle project root directory.
     ///   - task: The Gradle task name (e.g. `"testDebugUnitTest"`) used to locate report directories.
     /// - Returns: Aggregated (pass, fail, skip) counts across all XML reports.
-    func aggregateJUnitXMLResults(projectDir: String, task: String) -> (pass: Int, fail: Int, skip: Int) {
+    func aggregateJUnitXMLResults(projectDir: String, task: String) -> (pass: Int, fail: Int, skip: Int, passedTests: [String], failedTests: [String]) {
         let fileManager = FileManager.default
         var totalTests = 0
         var totalFailures = 0
         var totalErrors = 0
         var totalSkipped = 0
+        var passedTests: [String] = []
+        var failedTests: [String] = []
 
         // Find all test-results directories matching the task name
         guard
@@ -1232,7 +1482,7 @@ public struct TestAction: Action {
                 options: [.skipsHiddenFiles]
             )
         else {
-            return (pass: 0, fail: 0, skip: 0)
+            return (pass: 0, fail: 0, skip: 0, passedTests: [], failedTests: [])
         }
 
         for case let fileURL as URL in enumerator {
@@ -1249,18 +1499,56 @@ public struct TestAction: Action {
             totalFailures += counts.failures
             totalErrors += counts.errors
             totalSkipped += counts.skipped
+            passedTests += counts.passedTests
+            failedTests += counts.failedTests
         }
 
         let failures = totalFailures + totalErrors
         let passed = totalTests - failures - totalSkipped
-        return (pass: max(0, passed), fail: failures, skip: totalSkipped)
+        return (
+            pass: max(0, passed),
+            fail: failures,
+            skip: totalSkipped,
+            passedTests: passedTests,
+            failedTests: failedTests
+        )
     }
 
     /// Parses a single JUnit XML file for test counts from the `<testsuite>` element.
-    private func parseJUnitXML(data: Data) -> (tests: Int, failures: Int, errors: Int, skipped: Int) {
+    private func parseJUnitXML(data: Data) -> (tests: Int, failures: Int, errors: Int, skipped: Int, passedTests: [String], failedTests: [String]) {
         let parser = JUnitXMLParser(data: data)
         parser.parse()
-        return (tests: parser.tests, failures: parser.failures, errors: parser.errors, skipped: parser.skipped)
+        let passedTests = parser.testCases.filter { !$0.failed && !$0.skipped }.map(\.name)
+        let failedTests = parser.testCases.filter(\.failed).map(\.name)
+        return (
+            tests: parser.tests,
+            failures: parser.failures,
+            errors: parser.errors,
+            skipped: parser.skipped,
+            passedTests: passedTests,
+            failedTests: failedTests
+        )
+    }
+
+    private func parseGradleNamedTests(from output: String) -> (passedTests: [String], failedTests: [String]) {
+        var passedTests: [String] = []
+        var failedTests: [String] = []
+
+        for line in output.components(separatedBy: "\n") {
+            let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty else { continue }
+
+            if trimmed.hasSuffix(" FAILED") {
+                failedTests.append(String(trimmed.dropLast(" FAILED".count)))
+                continue
+            }
+
+            if trimmed.hasSuffix(" PASSED") {
+                passedTests.append(String(trimmed.dropLast(" PASSED".count)))
+            }
+        }
+
+        return (passedTests: passedTests, failedTests: failedTests)
     }
 
     // MARK: - Automatic Destination Discovery
