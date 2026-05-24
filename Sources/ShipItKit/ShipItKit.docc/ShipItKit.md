@@ -71,6 +71,7 @@ These constraints are enforced throughout the codebase:
 
 - <doc:ActionsCatalog>
 - <doc:Coverage>
+- <doc:TestResults>
 - <doc:Validation>
 - <doc:OutputFormats>
 - ``BuildAction``
@@ -158,7 +159,23 @@ These constraints are enforced throughout the codebase:
 ### Testing
 
 - <doc:TestingWithMocks>
+- <doc:TestResults>
 - ``ActionContext/mock(executor:versioningSource:platform:)``
+
+### Test result parsing
+
+- ``ParsedTestRun``
+- ``TestSummary``
+- ``ParsedTestSuite``
+- ``ParsedTestCase``
+- ``TestCaseStatus``
+- ``TestRerunSelector``
+- ``ParsingDiagnostic``
+- ``TestRunReport``
+- ``TestAttempt``
+- ``TestResultParser``
+- ``TestArtifactLocator``
+- ``TestRerunPlanner``
 
 ### Errors and reporting
 
