@@ -7,10 +7,10 @@ import Testing
 @Suite("TestAction — Flutter and React Native")
 struct TestActionFlutterTests {
 
-    @Test("Flutter test runs flutter test command")
+    @Test("Flutter test runs flutter test --machine command")
     func flutterTestRunsFlutterTest() async throws {
         let (executor, commands) = makeCaptureExecutor { _, _ in
-            ShellOutput(stdout: "00:01 +12: All tests passed!\n", stderr: "", exitCode: 0)
+            ShellOutput(stdout: "{\"type\":\"testStart\",\"test\":{\"id\":1,\"name\":\"login success\"}}\n{\"type\":\"testDone\",\"testID\":1,\"result\":\"success\"}\n", stderr: "", exitCode: 0)
         }
         let config = ResolvedConfig(
             platform: .ios,
@@ -21,9 +21,10 @@ struct TestActionFlutterTests {
         let result = try await TestAction().run(with: TestAction.Options(), context: context)
 
         let captured = commands()
-        #expect(captured.contains { $0.contains("flutter") && $0.contains("test") })
-        #expect(result.passCount == 12)
+        #expect(captured.contains { $0.contains("flutter") && $0.contains("test") && $0.contains("--machine") })
+        #expect(result.passCount == 1)
         #expect(result.failCount == 0)
+        #expect(result.report?.summary.passed == 1)
     }
 
     @Test("Flutter test failure propagates test counts")
@@ -87,8 +88,28 @@ struct TestActionFlutterTests {
             encoding: .utf8
         )
 
-        let (executor, commands) = makeCaptureExecutor { _, _ in
-            ShellOutput(
+        let (executor, commands) = makeCaptureExecutor { command, _ in
+            if command.description.contains("--json") && command.description.contains("--outputFile") {
+                let outputFile = tempDir.appendingPathComponent(".shipit-jest-results.json")
+                let json = """
+                    {
+                      "numFailedTests": 0,
+                      "numPassedTests": 1,
+                      "numPendingTests": 0,
+                      "numRuntimeErrorTestSuites": 0,
+                      "testResults": [
+                        {
+                          "name": "src/login.test.ts",
+                          "assertionResults": [
+                            { "title": "logs in", "fullName": "login logs in", "status": "passed", "failureMessages": [] }
+                          ]
+                        }
+                      ]
+                    }
+                    """
+                try json.write(to: outputFile, atomically: true, encoding: .utf8)
+            }
+            return ShellOutput(
                 stdout: "Tests: 5 passed, 5 total\n",
                 stderr: "",
                 exitCode: 0
@@ -106,7 +127,8 @@ struct TestActionFlutterTests {
         let captured = commands()
         #expect(captured.contains { $0.contains("npm") || $0.contains("yarn") || $0.contains("pnpm") })
         #expect(captured.contains { $0.contains("run") && $0.contains("test") })
-        #expect(result.passCount == 5)
+        #expect(result.passCount == 1)
+        #expect(result.report?.summary.passed == 1)
     }
 
     @Test("React Native test throws invalidConfiguration when test script is missing")

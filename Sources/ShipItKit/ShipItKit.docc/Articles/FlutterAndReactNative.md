@@ -57,9 +57,11 @@ ShipItKit auto-detects the JS package manager from lockfiles:
 | `yarn.lock` | yarn |
 | `package-lock.json` / fallback | npm |
 
-The `test` and `lint` actions run `<pm> run test` / `<pm> run lint`. If the script
-is absent from `package.json`, the action throws ``ShipItError/invalidConfiguration(reason:)``
-with a clear message rather than silently invoking the package manager.
+The `test` and `lint` actions run `<pm> run test` / `<pm> run lint`. When the `test`
+script supports Jest CLI passthrough, ShipIt also collects Jest JSON via `--json --outputFile`
+so `TestRunReport` can include named failures and rerun selectors. If the script is absent
+from `package.json`, the action throws ``ShipItError/invalidConfiguration(reason:)`` with a
+clear message rather than silently invoking the package manager.
 
 ## Auto-detection
 

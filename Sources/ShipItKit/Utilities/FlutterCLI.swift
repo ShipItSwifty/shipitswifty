@@ -153,6 +153,13 @@ public struct FlutterCLI: RunnableCommandFamily {
         return copy(arguments: args)
     }
 
+    /// `flutter test --machine` — emits newline-delimited JSON events.
+    public func testMachine(coverage: Bool = false) -> Self {
+        var args = ["test", "--machine"]
+        if coverage { args.append("--coverage") }
+        return copy(arguments: args)
+    }
+
     /// `flutter analyze` — runs the Dart analyzer (static analysis).
     public func analyze() -> Self {
         copy(arguments: ["analyze"])
