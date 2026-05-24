@@ -47,6 +47,25 @@ struct AICommandParsingTests {
         #expect(resolvedPromptValue(answer: "", defaultValue: nil) == "")
     }
 
+    @Test("Generate platform focus defaults to both on empty answer")
+    func generatePlatformFocusDefaultsToBoth() {
+        #expect(
+            resolvedPlatformFocus(answer: "", defaultFocus: .both) == .both
+        )
+    }
+
+    @Test("Generate platform focus accepts ios android and both")
+    func generatePlatformFocusAcceptsExpectedValues() {
+        #expect(resolvedPlatformFocus(answer: "ios", defaultFocus: .both) == .ios)
+        #expect(resolvedPlatformFocus(answer: "android", defaultFocus: .both) == .android)
+        #expect(resolvedPlatformFocus(answer: "both", defaultFocus: .ios) == .both)
+    }
+
+    @Test("Generate platform focus falls back for invalid values")
+    func generatePlatformFocusFallsBackForInvalidValues() {
+        #expect(resolvedPlatformFocus(answer: "invalid", defaultFocus: .both) == .both)
+    }
+
     @Test("Generate confirmation default echo matches chosen answer")
     func generateConfirmationDefaultEcho() {
         #expect(defaultConfirmationEcho(defaultAnswer: true) == "yes")

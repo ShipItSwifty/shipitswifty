@@ -125,6 +125,43 @@ struct IntrospectionTests {
         #expect(suggestion.missingValues.contains { $0.keyPath == "android.package_name" })
     }
 
+    @Test("Shipfile suggester generates combined React Native beta workflows")
+    func shipfileSuggesterGeneratesCombinedReactNativeBetaWorkflows() {
+        let inspection = ProjectInspection(
+            rootPath: "/tmp/project",
+            xcodeContainers: [.init(kind: "workspace", path: "App.xcworkspace")],
+            preferredContainer: .init(kind: "workspace", path: "App.xcworkspace"),
+            schemes: [
+                .init(
+                    name: "App", containerPath: "App.xcworkspace", bundleID: "com.example.app",
+                    teamID: "TEAM12345", likelyRunnable: true)
+            ],
+            suggestedAppConfig: .init(
+                workspace: "App.xcworkspace", scheme: "App", bundleID: "com.example.app",
+                teamID: "TEAM12345"),
+            existingShipfiles: [],
+            fastlaneFiles: [],
+            ciFiles: [],
+            warnings: [],
+            detectedBuildSystem: .reactNative,
+            buildSystemFiles: ["package.json"]
+        )
+
+        let suggestion = ShipfileSuggester().suggest(goal: .beta, from: inspection)
+
+        #expect(suggestion.yaml.contains("ios:\n  build_system: react_native"))
+        #expect(suggestion.yaml.contains("android:\n  build_system: react_native"))
+        #expect(suggestion.yaml.contains("  beta-ios:"))
+        #expect(suggestion.yaml.contains("  beta-android:"))
+        #expect(suggestion.yaml.contains("    # RN iOS: build validates the bundle; archive + export produces the IPA."))
+        #expect(suggestion.yaml.contains("    - action: archive\n      options: { platform: ios }"))
+        #expect(suggestion.yaml.contains("    - action: archive\n      options: { platform: android }"))
+        #expect(suggestion.yaml.contains("    # - action: testflight"))
+        #expect(suggestion.yaml.contains("    # - action: play-store"))
+        #expect(suggestion.missingValues.contains { $0.keyPath == "app.scheme" })
+        #expect(suggestion.missingValues.contains { $0.keyPath == "android.keystore_path" })
+    }
+
     @Test("Schema validator catches unknown fields")
     func schemaValidatorRejectsUnknownFields() {
         let issues = SchemaValidator.validate(
