@@ -1078,6 +1078,22 @@ struct GenerateCommand: AsyncParsableCommand {
 
     /// Presents a numbered list of options and returns the 0-based index of the user's choice.
     private func choose(_ prompt: String, options: [String], defaultIndex: Int) -> Int {
+        guard isInteractiveTerminal else {
+            print("\n\(prompt)")
+            for (index, option) in options.enumerated() {
+                let marker = index == defaultIndex ? "*" : " "
+                print("  \(marker) \(index + 1). \(option)")
+            }
+            let answer = ask("Choice", defaultValue: "\(defaultIndex + 1)")
+            if let choice = Int(answer), choice >= 1, choice <= options.count {
+                return choice - 1
+            }
+            return defaultIndex
+        }
+
+        #if canImport(Darwin)
+        return interactiveChoose(prompt, options: options, defaultIndex: defaultIndex)
+        #else
         print("\n\(prompt)")
         for (index, option) in options.enumerated() {
             let marker = index == defaultIndex ? "*" : " "
@@ -1088,7 +1104,79 @@ struct GenerateCommand: AsyncParsableCommand {
             return choice - 1
         }
         return defaultIndex
+        #endif
     }
+
+    #if canImport(Darwin)
+    private func interactiveChoose(_ prompt: String, options: [String], defaultIndex: Int) -> Int {
+        var selectedIndex = min(max(defaultIndex, 0), max(options.count - 1, 0))
+        var old = termios()
+        tcgetattr(STDIN_FILENO, &old)
+        var raw = old
+        raw.c_lflag &= ~tcflag_t(ICANON | ECHO)
+        raw.c_cc.16 = 1
+        raw.c_cc.17 = 0
+        tcsetattr(STDIN_FILENO, TCSANOW, &raw)
+        defer {
+            tcsetattr(STDIN_FILENO, TCSANOW, &old)
+            print("")
+        }
+
+        renderInteractiveChoices(prompt: prompt, options: options, selectedIndex: selectedIndex)
+
+        while true {
+            var input = [UInt8](repeating: 0, count: 3)
+            let count = read(STDIN_FILENO, &input, input.count)
+            guard count > 0 else { continue }
+
+            switch input[0] {
+            case 13, 10:
+                clearInteractiveChoices(prompt: prompt, optionsCount: options.count)
+                renderSelectedChoice(prompt: prompt, option: options[selectedIndex])
+                return selectedIndex
+            case 65, 107:
+                selectedIndex = max(selectedIndex - 1, 0)
+            case 66, 106:
+                selectedIndex = min(selectedIndex + 1, options.count - 1)
+            case 27:
+                if count >= 3, input[1] == 91 {
+                    if input[2] == 65 {
+                        selectedIndex = max(selectedIndex - 1, 0)
+                    } else if input[2] == 66 {
+                        selectedIndex = min(selectedIndex + 1, options.count - 1)
+                    }
+                }
+            default:
+                if let digit = Int(String(UnicodeScalar(input[0]))), digit >= 1, digit <= options.count {
+                    selectedIndex = digit - 1
+                }
+            }
+
+            clearInteractiveChoices(prompt: prompt, optionsCount: options.count)
+            renderInteractiveChoices(prompt: prompt, options: options, selectedIndex: selectedIndex)
+        }
+    }
+
+    private func renderInteractiveChoices(prompt: String, options: [String], selectedIndex: Int) {
+        print("\n\(prompt)")
+        for (index, option) in options.enumerated() {
+            let prefix = index == selectedIndex ? ">" : " "
+            print("  \(prefix) \(index + 1). \(option)")
+        }
+        print("  Use arrow keys, j/k, or 1-\(options.count). Press Enter to confirm.")
+    }
+
+    private func clearInteractiveChoices(prompt: String, optionsCount: Int) {
+        let totalLines = optionsCount + 3
+        for _ in 0..<totalLines {
+            print("\u{001B}[1A\u{001B}[2K\r", terminator: "")
+        }
+    }
+
+    private func renderSelectedChoice(prompt: String, option: String) {
+        print(interactiveSelectedChoiceEcho(prompt: prompt, option: option))
+    }
+    #endif
 
     /// Writes a `.env` file in the project directory containing signing env vars.
     /// Also ensures `.env` is in `.gitignore`.
@@ -1341,6 +1429,10 @@ func resolvedPlatformFocus(
 ) -> GenerateCommand.PlatformFocus {
     GenerateCommand.PlatformFocus(rawValue: answer.trimmingCharacters(in: .whitespacesAndNewlines).lowercased())
         ?? defaultFocus
+}
+
+func interactiveSelectedChoiceEcho(prompt: String, option: String) -> String {
+    "\(prompt): \(option)"
 }
 
 func shouldPrintGenerateInspectionStatus(output: OutputFormat, isStderrTTY: Bool) -> Bool {

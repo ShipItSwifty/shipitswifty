@@ -84,6 +84,14 @@ struct AICommandParsingTests {
         )
     }
 
+    @Test("Interactive selector summary echoes selected option")
+    func interactiveSelectorSummaryEchoesSelectedOption() {
+        #expect(
+            interactiveSelectedChoiceEcho(prompt: "Setup method", option: "Create a .env file")
+                == "Setup method: Create a .env file"
+        )
+    }
+
     @Test("Generate env var collection skipped when non-interactive")
     func generateEnvCollectionSkippedNonInteractive() throws {
         // When --non-interactive is passed, collectEnvironmentVariables must not block.
