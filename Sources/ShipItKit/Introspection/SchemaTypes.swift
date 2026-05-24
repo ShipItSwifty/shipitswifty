@@ -347,6 +347,8 @@ public struct ProjectInspection: Codable, Sendable, Hashable {
     public let fastlaneFiles: [String]
     public let ciFiles: [String]
     public let warnings: [String]
+    /// Best-effort inferred Android package name from Gradle or AndroidManifest.xml.
+    public let suggestedAndroidPackageName: String?
     /// Auto-detected platform based on project file presence. `.android` when `gradlew` or
     /// `build.gradle.kts` is found; `.ios` when `.xcworkspace`/`.xcodeproj` is found; defaults to `.ios`.
     public let detectedPlatform: Platform
@@ -369,6 +371,7 @@ public struct ProjectInspection: Codable, Sendable, Hashable {
         fastlaneFiles: [String],
         ciFiles: [String],
         warnings: [String],
+        suggestedAndroidPackageName: String? = nil,
         detectedPlatform: Platform = .ios,
         gradleFiles: [String] = [],
         detectedBuildSystem: BuildSystem? = nil,
@@ -383,6 +386,7 @@ public struct ProjectInspection: Codable, Sendable, Hashable {
         self.fastlaneFiles = fastlaneFiles
         self.ciFiles = ciFiles
         self.warnings = warnings
+        self.suggestedAndroidPackageName = suggestedAndroidPackageName
         self.detectedPlatform = detectedPlatform
         self.gradleFiles = gradleFiles
         self.detectedBuildSystem = detectedBuildSystem

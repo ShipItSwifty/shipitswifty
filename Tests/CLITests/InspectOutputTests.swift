@@ -19,6 +19,7 @@ struct InspectOutputTests {
             fastlaneFiles: [],
             ciFiles: [],
             warnings: [],
+            suggestedAndroidPackageName: "com.example.app",
             detectedPlatform: .android,
             gradleFiles: ["build.gradle.kts"],
             detectedBuildSystem: .kmp,
