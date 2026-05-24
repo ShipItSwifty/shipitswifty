@@ -9,6 +9,12 @@ struct TestResultsActionTests {
 
     @Test("Parses iOS xcresult artifacts through the action and writes a report")
     func parsesIOSArtifactsAndWritesReport() async throws {
+        let temp = try makeTempDirectory(prefix: "TestResultsAction")
+        defer { try? FileManager.default.removeItem(at: temp) }
+
+        let reportPath = temp.appendingPathComponent("report.json").path
+
+        #if os(macOS)
         let summaryJSON = """
             { "metrics": { "testsCount": 2, "testsFailedCount": 1, "testsSkippedCount": 0 } }
             """
@@ -36,10 +42,6 @@ struct TestResultsActionTests {
             return ShellOutput(stdout: "", stderr: "unexpected command", exitCode: 1)
         }
 
-        let temp = try makeTempDirectory(prefix: "TestResultsAction")
-        defer { try? FileManager.default.removeItem(at: temp) }
-
-        let reportPath = temp.appendingPathComponent("report.json").path
         let context = makeTestActionContext(
             executor: executor,
             config: ResolvedConfig(platform: .ios),
@@ -54,6 +56,29 @@ struct TestResultsActionTests {
         #expect(result.parsedRun.summary.failed == 1)
         #expect(result.report.persistentFailedTests.count == 1)
         #expect(FileManager.default.fileExists(atPath: reportPath))
+        #else
+        let context = makeTestActionContext(
+            executor: MockExecutor { _, _ in ShellOutput(stdout: "", stderr: "", exitCode: 0) },
+            config: ResolvedConfig(platform: .ios),
+            platform: .ios
+        )
+
+        do {
+            _ = try await TestResultsAction().run(
+                with: .init(xcresultPath: "/tmp/MyApp-tests.xcresult", reportOutputPath: reportPath),
+                context: context
+            )
+            Issue.record("Expected TestResultsAction to reject iOS xcresult parsing on non-macOS platforms")
+        } catch let error as ShipItError {
+            guard case .invalidConfiguration(let reason) = error else {
+                Issue.record("Expected invalidConfiguration error, got: \(error)")
+                return
+            }
+
+            #expect(reason == "iOS test-result parsing requires macOS.")
+        }
+        #expect(!FileManager.default.fileExists(atPath: reportPath))
+        #endif
     }
 
     @Test("Filters down to failed tests only")

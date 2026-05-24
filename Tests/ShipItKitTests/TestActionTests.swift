@@ -104,32 +104,28 @@ struct TestActionTests {
             }
             """
 
-        let commandCounter = Mutex(0)
+        let rerunTriggered = Mutex(false)
         let (executor, commands) = makeCaptureExecutor { command, _ in
             let description = command.description
             if description.contains("xcresulttool get test-results summary") {
-                let count = commandCounter.withLock { count in
-                    count += 1
-                    return count
-                }
-                if count == 1 {
+                if rerunTriggered.withLock({ $0 }) {
                     return ShellOutput(
-                        stdout: "{ \"metrics\": { \"testsCount\": 2, \"testsFailedCount\": 1, \"testsSkippedCount\": 0 } }", stderr: "",
+                        stdout: "{ \"metrics\": { \"testsCount\": 1, \"testsFailedCount\": 0, \"testsSkippedCount\": 0 } }", stderr: "",
                         exitCode: 0)
                 }
                 return ShellOutput(
-                    stdout: "{ \"metrics\": { \"testsCount\": 1, \"testsFailedCount\": 0, \"testsSkippedCount\": 0 } }", stderr: "",
+                    stdout: "{ \"metrics\": { \"testsCount\": 2, \"testsFailedCount\": 1, \"testsSkippedCount\": 0 } }", stderr: "",
                     exitCode: 0)
             }
             if description.contains("xcresulttool get test-results tests") {
-                let count = commandCounter.withLock { $0 }
-                if count <= 1 {
-                    return ShellOutput(stdout: initialTestsJSON, stderr: "", exitCode: 0)
+                if rerunTriggered.withLock({ $0 }) {
+                    return ShellOutput(stdout: rerunTestsJSON, stderr: "", exitCode: 0)
                 }
-                return ShellOutput(stdout: rerunTestsJSON, stderr: "", exitCode: 0)
+                return ShellOutput(stdout: initialTestsJSON, stderr: "", exitCode: 0)
             }
             if description.contains("xcodebuild") && description.contains(" test") {
                 if description.contains("-only-testing MyAppTests/LoginTests/testFlaky()") {
+                    rerunTriggered.withLock { $0 = true }
                     return ShellOutput(
                         stdout: "Executed 1 test, with 0 failures (0 unexpected) in 0.500 seconds\n", stderr: "", exitCode: 0)
                 }
