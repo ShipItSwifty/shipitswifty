@@ -236,7 +236,7 @@ struct SchemaCommandGoalFilterTests {
     func androidBetaSchemaIncludesAndroidActions() async throws {
         let allActions = BuiltInSchemaCatalog.validationActionSchemas()
         let androidBetaActionNames: Set<String> = [
-            "lint", "test", "archive", "coverage", "validate_bundle", "play-store", "notify", "git",
+            "lint", "test", "test-results", "archive", "coverage", "validate_bundle", "play-store", "notify", "git",
         ]
         let androidBetaActions = allActions.filter { androidBetaActionNames.contains($0.name) }
         let androidBetaNames = Set(androidBetaActions.map(\.name))
@@ -251,7 +251,7 @@ struct SchemaCommandGoalFilterTests {
         let allActions = BuiltInSchemaCatalog.validationActionSchemas()
         let names = Set(allActions.map(\.name))
 
-        for expected in ["build", "test", "archive", "export", "version", "sign", "testflight", "notify", "git"] {
+        for expected in ["build", "test", "test-results", "archive", "export", "version", "sign", "testflight", "notify", "git"] {
             #expect(names.contains(expected), "Expected '\(expected)' in full schema")
         }
     }

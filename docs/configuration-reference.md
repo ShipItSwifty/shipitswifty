@@ -306,6 +306,20 @@ The `test` action is configured inline in a workflow step. It does **not** have 
 
 `shipit generate` asks whether generated test steps should enable `infrastructure_retry`. `shipit ai-session` includes the same guidance in the agent prompt so AI-assisted workflow creation asks the same question.
 
+## `test-results` action options
+
+Use `test-results` to parse an existing `.xcresult` bundle or Gradle JUnit XML directory into a normalized JSON report.
+
+| Option | Type | Default | Description |
+|---|---|---|---|
+| `format` | string | `text` | Output format hint: `text`, `json`, or `markdown`. |
+| `platform` | string | resolved platform | Explicit platform override when parsing outside a Shipfile-backed context. |
+| `xcresult_path` | string | auto-discover | Explicit path to a `.xcresult` bundle (iOS). Falls back to `./build/<scheme>-tests.xcresult` or the first `.xcresult` under `./build/`. |
+| `report_path` | string | auto-discover | Explicit path to a JUnit XML report directory (Android). Falls back to common Gradle `build/test-results/...` locations. |
+| `failed_only` | bool | `false` | Only include failed and errored tests in the parsed output. |
+| `include_passed` | bool | `true` | Include passed tests in the parsed output. |
+| `report_output_path` | string | — | Optional path to write the structured JSON report to disk. |
+
 **Destination string format**
 
 ```

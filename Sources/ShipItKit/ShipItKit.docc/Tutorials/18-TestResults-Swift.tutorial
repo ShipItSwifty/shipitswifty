@@ -1,0 +1,27 @@
+@Tutorial(time: 4) {
+    @Intro(title: "Consume TestRunReport from Swift") {
+        Embed ShipItKit in your own Swift tool, parse an artifact, and work directly with the typed `TestRunReport` model.
+
+        @Image(source: tutorial-plugin-action.png, alt: "Consume TestRunReport from Swift")
+    }
+
+    @Section(title: "Embed ShipItKit in a tool") {
+        @ContentAndMedia {
+            `TestRunReport` is `Codable` and `Sendable`, so you can either store it as JSON or inspect it directly in Swift.
+        }
+
+        @Steps {
+            @Step {
+                Parse an `.xcresult` bundle from Swift.
+
+                @Code(name: "Swift", file: 33-test-results-swift.swift)
+            }
+
+            @Step {
+                Serialize the same typed report for external systems.
+
+                @Code(name: "Swift", file: 33-test-results-swift-json.swift)
+            }
+        }
+    }
+}

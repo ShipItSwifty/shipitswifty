@@ -89,21 +89,21 @@ struct SchemaCommand: AsyncParsableCommand {
         if platform == .android {
             switch goal {
             case .local:
-                return ["lint", "test", "build", "coverage", "validate_bundle", "notify", "git"]
+                return ["lint", "test", "test-results", "build", "coverage", "validate_bundle", "notify", "git"]
             case .beta:
-                return ["lint", "test", "archive", "coverage", "validate_bundle", "play-store", "notify", "git"]
+                return ["lint", "test", "test-results", "archive", "coverage", "validate_bundle", "play-store", "notify", "git"]
             case .release:
-                return ["lint", "test", "archive", "coverage", "validate_bundle", "play-store", "notify", "git"]
+                return ["lint", "test", "test-results", "archive", "coverage", "validate_bundle", "play-store", "notify", "git"]
             }
         }
 
         switch goal {
         case .local:
-            return ["build", "test", "archive", "export", "sign", "git"]
+            return ["build", "test", "test-results", "archive", "export", "sign", "git"]
         case .beta:
-            return ["build", "test", "archive", "export", "testflight", "sign", "version", "notify", "git"]
+            return ["build", "test", "test-results", "archive", "export", "testflight", "sign", "version", "notify", "git"]
         case .release:
-            return ["build", "archive", "export", "upload", "testflight", "precheck", "metadata", "sign", "version", "notify", "git"]
+            return ["build", "test-results", "archive", "export", "upload", "testflight", "precheck", "metadata", "sign", "version", "notify", "git"]
         }
     }
 }

@@ -75,6 +75,7 @@ This document covers the planned feature surface, current v1 scope, the long-ter
 | **Automatic destination discovery** | Implemented | When no destinations are configured, the test action auto-discovers available iPhone simulators via `xcodebuild -showdestinations`, preferring the highest OS version and Pro models. Eliminates manual simulator configuration for most projects. |
 | **Code Coverage** | Implemented | `-enableCodeCoverage YES`; auto-derives `./build/<scheme>-tests.xcresult` when coverage enabled and no explicit path given; any existing bundle at the resolved path is removed before xcodebuild runs, making repeated local and CI runs safe without manual cleanup |
 | **Test Result Parsing** | Implemented | Structured pass/fail/skip counts from xcodebuild/Gradle output. When available, ShipIt also captures named passed/failed tests from tool output or JUnit XML reports so workflow summaries can list concrete test names instead of only counts. |
+| **Structured test artifact parsing** | Implemented | `shipit test-results` and `TestResultsAction` parse native `.xcresult` and Gradle JUnit XML artifacts into `ParsedTestRun` and `TestRunReport`, with optional JSON report export for CI artifacts. |
 | **Test Plans** | Implemented | `--test-plan` selects a named `.xctestplan` |
 | **Retry on Failure** | Implemented | `retry_on_failure: true` passes `-retry-tests-on-failure` to xcodebuild |
 

@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "attempts": [
+    {
+      "attemptNumber": 1,
+      "failedTests": [
+        {
+          "stableID": "xcresult-case:MyAppTests/LoginTests/testFailedLogin()",
+          "name": "testFailedLogin()",
+          "status": "failed"
+        }
+      ]
+    }
+  ],
+  "initialFailedTests": [
+    {
+      "stableID": "xcresult-case:MyAppTests/LoginTests/testFailedLogin()",
+      "name": "testFailedLogin()",
+      "status": "failed"
+    }
+  ],
+  "flakyTests": [],
+  "persistentFailedTests": [
+    {
+      "stableID": "xcresult-case:MyAppTests/LoginTests/testFailedLogin()",
+      "name": "testFailedLogin()",
+      "status": "failed"
+    }
+  ]
+}

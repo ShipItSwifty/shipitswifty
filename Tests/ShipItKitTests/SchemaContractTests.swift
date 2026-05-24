@@ -16,6 +16,7 @@ struct SchemaContractTests {
         LintAction.name,
         NotifyAction.name,
         PlayStoreAction.name,
+        TestResultsAction.name,
         TestAction.name,
         ValidateBundleAction.name,
         VersionAction.name,
@@ -103,6 +104,16 @@ struct SchemaContractTests {
         #expect(fields.first(where: { $0.name == "scope" })?.type == .string)
         #expect(fields.first(where: { $0.name == "devices" })?.type == .object)
         #expect(fields.first(where: { $0.name == "infrastructure_retry" })?.type == .object)
+    }
+
+    @Test("Test-results schema retains artifact and report keys")
+    func testResultsSchemaRetainsCriticalKeys() {
+        let fields = BuiltInSchemaCatalog.optionSchema(for: TestResultsAction.name)
+        let names = Set(fields.map(\.name))
+        #expect(names.contains("xcresult_path"))
+        #expect(names.contains("report_path"))
+        #expect(names.contains("failed_only"))
+        #expect(names.contains("report_output_path"))
     }
 
     @Test("Archive schema retains critical option keys")
