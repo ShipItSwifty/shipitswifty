@@ -802,6 +802,29 @@ public enum BuiltInSchemaCatalog {
                     "Automatically retry failing tests once before reporting failure (-retry-tests-on-failure).",
                 defaultValue: .bool(false), example: .bool(true)),
             .object(
+                "rerun_failed_tests",
+                description:
+                    "Selectively rerun only the failed tests when the runner supports it. Separate from whole-invocation infrastructure_retry and from iOS retry_on_failure.",
+                properties: [
+                    .boolean(
+                        "enabled",
+                        description: "Enable selective failed-test reruns.",
+                        defaultValue: .bool(false),
+                        example: .bool(true)
+                    ),
+                    .integer(
+                        "max_attempts",
+                        description: "Maximum attempts including the initial run.",
+                        defaultValue: .int(2),
+                        example: .int(2)
+                    ),
+                ]
+            ),
+            .string(
+                "report_path",
+                description: "Optional path to write the structured JSON test report.",
+                example: .string("./artifacts/test-report.json")),
+            .object(
                 "infrastructure_retry",
                 description:
                     "Retry the entire test invocation for transient infrastructure failures (works across all platforms: iOS simulator crashes, Android emulator disconnects, Flutter tool crashes, JS worker failures). Presence of this block enables retries; omit it to disable.",

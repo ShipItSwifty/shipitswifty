@@ -100,10 +100,13 @@ struct SchemaContractTests {
         #expect(names.contains("task"))
         #expect(names.contains("devices"))
         #expect(names.contains("infrastructure_retry"))
+        #expect(names.contains("rerun_failed_tests"))
+        #expect(names.contains("report_path"))
         #expect(fields.first(where: { $0.name == "kind" })?.type == .string)
         #expect(fields.first(where: { $0.name == "scope" })?.type == .string)
         #expect(fields.first(where: { $0.name == "devices" })?.type == .object)
         #expect(fields.first(where: { $0.name == "infrastructure_retry" })?.type == .object)
+        #expect(fields.first(where: { $0.name == "rerun_failed_tests" })?.type == .object)
     }
 
     @Test("Test-results schema retains artifact and report keys")

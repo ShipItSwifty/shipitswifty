@@ -300,9 +300,11 @@ The `test` action is configured inline in a workflow step. It does **not** have 
 | `only_testing` | list | — | Restrict to specific targets or test cases. Each entry maps to `-only-testing`. |
 | `skip_testing` | list | — | Skip specific targets or test cases. Each entry maps to `-skip-testing`. |
 | `retry_on_failure` | bool | `false` | Pass `-retry-tests-on-failure` to retry each failing test once. |
+| `rerun_failed_tests` | object | — | Selectively rerun only the failed tests when the runner supports it. Supports `enabled` and `max_attempts` (default `2`). |
+| `report_path` | string | — | Optional path to write the structured JSON `TestRunReport` for CI artifact upload. |
 | `infrastructure_retry` | object | — | Retry the entire test invocation for transient infrastructure failures. Presence enables retries; omit to disable. Recommended default: `{ max_attempts: 3, initial_delay_seconds: 2, max_delay_seconds: 30 }`. |
 
-`retry_on_failure` and `infrastructure_retry` solve different problems. Use `retry_on_failure` for iOS test-case retries after assertions fail. Use `infrastructure_retry` for whole-run failures such as simulator launch crashes, Android emulator disconnects, Flutter tool crashes, or JS worker failures.
+`retry_on_failure`, `rerun_failed_tests`, and `infrastructure_retry` solve different problems. Use `retry_on_failure` for xcodebuild's built-in one-pass iOS retry behavior. Use `rerun_failed_tests` when you want ShipIt to collect the initial failures, rerun those specific tests once, and emit flaky/persistent failure information in `TestRunReport`. Use `infrastructure_retry` for whole-run failures such as simulator launch crashes, Android emulator disconnects, Flutter tool crashes, or JS worker failures.
 
 `shipit generate` asks whether generated test steps should enable `infrastructure_retry`. `shipit ai-session` includes the same guidance in the agent prompt so AI-assisted workflow creation asks the same question.
 

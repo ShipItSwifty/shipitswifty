@@ -73,6 +73,41 @@ private extension ParsedTestCase {
     }
 }
 
+private struct TestExecutionSnapshot: Sendable {
+    let summary: TestSummary
+    let passedTests: [String]
+    let failedTests: [String]
+    let parsedRun: ParsedTestRun?
+
+    init(
+        summary: TestSummary,
+        passedTests: [String] = [],
+        failedTests: [String] = [],
+        parsedRun: ParsedTestRun? = nil
+    ) {
+        self.summary = summary
+        self.passedTests = passedTests
+        self.failedTests = failedTests
+        self.parsedRun = parsedRun
+    }
+}
+
+private extension TestExecutionSnapshot {
+    var failedParsedTests: [ParsedTestCase] {
+        if let parsedRun {
+            return parsedRun.testCases.filter { $0.status == .failed || $0.status == .errored }
+        }
+        return failedTests.map {
+            ParsedTestCase(
+                stableID: $0,
+                name: $0,
+                status: .failed,
+                rerunSelector: .unsupported(rawIdentifier: $0)
+            )
+        }
+    }
+}
+
 /// Where the Gradle task is qualified from.
 ///
 /// - `module`: Task is prefixed with the module path, e.g. `:app:testDebugUnitTest`.
@@ -152,6 +187,20 @@ public struct TestAction: Action {
     /// retry configuration shared across all platforms (iOS, Android, Flutter, RN, KMP).
     public typealias InfrastructureRetryOptions = InfrastructureRetryScheduler.Options
 
+    /// Selective failed-test rerun options.
+    public struct FailedTestRerunOptions: Codable, Sendable {
+        /// Enable selective reruns for failing tests when the runner supports it.
+        public var enabled: Bool
+
+        /// Maximum attempts including the initial run. Default: 2.
+        public var maxAttempts: Int
+
+        public init(enabled: Bool = false, maxAttempts: Int = 2) {
+            self.enabled = enabled
+            self.maxAttempts = maxAttempts
+        }
+    }
+
     /// Creates a `TestAction`.
     public init() {
         self.promptForAndroidEmulatorsHandler = Self.defaultPromptForAndroidEmulators
@@ -228,6 +277,12 @@ public struct TestAction: Action {
         /// Automatically retry failing tests once before reporting failure. (iOS only)
         public var retryOnFailure: Bool?
 
+        /// Selectively rerun only the failed tests when the runner supports it.
+        public var rerunFailedTests: FailedTestRerunOptions?
+
+        /// Optional path to write a structured JSON test report.
+        public var reportPath: String?
+
         /// Retries the entire iOS test invocation for transient simulator/runner failures.
         public var infrastructureRetry: InfrastructureRetryOptions?
 
@@ -279,6 +334,8 @@ public struct TestAction: Action {
             onlyTesting: [String]? = nil,
             skipTesting: [String]? = nil,
             retryOnFailure: Bool? = nil,
+            rerunFailedTests: FailedTestRerunOptions? = nil,
+            reportPath: String? = nil,
             infrastructureRetry: InfrastructureRetryOptions? = nil,
             kind: TestKind? = nil,
             scope: GradleTaskScope? = nil,
@@ -297,6 +354,8 @@ public struct TestAction: Action {
             self.onlyTesting = onlyTesting
             self.skipTesting = skipTesting
             self.retryOnFailure = retryOnFailure
+            self.rerunFailedTests = rerunFailedTests
+            self.reportPath = reportPath
             self.infrastructureRetry = infrastructureRetry
             self.kind = kind
             self.scope = scope
@@ -340,6 +399,9 @@ public struct TestAction: Action {
         /// or auto-derived because `enableCodeCoverage` was `true`). (iOS only)
         public let resultBundlePath: String?
 
+        /// Structured multi-attempt report for this test run.
+        public let report: TestRunReport?
+
         /// Whether all executed tests passed (no failures).
         public var succeeded: Bool { failCount == 0 }
 
@@ -350,7 +412,8 @@ public struct TestAction: Action {
             skipCount: Int = 0,
             passedTests: [String] = [],
             failedTests: [String] = [],
-            resultBundlePath: String? = nil
+            resultBundlePath: String? = nil,
+            report: TestRunReport? = nil
         ) {
             self.passCount = passCount
             self.failCount = failCount
@@ -358,6 +421,7 @@ public struct TestAction: Action {
             self.passedTests = passedTests
             self.failedTests = failedTests
             self.resultBundlePath = resultBundlePath
+            self.report = report
         }
     }
 
@@ -717,23 +781,133 @@ public struct TestAction: Action {
             effectiveResultBundlePath = options.resultBundlePath
         }
 
-        // Run a separate xcodebuild test pass for each destination, aggregating counts.
+        let initialSnapshot = try await runIOSAttempt(
+            scheme: scheme,
+            destinations: effectiveDestinations,
+            configuration: configuration,
+            resultBundlePath: effectiveResultBundlePath,
+            options: options,
+            context: context,
+            overrideOnlyTesting: nil
+        )
+
+        var attempts = [
+            TestAttempt(
+                attemptNumber: 1,
+                summary: initialSnapshot.summary,
+                failedTests: initialSnapshot.failedParsedTests,
+                source: effectiveResultBundlePath
+            )
+        ]
+
+        let rerunOptions = options.rerunFailedTests ?? .init()
+        let maxAttempts = max(rerunOptions.maxAttempts, 1)
+        var flakyTests: [ParsedTestCase] = []
+        var persistentFailedTests = initialSnapshot.failedParsedTests
+
+        if rerunOptions.enabled,
+            maxAttempts > 1,
+            let initialParsedRun = initialSnapshot.parsedRun,
+            !initialSnapshot.failedParsedTests.isEmpty
+        {
+            let selectors = initialParsedRun.testCases.compactMap { test -> String? in
+                guard test.status == .failed || test.status == .errored else { return nil }
+                guard case .xcodeOnlyTesting(let selector) = test.rerunSelector else { return nil }
+                return selector
+            }
+
+            if !selectors.isEmpty {
+                let rerunSnapshot = try await runIOSAttempt(
+                    scheme: scheme,
+                    destinations: effectiveDestinations,
+                    configuration: configuration,
+                    resultBundlePath: effectiveResultBundlePath,
+                    options: options,
+                    context: context,
+                    overrideOnlyTesting: selectors
+                )
+                attempts.append(
+                    TestAttempt(
+                        attemptNumber: 2,
+                        summary: rerunSnapshot.summary,
+                        failedTests: rerunSnapshot.failedParsedTests,
+                        source: effectiveResultBundlePath
+                    )
+                )
+
+                let rerunFailures = Set(rerunSnapshot.failedParsedTests.map(\ .stableID))
+                flakyTests = initialSnapshot.failedParsedTests.filter { !rerunFailures.contains($0.stableID) }
+                persistentFailedTests = initialSnapshot.failedParsedTests.filter { rerunFailures.contains($0.stableID) }
+            }
+        }
+
+        let finalPassedTests = persistentFailedTests.isEmpty
+            ? Array(Set(initialSnapshot.passedTests + flakyTests.map(\ .legacyOutputName))).sorted()
+            : initialSnapshot.passedTests
+        let finalFailedTests = persistentFailedTests.map(\ .legacyOutputName)
+        let finalPassCount = persistentFailedTests.isEmpty
+            ? initialSnapshot.summary.passed + flakyTests.count
+            : initialSnapshot.summary.passed
+        let finalFailCount = persistentFailedTests.count
+
+        let report = TestRunReport(
+            platform: "ios",
+            runner: "xcodebuild",
+            source: effectiveResultBundlePath ?? scheme,
+            attempts: attempts,
+            initialFailedTests: initialSnapshot.failedParsedTests,
+            flakyTests: flakyTests,
+            persistentFailedTests: persistentFailedTests,
+            summary: TestSummary(
+                passed: finalPassCount,
+                failed: finalFailCount,
+                skipped: initialSnapshot.summary.skipped,
+                flaky: flakyTests.count,
+                errored: 0
+            )
+        )
+
+        try writeTestReportIfNeeded(report, to: options.reportPath)
+
+        logger.info("Tests complete — pass: \(finalPassCount), fail: \(finalFailCount), skip: \(initialSnapshot.summary.skipped)")
+
+        return Result(
+            passCount: finalPassCount,
+            failCount: finalFailCount,
+            skipCount: initialSnapshot.summary.skipped,
+            passedTests: finalPassedTests,
+            failedTests: finalFailedTests,
+            resultBundlePath: effectiveResultBundlePath,
+            report: report
+        )
+    }
+
+    private func runIOSAttempt(
+        scheme: String,
+        destinations: [String],
+        configuration: String,
+        resultBundlePath: String?,
+        options: Options,
+        context: ActionContext,
+        overrideOnlyTesting: [String]?
+    ) async throws -> TestExecutionSnapshot {
         var totalPass = 0
         var totalFail = 0
         var totalSkip = 0
         var passedTests: [String] = []
         var failedTests: [String] = []
 
-        for destination in effectiveDestinations {
+        for destination in destinations {
             logger.info("Testing scheme '\(scheme)' on '\(destination)'")
 
             let singleResult = try await runSingle(
                 scheme: scheme,
                 destination: destination,
                 configuration: configuration,
-                resultBundlePath: effectiveResultBundlePath,
+                resultBundlePath: resultBundlePath,
                 options: options,
-                context: context
+                context: context,
+                overrideOnlyTesting: overrideOnlyTesting
             )
             totalPass += singleResult.pass
             totalFail += singleResult.fail
@@ -742,15 +916,34 @@ public struct TestAction: Action {
             failedTests += singleResult.failedTests
         }
 
-        logger.info("Tests complete — pass: \(totalPass), fail: \(totalFail), skip: \(totalSkip)")
+        let parsedRun: ParsedTestRun?
+        if let resultBundlePath {
+            parsedRun = try? await IOSXCResultTestParser(shell: context.shell, logger: logger).parse(xcresultPath: resultBundlePath)
+        } else {
+            parsedRun = nil
+        }
 
-        return Result(
-            passCount: totalPass,
-            failCount: totalFail,
-            skipCount: totalSkip,
+        if let parsedRun {
+            let named = legacyNamedResults(from: parsedRun)
+            return TestExecutionSnapshot(
+                summary: TestSummary(
+                    passed: parsedRun.summary.passed,
+                    failed: parsedRun.summary.failed + parsedRun.summary.errored,
+                    skipped: parsedRun.summary.skipped,
+                    flaky: parsedRun.summary.flaky,
+                    errored: parsedRun.summary.errored
+                ),
+                passedTests: named.passedTests,
+                failedTests: named.failedTests,
+                parsedRun: parsedRun
+            )
+        }
+
+        return TestExecutionSnapshot(
+            summary: TestSummary(passed: totalPass, failed: totalFail, skipped: totalSkip),
             passedTests: passedTests,
             failedTests: failedTests,
-            resultBundlePath: effectiveResultBundlePath
+            parsedRun: nil
         )
     }
 
@@ -762,7 +955,8 @@ public struct TestAction: Action {
         configuration: String,
         resultBundlePath: String?,
         options: Options,
-        context: ActionContext
+        context: ActionContext,
+        overrideOnlyTesting: [String]?
     ) async throws -> (pass: Int, fail: Int, skip: Int, passedTests: [String], failedTests: [String]) {
         return try await InfrastructureRetryScheduler.executeIfConfigured(
             options: options.infrastructureRetry,
@@ -800,7 +994,7 @@ public struct TestAction: Action {
                 xcodeBuild = xcodeBuild.option(.testPlan(testPlan))
             }
 
-            for target in options.onlyTesting ?? [] {
+            for target in overrideOnlyTesting ?? options.onlyTesting ?? [] {
                 xcodeBuild = xcodeBuild.option(.onlyTesting(target))
             }
 
@@ -923,72 +1117,17 @@ public struct TestAction: Action {
         logger.info("Running Android test task '\(scopedTask.name)'")
 
         do {
-            let result = try await InfrastructureRetryScheduler.executeIfConfigured(
+            let initialSnapshot = try await InfrastructureRetryScheduler.executeIfConfigured(
                 options: options.infrastructureRetry,
                 classifier: AndroidInfrastructureClassifier(),
                 label: scopedTask.name
             ) {
-                let gradle = context.gradle()
-                    .task(scopedTask)
-
-                let output: ShellOutput
-                do {
-                    output = try await gradle.run()
-                } catch let ShellError.exitFailure(_, shellOutput) {
-                    let combinedLog = [shellOutput.stdout, shellOutput.stderr]
-                        .filter { !$0.isEmpty }
-                        .joined(separator: "\n")
-                    let failCount = self.parseGradleFailureCount(from: combinedLog)
-                    self.logger.error("Android tests failed with \(failCount) failure(s)")
-                    throw ShipItError.testFailed(
-                        exitCode: Int(shellOutput.exitCode),
-                        failureCount: failCount,
-                        log: combinedLog
-                    )
-                }
-
-                if output.exitCode != 0 {
-                    let combinedLog = output.stdout + "\n" + output.stderr
-                    let failCount = self.parseGradleFailureCount(from: combinedLog)
-                    throw ShipItError.testFailed(
-                        exitCode: Int(output.exitCode),
-                        failureCount: failCount,
-                        log: combinedLog
-                    )
-                }
-
-                let parsed = self.parseGradleCounts(from: output.stdout + "\n" + output.stderr)
-                let pass = parsed.pass
-                let fail = parsed.fail
-                let skip = parsed.skip
-                context.logShellOutput(output, label: "gradlew test")
-
-                // If stdout parsing found no counts, fall back to JUnit XML reports on disk
-                let finalCounts: (pass: Int, fail: Int, skip: Int, passedTests: [String], failedTests: [String])
-                if pass == 0 && fail == 0 && skip == 0 {
-                    let xmlCounts = try await self.aggregateJUnitXMLResults(
-                        projectDir: context.config.gradleProjectDir,
-                        task: task.name
-                    )
-                    finalCounts = xmlCounts
-                } else {
-                    finalCounts = (
-                        pass: pass,
-                        fail: fail,
-                        skip: skip,
-                        passedTests: parsed.passedTests,
-                        failedTests: parsed.failedTests
-                    )
-                }
-
-                self.logger.info("Android tests complete — pass: \(finalCounts.pass), fail: \(finalCounts.fail), skip: \(finalCounts.skip)")
-
-                return Result(
-                    passCount: finalCounts.pass,
-                    failCount: finalCounts.fail,
-                    skipCount: finalCounts.skip,
-                    passedTests: finalCounts.passedTests,
-                    failedTests: finalCounts.failedTests
+                try await self.runAndroidAttempt(
+                    scopedTask: scopedTask,
+                    baseTask: task,
+                    kind: kind,
+                    context: context,
+                    testFilters: nil
                 )
             } extractContext: { error in
                 if let shipItError = error as? ShipItError,
@@ -998,12 +1137,151 @@ public struct TestAction: Action {
                 }
                 return nil
             }
+            var attempts = [
+                TestAttempt(
+                    attemptNumber: 1,
+                    summary: initialSnapshot.summary,
+                    failedTests: initialSnapshot.failedParsedTests,
+                    source: task.name
+                )
+            ]
+
+            let rerunOptions = options.rerunFailedTests ?? .init()
+            let maxAttempts = max(rerunOptions.maxAttempts, 1)
+            var flakyTests: [ParsedTestCase] = []
+            var persistentFailedTests = initialSnapshot.failedParsedTests
+            var finalSnapshot = initialSnapshot
+
+            if kind == .unit,
+                rerunOptions.enabled,
+                maxAttempts > 1,
+                !initialSnapshot.failedTests.isEmpty
+            {
+                let rerunSnapshot = try await runAndroidAttempt(
+                    scopedTask: scopedTask,
+                    baseTask: task,
+                    kind: kind,
+                    context: context,
+                    testFilters: initialSnapshot.failedTests
+                )
+                finalSnapshot = rerunSnapshot
+                attempts.append(
+                    TestAttempt(
+                        attemptNumber: 2,
+                        summary: rerunSnapshot.summary,
+                        failedTests: rerunSnapshot.failedParsedTests,
+                        source: task.name
+                    )
+                )
+
+                let rerunFailures = Set(rerunSnapshot.failedParsedTests.map(\ .stableID))
+                flakyTests = initialSnapshot.failedParsedTests.filter { !rerunFailures.contains($0.stableID) }
+                persistentFailedTests = initialSnapshot.failedParsedTests.filter { rerunFailures.contains($0.stableID) }
+            }
+
+            let finalPassedTests = persistentFailedTests.isEmpty
+                ? Array(Set(initialSnapshot.passedTests + flakyTests.map(\ .legacyOutputName))).sorted()
+                : initialSnapshot.passedTests
+            let finalFailedTests = persistentFailedTests.map(\ .legacyOutputName)
+            let finalPassCount = persistentFailedTests.isEmpty
+                ? initialSnapshot.summary.passed + flakyTests.count
+                : initialSnapshot.summary.passed
+            let finalFailCount = persistentFailedTests.count
+            let report = TestRunReport(
+                platform: "android",
+                runner: "gradle",
+                source: task.name,
+                attempts: attempts,
+                initialFailedTests: initialSnapshot.failedParsedTests,
+                flakyTests: flakyTests,
+                persistentFailedTests: persistentFailedTests,
+                summary: TestSummary(
+                    passed: finalPassCount,
+                    failed: finalFailCount,
+                    skipped: finalSnapshot.summary.skipped,
+                    flaky: flakyTests.count,
+                    errored: 0
+                )
+            )
+
+            try writeTestReportIfNeeded(report, to: options.reportPath)
             await teardown(spawnedEmulators)
-            return result
+            return Result(
+                passCount: finalPassCount,
+                failCount: finalFailCount,
+                skipCount: finalSnapshot.summary.skipped,
+                passedTests: finalPassedTests,
+                failedTests: finalFailedTests,
+                report: report
+            )
         } catch {
             await teardown(spawnedEmulators)
             throw error
         }
+    }
+
+    private func runAndroidAttempt(
+        scopedTask: GradleTask,
+        baseTask: GradleTask,
+        kind: TestKind,
+        context: ActionContext,
+        testFilters: [String]?
+    ) async throws -> TestExecutionSnapshot {
+        var gradle = context.gradle().task(scopedTask)
+        if kind == .unit {
+            for filter in testFilters ?? [] {
+                gradle = gradle.flag(.custom("--tests")).flag(.custom(filter))
+            }
+        }
+
+        let output: ShellOutput
+        do {
+            output = try await gradle.run()
+        } catch let ShellError.exitFailure(_, shellOutput) {
+            let combinedLog = [shellOutput.stdout, shellOutput.stderr]
+                .filter { !$0.isEmpty }
+                .joined(separator: "\n")
+            let failCount = self.parseGradleFailureCount(from: combinedLog)
+            self.logger.error("Android tests failed with \(failCount) failure(s)")
+            throw ShipItError.testFailed(
+                exitCode: Int(shellOutput.exitCode),
+                failureCount: failCount,
+                log: combinedLog
+            )
+        }
+
+        if output.exitCode != 0 {
+            let combinedLog = output.stdout + "\n" + output.stderr
+            let failCount = self.parseGradleFailureCount(from: combinedLog)
+            throw ShipItError.testFailed(
+                exitCode: Int(output.exitCode),
+                failureCount: failCount,
+                log: combinedLog
+            )
+        }
+
+        let parsed = self.parseGradleCounts(from: output.stdout + "\n" + output.stderr)
+        context.logShellOutput(output, label: "gradlew test")
+
+        if parsed.pass == 0 && parsed.fail == 0 && parsed.skip == 0 {
+            let xmlCounts = try await self.aggregateJUnitXMLResults(
+                projectDir: context.config.gradleProjectDir,
+                task: baseTask.name
+            )
+            return TestExecutionSnapshot(
+                summary: TestSummary(passed: xmlCounts.pass, failed: xmlCounts.fail, skipped: xmlCounts.skip),
+                passedTests: xmlCounts.passedTests,
+                failedTests: xmlCounts.failedTests,
+                parsedRun: nil
+            )
+        }
+
+        return TestExecutionSnapshot(
+            summary: TestSummary(passed: parsed.pass, failed: parsed.fail, skipped: parsed.skip),
+            passedTests: parsed.passedTests,
+            failedTests: parsed.failedTests,
+            parsedRun: nil
+        )
     }
 
     private func teardown(_ emulators: [any SpawnedProcess]) async {
@@ -1549,6 +1827,16 @@ public struct TestAction: Action {
         }
 
         return (passedTests: passedTests, failedTests: failedTests)
+    }
+
+    private func writeTestReportIfNeeded(_ report: TestRunReport, to path: String?) throws {
+        guard let path else { return }
+        let url = URL(fileURLWithPath: path)
+        try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        let data = try encoder.encode(report)
+        try data.write(to: url)
     }
 
     // MARK: - Automatic Destination Discovery
