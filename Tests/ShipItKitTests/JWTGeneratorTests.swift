@@ -144,23 +144,32 @@ struct JWTGeneratorTests {
     func pemStringThrowsForNonUTF8() throws {
         // 0xFF is not valid UTF-8
         let data = Data([0xFF, 0xFE, 0x00])
-        #expect(throws: JWTGeneratorError.invalidKeyEncoding) {
+        do {
             _ = try JWTGenerator.pemString(from: data)
+            Issue.record("Expected invalidKeyEncoding for non-UTF-8 PEM data")
+        } catch let error as JWTGeneratorError {
+            #expect(error == .invalidKeyEncoding)
         }
     }
 
     @Test("pemString throws invalidKeyEncoding for empty data")
     func pemStringThrowsForEmptyData() throws {
-        #expect(throws: JWTGeneratorError.invalidKeyEncoding) {
+        do {
             _ = try JWTGenerator.pemString(from: Data())
+            Issue.record("Expected invalidKeyEncoding for empty PEM data")
+        } catch let error as JWTGeneratorError {
+            #expect(error == .invalidKeyEncoding)
         }
     }
 
     @Test("pemString throws invalidKeyEncoding for whitespace-only data")
     func pemStringThrowsForWhitespaceOnly() throws {
         let data = Data("   \n\n   ".utf8)
-        #expect(throws: JWTGeneratorError.invalidKeyEncoding) {
+        do {
             _ = try JWTGenerator.pemString(from: data)
+            Issue.record("Expected invalidKeyEncoding for whitespace-only PEM data")
+        } catch let error as JWTGeneratorError {
+            #expect(error == .invalidKeyEncoding)
         }
     }
 
