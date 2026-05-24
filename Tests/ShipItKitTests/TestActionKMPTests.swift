@@ -11,7 +11,7 @@ struct TestActionKMPTests {
     @Test("KMP iOS tests dispatch to gradlew iosSimulatorArm64Test against the shared module")
     func kmpIOSTestsUseGradle() async throws {
         let (executor, commands) = makeCaptureExecutor { _, _ in
-            ShellOutput(stdout: "", stderr: "", exitCode: 0)
+            ShellOutput(stdout: "List of devices attached\nemulator-5554\tdevice\n", stderr: "", exitCode: 0)
         }
 
         let config = ResolvedConfig(
@@ -90,7 +90,7 @@ struct TestActionKMPTests {
     @Test("Android instrumented tests default to the configured build variant")
     func androidInstrumentedTestsUseConfiguredBuildVariant() async throws {
         let (executor, commands) = makeCaptureExecutor { _, _ in
-            ShellOutput(stdout: "", stderr: "", exitCode: 0)
+            ShellOutput(stdout: "List of devices attached\nemulator-5554\tdevice\n", stderr: "", exitCode: 0)
         }
 
         let config = ResolvedConfig(
