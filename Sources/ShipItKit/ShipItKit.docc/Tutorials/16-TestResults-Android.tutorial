@@ -1,0 +1,28 @@
+@Tutorial(time: 4) {
+    @Intro(title: "Parse Android JUnit XML results") {
+        Read Gradle JUnit XML output and convert it into ShipItKit's normalized test-result model.
+
+        @Image(source: tutorial-android-setup.png, alt: "Parse Android test results")
+    }
+
+    @Section(title: "Read a Gradle report directory") {
+        @ContentAndMedia {
+            After a Gradle unit test task runs, use `shipit test-results` to summarize the XML reports
+            and emit a JSON file that other CI tooling can persist.
+        }
+
+        @Steps {
+            @Step {
+                Point ShipIt at the JUnit XML report directory.
+
+                @Code(name: "Terminal", file: 31-test-results-android.sh)
+            }
+
+            @Step {
+                Filter the output down to failures only and export a report.
+
+                @Code(name: "Terminal", file: 31-test-results-android-failed.sh)
+            }
+        }
+    }
+}

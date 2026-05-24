@@ -514,6 +514,9 @@ public enum BuiltInSchemaCatalog {
                 name: CoverageAction.name, description: CoverageAction.description,
                 options: coverageOptions(), example: coverageExample()),
             actionSchema(
+                name: TestResultsAction.name, description: TestResultsAction.description,
+                options: testResultsOptions(), example: testResultsExample()),
+            actionSchema(
                 name: ArchiveAction.name, description: ArchiveAction.description, options: archiveOptions(),
                 example: archiveExample()),
             actionSchema(
@@ -601,6 +604,7 @@ public enum BuiltInSchemaCatalog {
             actionSchema(name: "archive", description: ArchiveAction.description, options: archiveOptions(), example: archiveExample()),
             actionSchema(name: "build", description: BuildAction.description, options: buildOptions(), example: buildExample()),
             actionSchema(name: "coverage", description: CoverageAction.description, options: coverageOptions(), example: coverageExample()),
+            actionSchema(name: "test-results", description: TestResultsAction.description, options: testResultsOptions(), example: testResultsExample()),
             actionSchema(
                 name: "dsym", description: "Download or upload dSYM symbol files.", options: dsymOptions(),
                 example: dsymExample()),
@@ -1224,6 +1228,34 @@ public enum BuiltInSchemaCatalog {
         ]
     }
 
+    private static func testResultsOptions() -> [SchemaField] {
+        [
+            .string(
+                "format", description: "Output format hint.", defaultValue: .string("text"),
+                allowedValues: ["text", "json", "markdown"], example: .string("json")),
+            .string(
+                "platform", description: "Explicit platform override when parsing outside a Shipfile-backed context.",
+                allowedValues: ["ios", "android"], example: .string("ios")),
+            .string(
+                "xcresult_path",
+                description: "Explicit path to a .xcresult bundle (iOS). Auto-discovered from ./build/<scheme>-tests.xcresult when omitted.",
+                example: .string("./build/MyApp-tests.xcresult")),
+            .string(
+                "report_path",
+                description: "Explicit path to a JUnit XML report directory (Android). Auto-discovered from common Gradle build/test-results locations when omitted.",
+                example: .string("./app/build/test-results/testDebugUnitTest")),
+            .boolean(
+                "failed_only", description: "Only include failed and errored tests in the parsed output.",
+                example: .bool(true)),
+            .boolean(
+                "include_passed", description: "Include passed tests in the parsed output.", defaultValue: .bool(true),
+                example: .bool(true)),
+            .string(
+                "report_output_path", description: "Optional path to write the structured JSON report.",
+                example: .string("./artifacts/test-results.json")),
+        ]
+    }
+
     private static func dsymOptions() -> [SchemaField] {
         [
             .string(
@@ -1257,6 +1289,15 @@ public enum BuiltInSchemaCatalog {
             options: [
                 "first_party_only": .bool(true),
                 "show_targets": .bool(true),
+            ])
+    }
+
+    private static func testResultsExample() -> JSONValue? {
+        workflowExample(
+            action: "test-results",
+            options: [
+                "failed_only": .bool(true),
+                "report_output_path": .string("./artifacts/test-results.json"),
             ])
     }
 

@@ -1,0 +1,28 @@
+@Tutorial(time: 5) {
+    @Intro(title: "Understand the structured rerun report") {
+        Use ShipIt's normalized report to capture initial failures, flaky outcomes, and persistent failures in a stable JSON contract.
+
+        @Image(source: tutorial-ios-testflight.png, alt: "Structured rerun report")
+    }
+
+    @Section(title: "Archive a rerun-ready report") {
+        @ContentAndMedia {
+            `TestRunReport` is the machine-readable contract returned by parsed results and later rerun flows.
+            CI systems can archive this JSON and store longer-lived history externally.
+        }
+
+        @Steps {
+            @Step {
+                Run the parser and write a JSON report to disk.
+
+                @Code(name: "Terminal", file: 32-test-results-rerun.sh)
+            }
+
+            @Step {
+                Inspect the fields that callers should persist: `attempts`, `initialFailedTests`, `flakyTests`, and `persistentFailedTests`.
+
+                @Code(name: "report.json", file: 32-test-results-rerun.json)
+            }
+        }
+    }
+}

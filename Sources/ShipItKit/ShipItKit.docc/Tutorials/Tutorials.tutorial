@@ -53,6 +53,17 @@
         @TutorialReference(tutorial: "doc:14-ReactNative-Distribution")
     }
 
+    @Chapter(name: "Test Results") {
+        Parse native test artifacts, emit structured reports, and consume them from Swift.
+
+        @Image(source: chapter-ios.png, alt: "Test results chapter cover")
+
+        @TutorialReference(tutorial: "doc:15-TestResults-iOS")
+        @TutorialReference(tutorial: "doc:16-TestResults-Android")
+        @TutorialReference(tutorial: "doc:17-TestResults-Rerun")
+        @TutorialReference(tutorial: "doc:18-TestResults-Swift")
+    }
+
     @Chapter(name: "Build a Plugin") {
         Extend ShipItKit with a custom action, register it, and call it from a workflow.
 

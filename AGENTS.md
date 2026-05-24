@@ -165,6 +165,12 @@ swift run shipit coverage --platform android --report ./app/build/reports/jacoco
 swift run shipit coverage --include-target MyFeatureKit       # include specific target
 swift run shipit coverage --exclude-target GoogleSignIn       # exclude vendor targets
 swift run shipit coverage --sort name --limit 10              # alphabetical, capped
+
+# Test results — parse prior test artifacts into normalized reports
+swift run shipit test-results --xcresult ./build/MyApp-tests.xcresult
+swift run shipit test-results --platform android --report ./app/build/test-results/testDebugUnitTest
+swift run shipit test-results --failed-only --format markdown
+swift run shipit test-results --report-path ./artifacts/test-results.json
 ```
 
 > **Prerequisite:** Requires access to the remote `SwiftyShell` Swift package dependency during `swift build` and `swift test`.

@@ -1,0 +1,34 @@
+@Tutorial(time: 4) {
+    @Intro(title: "Parse iOS test results") {
+        Read an existing `.xcresult` bundle with `shipit test-results` and export a structured JSON report.
+
+        @Image(source: tutorial-ios-build.png, alt: "Parse iOS test results")
+    }
+
+    @Section(title: "Summarize an xcresult bundle") {
+        @ContentAndMedia {
+            `shipit test-results` reads an existing `.xcresult` bundle without rerunning tests.
+            Use it to inspect failures in CI or to feed a custom Swift tool.
+        }
+
+        @Steps {
+            @Step {
+                Point the command at an explicit `.xcresult` bundle.
+
+                @Code(name: "Terminal", file: 30-test-results-ios.sh)
+            }
+
+            @Step {
+                Write the same structured report to disk for CI artifact upload.
+
+                @Code(name: "Terminal", file: 30-test-results-ios-report.sh)
+            }
+
+            @Step {
+                Inspect the normalized JSON payload.
+
+                @Code(name: "test-results.json", file: 30-test-results-ios.json)
+            }
+        }
+    }
+}

@@ -729,3 +729,28 @@ struct BuiltInSchemaCatalogCoverageTests {
         #expect(names.contains("limit"))
     }
 }
+
+@Suite("BuiltInSchemaCatalog.test-results")
+struct BuiltInSchemaCatalogTestResultsTests {
+
+    @Test("Test-results action appears in actionSchemas")
+    func testResultsInActionSchemas() {
+        let schemas = BuiltInSchemaCatalog.actionSchemas()
+        let testResults = schemas.first { $0.name == "test-results" }
+        #expect(testResults != nil)
+        #expect(testResults?.description.isEmpty == false)
+    }
+
+    @Test("Test-results action has expected options")
+    func testResultsOptionsPresent() {
+        let options = BuiltInSchemaCatalog.optionSchema(for: "test-results")
+        let names = options.map(\ .name)
+        #expect(names.contains("format"))
+        #expect(names.contains("platform"))
+        #expect(names.contains("xcresult_path"))
+        #expect(names.contains("report_path"))
+        #expect(names.contains("failed_only"))
+        #expect(names.contains("include_passed"))
+        #expect(names.contains("report_output_path"))
+    }
+}

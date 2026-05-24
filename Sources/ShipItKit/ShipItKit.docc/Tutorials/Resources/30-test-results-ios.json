@@ -1,0 +1,18 @@
+{
+  "action": "test-results",
+  "status": "success",
+  "payload": {
+    "parsedRun": {
+      "platform": "ios",
+      "runner": "xcodebuild",
+      "source": "./build/MyApp-tests.xcresult",
+      "summary": {
+        "passed": 42,
+        "failed": 1,
+        "skipped": 0,
+        "flaky": 0,
+        "errored": 0
+      }
+    }
+  }
+}

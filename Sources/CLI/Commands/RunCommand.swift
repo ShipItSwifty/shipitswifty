@@ -135,6 +135,9 @@ func builtInActionDescriptors() -> [ActionDescriptor] {
         CoverageAction.descriptor(
             for: CoverageAction(),
             optionSchema: BuiltInSchemaCatalog.optionSchema(for: CoverageAction.name)),
+        TestResultsAction.descriptor(
+            for: TestResultsAction(),
+            optionSchema: BuiltInSchemaCatalog.optionSchema(for: TestResultsAction.name)),
         ArchiveAction.descriptor(
             for: ArchiveAction(),
             optionSchema: BuiltInSchemaCatalog.optionSchema(for: ArchiveAction.name),
@@ -285,6 +288,14 @@ func humanStepSummary(action: String, payload: JSONValue?) -> String? {
             return filename
         }
         return nil
+
+    case "test-results":
+        let parsedRun = dict["parsedRun"]?.objectValue
+        let summary = parsedRun?["summary"]?.objectValue
+        let passed = summary?["passed"]?.intValue ?? 0
+        let failed = summary?["failed"]?.intValue ?? 0
+        let skipped = summary?["skipped"]?.intValue ?? 0
+        return "\(passed) passed, \(failed) failed, \(skipped) skipped"
 
     default:
         return nil

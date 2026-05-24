@@ -25,6 +25,14 @@ struct IntrospectionTests {
         #expect(aabField?.notes.contains(where: { $0.contains("Optional when using conventional native Gradle") }) == true)
     }
 
+    @Test("test-results schema includes artifact paths")
+    func testResultsSchemaIncludesArtifactPaths() {
+        let schema = BuiltInSchemaCatalog.actionSchemas().first { $0.name == "test-results" }
+
+        #expect(schema?.options.contains(where: { $0.name == "xcresult_path" }) == true)
+        #expect(schema?.options.contains(where: { $0.name == "report_path" }) == true)
+    }
+
     @Test("Project inspector prefers workspace and extracts schemes")
     func projectInspectorDetectsWorkspaceAndSchemes() async throws {
         let tempDirectory = try makeTempDirectory()
