@@ -136,8 +136,8 @@ extension AndroidJUnitTestParser: TestResultParser {
     }
 }
 
-private extension String {
-    var nilIfEmpty: String? {
+extension String {
+    fileprivate var nilIfEmpty: String? {
         isEmpty ? nil : self
     }
 }

@@ -380,7 +380,10 @@ public enum BuiltInSchemaCatalog {
                                 "group", description: "Gradle managed device group name (managed strategy).",
                                 example: .string("phoneAndTablet")),
                             .boolean(
-                                "prompt_locally", description: "Allow interactive emulator selection when not in CI when no AVDs are configured or the configured AVDs are unavailable locally.", example: .bool(true)),
+                                "prompt_locally",
+                                description:
+                                    "Allow interactive emulator selection when not in CI when no AVDs are configured or the configured AVDs are unavailable locally.",
+                                example: .bool(true)),
                         ]),
                     .string(
                         "build_variant",
@@ -604,7 +607,9 @@ public enum BuiltInSchemaCatalog {
             actionSchema(name: "archive", description: ArchiveAction.description, options: archiveOptions(), example: archiveExample()),
             actionSchema(name: "build", description: BuildAction.description, options: buildOptions(), example: buildExample()),
             actionSchema(name: "coverage", description: CoverageAction.description, options: coverageOptions(), example: coverageExample()),
-            actionSchema(name: "test-results", description: TestResultsAction.description, options: testResultsOptions(), example: testResultsExample()),
+            actionSchema(
+                name: "test-results", description: TestResultsAction.description, options: testResultsOptions(),
+                example: testResultsExample()),
             actionSchema(
                 name: "dsym", description: "Download or upload dSYM symbol files.", options: dsymOptions(),
                 example: dsymExample()),
@@ -887,7 +892,11 @@ public enum BuiltInSchemaCatalog {
                         example: .array([.string("Pixel_9_API_35")]), items: .string("avd", description: "Android emulator AVD name.")),
                     .string(
                         "group", description: "Gradle managed device group name (managed strategy).", example: .string("phoneAndTablet")),
-                    .boolean("prompt_locally", description: "Allow interactive emulator selection when not in CI when no AVDs are configured or the configured AVDs are unavailable locally.", example: .bool(true)),
+                    .boolean(
+                        "prompt_locally",
+                        description:
+                            "Allow interactive emulator selection when not in CI when no AVDs are configured or the configured AVDs are unavailable locally.",
+                        example: .bool(true)),
                 ]),
         ]
     }
@@ -1261,11 +1270,13 @@ public enum BuiltInSchemaCatalog {
                 allowedValues: ["ios", "android"], example: .string("ios")),
             .string(
                 "xcresult_path",
-                description: "Explicit path to a .xcresult bundle (iOS). Auto-discovered from ./build/<scheme>-tests.xcresult when omitted.",
+                description:
+                    "Explicit path to a .xcresult bundle (iOS). Auto-discovered from ./build/<scheme>-tests.xcresult when omitted.",
                 example: .string("./build/MyApp-tests.xcresult")),
             .string(
                 "report_path",
-                description: "Explicit path to a JUnit XML report directory (Android). Auto-discovered from common Gradle build/test-results locations when omitted.",
+                description:
+                    "Explicit path to a JUnit XML report directory (Android). Auto-discovered from common Gradle build/test-results locations when omitted.",
                 example: .string("./app/build/test-results/testDebugUnitTest")),
             .boolean(
                 "failed_only", description: "Only include failed and errored tests in the parsed output.",

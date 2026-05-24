@@ -55,8 +55,8 @@ public enum TestKind: String, Codable, Sendable, CaseIterable {
     case e2e
 }
 
-private extension ParsedTestCase {
-    var legacyOutputName: String {
+extension ParsedTestCase {
+    fileprivate var legacyOutputName: String {
         switch rerunSelector {
         case .xcodeOnlyTesting(let value), .gradleTestFilter(let value):
             return value
@@ -92,8 +92,8 @@ private struct TestExecutionSnapshot: Sendable {
     }
 }
 
-private extension TestExecutionSnapshot {
-    var failedParsedTests: [ParsedTestCase] {
+extension TestExecutionSnapshot {
+    fileprivate var failedParsedTests: [ParsedTestCase] {
         if let parsedRun {
             return parsedRun.testCases.filter { $0.status == .failed || $0.status == .errored }
         }
@@ -496,14 +496,20 @@ public struct TestAction: Action {
                     platform: "flutter",
                     runner: "flutter-test",
                     source: "machine-output",
-                    attempts: [TestAttempt(attemptNumber: 1, summary: parsedRun.summary, failedTests: parsedRun.testCases.filter { $0.status == .failed || $0.status == .errored })],
+                    attempts: [
+                        TestAttempt(
+                            attemptNumber: 1, summary: parsedRun.summary,
+                            failedTests: parsedRun.testCases.filter { $0.status == .failed || $0.status == .errored })
+                    ],
                     initialFailedTests: parsedRun.testCases.filter { $0.status == .failed || $0.status == .errored },
                     flakyTests: [],
                     persistentFailedTests: parsedRun.testCases.filter { $0.status == .failed || $0.status == .errored },
                     summary: parsedRun.summary
                 )
                 try writeTestReportIfNeeded(report, to: options.reportPath)
-                self.logger.info("Flutter tests complete — pass: \(parsedRun.summary.passed), fail: \(parsedRun.summary.failed), skip: \(parsedRun.summary.skipped)")
+                self.logger.info(
+                    "Flutter tests complete — pass: \(parsedRun.summary.passed), fail: \(parsedRun.summary.failed), skip: \(parsedRun.summary.skipped)"
+                )
                 return Result(
                     passCount: parsedRun.summary.passed,
                     failCount: parsedRun.summary.failed,
@@ -519,10 +525,16 @@ public struct TestAction: Action {
                 platform: "flutter",
                 runner: "flutter-test",
                 source: "stdout",
-                attempts: [TestAttempt(attemptNumber: 1, summary: TestSummary(passed: parsed.pass, failed: parsed.fail, skipped: parsed.skip))],
-                initialFailedTests: parsed.failedTests.map { ParsedTestCase(stableID: $0, name: $0, status: .failed, rerunSelector: .flutter(name: $0)) },
+                attempts: [
+                    TestAttempt(attemptNumber: 1, summary: TestSummary(passed: parsed.pass, failed: parsed.fail, skipped: parsed.skip))
+                ],
+                initialFailedTests: parsed.failedTests.map {
+                    ParsedTestCase(stableID: $0, name: $0, status: .failed, rerunSelector: .flutter(name: $0))
+                },
                 flakyTests: [],
-                persistentFailedTests: parsed.failedTests.map { ParsedTestCase(stableID: $0, name: $0, status: .failed, rerunSelector: .flutter(name: $0)) },
+                persistentFailedTests: parsed.failedTests.map {
+                    ParsedTestCase(stableID: $0, name: $0, status: .failed, rerunSelector: .flutter(name: $0))
+                },
                 summary: TestSummary(passed: parsed.pass, failed: parsed.fail, skipped: parsed.skip)
             )
             try writeTestReportIfNeeded(report, to: options.reportPath)
@@ -584,14 +596,20 @@ public struct TestAction: Action {
                     platform: "react_native",
                     runner: "jest",
                     source: outputFile.path,
-                    attempts: [TestAttempt(attemptNumber: 1, summary: parsedRun.summary, failedTests: parsedRun.testCases.filter { $0.status == .failed || $0.status == .errored })],
+                    attempts: [
+                        TestAttempt(
+                            attemptNumber: 1, summary: parsedRun.summary,
+                            failedTests: parsedRun.testCases.filter { $0.status == .failed || $0.status == .errored })
+                    ],
                     initialFailedTests: parsedRun.testCases.filter { $0.status == .failed || $0.status == .errored },
                     flakyTests: [],
                     persistentFailedTests: parsedRun.testCases.filter { $0.status == .failed || $0.status == .errored },
                     summary: parsedRun.summary
                 )
                 try writeTestReportIfNeeded(report, to: options.reportPath)
-                self.logger.info("React Native tests complete — pass: \(parsedRun.summary.passed), fail: \(parsedRun.summary.failed), skip: \(parsedRun.summary.skipped)")
+                self.logger.info(
+                    "React Native tests complete — pass: \(parsedRun.summary.passed), fail: \(parsedRun.summary.failed), skip: \(parsedRun.summary.skipped)"
+                )
                 return Result(
                     passCount: parsedRun.summary.passed,
                     failCount: parsedRun.summary.failed,
@@ -607,10 +625,16 @@ public struct TestAction: Action {
                 platform: "react_native",
                 runner: "jest",
                 source: "stdout",
-                attempts: [TestAttempt(attemptNumber: 1, summary: TestSummary(passed: parsed.pass, failed: parsed.fail, skipped: parsed.skip))],
-                initialFailedTests: parsed.failedTests.map { ParsedTestCase(stableID: $0, name: $0, status: .failed, rerunSelector: .unsupported(rawIdentifier: $0)) },
+                attempts: [
+                    TestAttempt(attemptNumber: 1, summary: TestSummary(passed: parsed.pass, failed: parsed.fail, skipped: parsed.skip))
+                ],
+                initialFailedTests: parsed.failedTests.map {
+                    ParsedTestCase(stableID: $0, name: $0, status: .failed, rerunSelector: .unsupported(rawIdentifier: $0))
+                },
                 flakyTests: [],
-                persistentFailedTests: parsed.failedTests.map { ParsedTestCase(stableID: $0, name: $0, status: .failed, rerunSelector: .unsupported(rawIdentifier: $0)) },
+                persistentFailedTests: parsed.failedTests.map {
+                    ParsedTestCase(stableID: $0, name: $0, status: .failed, rerunSelector: .unsupported(rawIdentifier: $0))
+                },
                 summary: TestSummary(passed: parsed.pass, failed: parsed.fail, skipped: parsed.skip)
             )
             try writeTestReportIfNeeded(report, to: options.reportPath)
@@ -654,7 +678,8 @@ public struct TestAction: Action {
         )
     }
 
-    private func parseFlutterCounts(from output: String) -> (pass: Int, fail: Int, skip: Int, passedTests: [String], failedTests: [String]) {
+    private func parseFlutterCounts(from output: String) -> (pass: Int, fail: Int, skip: Int, passedTests: [String], failedTests: [String])
+    {
         // Flutter test output format (one status line per test result, final line is summary):
         //   "00:01 +12: All tests passed!"       → 12 passed
         //   "00:02 +11 -2: Some tests failed."   → 11 passed (cumulative), 2 failed
@@ -911,17 +936,19 @@ public struct TestAction: Action {
                     )
                 )
 
-                let rerunFailures = Set(rerunSnapshot.failedParsedTests.map(\ .stableID))
+                let rerunFailures = Set(rerunSnapshot.failedParsedTests.map(\.stableID))
                 flakyTests = initialSnapshot.failedParsedTests.filter { !rerunFailures.contains($0.stableID) }
                 persistentFailedTests = initialSnapshot.failedParsedTests.filter { rerunFailures.contains($0.stableID) }
             }
         }
 
-        let finalPassedTests = persistentFailedTests.isEmpty
-            ? Array(Set(initialSnapshot.passedTests + flakyTests.map(\ .legacyOutputName))).sorted()
+        let finalPassedTests =
+            persistentFailedTests.isEmpty
+            ? Array(Set(initialSnapshot.passedTests + flakyTests.map(\.legacyOutputName))).sorted()
             : initialSnapshot.passedTests
-        let finalFailedTests = persistentFailedTests.map(\ .legacyOutputName)
-        let finalPassCount = persistentFailedTests.isEmpty
+        let finalFailedTests = persistentFailedTests.map(\.legacyOutputName)
+        let finalPassCount =
+            persistentFailedTests.isEmpty
             ? initialSnapshot.summary.passed + flakyTests.count
             : initialSnapshot.summary.passed
         let finalFailCount = persistentFailedTests.count
@@ -1250,16 +1277,18 @@ public struct TestAction: Action {
                     )
                 )
 
-                let rerunFailures = Set(rerunSnapshot.failedParsedTests.map(\ .stableID))
+                let rerunFailures = Set(rerunSnapshot.failedParsedTests.map(\.stableID))
                 flakyTests = initialSnapshot.failedParsedTests.filter { !rerunFailures.contains($0.stableID) }
                 persistentFailedTests = initialSnapshot.failedParsedTests.filter { rerunFailures.contains($0.stableID) }
             }
 
-            let finalPassedTests = persistentFailedTests.isEmpty
-                ? Array(Set(initialSnapshot.passedTests + flakyTests.map(\ .legacyOutputName))).sorted()
+            let finalPassedTests =
+                persistentFailedTests.isEmpty
+                ? Array(Set(initialSnapshot.passedTests + flakyTests.map(\.legacyOutputName))).sorted()
                 : initialSnapshot.passedTests
-            let finalFailedTests = persistentFailedTests.map(\ .legacyOutputName)
-            let finalPassCount = persistentFailedTests.isEmpty
+            let finalFailedTests = persistentFailedTests.map(\.legacyOutputName)
+            let finalPassCount =
+                persistentFailedTests.isEmpty
                 ? initialSnapshot.summary.passed + flakyTests.count
                 : initialSnapshot.summary.passed
             let finalFailCount = persistentFailedTests.count
@@ -1470,7 +1499,8 @@ public struct TestAction: Action {
 
             guard allowInteractiveSelection, shouldPrompt, isInteractiveTerminalHandler() else {
                 throw ShipItError.invalidConfiguration(
-                    reason: "Configured Android emulator(s) not found locally: \(configuredList). Available AVDs: \(available.joined(separator: ", "))."
+                    reason:
+                        "Configured Android emulator(s) not found locally: \(configuredList). Available AVDs: \(available.joined(separator: ", "))."
                 )
             }
 
@@ -1623,11 +1653,13 @@ public struct TestAction: Action {
         context: ActionContext
     ) async throws {
         guard let bundleID = context.config.bundleID, !bundleID.isEmpty else { return }
-        guard let simulatorUDID = try await resolveSimulatorUDID(
-            scheme: scheme,
-            destination: destination,
-            context: context
-        ) else { return }
+        guard
+            let simulatorUDID = try await resolveSimulatorUDID(
+                scheme: scheme,
+                destination: destination,
+                context: context
+            )
+        else { return }
 
         logger.info("Uninstalling existing iOS app '\(bundleID)' from simulator '\(simulatorUDID)' before test run")
         do {
@@ -1844,7 +1876,9 @@ public struct TestAction: Action {
     ///   - projectDir: The Gradle project root directory.
     ///   - task: The Gradle task name (e.g. `"testDebugUnitTest"`) used to locate report directories.
     /// - Returns: Aggregated (pass, fail, skip) counts across all XML reports.
-    func aggregateJUnitXMLResults(projectDir: String, task: String) async throws -> (pass: Int, fail: Int, skip: Int, passedTests: [String], failedTests: [String]) {
+    func aggregateJUnitXMLResults(
+        projectDir: String, task: String
+    ) async throws -> (pass: Int, fail: Int, skip: Int, passedTests: [String], failedTests: [String]) {
         guard let reportDirectory = firstJUnitReportDirectory(projectDir: projectDir, task: task) else {
             return (pass: 0, fail: 0, skip: 0, passedTests: [], failedTests: [])
         }

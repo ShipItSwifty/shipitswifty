@@ -744,7 +744,7 @@ struct BuiltInSchemaCatalogTestResultsTests {
     @Test("Test-results action has expected options")
     func testResultsOptionsPresent() {
         let options = BuiltInSchemaCatalog.optionSchema(for: "test-results")
-        let names = options.map(\ .name)
+        let names = options.map(\.name)
         #expect(names.contains("format"))
         #expect(names.contains("platform"))
         #expect(names.contains("xcresult_path"))

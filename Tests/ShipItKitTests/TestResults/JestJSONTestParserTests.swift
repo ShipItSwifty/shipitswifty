@@ -37,6 +37,8 @@ struct JestJSONTestParserTests {
         #expect(parsed.summary.passed == 1)
         #expect(parsed.summary.failed == 1)
         #expect(parsed.summary.skipped == 1)
-        #expect(parsed.testCases.first(where: { $0.name == "handles offline" })?.rerunSelector == .jest(file: "src/login.test.ts", fullName: "login handles offline"))
+        #expect(
+            parsed.testCases.first(where: { $0.name == "handles offline" })?.rerunSelector
+                == .jest(file: "src/login.test.ts", fullName: "login handles offline"))
     }
 }

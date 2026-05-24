@@ -113,9 +113,13 @@ struct TestActionTests {
                     return count
                 }
                 if count == 1 {
-                    return ShellOutput(stdout: "{ \"metrics\": { \"testsCount\": 2, \"testsFailedCount\": 1, \"testsSkippedCount\": 0 } }", stderr: "", exitCode: 0)
+                    return ShellOutput(
+                        stdout: "{ \"metrics\": { \"testsCount\": 2, \"testsFailedCount\": 1, \"testsSkippedCount\": 0 } }", stderr: "",
+                        exitCode: 0)
                 }
-                return ShellOutput(stdout: "{ \"metrics\": { \"testsCount\": 1, \"testsFailedCount\": 0, \"testsSkippedCount\": 0 } }", stderr: "", exitCode: 0)
+                return ShellOutput(
+                    stdout: "{ \"metrics\": { \"testsCount\": 1, \"testsFailedCount\": 0, \"testsSkippedCount\": 0 } }", stderr: "",
+                    exitCode: 0)
             }
             if description.contains("xcresulttool get test-results tests") {
                 let count = commandCounter.withLock { $0 }
@@ -126,7 +130,8 @@ struct TestActionTests {
             }
             if description.contains("xcodebuild") && description.contains(" test") {
                 if description.contains("-only-testing MyAppTests/LoginTests/testFlaky()") {
-                    return ShellOutput(stdout: "Executed 1 test, with 0 failures (0 unexpected) in 0.500 seconds\n", stderr: "", exitCode: 0)
+                    return ShellOutput(
+                        stdout: "Executed 1 test, with 0 failures (0 unexpected) in 0.500 seconds\n", stderr: "", exitCode: 0)
                 }
                 return ShellOutput(stdout: "Executed 2 tests, with 1 failure (0 unexpected) in 1.000 seconds\n", stderr: "", exitCode: 0)
             }
@@ -789,7 +794,8 @@ struct TestActionTests {
 
             if description.contains("adb devices -l") {
                 return ShellOutput(
-                    stdout: "List of devices attached\nemulator-5554          device product:sdk_gphone64_arm64 model:Medium_Phone_API_35 device:emu64a transport_id:1 avd:Medium_Phone_API_35\n",
+                    stdout:
+                        "List of devices attached\nemulator-5554          device product:sdk_gphone64_arm64 model:Medium_Phone_API_35 device:emu64a transport_id:1 avd:Medium_Phone_API_35\n",
                     stderr: "",
                     exitCode: 0
                 )
@@ -859,7 +865,8 @@ struct TestActionTests {
                     return ShellOutput(stdout: "List of devices attached\n\n", stderr: "", exitCode: 0)
                 }
                 return ShellOutput(
-                    stdout: "List of devices attached\nemulator-5554          device product:sdk_gphone64_arm64 model:sdk_gphone64_arm64 device:emu64a transport_id:1\n",
+                    stdout:
+                        "List of devices attached\nemulator-5554          device product:sdk_gphone64_arm64 model:sdk_gphone64_arm64 device:emu64a transport_id:1\n",
                     stderr: "",
                     exitCode: 0
                 )
@@ -914,7 +921,8 @@ struct TestActionTests {
 
             if description.contains("adb devices -l") {
                 return ShellOutput(
-                    stdout: "List of devices attached\nemulator-5554          device product:sdk_gphone64_arm64 model:Medium_Phone_API_35 device:emu64a transport_id:1 avd:Medium_Phone_API_35\n",
+                    stdout:
+                        "List of devices attached\nemulator-5554          device product:sdk_gphone64_arm64 model:Medium_Phone_API_35 device:emu64a transport_id:1 avd:Medium_Phone_API_35\n",
                     stderr: "",
                     exitCode: 0
                 )
@@ -1252,7 +1260,8 @@ struct TestActionTests {
         let tempDirectory = try makeTempDirectory(prefix: "ShipItJUnitNamed")
         defer { try? FileManager.default.removeItem(at: tempDirectory) }
 
-        let reportsDirectory = tempDirectory
+        let reportsDirectory =
+            tempDirectory
             .appendingPathComponent("app/build/test-results/testProdDebugUnitTest", isDirectory: true)
         try FileManager.default.createDirectory(at: reportsDirectory, withIntermediateDirectories: true)
 
@@ -1316,7 +1325,8 @@ struct TestActionTests {
                 return ShellOutput(stdout: "1 tests completed, 0 failed, 0 skipped\n", stderr: "", exitCode: 0)
             }
             return ShellOutput(
-                stdout: "2 tests completed, 1 failed, 0 skipped\ncom.example.FeatureTests.testHappyPath PASSED\ncom.example.FeatureTests.testOfflineMode FAILED\n",
+                stdout:
+                    "2 tests completed, 1 failed, 0 skipped\ncom.example.FeatureTests.testHappyPath PASSED\ncom.example.FeatureTests.testOfflineMode FAILED\n",
                 stderr: "",
                 exitCode: 0
             )

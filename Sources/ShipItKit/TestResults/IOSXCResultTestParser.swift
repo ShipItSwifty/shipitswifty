@@ -94,12 +94,14 @@ private struct XCResultTestExtractor: Sendable {
         let nodes = collectObjects(from: testsJSON)
         for node in nodes {
             let nodeType = node.string(for: "nodeType") ?? node.string(for: "type") ?? node.string(for: "kind")
-            let identifier = node.string(for: "identifier")
+            let identifier =
+                node.string(for: "identifier")
                 ?? node.string(for: "id")
                 ?? node.string(for: "testIdentifierURL")
                 ?? node.string(for: "name")
 
-            let children = node.array(for: "subtests")
+            let children =
+                node.array(for: "subtests")
                 ?? node.array(for: "children")
                 ?? node.array(for: "tests")
                 ?? []
@@ -109,7 +111,8 @@ private struct XCResultTestExtractor: Sendable {
                 let suiteID = "xcresult-suite:\(identifier ?? suiteName)"
                 let childIDs = children.compactMap { child -> String? in
                     guard let childObject = child.objectValue else { return nil }
-                    let childIdentifier = childObject.string(for: "identifier")
+                    let childIdentifier =
+                        childObject.string(for: "identifier")
                         ?? childObject.string(for: "id")
                         ?? childObject.string(for: "testIdentifierURL")
                         ?? childObject.string(for: "name")
@@ -189,7 +192,8 @@ private struct XCResultTestExtractor: Sendable {
     }
 
     private func status(from nodeType: String?, node: [String: JSONValue]) -> TestCaseStatus? {
-        let statusText = node.string(for: "testStatus")
+        let statusText =
+            node.string(for: "testStatus")
             ?? node.string(for: "status")
             ?? node.string(for: "result")
             ?? node.string(for: "outcome")
@@ -248,16 +252,16 @@ private struct ExtractedRun: Sendable {
     let diagnostics: [ParsingDiagnostic]
 }
 
-private extension Dictionary where Key == String, Value == JSONValue {
-    func string(for key: String) -> String? {
+extension Dictionary where Key == String, Value == JSONValue {
+    fileprivate func string(for key: String) -> String? {
         self[key]?.stringValue
     }
 
-    func int(for key: String) -> Int? {
+    fileprivate func int(for key: String) -> Int? {
         self[key]?.intValue
     }
 
-    func double(for key: String) -> Double? {
+    fileprivate func double(for key: String) -> Double? {
         if let double = self[key]?.doubleValue {
             return double
         }
@@ -267,11 +271,11 @@ private extension Dictionary where Key == String, Value == JSONValue {
         return nil
     }
 
-    func object(for key: String) -> [String: JSONValue]? {
+    fileprivate func object(for key: String) -> [String: JSONValue]? {
         self[key]?.objectValue
     }
 
-    func array(for key: String) -> [JSONValue]? {
+    fileprivate func array(for key: String) -> [JSONValue]? {
         self[key]?.arrayValue
     }
 }
