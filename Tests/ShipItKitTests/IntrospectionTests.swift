@@ -112,6 +112,7 @@ struct IntrospectionTests {
             fastlaneFiles: [],
             ciFiles: [],
             warnings: [],
+            suggestedAndroidPackageName: "com.example.app",
             detectedPlatform: .android,
             gradleFiles: ["gradlew", "build.gradle.kts"]
         )
@@ -121,8 +122,9 @@ struct IntrospectionTests {
 
         #expect(suggestion.yaml.contains("platform: android"))
         #expect(suggestion.yaml.contains("android:"))
+        #expect(suggestion.yaml.contains("package_name: com.example.app"))
         #expect(suggestion.yaml.contains("- action: play-store"))
-        #expect(suggestion.missingValues.contains { $0.keyPath == "android.package_name" })
+        #expect(!suggestion.missingValues.contains { $0.keyPath == "android.package_name" })
     }
 
     @Test("Shipfile suggester generates combined React Native beta workflows")
@@ -143,6 +145,7 @@ struct IntrospectionTests {
             fastlaneFiles: [],
             ciFiles: [],
             warnings: [],
+            suggestedAndroidPackageName: "com.example.app",
             detectedBuildSystem: .reactNative,
             buildSystemFiles: ["package.json"]
         )
@@ -151,6 +154,7 @@ struct IntrospectionTests {
 
         #expect(suggestion.yaml.contains("ios:\n  build_system: react_native"))
         #expect(suggestion.yaml.contains("android:\n  build_system: react_native"))
+        #expect(suggestion.yaml.contains("  package_name: com.example.app"))
         #expect(suggestion.yaml.contains("  beta-ios:"))
         #expect(suggestion.yaml.contains("  beta-android:"))
         #expect(suggestion.yaml.contains("    # RN iOS: build validates the bundle; archive + export produces the IPA."))
@@ -277,6 +281,29 @@ struct IntrospectionTests {
         #expect(suggestion.yaml.contains("team_id: ${SHIPIT_APP__TEAM_ID}"))
         #expect(suggestion.yaml.contains("key_path: ${ASC_PRIVATE_KEY_PATH}"))
     }
+
+    #if os(macOS)
+    @Test("Project inspector infers Android package name from Gradle applicationId")
+    func projectInspectorInfersAndroidPackageNameFromGradle() async throws {
+        let tempDirectory = try makeTempDirectory()
+        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+
+        let appDirectory = tempDirectory.appendingPathComponent("app")
+        try FileManager.default.createDirectory(at: appDirectory, withIntermediateDirectories: true)
+        try """
+        android {
+            namespace = "com.example.namespace"
+            defaultConfig {
+                applicationId = "com.example.application"
+            }
+        }
+        """.write(to: appDirectory.appendingPathComponent("build.gradle.kts"), atomically: true, encoding: .utf8)
+
+        let inspection = try await ProjectInspector(rootPath: tempDirectory.path).inspect()
+
+        #expect(inspection.suggestedAndroidPackageName == "com.example.application")
+    }
+    #endif
 
     private func makeTempDirectory() throws -> URL {
         let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)

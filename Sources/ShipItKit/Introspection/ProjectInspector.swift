@@ -21,6 +21,7 @@ public struct ProjectInspector: Sendable {
         #endif
         let suggestedAppConfig = suggestedAppConfig(from: preferredContainer, schemes: schemes)
         let gradleFiles = discoverGradleFiles(fileManager: fileManager)
+        let suggestedAndroidPackageName = suggestedAndroidPackageName(fileManager: fileManager)
         let detectedPlatform: Platform = !gradleFiles.isEmpty ? .android : (containers.isEmpty ? .ios : .ios)
         let detectedBuildSystem = BuildSystem.autoDetect(in: rootPath, fileManager: fileManager)
         let buildSystemFiles = discoverBuildSystemFiles(
@@ -56,6 +57,7 @@ public struct ProjectInspector: Sendable {
             fastlaneFiles: discoverKnownFiles(["fastlane/Fastfile", "fastlane/Appfile"], fileManager: fileManager),
             ciFiles: discoverKnownFiles([".github/workflows", "bitrise.yml", ".gitlab-ci.yml"], fileManager: fileManager),
             warnings: warnings,
+            suggestedAndroidPackageName: suggestedAndroidPackageName,
             detectedPlatform: detectedPlatform,
             gradleFiles: gradleFiles,
             detectedBuildSystem: detectedBuildSystem,
@@ -259,6 +261,93 @@ public struct ProjectInspector: Sendable {
             let absolute = URL(fileURLWithPath: rootPath).appendingPathComponent(name).path
             return fileManager.fileExists(atPath: absolute) ? name : nil
         }
+    }
+
+    private func suggestedAndroidPackageName(fileManager: FileManager) -> String? {
+        if let packageName = inferredAndroidPackageName(
+            fromBuildFilesAt: [
+                "app/build.gradle.kts",
+                "app/build.gradle",
+                "build.gradle.kts",
+                "build.gradle",
+            ],
+            fileManager: fileManager
+        ) {
+            return packageName
+        }
+
+        return inferredAndroidPackageName(
+            fromManifestFilesAt: [
+                "app/src/main/AndroidManifest.xml",
+                "src/main/AndroidManifest.xml",
+                "android/app/src/main/AndroidManifest.xml",
+            ],
+            fileManager: fileManager
+        )
+    }
+
+    private func inferredAndroidPackageName(
+        fromBuildFilesAt relativePaths: [String],
+        fileManager: FileManager
+    ) -> String? {
+        for relativePath in relativePaths {
+            let absolute = URL(fileURLWithPath: rootPath).appendingPathComponent(relativePath).path
+            guard fileManager.fileExists(atPath: absolute),
+                let contents = try? String(contentsOfFile: absolute, encoding: .utf8)
+            else {
+                continue
+            }
+
+            if let applicationID = firstRegexMatch(
+                in: contents,
+                pattern: #"(?m)^\s*applicationId\s*(?:=\s*)?["']([A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z][A-Za-z0-9_]*)+)["']"#
+            ) {
+                return applicationID
+            }
+
+            if let namespace = firstRegexMatch(
+                in: contents,
+                pattern: #"(?m)^\s*namespace\s*(?:=\s*)?["']([A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z][A-Za-z0-9_]*)+)["']"#
+            ) {
+                return namespace
+            }
+        }
+
+        return nil
+    }
+
+    private func inferredAndroidPackageName(
+        fromManifestFilesAt relativePaths: [String],
+        fileManager: FileManager
+    ) -> String? {
+        for relativePath in relativePaths {
+            let absolute = URL(fileURLWithPath: rootPath).appendingPathComponent(relativePath).path
+            guard fileManager.fileExists(atPath: absolute),
+                let contents = try? String(contentsOfFile: absolute, encoding: .utf8)
+            else {
+                continue
+            }
+
+            if let packageName = firstRegexMatch(
+                in: contents,
+                pattern: #"package\s*=\s*["']([A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z][A-Za-z0-9_]*)+)["']"#
+            ) {
+                return packageName
+            }
+        }
+
+        return nil
+    }
+
+    private func firstRegexMatch(in contents: String, pattern: String) -> String? {
+        guard let regex = try? NSRegularExpression(pattern: pattern) else { return nil }
+        let range = NSRange(contents.startIndex..<contents.endIndex, in: contents)
+        guard let match = regex.firstMatch(in: contents, options: [], range: range),
+            let valueRange = Range(match.range(at: 1), in: contents)
+        else {
+            return nil
+        }
+        return String(contents[valueRange])
     }
 
     private func discoverFiles(

@@ -334,7 +334,7 @@ struct GenerateCommand: AsyncParsableCommand {
             value: ask(androidPrompt("Gradle module"), defaultValue: "app"))
         addOverride(
             &overrides, placeholder: "${SHIPIT_ANDROID__PACKAGE_NAME}",
-            value: ask(androidPrompt("Package name"), defaultValue: nil))
+            value: ask(androidPrompt("Package name"), defaultValue: suggestion.inspection.suggestedAndroidPackageName))
 
         // --- Build variant ---
         formatter.print("")
