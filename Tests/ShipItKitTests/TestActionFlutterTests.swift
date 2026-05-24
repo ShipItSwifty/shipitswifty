@@ -10,7 +10,10 @@ struct TestActionFlutterTests {
     @Test("Flutter test runs flutter test --machine command")
     func flutterTestRunsFlutterTest() async throws {
         let (executor, commands) = makeCaptureExecutor { _, _ in
-            ShellOutput(stdout: "{\"type\":\"testStart\",\"test\":{\"id\":1,\"name\":\"login success\"}}\n{\"type\":\"testDone\",\"testID\":1,\"result\":\"success\"}\n", stderr: "", exitCode: 0)
+            ShellOutput(
+                stdout:
+                    "{\"type\":\"testStart\",\"test\":{\"id\":1,\"name\":\"login success\"}}\n{\"type\":\"testDone\",\"testID\":1,\"result\":\"success\"}\n",
+                stderr: "", exitCode: 0)
         }
         let config = ResolvedConfig(
             platform: .ios,

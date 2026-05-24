@@ -43,7 +43,9 @@ struct AndroidJUnitTestParserTests {
         #expect(run.suites.count == 1)
         #expect(run.suites.first?.name == "com.example.CheckoutTests")
         #expect(run.testCases.count == 3)
-        #expect(run.testCases.first(where: { $0.name == "testNetworkError" })?.rerunSelector == .gradleTestFilter("com.example.CheckoutTests.testNetworkError"))
+        #expect(
+            run.testCases.first(where: { $0.name == "testNetworkError" })?.rerunSelector
+                == .gradleTestFilter("com.example.CheckoutTests.testNetworkError"))
     }
 
     @Test("Throws when the report directory has no JUnit XML files")

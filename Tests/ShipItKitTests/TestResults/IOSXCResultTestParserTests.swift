@@ -72,7 +72,9 @@ struct IOSXCResultTestParserTests {
         #expect(run.summary.failed == 1)
         #expect(run.summary.skipped == 1)
         #expect(run.testCases.count == 3)
-        #expect(run.testCases.first(where: { $0.name == "testFailedLogin()" })?.rerunSelector == .xcodeOnlyTesting("MyAppTests/LoginTests/testFailedLogin()"))
+        #expect(
+            run.testCases.first(where: { $0.name == "testFailedLogin()" })?.rerunSelector
+                == .xcodeOnlyTesting("MyAppTests/LoginTests/testFailedLogin()"))
     }
 
     @Test("Surfaces xcresulttool failures as invalid configuration")

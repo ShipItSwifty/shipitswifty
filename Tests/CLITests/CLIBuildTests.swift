@@ -263,12 +263,13 @@ struct CLIBuildTests {
                     .string("FeatureTests.testRetry"),
                 ]),
                 "failedTests": .array([
-                    .string("FeatureTests.testOfflineMode"),
+                    .string("FeatureTests.testOfflineMode")
                 ]),
             ])
         )
 
-        #expect(summary == "passed: FeatureTests.testHappyPath, FeatureTests.testRetry, failed: FeatureTests.testOfflineMode, 1 test skipped")
+        #expect(
+            summary == "passed: FeatureTests.testHappyPath, FeatureTests.testRetry, failed: FeatureTests.testOfflineMode, 1 test skipped")
     }
 
     @Test("Workflow test summary truncates long named test lists")

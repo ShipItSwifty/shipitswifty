@@ -135,7 +135,7 @@ public struct TestResultsAction: Action {
             return true
         }
 
-        let filteredCaseIDs = Set(filteredCases.map(\ .stableID))
+        let filteredCaseIDs = Set(filteredCases.map(\.stableID))
         let filteredSuites = parsedRun.suites.filter { !filteredCaseIDs.isDisjoint(with: $0.testCaseIDs) }
 
         let summary = TestSummary(
@@ -208,8 +208,8 @@ public enum TestResultsFormat: String, Codable, Sendable {
     case markdown
 }
 
-private extension JSONEncoder {
-    static var prettyPrintedSorted: JSONEncoder {
+extension JSONEncoder {
+    fileprivate static var prettyPrintedSorted: JSONEncoder {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         return encoder

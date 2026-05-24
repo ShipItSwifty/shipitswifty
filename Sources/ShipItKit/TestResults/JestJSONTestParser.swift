@@ -40,7 +40,7 @@ public struct JestJSONTestParser: Sendable {
                     name: suiteName,
                     stableID: suiteID,
                     file: suite.name,
-                    testCaseIDs: cases.map(\ .stableID)
+                    testCaseIDs: cases.map(\.stableID)
                 )
             )
             testCases.append(contentsOf: cases)
@@ -100,8 +100,8 @@ private struct JestJSONAssertion: Decodable {
     let failureMessages: [String]
 }
 
-private extension String {
-    var nilIfEmpty: String? {
+extension String {
+    fileprivate var nilIfEmpty: String? {
         isEmpty ? nil : self
     }
 }
