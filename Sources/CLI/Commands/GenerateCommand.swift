@@ -39,12 +39,30 @@ struct GenerateCommand: AsyncParsableCommand {
 
     private static let logger = Logger.forType(subsystem: "ShipItSwifty", GenerateCommand.self)
 
+    enum PlatformFocus: String, Sendable {
+        case ios
+        case android
+        case both
+
+        var platform: Platform? {
+            switch self {
+            case .ios:
+                return .ios
+            case .android:
+                return .android
+            case .both:
+                return nil
+            }
+        }
+    }
+
     func run() async throws {
         Self.logger.info("Starting Shipfile generation for path: \(path)")
 
         let formatter = makeHumanFormatter(global: global)
         let inspection = try await inspectProject()
-        let platform = try resolvePlatform(from: inspection, formatter: formatter)
+        let focus = try resolvePlatformFocus(from: inspection, formatter: formatter)
+        let platform = focus.platform ?? inspection.detectedPlatform
         let suggestion = ShipfileSuggester().suggest(goal: goal, platform: platform, from: inspection)
         let outputPath = resolvedOutputPath()
 
@@ -68,6 +86,7 @@ struct GenerateCommand: AsyncParsableCommand {
 
         let yaml = try buildYAML(
             suggestion: suggestion,
+            focus: focus,
             platform: platform,
             formatter: formatter
         )
@@ -101,13 +120,21 @@ struct GenerateCommand: AsyncParsableCommand {
         try await offerDoctor(outputPath: outputPath, formatter: formatter)
     }
 
-    private func resolvePlatform(
+    private func resolvePlatformFocus(
         from inspection: ProjectInspection, formatter: HumanFormatter
     ) throws
-        -> Platform
+        -> PlatformFocus
     {
         if let platform = global.platform {
-            return platform
+            return platform == .ios ? .ios : .android
+        }
+
+        if inspection.detectedBuildSystem == .reactNative || inspection.detectedBuildSystem == .flutter {
+            guard !nonInteractive else { return .both }
+
+            formatter.printHeader("Detected Platforms")
+            formatter.print("This project supports both iOS and Android workflows.")
+            return choosePlatformFocus(defaultFocus: .both)
         }
 
         let hasIOS = !inspection.xcodeContainers.isEmpty
@@ -116,14 +143,15 @@ struct GenerateCommand: AsyncParsableCommand {
         if hasIOS && hasAndroid && !nonInteractive {
             formatter.printHeader("Detected Platforms")
             formatter.print("This project appears to contain both iOS and Android files.")
-            return choosePlatform(defaultPlatform: inspection.detectedPlatform)
+            return choosePlatform(defaultFocus: .both, fallbackPlatform: inspection.detectedPlatform)
         }
 
-        return inspection.detectedPlatform
+        return inspection.detectedPlatform == .ios ? .ios : .android
     }
 
     private func buildYAML(
         suggestion: SuggestedShipfile,
+        focus: PlatformFocus,
         platform: Platform,
         formatter: HumanFormatter
     ) throws -> String {
@@ -136,7 +164,7 @@ struct GenerateCommand: AsyncParsableCommand {
         }
 
         formatter.printHeader("Project Detection")
-        formatter.printKV("Platform", platform.rawValue)
+        formatter.printKV("Platform Focus", focus.rawValue)
         formatter.printKV("Goal", goal.rawValue)
 
         for warning in suggestion.warnings {
@@ -196,6 +224,14 @@ struct GenerateCommand: AsyncParsableCommand {
         platform: Platform,
         formatter: HumanFormatter
     ) -> [String: String] {
+        if suggestion.inspection.detectedBuildSystem == .reactNative {
+            var overrides = collectIOSOverrides(suggestion: suggestion, formatter: formatter)
+            for (key, value) in collectAndroidOverrides(suggestion: suggestion, formatter: formatter) {
+                overrides[key] = value
+            }
+            return overrides
+        }
+
         switch platform {
         case .ios:
             return collectIOSOverrides(suggestion: suggestion, formatter: formatter)
@@ -210,22 +246,22 @@ struct GenerateCommand: AsyncParsableCommand {
         -> [String: String]
     {
         let app = suggestion.inspection.suggestedAppConfig
-        formatter.printHeader("Confirm iOS Values")
+        formatter.printHeader("iOS Configuration")
         formatter.print("Tip: For any value, you can enter ${MY_ENV_VAR} to reference an environment variable at runtime.\n")
 
         var overrides: [String: String] = [:]
         addOverride(
             &overrides, placeholder: "${SHIPIT_APP__SCHEME}",
-            value: ask("Xcode scheme", defaultValue: app.scheme))
+            value: ask(iosPrompt("Xcode scheme"), defaultValue: app.scheme))
         addOverride(
             &overrides, placeholder: "${SHIPIT_APP__BUNDLE_ID}",
-            value: ask("Bundle identifier", defaultValue: app.bundleID))
+            value: ask(iosPrompt("Bundle identifier"), defaultValue: app.bundleID))
         addOverride(
             &overrides, placeholder: "${SHIPIT_APP__TEAM_ID}",
-            value: ask("Apple Developer Team ID", defaultValue: app.teamID))
+            value: ask(iosPrompt("Apple Developer Team ID"), defaultValue: app.teamID))
 
         if app.workspace == nil && app.project == nil {
-            let container = ask("Workspace or project path", defaultValue: nil)
+            let container = ask(iosPrompt("Workspace or project path"), defaultValue: nil)
             if container.hasSuffix(".xcworkspace") {
                 overrides["# workspace: MyApp.xcworkspace"] = "workspace: \(container)"
             } else if !container.isEmpty {
@@ -236,10 +272,10 @@ struct GenerateCommand: AsyncParsableCommand {
         let uploadsToTestFlight =
             goal == .release
             || confirm(
-                "Do you want this Shipfile to include App Store Connect upload settings?",
+                iosPrompt("Include App Store Connect upload settings?"),
                 defaultAnswer: false)
         if uploadsToTestFlight {
-            formatter.printHeader("App Store Connect Environment")
+            formatter.printHeader("iOS App Store Connect")
             formatter.print("ShipIt will reference env vars instead of storing secrets in Shipfile.yml.")
             collectEnvironmentVariables(
                 [
@@ -261,9 +297,9 @@ struct GenerateCommand: AsyncParsableCommand {
         }
 
         let usesManualSigning = confirm(
-            "Are you using manual code signing (.p12 + provisioning profile)?", defaultAnswer: false)
+            iosPrompt("Use manual code signing (.p12 + provisioning profile)?"), defaultAnswer: false)
         if usesManualSigning {
-            formatter.printHeader("Manual Code Signing Environment")
+            formatter.printHeader("iOS Code Signing")
             formatter.print("ShipIt will reference env vars instead of storing secrets in Shipfile.yml.")
             collectEnvironmentVariables(
                 [
@@ -289,23 +325,23 @@ struct GenerateCommand: AsyncParsableCommand {
     )
         -> [String: String]
     {
-        formatter.printHeader("Confirm Android Values")
+        formatter.printHeader("Android Configuration")
         formatter.print("Tip: For any value, you can enter ${MY_ENV_VAR} to reference an environment variable at runtime.\n")
 
         var overrides: [String: String] = [:]
         addOverride(
             &overrides, placeholder: "${SHIPIT_ANDROID__MODULE}",
-            value: ask("Gradle module", defaultValue: "app"))
+            value: ask(androidPrompt("Gradle module"), defaultValue: "app"))
         addOverride(
             &overrides, placeholder: "${SHIPIT_ANDROID__PACKAGE_NAME}",
-            value: ask("Android package name", defaultValue: nil))
+            value: ask(androidPrompt("Package name"), defaultValue: nil))
 
         // --- Build variant ---
         formatter.print("")
         formatter.print("Build variant determines the AAB output path and Gradle task.")
         formatter.print("Common values: release, prodRelease, stagingRelease, debug")
         formatter.print("If you use product flavors (e.g. prod + release), use the combined name (e.g. prodRelease).")
-        let buildVariant = ask("Build variant", defaultValue: "release")
+        let buildVariant = ask(androidPrompt("Build variant"), defaultValue: "release")
         addOverride(&overrides, placeholder: "build_variant: release", value: "build_variant: \(buildVariant)")
 
         // --- Keystore setup ---
@@ -386,9 +422,9 @@ struct GenerateCommand: AsyncParsableCommand {
         let uploadsToPlay =
             goal == .release
             || confirm(
-                "Do you want this Shipfile to include Google Play upload settings?", defaultAnswer: false)
+                androidPrompt("Include Google Play upload settings?"), defaultAnswer: false)
         if uploadsToPlay {
-            formatter.printHeader("Google Play Environment")
+            formatter.printHeader("Android Google Play")
             formatter.print("ShipIt needs these env vars for signing and uploading to Google Play.")
             formatter.print("Press Enter to accept detected values, or type your own.\n")
 
@@ -459,7 +495,7 @@ struct GenerateCommand: AsyncParsableCommand {
             }
 
             // Ask which track to upload to
-            formatter.printHeader("Google Play Track")
+            formatter.printHeader("Android Google Play Track")
             formatter.print("Which Google Play track should this workflow upload to?")
             formatter.print("  1) internal  — small internal testing group (recommended for beta)")
             formatter.print("  2) alpha     — closed testing")
@@ -468,7 +504,7 @@ struct GenerateCommand: AsyncParsableCommand {
             let trackChoices = ["internal", "alpha", "beta", "production"]
             let defaultTrack = goal == .release ? "production" : "internal"
             let defaultIndex = trackChoices.firstIndex(of: defaultTrack)! + 1
-            let trackInput = ask("Track", defaultValue: "\(defaultIndex)")
+            let trackInput = ask(androidPrompt("Google Play track"), defaultValue: "\(defaultIndex)")
             let selectedTrack: String
             if let idx = Int(trackInput), (1...4).contains(idx) {
                 selectedTrack = trackChoices[idx - 1]
@@ -506,7 +542,7 @@ struct GenerateCommand: AsyncParsableCommand {
         if detectedPath != nil {
             hasKeystore = true
         } else {
-            hasKeystore = confirm("Do you already have an Android keystore (.jks / .keystore)?", defaultAnswer: true)
+            hasKeystore = confirm(androidPrompt("Do you already have a keystore (.jks / .keystore)?"), defaultAnswer: true)
         }
 
         if hasKeystore {
@@ -561,10 +597,10 @@ struct GenerateCommand: AsyncParsableCommand {
                 existingPath != nil
                 ? "${SHIPIT_ANDROID__KEYSTORE_PATH}"
                 : (dotEnvValues["SHIPIT_ANDROID__KEYSTORE_PATH"].map { _ in "${SHIPIT_ANDROID__KEYSTORE_PATH}" } ?? prefillPath!)
-            let answer = ask("Keystore path (.jks or .keystore)", defaultValue: envVarDefault)
+            let answer = ask(androidPrompt("Keystore path (.jks or .keystore)"), defaultValue: envVarDefault)
             keystorePath = answer
         } else {
-            keystorePath = ask("Keystore path (.jks or .keystore)", defaultValue: nil)
+            keystorePath = ask(androidPrompt("Keystore path (.jks or .keystore)"), defaultValue: nil)
         }
 
         guard !keystorePath.isEmpty else {
@@ -575,11 +611,11 @@ struct GenerateCommand: AsyncParsableCommand {
         let keystorePassword: String
         if let prefill = prefillKeystorePassword {
             formatter.print("Keystore password detected. Press Enter to keep it, or type a new one.")
-            let raw = askSecret("Keystore password")
+            let raw = askSecret(androidPrompt("Keystore password"))
             keystorePassword = raw.isEmpty ? prefill : raw
         } else {
             formatter.print("Enter the keystore password to inspect aliases (leave blank to enter alias manually).")
-            keystorePassword = askSecret("Keystore password")
+            keystorePassword = askSecret(androidPrompt("Keystore password"))
         }
 
         var resolvedAlias = ""
@@ -592,19 +628,19 @@ struct GenerateCommand: AsyncParsableCommand {
 
         if resolvedAlias.isEmpty {
             let aliasDefault: String? = prefillAlias != nil ? "${SHIPIT_ANDROID__KEY_ALIAS}" : nil
-            resolvedAlias = ask("Keystore key alias", defaultValue: aliasDefault)
+            resolvedAlias = ask(androidPrompt("Keystore key alias"), defaultValue: aliasDefault)
         }
 
         // Key password may differ from keystore password.
         let keyPassword: String
         if let prefill = prefillKeyPassword {
             formatter.print("Key password detected. Press Enter to keep it, or type a new one.")
-            let raw = askSecret("Key password")
+            let raw = askSecret(androidPrompt("Key password"))
             keyPassword = raw.isEmpty ? prefill : raw
         } else {
             formatter.print(
                 "Key password (press Enter to use the same password as the keystore).")
-            let rawKeyPassword = askSecret("Key password")
+            let rawKeyPassword = askSecret(androidPrompt("Key password"))
             keyPassword = rawKeyPassword.isEmpty ? keystorePassword : rawKeyPassword
         }
 
@@ -686,7 +722,7 @@ struct GenerateCommand: AsyncParsableCommand {
                 formatter.print("  \(i + 1). \(alias)")
             }
             let input = ask(
-                "Enter alias number or type the alias directly",
+                androidPrompt("Enter alias number or type the alias directly"),
                 defaultValue: "1")
             if let idx = Int(input), idx >= 1, idx <= aliases.count {
                 return aliases[idx - 1]
@@ -714,7 +750,7 @@ struct GenerateCommand: AsyncParsableCommand {
     )
         -> (path: String, alias: String, keystorePassword: String, keyPassword: String)
     {
-        formatter.printHeader("Create New Keystore")
+        formatter.printHeader("Android Create Keystore")
         formatter.print("ShipIt will run keytool to generate a new keystore for you.")
         formatter.print("")
 
@@ -727,34 +763,34 @@ struct GenerateCommand: AsyncParsableCommand {
         }
 
         // Output path
-        let outputPath = ask("Keystore output path", defaultValue: "./keystore.jks")
+        let outputPath = ask(androidPrompt("Keystore output path"), defaultValue: "./keystore.jks")
 
         // Alias
-        let alias = ask("Key alias (e.g. my-app-key)", defaultValue: "release")
+        let alias = ask(androidPrompt("Key alias (e.g. my-app-key)"), defaultValue: "release")
 
         // Passwords
         formatter.print("Choose a keystore password (min 6 characters).")
-        let keystorePassword = askSecret("Keystore password")
-        let confirm1 = askSecret("Confirm keystore password")
+        let keystorePassword = askSecret(androidPrompt("Keystore password"))
+        let confirm1 = askSecret(androidPrompt("Confirm keystore password"))
         guard keystorePassword == confirm1, !keystorePassword.isEmpty else {
             formatter.printWarning("Passwords did not match or were empty — keystore not created.")
             return (outputPath, alias, "", "")
         }
 
         formatter.print("Key password (press Enter to use the same as keystore password).")
-        let rawKeyPassword = askSecret("Key password")
+        let rawKeyPassword = askSecret(androidPrompt("Key password"))
         let keyPassword = rawKeyPassword.isEmpty ? keystorePassword : rawKeyPassword
 
         // Distinguished name fields
         formatter.print("")
         formatter.print("These fields are embedded in the signing certificate (press Enter to skip any).")
-        let cn = ask("Your name or organisation (CN)", defaultValue: nil)
-        let ou = ask("Organisational unit (OU)", defaultValue: nil)
-        let o = ask("Organisation (O)", defaultValue: nil)
-        let l = ask("City / Locality (L)", defaultValue: nil)
-        let st = ask("State / Province (ST)", defaultValue: nil)
-        let c = ask("Two-letter country code (C)", defaultValue: nil)
-        let validityDays = ask("Validity in days", defaultValue: "10000")
+        let cn = ask(androidPrompt("Your name or organisation (CN)"), defaultValue: nil)
+        let ou = ask(androidPrompt("Organisational unit (OU)"), defaultValue: nil)
+        let o = ask(androidPrompt("Organisation (O)"), defaultValue: nil)
+        let l = ask(androidPrompt("City / Locality (L)"), defaultValue: nil)
+        let st = ask(androidPrompt("State / Province (ST)"), defaultValue: nil)
+        let c = ask(androidPrompt("Two-letter country code (C)"), defaultValue: nil)
+        let validityDays = ask(androidPrompt("Validity in days"), defaultValue: "10000")
 
         var dnParts: [String] = []
         if !cn.isEmpty { dnParts.append("CN=\(cn)") }
@@ -970,11 +1006,40 @@ struct GenerateCommand: AsyncParsableCommand {
         }
     }
 
-    private func choosePlatform(defaultPlatform: Platform) -> Platform {
+    private func choosePlatformFocus(defaultFocus: PlatformFocus) -> PlatformFocus {
+        resolvedPlatformFocus(
+            answer: ask(
+                "Which platform do you want to focus on first? (ios/android/both)", defaultValue: defaultFocus.rawValue
+            ),
+            defaultFocus: defaultFocus
+        )
+    }
+
+    private func choosePlatform(defaultFocus: PlatformFocus, fallbackPlatform: Platform) -> PlatformFocus {
         let answer = ask(
-            "Platform to generate for (ios/android)", defaultValue: defaultPlatform.rawValue
-        ).lowercased()
-        return Platform(rawValue: answer) ?? defaultPlatform
+            "Which platform do you want to focus on first? (ios/android/both)", defaultValue: defaultFocus.rawValue
+        )
+        let focus = resolvedPlatformFocus(answer: answer, defaultFocus: defaultFocus)
+        if focus == .both {
+            formatterPrintBothFallbackWarning(for: fallbackPlatform)
+            return fallbackPlatform == .ios ? .ios : .android
+        }
+        return focus
+    }
+
+    private func formatterPrintBothFallbackWarning(for platform: Platform) {
+        let formatter = makeHumanFormatter(global: global)
+        formatter.printWarning(
+            "Generating a combined Shipfile is not supported for this project type yet; using \(platform.rawValue)."
+        )
+    }
+
+    private func iosPrompt(_ prompt: String) -> String {
+        "[iOS] \(prompt)"
+    }
+
+    private func androidPrompt(_ prompt: String) -> String {
+        "[Android] \(prompt)"
     }
 
     private func ask(_ prompt: String, defaultValue: String?) -> String {
@@ -1268,6 +1333,14 @@ struct GenerateCommand: AsyncParsableCommand {
     private var isInteractiveTerminal: Bool {
         isatty(STDIN_FILENO) != 0 && isatty(STDOUT_FILENO) != 0
     }
+}
+
+func resolvedPlatformFocus(
+    answer: String,
+    defaultFocus: GenerateCommand.PlatformFocus
+) -> GenerateCommand.PlatformFocus {
+    GenerateCommand.PlatformFocus(rawValue: answer.trimmingCharacters(in: .whitespacesAndNewlines).lowercased())
+        ?? defaultFocus
 }
 
 func shouldPrintGenerateInspectionStatus(output: OutputFormat, isStderrTTY: Bool) -> Bool {
