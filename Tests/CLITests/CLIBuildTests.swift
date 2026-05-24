@@ -195,6 +195,89 @@ struct CLIBuildTests {
         #expect(decoded.payload?.objectValue?["exitCode"] == .int(0))
     }
 
+    @Test("Workflow version summary includes build number")
+    func workflowVersionSummaryIncludesBuildNumber() {
+        let summary = humanStepSummary(
+            action: "version",
+            payload: .object([
+                "version": .string("0.1.0"),
+                "buildNumber": .string("42"),
+            ])
+        )
+
+        #expect(summary == "0.1.0 (42)")
+    }
+
+    @Test("Workflow test summary labels passed count as tests")
+    func workflowTestSummaryLabelsPassedCountAsTests() {
+        let summary = humanStepSummary(
+            action: "test",
+            payload: .object([
+                "passCount": .int(3),
+                "failCount": .int(0),
+                "skipCount": .int(0),
+            ])
+        )
+
+        #expect(summary == "3 tests passed")
+    }
+
+    @Test("Workflow test summary labels fail and skip counts as tests")
+    func workflowTestSummaryLabelsFailAndSkipCountsAsTests() {
+        let summary = humanStepSummary(
+            action: "test",
+            payload: .object([
+                "passCount": .int(3),
+                "failCount": .int(1),
+                "skipCount": .int(2),
+            ])
+        )
+
+        #expect(summary == "3 tests passed, 1 test failed, 2 tests skipped")
+    }
+
+    @Test("Workflow test summary prefers named passed and failed tests")
+    func workflowTestSummaryPrefersNamedTests() {
+        let summary = humanStepSummary(
+            action: "test",
+            payload: .object([
+                "passCount": .int(2),
+                "failCount": .int(1),
+                "skipCount": .int(1),
+                "passedTests": .array([
+                    .string("FeatureTests.testHappyPath"),
+                    .string("FeatureTests.testRetry"),
+                ]),
+                "failedTests": .array([
+                    .string("FeatureTests.testOfflineMode"),
+                ]),
+            ])
+        )
+
+        #expect(summary == "passed: FeatureTests.testHappyPath, FeatureTests.testRetry, failed: FeatureTests.testOfflineMode, 1 test skipped")
+    }
+
+    @Test("Workflow test summary truncates long named test lists")
+    func workflowTestSummaryTruncatesLongNamedTestLists() {
+        let summary = humanStepSummary(
+            action: "test",
+            payload: .object([
+                "passCount": .int(5),
+                "failCount": .int(0),
+                "skipCount": .int(0),
+                "passedTests": .array([
+                    .string("FeatureTests.testOne"),
+                    .string("FeatureTests.testTwo"),
+                    .string("FeatureTests.testThree"),
+                    .string("FeatureTests.testFour"),
+                    .string("FeatureTests.testFive"),
+                ]),
+            ])
+        )
+
+        #expect(summary == "passed: FeatureTests.testOne, FeatureTests.testTwo, FeatureTests.testThree, +2 more")
+    }
+
     @Test("ActionContext.mock creates valid context")
     func mockContextCreation() {
         let executor = MockExecutor { _, _ in
@@ -256,6 +339,12 @@ struct CLIBuildTests {
             guard case ShipItError.invalidConfiguration(let reason) = error else { return false }
             return reason.contains("nonexistent-action")
         }
+    }
+
+    @Test("Workflow generic success rows do not use trailing checkmark summary")
+    func workflowGenericSuccessRowsDoNotUseTrailingCheckmarkSummary() {
+        let summary = humanStepSummary(action: "lint", payload: nil)
+        #expect(summary == nil)
     }
 }
 

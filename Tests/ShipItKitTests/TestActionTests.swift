@@ -9,6 +9,14 @@ import Testing
 @Suite("TestAction")
 struct TestActionTests {
 
+    private func xcodebuildTestCommands(from commands: [String]) -> [String] {
+        commands.filter { $0.contains("xcodebuild") && $0.contains(" test") }
+    }
+
+    private func firstXcodebuildTestCommand(from commands: [String]) -> String {
+        xcodebuildTestCommands(from: commands).first ?? ""
+    }
+
     // MARK: - Success parsing
 
     @Test("Parses executed test count and forwards explicit result bundle path")
@@ -35,6 +43,8 @@ struct TestActionTests {
         #expect(result.failCount == 0)
         #expect(result.skipCount == 0)
         #expect(result.resultBundlePath == "/tmp/Test.xcresult")
+        #expect(result.passedTests.isEmpty)
+        #expect(result.failedTests.isEmpty)
         #expect(result.succeeded)
     }
 
@@ -106,9 +116,10 @@ struct TestActionTests {
             context: context
         )
 
-        #expect(commands().count == 1, "Only one destination should be used")
-        #expect(commands()[0].contains("iPhone 16 Pro"))
-        #expect(!commands()[0].contains("iPhone 14"))
+        let testCommands = xcodebuildTestCommands(from: commands())
+        #expect(testCommands.count == 1, "Only one destination should be used")
+        #expect(testCommands[0].contains("iPhone 16 Pro"))
+        #expect(!testCommands[0].contains("iPhone 14"))
     }
 
     @Test("Legacy single destination string is promoted to one-element destinations list")
@@ -123,8 +134,9 @@ struct TestActionTests {
             context: context
         )
 
-        #expect(commands().count == 1)
-        #expect(commands()[0].contains("iPhone 15"))
+        let testCommands = xcodebuildTestCommands(from: commands())
+        #expect(testCommands.count == 1)
+        #expect(testCommands[0].contains("iPhone 15"))
     }
 
     // MARK: - Missing destinations guard
@@ -267,7 +279,7 @@ struct TestActionTests {
         )
 
         #expect(result.resultBundlePath == "./build/MockApp-tests.xcresult")
-        let command = commands().first ?? ""
+        let command = firstXcodebuildTestCommand(from: commands())
         #expect(command.contains("-enableCodeCoverage YES"))
         #expect(command.contains("-resultBundlePath ./build/MockApp-tests.xcresult"))
     }
@@ -290,7 +302,7 @@ struct TestActionTests {
         )
 
         #expect(result.resultBundlePath == "/custom/path.xcresult")
-        let command = commands().first ?? ""
+        let command = firstXcodebuildTestCommand(from: commands())
         #expect(command.contains("-resultBundlePath /custom/path.xcresult"))
         #expect(!command.contains("MockApp-tests.xcresult"))
     }
@@ -385,7 +397,7 @@ struct TestActionTests {
             context: context
         )
 
-        let command = commands().first ?? ""
+        let command = firstXcodebuildTestCommand(from: commands())
         #expect(command.contains("-enableCodeCoverage YES"))
         #expect(command.contains("-resultBundlePath /tmp/Tests.xcresult"))
         #expect(command.contains("-testPlan Smoke"))
@@ -407,7 +419,7 @@ struct TestActionTests {
             context: context
         )
 
-        let command = commands().first ?? ""
+        let command = firstXcodebuildTestCommand(from: commands())
         #expect(command.contains("-only-testing MockAppTests/FeatureATests"))
         #expect(command.contains("-only-testing MockAppTests/FeatureBTests"))
     }
@@ -428,7 +440,7 @@ struct TestActionTests {
             context: context
         )
 
-        let command = commands().first ?? ""
+        let command = firstXcodebuildTestCommand(from: commands())
         #expect(command.contains("-skip-testing MockAppTests/SlowTests"))
     }
 
@@ -448,7 +460,7 @@ struct TestActionTests {
             context: context
         )
 
-        let command = commands().first ?? ""
+        let command = firstXcodebuildTestCommand(from: commands())
         #expect(command.contains("-retry-tests-on-failure"))
     }
 
@@ -464,7 +476,7 @@ struct TestActionTests {
             context: context
         )
 
-        let command = commands().first ?? ""
+        let command = firstXcodebuildTestCommand(from: commands())
         #expect(!command.contains("-retry-tests-on-failure"))
     }
 
@@ -539,7 +551,7 @@ struct TestActionTests {
                 return
             }
             #expect(failureCount == 1)
-            #expect(commands().count == 1)
+            #expect(xcodebuildTestCommands(from: commands()).count == 1)
         }
     }
 
@@ -727,6 +739,81 @@ struct TestActionTests {
         )
 
         #expect(commands().contains { $0.contains("emulator -list-avds") })
+        #expect(commands().contains { $0.contains("connectedProdDebugAndroidTest") && !$0.contains(":app:") })
+    }
+
+    @Test("Android boot detection tolerates missing avd metadata in adb long output")
+    func androidBootDetectionToleratesMissingAVDMetadata() async throws {
+        let deviceListCalls = Mutex(0)
+        let longDeviceListCalls = Mutex(0)
+        let (executor, commands) = makeCaptureExecutor { command, _ in
+            let description = command.description
+
+            if description.contains("adb devices") && !description.contains("-l") {
+                let callIndex = deviceListCalls.withLock {
+                    $0 += 1
+                    return $0
+                }
+                if callIndex == 1 {
+                    return ShellOutput(stdout: "List of devices attached\n\n", stderr: "", exitCode: 0)
+                }
+                return ShellOutput(stdout: "List of devices attached\nemulator-5554\tdevice\n", stderr: "", exitCode: 0)
+            }
+
+            if description.contains("emulator -list-avds") {
+                return ShellOutput(stdout: "Medium_Phone_API_35\n", stderr: "", exitCode: 0)
+            }
+
+            if description.contains("emulator @Medium_Phone_API_35") || description.contains("emulator -avd Medium_Phone_API_35") {
+                return ShellOutput(stdout: "", stderr: "", exitCode: 0)
+            }
+
+            if description.contains("adb devices -l") {
+                let callIndex = longDeviceListCalls.withLock {
+                    $0 += 1
+                    return $0
+                }
+                if callIndex == 1 {
+                    return ShellOutput(stdout: "List of devices attached\n\n", stderr: "", exitCode: 0)
+                }
+                return ShellOutput(
+                    stdout: "List of devices attached\nemulator-5554          device product:sdk_gphone64_arm64 model:sdk_gphone64_arm64 device:emu64a transport_id:1\n",
+                    stderr: "",
+                    exitCode: 0
+                )
+            }
+
+            if description.contains("getprop sys.boot_completed") {
+                return ShellOutput(stdout: "1\n", stderr: "", exitCode: 0)
+            }
+
+            if description.contains("adb -s emulator-5554 uninstall com.example.app") {
+                return ShellOutput(stdout: "Success\n", stderr: "", exitCode: 0)
+            }
+
+            if description.contains("connectedProdDebugAndroidTest") {
+                return ShellOutput(stdout: "5 tests completed, 0 failed, 0 skipped\n", stderr: "", exitCode: 0)
+            }
+
+            return ShellOutput(stdout: "", stderr: "", exitCode: 0)
+        }
+        let config = ResolvedConfig(
+            platform: .android,
+            androidModule: "app",
+            androidBuildVariant: "prodDebug",
+            androidPackageName: "com.example.app"
+        )
+        let context = makeTestActionContext(executor: executor, config: config, platform: .android)
+
+        _ = try await TestAction().run(
+            with: .init(
+                kind: .instrumented,
+                devices: TestDeviceConfig(strategy: .connected, promptLocally: false)
+            ),
+            context: context
+        )
+
+        #expect(commands().contains { $0.contains("adb -s emulator-5554 uninstall com.example.app") })
         #expect(commands().contains { $0.contains("connectedProdDebugAndroidTest") && !$0.contains(":app:") })
     }
 
@@ -1042,10 +1129,9 @@ struct TestActionTests {
             context: context
         )
 
-        // Should NOT have called -showdestinations since explicit destinations were given
-        #expect(!commands().contains { $0.contains("-showdestinations") || $0.contains("showDestinations") })
-        // Should have used the explicit destination
-        #expect(commands().contains { $0.contains("iPhone 15") })
+        // Explicit destinations should still drive the xcodebuild test invocation.
+        // A preflight simulator lookup may run now to resolve the uninstall target.
+        #expect(xcodebuildTestCommands(from: commands()).contains { $0.contains("iPhone 15") })
     }
 
     // MARK: - Missing scheme
@@ -1077,6 +1163,63 @@ struct TestActionTests {
                 return
             }
         }
+    }
+
+    @Test("Android JUnit XML fallback includes named passed and failed tests")
+    func androidJUnitXMLFallbackIncludesNamedTests() async throws {
+        let tempDirectory = try makeTempDirectory(prefix: "ShipItJUnitNamed")
+        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+
+        let reportsDirectory = tempDirectory
+            .appendingPathComponent("app/build/test-results/testProdDebugUnitTest", isDirectory: true)
+        try FileManager.default.createDirectory(at: reportsDirectory, withIntermediateDirectories: true)
+
+        let passingXML = """
+            <?xml version="1.0" encoding="UTF-8"?>
+            <testsuite name="com.example.FeatureTests" tests="1" skipped="0" failures="0" errors="0">
+              <testcase name="testHappyPath" classname="com.example.FeatureTests" time="0.01"/>
+            </testsuite>
+            """
+        let failingXML = """
+            <?xml version="1.0" encoding="UTF-8"?>
+            <testsuite name="com.example.FeatureTests" tests="1" skipped="0" failures="1" errors="0">
+              <testcase name="testOfflineMode" classname="com.example.FeatureTests" time="0.02">
+                <failure message="boom"/>
+              </testcase>
+            </testsuite>
+            """
+
+        try passingXML.write(
+            to: reportsDirectory.appendingPathComponent("TEST-com.example.FeatureTests-passing.xml"),
+            atomically: true,
+            encoding: .utf8
+        )
+        try failingXML.write(
+            to: reportsDirectory.appendingPathComponent("TEST-com.example.FeatureTests-failing.xml"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        let (executor, _) = makeCaptureExecutor { _, _ in
+            ShellOutput(stdout: "", stderr: "", exitCode: 0)
+        }
+        let config = ResolvedConfig(
+            platform: .android,
+            androidModule: "app",
+            androidBuildVariant: "prodDebug",
+            gradleProjectDir: tempDirectory.path
+        )
+        let context = makeTestActionContext(executor: executor, config: config, platform: .android)
+
+        let result = try await TestAction().run(
+            with: .init(kind: .unit),
+            context: context
+        )
+
+        #expect(result.passCount == 1)
+        #expect(result.failCount == 1)
+        #expect(result.passedTests == ["com.example.FeatureTests.testHappyPath"])
+        #expect(result.failedTests == ["com.example.FeatureTests.testOfflineMode"])
     }
     #endif
 }

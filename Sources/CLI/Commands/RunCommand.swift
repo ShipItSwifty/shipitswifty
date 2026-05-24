@@ -101,7 +101,7 @@ struct RunCommand: AsyncParsableCommand {
                     if let summary {
                         formatter.printSuccess("  \(stepName): \(summary)")
                     } else {
-                        formatter.printSuccess("  \(stepName): ✓")
+                        formatter.printSuccess("  \(stepName)")
                     }
                 }
                 formatter.printSuccess("Workflow '\(workflow)' completed in \(String(format: "%.1f", result.duration))s")
@@ -228,22 +228,53 @@ func validationActionDescriptors() -> [ActionDescriptor] {
 // MARK: - Workflow Step Summary Formatting
 
 /// Returns a human-readable summary for a workflow step result, or `nil` for generic steps.
-private func humanStepSummary(action: String, payload: JSONValue?) -> String? {
+func humanStepSummary(action: String, payload: JSONValue?) -> String? {
     guard let payload, case .object(let dict) = payload else { return nil }
 
     switch action {
     case "test":
+        let namedTestSummaryLimit = 3
         let pass = dict["passCount"]?.intValue ?? 0
         let fail = dict["failCount"]?.intValue ?? 0
         let skip = dict["skipCount"]?.intValue ?? 0
+        let passedTests = dict["passedTests"]?.arrayValue?.compactMap(\.stringValue) ?? []
+        let failedTests = dict["failedTests"]?.arrayValue?.compactMap(\.stringValue) ?? []
         if pass == 0 && fail == 0 && skip == 0 { return nil }
-        var parts = ["\(pass) passed"]
-        if fail > 0 { parts.append("\(fail) failed") }
-        if skip > 0 { parts.append("\(skip) skipped") }
+        func testCountLabel(_ count: Int, suffix: String) -> String {
+            "\(count) \(count == 1 ? "test" : "tests") \(suffix)"
+        }
+
+        func namedTestsLabel(_ prefix: String, tests: [String]) -> String {
+            let visibleTests = Array(tests.prefix(namedTestSummaryLimit))
+            var summary = "\(prefix): \(visibleTests.joined(separator: ", "))"
+            let remainingCount = tests.count - visibleTests.count
+            if remainingCount > 0 {
+                summary += ", +\(remainingCount) more"
+            }
+            return summary
+        }
+
+        var parts: [String] = []
+        if !passedTests.isEmpty {
+            parts.append(namedTestsLabel("passed", tests: passedTests))
+        } else {
+            parts.append(testCountLabel(pass, suffix: "passed"))
+        }
+
+        if !failedTests.isEmpty {
+            parts.append(namedTestsLabel("failed", tests: failedTests))
+        } else if fail > 0 {
+            parts.append(testCountLabel(fail, suffix: "failed"))
+        }
+
+        if skip > 0 { parts.append(testCountLabel(skip, suffix: "skipped")) }
         return parts.joined(separator: ", ")
 
     case "version":
         if let version = dict["version"]?.stringValue {
+            if let buildNumber = dict["buildNumber"]?.stringValue, !buildNumber.isEmpty {
+                return "\(version) (\(buildNumber))"
+            }
             return version
         }
         return nil

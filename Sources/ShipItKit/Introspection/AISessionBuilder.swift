@@ -764,6 +764,7 @@ public struct AISessionBuilder: Sendable {
             "When generating or editing workflows with test steps, ask whether to enable `infrastructure_retry` for transient test infrastructure failures.",
             "Use `infrastructure_retry: { max_attempts: 3, initial_delay_seconds: 2, max_delay_seconds: 30 }` as a safe default when the user wants retries.",
             "Use `retry_on_failure` only for iOS test re-runs of failing test cases; use `infrastructure_retry` for whole-invocation simulator, emulator, Flutter tool, or JS worker failures.",
+            "Workflow test summaries may include named passed/failed tests when the underlying tool output or JUnit XML reports expose them; otherwise they fall back to aggregated counts.",
             "For Android instrumented tests, ask whether ShipIt should boot named local emulators (`devices.strategy: named_emulators`) or rely on CI-managed devices before generating the workflow.",
         ]
 
