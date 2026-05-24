@@ -70,7 +70,7 @@ struct JUnitXMLParserTests {
     }
 
     @Test("Aggregate JUnit XML results from disk")
-    func aggregateFromDisk() throws {
+    func aggregateFromDisk() async throws {
         let tmpDir = FileManager.default.temporaryDirectory
             .appendingPathComponent("shipit-junit-test-\(UUID().uuidString)")
         let taskDir =
@@ -96,7 +96,7 @@ struct JUnitXMLParserTests {
         try xml2.write(to: taskDir.appendingPathComponent("TEST-com.a.Test2.xml"), atomically: true, encoding: .utf8)
 
         let action = TestAction()
-        let result = action.aggregateJUnitXMLResults(projectDir: tmpDir.path, task: "testDebugUnitTest")
+        let result = try await action.aggregateJUnitXMLResults(projectDir: tmpDir.path, task: "testDebugUnitTest")
 
         #expect(result.pass == 6)  // (5-0-1) + (3-1-0) = 4 + 2 = 6
         #expect(result.fail == 1)
@@ -108,9 +108,9 @@ struct JUnitXMLParserTests {
     }
 
     @Test("Aggregate returns zeros when no XML files found")
-    func aggregateNoFiles() {
+    func aggregateNoFiles() async throws {
         let action = TestAction()
-        let result = action.aggregateJUnitXMLResults(
+        let result = try await action.aggregateJUnitXMLResults(
             projectDir: "/nonexistent/path/that/doesnt/exist",
             task: "testDebugUnitTest"
         )

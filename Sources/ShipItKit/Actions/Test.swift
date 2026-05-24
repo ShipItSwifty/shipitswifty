@@ -55,6 +55,24 @@ public enum TestKind: String, Codable, Sendable, CaseIterable {
     case e2e
 }
 
+private extension ParsedTestCase {
+    var legacyOutputName: String {
+        switch rerunSelector {
+        case .xcodeOnlyTesting(let value), .gradleTestFilter(let value):
+            return value
+        case .jest(let file, let fullName):
+            if let file { return "\(file) \(fullName)" }
+            return fullName
+        case .flutter(let name):
+            return name
+        case .unsupported(let rawIdentifier):
+            return rawIdentifier
+        case .none:
+            return name
+        }
+    }
+}
+
 /// Where the Gradle task is qualified from.
 ///
 /// - `module`: Task is prefixed with the module path, e.g. `:app:testDebugUnitTest`.
@@ -487,6 +505,13 @@ public struct TestAction: Action {
     static func parseJSTestCountsForTesting(from output: String) -> (pass: Int, fail: Int, skip: Int) {
         let parsed = Self().parseJSTestCounts(from: output)
         return (pass: parsed.pass, fail: parsed.fail, skip: parsed.skip)
+    }
+
+    private func legacyNamedResults(from parsed: ParsedTestRun) -> (passedTests: [String], failedTests: [String]) {
+        (
+            passedTests: parsed.testCases.filter { $0.status == .passed }.map(\.legacyOutputName),
+            failedTests: parsed.testCases.filter { $0.status == .failed || $0.status == .errored }.map(\.legacyOutputName)
+        )
     }
 
     private func parseFlutterCounts(from output: String) -> (pass: Int, fail: Int, skip: Int, passedTests: [String], failedTests: [String]) {
@@ -941,7 +966,7 @@ public struct TestAction: Action {
                 // If stdout parsing found no counts, fall back to JUnit XML reports on disk
                 let finalCounts: (pass: Int, fail: Int, skip: Int, passedTests: [String], failedTests: [String])
                 if pass == 0 && fail == 0 && skip == 0 {
-                    let xmlCounts = self.aggregateJUnitXMLResults(
+                    let xmlCounts = try await self.aggregateJUnitXMLResults(
                         projectDir: context.config.gradleProjectDir,
                         task: task.name
                     )
@@ -1465,69 +1490,44 @@ public struct TestAction: Action {
     ///   - projectDir: The Gradle project root directory.
     ///   - task: The Gradle task name (e.g. `"testDebugUnitTest"`) used to locate report directories.
     /// - Returns: Aggregated (pass, fail, skip) counts across all XML reports.
-    func aggregateJUnitXMLResults(projectDir: String, task: String) -> (pass: Int, fail: Int, skip: Int, passedTests: [String], failedTests: [String]) {
-        let fileManager = FileManager.default
-        var totalTests = 0
-        var totalFailures = 0
-        var totalErrors = 0
-        var totalSkipped = 0
-        var passedTests: [String] = []
-        var failedTests: [String] = []
+    func aggregateJUnitXMLResults(projectDir: String, task: String) async throws -> (pass: Int, fail: Int, skip: Int, passedTests: [String], failedTests: [String]) {
+        guard let reportDirectory = firstJUnitReportDirectory(projectDir: projectDir, task: task) else {
+            return (pass: 0, fail: 0, skip: 0, passedTests: [], failedTests: [])
+        }
 
-        // Find all test-results directories matching the task name
+        let parsed = try await AndroidJUnitTestParser(logger: logger).parse(reportDirectory: reportDirectory)
+        let named = legacyNamedResults(from: parsed)
+        return (
+            pass: parsed.summary.passed,
+            fail: parsed.summary.failed + parsed.summary.errored,
+            skip: parsed.summary.skipped,
+            passedTests: named.passedTests,
+            failedTests: named.failedTests
+        )
+    }
+
+    private func firstJUnitReportDirectory(projectDir: String, task: String) -> String? {
+        let fileManager = FileManager.default
         guard
             let enumerator = fileManager.enumerator(
                 at: URL(fileURLWithPath: projectDir),
-                includingPropertiesForKeys: [.isRegularFileKey],
+                includingPropertiesForKeys: [.isDirectoryKey],
                 options: [.skipsHiddenFiles]
             )
         else {
-            return (pass: 0, fail: 0, skip: 0, passedTests: [], failedTests: [])
+            return nil
         }
 
         for case let fileURL as URL in enumerator {
             let path = fileURL.path
-            // Match: */build/test-results/<task>/TEST-*.xml
-            guard path.contains("/build/test-results/\(task)/"),
-                path.hasSuffix(".xml"),
-                fileURL.lastPathComponent.hasPrefix("TEST-")
-            else { continue }
-
-            guard let data = fileManager.contents(atPath: path) else { continue }
-            let counts = parseJUnitXML(data: data)
-            totalTests += counts.tests
-            totalFailures += counts.failures
-            totalErrors += counts.errors
-            totalSkipped += counts.skipped
-            passedTests += counts.passedTests
-            failedTests += counts.failedTests
+            guard path.contains("/build/test-results/\(task)") else { continue }
+            var isDirectory: ObjCBool = false
+            if fileManager.fileExists(atPath: path, isDirectory: &isDirectory), isDirectory.boolValue {
+                return path
+            }
         }
 
-        let failures = totalFailures + totalErrors
-        let passed = totalTests - failures - totalSkipped
-        return (
-            pass: max(0, passed),
-            fail: failures,
-            skip: totalSkipped,
-            passedTests: passedTests,
-            failedTests: failedTests
-        )
-    }
-
-    /// Parses a single JUnit XML file for test counts from the `<testsuite>` element.
-    private func parseJUnitXML(data: Data) -> (tests: Int, failures: Int, errors: Int, skipped: Int, passedTests: [String], failedTests: [String]) {
-        let parser = JUnitXMLParser(data: data)
-        parser.parse()
-        let passedTests = parser.testCases.filter { !$0.failed && !$0.skipped }.map(\.name)
-        let failedTests = parser.testCases.filter(\.failed).map(\.name)
-        return (
-            tests: parser.tests,
-            failures: parser.failures,
-            errors: parser.errors,
-            skipped: parser.skipped,
-            passedTests: passedTests,
-            failedTests: failedTests
-        )
+        return nil
     }
 
     private func parseGradleNamedTests(from output: String) -> (passedTests: [String], failedTests: [String]) {
