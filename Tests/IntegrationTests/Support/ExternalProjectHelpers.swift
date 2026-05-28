@@ -77,6 +77,45 @@ func shipfileForExternalReactNativeProject(at projectURL: URL) -> String {
         """
 }
 
+/// Shipfile for the full e2e tier: adds automatic code signing so `archive` can sign.
+/// `teamID` comes from `SHIPIT_TEST_TEAM_ID`; export method defaults to `development`.
+func shipfileForReactNativeAppWithSigning(
+    at projectURL: URL,
+    teamID: String,
+    exportMethod: String = "development"
+) -> String {
+    let iosProject = detectReactNativeIOSProject(in: projectURL)
+    let appBlock =
+        iosProject.map {
+            """
+            app:
+              project: \($0.project)
+              scheme: \($0.scheme)
+              team_id: \(teamID)
+            """
+        } ?? "app:\n  team_id: \(teamID)"
+
+    return """
+        platform: ios
+        \(appBlock)
+
+        code_signing:
+          type: automatic
+
+        archive:
+          export_method: \(exportMethod)
+
+        ios:
+          build_system: react_native
+
+        android:
+          build_system: react_native
+          module: app
+          gradle_project_dir: ./android
+          gradlew_path: ./android/gradlew
+        """
+}
+
 private struct ReactNativeIOSProjectInfo: Sendable {
     let project: String
     let scheme: String
