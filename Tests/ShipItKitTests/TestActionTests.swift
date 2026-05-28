@@ -1305,8 +1305,8 @@ struct TestActionTests {
 
         #expect(result.passCount == 1)
         #expect(result.failCount == 1)
-        #expect(result.passedTests == ["com.example.FeatureTests.testHappyPath"])
-        #expect(result.failedTests == ["com.example.FeatureTests.testOfflineMode"])
+        #expect(result.passedTests == ["FeatureTests.testHappyPath"])
+        #expect(result.failedTests == ["FeatureTests.testOfflineMode"])
     }
 
     @Test("Android unit rerun uses --tests filters and writes report")

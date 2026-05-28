@@ -101,8 +101,8 @@ struct JUnitXMLParserTests {
         #expect(result.pass == 1)
         #expect(result.fail == 1)
         #expect(result.skip == 1)
-        #expect(result.passedTests == ["com.a.Test1.testA"])
-        #expect(result.failedTests == ["com.a.Test2.testB"])
+        #expect(result.passedTests == ["Test1.testA"])
+        #expect(result.failedTests == ["Test2.testB"])
 
         try FileManager.default.removeItem(at: tmpDir)
     }

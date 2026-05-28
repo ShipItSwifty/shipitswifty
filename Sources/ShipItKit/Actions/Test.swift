@@ -58,11 +58,12 @@ public enum TestKind: String, Codable, Sendable, CaseIterable {
 extension ParsedTestCase {
     fileprivate var legacyOutputName: String {
         switch rerunSelector {
-        case .xcodeOnlyTesting(let value), .gradleTestFilter(let value):
-            return value
-        case .jest(let file, let fullName):
-            if let file { return "\(file) \(fullName)" }
-            return fullName
+        case .xcodeOnlyTesting(let value):
+            return Self.formatXCTestName(value)
+        case .gradleTestFilter(let value):
+            return Self.formatGradleTestName(value)
+        case .jest(_, let fullName):
+            return Self.formatJestName(fullName)
         case .flutter(let name):
             return name
         case .unsupported(let rawIdentifier):
@@ -70,6 +71,37 @@ extension ParsedTestCase {
         case .none:
             return name
         }
+    }
+
+    /// `-[Module.Class testMethod]` → `Class.testMethod`
+    fileprivate static func formatXCTestName(_ raw: String) -> String {
+        // Strip leading `-[` and trailing `]`
+        var s = raw
+        if s.hasPrefix("-[") { s = String(s.dropFirst(2)) }
+        if s.hasSuffix("]") { s = String(s.dropLast()) }
+        // Split on the first space: left = "Module.ClassName", right = "testMethod"
+        guard let spaceIdx = s.firstIndex(of: " ") else { return raw }
+        let classPath = String(s[s.startIndex..<spaceIdx])
+        let method = String(s[s.index(after: spaceIdx)...])
+        let className = classPath.split(separator: ".").last.map(String.init) ?? classPath
+        return "\(className).\(method)"
+    }
+
+    /// `com.example.SomeTest.someMethod` → `SomeTest.someMethod`
+    private static func formatGradleTestName(_ raw: String) -> String {
+        let parts = raw.split(separator: ".")
+        guard parts.count >= 2 else { return raw }
+        return parts.suffix(2).joined(separator: ".")
+    }
+
+    /// Jest fullName is already readable ("Suite testName") — reformat as "Suite > testName"
+    private static func formatJestName(_ fullName: String) -> String {
+        // Jest concatenates describe + test with a space: "SuiteName test name here"
+        // Split on first space to separate suite from test description.
+        guard let spaceIdx = fullName.firstIndex(of: " ") else { return fullName }
+        let suite = String(fullName[fullName.startIndex..<spaceIdx])
+        let test = String(fullName[fullName.index(after: spaceIdx)...])
+        return "\(suite) > \(test)"
     }
 }
 
@@ -1758,7 +1790,8 @@ public struct TestAction: Action {
             guard trimmed.hasPrefix("Test Case '-[") || trimmed.hasPrefix("Test Case '") else { return nil }
             guard trimmed.contains(" passed") else { return nil }
             let withoutPrefix = trimmed.replacingOccurrences(of: "Test Case '", with: "")
-            return withoutPrefix.components(separatedBy: "' ").first
+            guard let raw = withoutPrefix.components(separatedBy: "' ").first else { return nil }
+            return ParsedTestCase.formatXCTestName(raw)
         }
         for line in output.components(separatedBy: "\n") {
             guard line.contains("Executed") else { continue }
