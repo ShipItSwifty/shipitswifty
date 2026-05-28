@@ -23,3 +23,17 @@ func withFixtureCopy(
     try FileManager.default.copyItem(at: fixture, to: tmp)
     try await body(tmp)
 }
+
+/// Copies a Shipfile into `directory` (typically a fixture copy) and returns the
+/// destination URL.
+///
+/// ShipIt derives the project root from the Shipfile's own directory. When a test
+/// runs a real build against a temp fixture copy, the Shipfile must live inside that
+/// copy — otherwise the build runs in the original Shipfile's directory (e.g. a shared
+/// `Shipfiles/` folder) which is not a buildable project. The copy uses a unique name
+/// so it never collides with a Shipfile already present in the fixture.
+func copiedShipfile(_ source: URL, into directory: URL) throws -> URL {
+    let destination = directory.appendingPathComponent("Shipfile-\(UUID().uuidString).yml")
+    try FileManager.default.copyItem(at: source, to: destination)
+    return destination
+}
