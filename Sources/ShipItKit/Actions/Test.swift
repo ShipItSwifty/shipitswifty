@@ -538,7 +538,13 @@ public struct TestAction: Action {
                     log: combinedLog
                 )
             }
-            if let parsedRun = try? await FlutterMachineOutputParser(logger: logger).parse(machineOutput: output.stdout) {
+            // Prefer the machine-output parser, but only when it actually parsed test
+            // cases. `flutter test --machine` emits newline-delimited JSON; if the output
+            // is human-format (older Flutter, or a wrapper that ignores `--machine`), the
+            // parser returns an empty run rather than throwing, so fall back to the
+            // stdout regex parser instead of reporting zero tests.
+            if let parsedRun = try? await FlutterMachineOutputParser(logger: logger).parse(machineOutput: output.stdout),
+                !parsedRun.testCases.isEmpty {
                 let named = legacyNamedResults(from: parsedRun)
                 let report = TestRunReport(
                     platform: "flutter",

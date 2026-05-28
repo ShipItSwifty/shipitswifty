@@ -54,10 +54,11 @@ struct AndroidIntegrationTests {
     func buildAssembleDebugSucceeds() async throws {
         try assertAndroidFixtureExists()
         try await withFixtureCopy(of: fixtureDir) { tmpFixture in
+            let shipfile = try copiedShipfile(FixturePaths.androidDebugShipfile, into: tmpFixture)
             let result = try await CLI.run(
                 "build",
                 "--platform", "android",
-                "--shipfile", FixturePaths.androidDebugShipfile.path,
+                "--shipfile", shipfile.path,
                 workingDirectory: tmpFixture,
                 timeout: 300
             )
@@ -75,10 +76,11 @@ struct AndroidIntegrationTests {
     func testRunsUnitTests() async throws {
         try assertAndroidFixtureExists()
         try await withFixtureCopy(of: fixtureDir) { tmpFixture in
+            let shipfile = try copiedShipfile(FixturePaths.androidReleaseShipfile, into: tmpFixture)
             let result = try await CLI.run(
                 "test",
                 "--platform", "android",
-                "--shipfile", FixturePaths.androidReleaseShipfile.path,
+                "--shipfile", shipfile.path,
                 workingDirectory: tmpFixture,
                 timeout: 300
             )
@@ -90,10 +92,11 @@ struct AndroidIntegrationTests {
     func lintPassesOnFixture() async throws {
         try assertAndroidFixtureExists()
         try await withFixtureCopy(of: fixtureDir) { tmpFixture in
+            let shipfile = try copiedShipfile(FixturePaths.androidReleaseShipfile, into: tmpFixture)
             let result = try await CLI.run(
                 "lint",
                 "--platform", "android",
-                "--shipfile", FixturePaths.androidReleaseShipfile.path,
+                "--shipfile", shipfile.path,
                 workingDirectory: tmpFixture,
                 timeout: 300
             )
@@ -107,10 +110,11 @@ struct AndroidIntegrationTests {
     func archiveProducesAAB() async throws {
         try assertAndroidFixtureExists()
         try await withFixtureCopy(of: fixtureDir) { tmpFixture in
+            let shipfile = try copiedShipfile(FixturePaths.androidReleaseShipfile, into: tmpFixture)
             let result = try await CLI.run(
                 "archive",
                 "--platform", "android",
-                "--shipfile", FixturePaths.androidReleaseShipfile.path,
+                "--shipfile", shipfile.path,
                 workingDirectory: tmpFixture,
                 timeout: 300
             )
