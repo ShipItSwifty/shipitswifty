@@ -1,0 +1,21 @@
+app:
+  bundle_id: com.example.shipitFlutterTest
+
+platform: android
+
+ios:
+  build_system: flutter
+
+android:
+  build_system: flutter
+
+workflows:
+  beta:
+    - action: test
+    - action: build
+    - action: archive
+
+  release:
+    - action: test
+    - action: build
+    - action: archive

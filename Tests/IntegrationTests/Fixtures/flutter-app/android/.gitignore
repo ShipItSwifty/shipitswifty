@@ -1,0 +1,13 @@
+# gradle-wrapper.jar, gradlew, and gradlew.bat are intentionally committed for
+# this in-repo e2e fixture so the Android build tier works without a system Gradle.
+/.gradle
+/captures/
+/local.properties
+GeneratedPluginRegistrant.java
+.cxx/
+
+# Remember to never publicly share your keystore.
+# See https://flutter.dev/to/reference-keystore
+key.properties
+**/*.keystore
+**/*.jks
