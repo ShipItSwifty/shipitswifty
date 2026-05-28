@@ -256,6 +256,26 @@ struct ArchiveExportActionTests {
         #expect(commands().contains { $0.contains(":app:bundleProdRelease") })
     }
 
+    @Test("ExportAction throws for Flutter iOS build system")
+    func exportActionThrowsForFlutter() async throws {
+        let executor = MockExecutor { _, _ in ShellOutput(stdout: "", stderr: "", exitCode: 0) }
+        let config = ResolvedConfig(iosBuildSystem: .flutter)
+        let context = ActionContext(
+            shell: ActionContext.mock(executor: executor).shell,
+            logger: ActionContext.mock(executor: executor).logger,
+            config: config,
+            appStoreConnect: ActionContext.mock(executor: executor).appStoreConnect,
+            platform: .ios
+        )
+
+        await #expect {
+            _ = try await ExportAction().run(with: .init(), context: context)
+        } throws: { error in
+            guard case ShipItError.invalidConfiguration(let reason) = error else { return false }
+            return reason.contains("Flutter") && reason.contains("export")
+        }
+    }
+
     private func makeTempDirectory() throws -> URL {
         let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
