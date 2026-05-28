@@ -202,11 +202,29 @@ public struct ConfigResolver: Sendable {
             androidGradleProperties["flavor"] = flavor
         }
 
+        // For React Native / Flutter iOS, the Xcode project lives in `ios/` — fall back to
+        // scanning that subdirectory when no workspace or project has been resolved yet.
+        let rnFallbackWorkspace: String?
+        let rnFallbackProject: String?
+        if platform == .ios,
+            (iosBuildSystem == .reactNative || iosBuildSystem == .flutter),
+            effectiveApp?.workspace == nil, environment.appWorkspace == nil,
+            autoDetectedAppConfig.workspace == nil
+        {
+            let detected = autoDetectXcodeContainer(in: "\(projectRoot)/ios")
+            rnFallbackWorkspace = detected?.workspace
+            rnFallbackProject = detected?.project
+        } else {
+            rnFallbackWorkspace = nil
+            rnFallbackProject = nil
+        }
+
         return ResolvedConfig(
             processedFiles: processedFiles,
             appWorkspace: effectiveApp?.workspace ?? environment.appWorkspace
-                ?? autoDetectedAppConfig.workspace,
-            appProject: effectiveApp?.project ?? environment.appProject ?? autoDetectedAppConfig.project,
+                ?? autoDetectedAppConfig.workspace ?? rnFallbackWorkspace,
+            appProject: effectiveApp?.project ?? environment.appProject
+                ?? autoDetectedAppConfig.project ?? rnFallbackProject,
             appScheme: cliOptions.scheme ?? effectiveApp?.scheme ?? environment.appScheme
                 ?? autoDetectedAppConfig.scheme,
             bundleID: effectiveApp?.bundleId ?? environment.appBundleId ?? autoDetectedAppConfig.bundleID,
@@ -574,6 +592,25 @@ public struct ConfigResolver: Sendable {
         return nil
     }
     #endif
+
+    /// Scans `directory` for the first `.xcworkspace` (preferred) or `.xcodeproj` and returns
+    /// a lightweight holder with the relative path. Used to auto-resolve `ios/` for RN/Flutter.
+    private func autoDetectXcodeContainer(
+        in directory: String
+    ) -> (workspace: String?, project: String?)? {
+        guard let items = try? FileManager.default.contentsOfDirectory(atPath: directory) else {
+            return nil
+        }
+        var foundWorkspace: String?
+        var foundProject: String?
+        for item in items {
+            let full = "\(directory)/\(item)"
+            if item.hasSuffix(".xcworkspace") { foundWorkspace = full }
+            else if item.hasSuffix(".xcodeproj") { foundProject = foundProject ?? full }
+        }
+        guard foundWorkspace != nil || foundProject != nil else { return nil }
+        return (workspace: foundWorkspace, project: foundWorkspace == nil ? foundProject : nil)
+    }
 
     private func parseBuildSettings(from output: String) -> [String: String] {
         output.split(separator: "\n").reduce(into: [String: String]()) { settings, line in
