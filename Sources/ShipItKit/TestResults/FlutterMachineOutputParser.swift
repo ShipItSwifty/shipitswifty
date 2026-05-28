@@ -16,7 +16,9 @@ public struct FlutterMachineOutputParser: Sendable {
         for rawLine in machineOutput.components(separatedBy: .newlines) {
             let line = rawLine.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !line.isEmpty, let data = line.data(using: .utf8) else { continue }
-            let event = try JSONDecoder().decode(FlutterMachineEvent.self, from: data)
+            // Skip non-object lines (e.g. array-wrapped VM service events like `[{...}]`)
+            guard line.hasPrefix("{") else { continue }
+            guard let event = try? JSONDecoder().decode(FlutterMachineEvent.self, from: data) else { continue }
 
             switch event.type {
             case "testStart":
@@ -30,6 +32,11 @@ public struct FlutterMachineOutputParser: Sendable {
                 )
             case "testDone":
                 guard let id = event.testID, var testCase = testsByID[id] else { continue }
+                // Hidden tests are infrastructure (e.g. file-loading) — exclude from results
+                if event.hidden == true {
+                    testsByID.removeValue(forKey: id)
+                    continue
+                }
                 if event.result == "success" {
                     testCase = ParsedTestCase(
                         stableID: testCase.stableID,
@@ -112,6 +119,7 @@ private struct FlutterMachineEvent: Decodable {
     let testID: Int?
     let result: String?
     let skipped: Bool?
+    let hidden: Bool?
     let message: String?
 
     private enum CodingKeys: String, CodingKey {
@@ -120,6 +128,7 @@ private struct FlutterMachineEvent: Decodable {
         case testID = "testID"
         case result
         case skipped
+        case hidden
         case message
     }
 }
