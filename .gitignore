@@ -33,3 +33,22 @@ Tests/IntegrationTests/Fixtures/android-sample/build/
 
 # Kotlin compiler transient state
 **/.kotlin/
+
+# Flutter e2e fixture — deps/build regenerated at test bootstrap via `flutter pub get`
+# (gradle-wrapper.jar + gradlew ARE committed; see flutter-app/android/.gitignore)
+Tests/IntegrationTests/Fixtures/flutter-app/.dart_tool/
+Tests/IntegrationTests/Fixtures/flutter-app/build/
+Tests/IntegrationTests/Fixtures/flutter-app/.flutter-plugins-dependencies
+Tests/IntegrationTests/Fixtures/flutter-app/android/.gradle/
+Tests/IntegrationTests/Fixtures/flutter-app/android/build/
+Tests/IntegrationTests/Fixtures/flutter-app/android/app/build/
+
+# React Native e2e fixture — node_modules + Pods regenerated at test bootstrap
+# via `npm install` / `pod install` (package-lock.json + gradle-wrapper.jar ARE committed)
+Tests/IntegrationTests/Fixtures/react-native-app/node_modules/
+Tests/IntegrationTests/Fixtures/react-native-app/vendor/
+Tests/IntegrationTests/Fixtures/react-native-app/ios/Pods/
+Tests/IntegrationTests/Fixtures/react-native-app/ios/build/
+Tests/IntegrationTests/Fixtures/react-native-app/android/.gradle/
+Tests/IntegrationTests/Fixtures/react-native-app/android/build/
+Tests/IntegrationTests/Fixtures/react-native-app/android/app/build/
