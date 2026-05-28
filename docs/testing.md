@@ -75,6 +75,41 @@ func cliBuildDryRun() async throws {
 
 The integration target also includes deterministic Flutter, React Native, and KMP fixture suites. These use lightweight tool shims to validate ShipIt's command dispatch and artifact path handling for cross-platform projects without requiring a real Flutter SDK, CocoaPods, a full Kotlin toolchain, or external OSS checkout on every machine.
 
+### Real cross-platform e2e fixtures
+
+Two full apps are vendored in-repo and exercised with the **real** toolchains:
+
+- `Tests/IntegrationTests/Fixtures/flutter-app/` — a complete Flutter app.
+- `Tests/IntegrationTests/Fixtures/react-native-app/` — a complete React Native app, pinned to a stable RN release (`react-native@0.85.3`).
+
+Both are committed **source-only**. Dependencies are regenerated into a per-test temp copy at bootstrap:
+`flutter pub get` for Flutter, `npm install` for RN, and `pod install` for RN iOS (CocoaPods are **not** committed). The Gradle wrapper jars and `package-lock.json` / `pubspec.lock` **are** committed for reproducibility.
+
+The suites (`FlutterE2ETests`, `ReactNativeE2ETests`) are tiered, gated by tags and env flags so a plain run stays fast:
+
+| Tier | Tag | Gate | What runs |
+|---|---|---|---|
+| Quick | `.e2eQuick` | toolchain present (`flutter` / Node) | `shipit test` + `shipit lint` |
+| Build | `.e2eBuild` | `SHIPIT_E2E_BUILD=1` | `shipit build` (logs elapsed time) |
+| Full | `.e2eFull` | `SHIPIT_E2E_FULL=1` | `archive`, code signing, `validate bundle/archive` |
+
+```bash
+swift build
+
+# Quick tier (runs when flutter / node are on PATH; heavier tiers skip):
+swift test --filter FlutterE2ETests
+swift test --filter ReactNativeE2ETests
+
+# Build tier — confirm the fixtures compile; watch the "⏱ [e2e] …" timing lines:
+SHIPIT_E2E_BUILD=1 swift test --filter FlutterE2ETests
+SHIPIT_E2E_BUILD=1 swift test --filter ReactNativeE2ETests
+
+# Full tier — archive + code signing (iOS signing also needs SHIPIT_TEST_TEAM_ID + a signing identity):
+SHIPIT_E2E_FULL=1 swift test --filter E2ETests
+```
+
+iOS build/archive tiers additionally require Xcode (and CocoaPods for RN); Android tiers require the Android SDK. Each missing prerequisite skips its tests cleanly rather than failing.
+
 ### External project validation
 
 `IntegrationTests` also supports opt-in validation against real open-source Flutter and React Native projects outside the repo. Point the tests at local checkouts with environment variables:

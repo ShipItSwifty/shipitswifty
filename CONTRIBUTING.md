@@ -116,6 +116,21 @@ cd -
 
 Without this, Android build tests skip with a descriptive message.
 
+### Real cross-platform e2e fixtures (Flutter & React Native)
+
+`Tests/IntegrationTests/Fixtures/flutter-app/` and `react-native-app/` are complete apps vendored in-repo (RN pinned to `react-native@0.85.3`) and run against the real toolchains by `FlutterE2ETests` / `ReactNativeE2ETests`. They are committed source-only; deps regenerate at test time (`flutter pub get`, `npm install`, and `pod install` for RN iOS — CocoaPods are not committed).
+
+The suites are tiered and opt-in so a plain run stays fast:
+
+```bash
+swift build
+swift test --filter FlutterE2ETests          # quick tier: test + lint (needs flutter / node)
+SHIPIT_E2E_BUILD=1 swift test --filter ReactNativeE2ETests   # + build tier (logs ⏱ timings)
+SHIPIT_E2E_FULL=1  swift test --filter E2ETests              # + archive + code signing
+```
+
+Missing prerequisites (Xcode, CocoaPods, Android SDK, `SHIPIT_TEST_TEAM_ID`) skip the relevant tests cleanly.
+
 ### External Flutter / React Native project validation
 
 These opt-in tests validate ShipIt against real open-source app checkouts instead of the in-repo fixtures.
