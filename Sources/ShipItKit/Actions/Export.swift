@@ -71,10 +71,20 @@ public struct ExportAction: Action {
         guard context.platform == .ios else {
             throw ShipItError.invalidConfiguration(reason: "ExportAction requires iOS platform")
         }
+        if context.config.iosBuildSystem == .flutter {
+            throw ShipItError.invalidConfiguration(
+                reason: "Flutter iOS archives do not use a separate export step. "
+                    + "'flutter build ipa' (run by the archive action) already produces a distributable IPA. "
+                    + "Remove 'export' from your workflow and proceed directly to 'testflight' or 'upload'."
+            )
+        }
+        let defaultArchivePath: String? =
+            context.config.appScheme.map { "./build/\($0).xcarchive" }
         let archivePath =
             options.archivePath
             ?? context.config.exportArchivePath
             ?? context.config.archiveOutputPath
+            ?? defaultArchivePath
 
         guard let archivePath else {
             throw ShipItError.invalidConfiguration(
