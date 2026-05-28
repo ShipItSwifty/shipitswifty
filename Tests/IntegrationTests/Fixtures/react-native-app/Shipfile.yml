@@ -1,0 +1,35 @@
+app:
+  scheme: HelloWorld
+  bundle_id: org.reactjs.native.example.HelloWorld
+  team_id: H3VJ3NCEU2
+
+code_signing:
+  type: automatic
+
+archive:
+  export_method: development
+
+ios:
+  build_system: react_native
+android:
+  build_system: react_native
+
+workflows:
+  beta-ios:
+    - action: lint
+    - action: test                  # Jest
+    - action: test                  # native XCTest
+      options:
+        scheme: HelloWorld
+        destinations:
+          - platform=iOS Simulator,name=iPhone 17
+    - action: archive
+    - action: export
+  beta-android:
+    - action: lint
+    - action: test                  # Jest
+    - action: test                  # Android JUnit
+      options:
+        kind: unit
+        build_variant: debug
+    - action: archive
