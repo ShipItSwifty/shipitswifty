@@ -183,6 +183,7 @@ extension ActionContext {
     public func gradle() -> Gradle {
         var gradle = Gradle(context: shell)
             .projectDir(config.gradleProjectDir)
+            .workingDirectory(config.gradleProjectDir)
             .flag(.noDaemon)
 
         if let gradlewPath = config.gradlewPath {
@@ -225,6 +226,24 @@ extension ActionContext {
             googlePlay: googlePlay,
             platform: platform,
             verbose: verbose
+        )
+        #endif
+    }
+
+    /// Returns a copy of this context with the Gradle project directory overridden.
+    public func withGradleProjectDir(_ dir: String) -> ActionContext {
+        #if os(macOS)
+        return ActionContext(
+            shell: shell, logger: logger,
+            config: config.overriding(gradleProjectDir: dir),
+            appStoreConnect: appStoreConnect, googlePlay: googlePlay,
+            platform: platform, verbose: verbose
+        )
+        #else
+        return ActionContext(
+            shell: shell, logger: logger,
+            config: config.overriding(gradleProjectDir: dir),
+            googlePlay: googlePlay, platform: platform, verbose: verbose
         )
         #endif
     }

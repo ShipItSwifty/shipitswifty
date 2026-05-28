@@ -468,6 +468,56 @@ public struct ResolvedConfig: Sendable {
     ///   - buildVariant: If non-nil, replaces `androidBuildVariant`.
     ///   - flavor: If non-nil, sets or replaces the `"flavor"` key in `androidGradleProperties`.
     /// - Returns: A new `ResolvedConfig` with the specified overrides applied.
+    public func overriding(gradleProjectDir dir: String) -> ResolvedConfig {
+        return ResolvedConfig(
+            processedFiles: processedFiles, appWorkspace: appWorkspace, appProject: appProject,
+            appScheme: appScheme, bundleID: bundleID,
+            bundleIDFromTargetBuildSettings: bundleIDFromTargetBuildSettings, teamID: teamID,
+            teamIDFromTargetBuildSettings: teamIDFromTargetBuildSettings, ascKeyID: ascKeyID,
+            ascIssuerID: ascIssuerID, ascPrivateKeyData: ascPrivateKeyData,
+            buildConfiguration: buildConfiguration, derivedDataPath: derivedDataPath,
+            xcargs: xcargs, archiveExportMethod: archiveExportMethod,
+            archiveIncludeSymbols: archiveIncludeSymbols, archiveOutputPath: archiveOutputPath,
+            exportArchivePath: exportArchivePath, exportOutputDirectory: exportOutputDirectory,
+            codeSigningType: codeSigningType, automaticCodeSigning: automaticCodeSigning,
+            codeSigningStorage: codeSigningStorage, codeSigningGitUrl: codeSigningGitUrl,
+            vaultPassword: vaultPassword, codeSigningP12Path: codeSigningP12Path,
+            codeSigningP12Data: codeSigningP12Data, codeSigningP12Password: codeSigningP12Password,
+            codeSigningProvisioningProfilePath: codeSigningProvisioningProfilePath,
+            codeSigningProvisioningProfileData: codeSigningProvisioningProfileData,
+            skipWaitingForBuildProcessing: skipWaitingForBuildProcessing,
+            distributeExternal: distributeExternal, testFlightGroups: testFlightGroups,
+            testFlightChangelog: testFlightChangelog, screenshotDevices: screenshotDevices,
+            screenshotLocales: screenshotLocales, screenshotScheme: screenshotScheme,
+            screenshotOutputDirectory: screenshotOutputDirectory,
+            metadataDirectory: metadataDirectory, submitForReview: submitForReview,
+            automaticRelease: automaticRelease, phasedRelease: phasedRelease,
+            versioningStrategy: versioningStrategy, versioningSource: versioningSource,
+            versioningSpecPath: versioningSpecPath, versioningBuildKey: versioningBuildKey,
+            versioningMarketingKey: versioningMarketingKey,
+            projectGenerationTool: projectGenerationTool,
+            projectGenerationCommand: projectGenerationCommand,
+            projectGenerationSpecPath: projectGenerationSpecPath,
+            projectGenerationOutputProject: projectGenerationOutputProject,
+            projectGenerationAutoGenerate: projectGenerationAutoGenerate,
+            slackWebhookUrl: slackWebhookUrl, slackChannel: slackChannel,
+            workflows: workflows, customActions: customActions, platform: platform,
+            iosBuildSystem: iosBuildSystem, androidBuildSystem: androidBuildSystem, ci: ci,
+            projectRoot: projectRoot, kmpSharedModule: kmpSharedModule,
+            kmpBuildTarget: kmpBuildTarget, kmpArchiveTarget: kmpArchiveTarget,
+            kmpTestTask: kmpTestTask, androidModule: androidModule, androidScope: androidScope,
+            androidTestKind: androidTestKind, androidTestDevices: androidTestDevices,
+            androidBuildVariant: androidBuildVariant, androidBuildType: androidBuildType,
+            gradlewPath: gradlewPath, gradleProjectDir: dir,
+            androidGradleFlags: androidGradleFlags, androidKeystorePath: androidKeystorePath,
+            androidKeystorePassword: androidKeystorePassword, androidKeyAlias: androidKeyAlias,
+            androidKeyPassword: androidKeyPassword, androidPackageName: androidPackageName,
+            androidRolloutFraction: androidRolloutFraction,
+            androidGradleProperties: androidGradleProperties,
+            googlePlayServiceAccountData: googlePlayServiceAccountData
+        )
+    }
+
     public func overriding(buildVariant: String? = nil, flavor: String? = nil) -> ResolvedConfig {
         var updatedProperties = androidGradleProperties
         if let flavor {

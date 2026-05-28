@@ -451,7 +451,23 @@ public struct TestAction: Action {
             return try await runAndroid(options: options, context: context)
         case (_, .flutter):
             return try await runFlutterTests(options: options, context: context)
-        case (_, .reactNative):
+        case (.ios, .reactNative):
+            // Explicit native options (scheme, destinations, or kind) bypass Jest and run
+            // xcodebuild test directly — useful for running XCTest alongside Jest in a workflow.
+            #if os(macOS)
+            if options.scheme != nil || !(options.destinations ?? []).isEmpty || options.kind != nil {
+                return try await runIOS(options: options, context: context)
+            }
+            #endif
+            return try await runReactNativeTests(options: options, context: context)
+        case (.android, .reactNative):
+            // Explicit kind bypasses Jest and runs Gradle unit/instrumented tests directly.
+            // For RN projects the gradlew lives in `android/`, not the project root — patch
+            // the context so runAndroid finds the right Gradle wrapper.
+            if options.kind != nil {
+                let rnContext = reactNativeAndroidContext(context: context)
+                return try await runAndroid(options: options, context: rnContext)
+            }
             return try await runReactNativeTests(options: options, context: context)
         }
     }
@@ -555,6 +571,17 @@ public struct TestAction: Action {
             }
             return nil
         }
+    }
+
+    /// Returns a context whose `gradleProjectDir` points to `./android` when the project root
+    /// has no `gradlew` at the top level (standard React Native layout).
+    private func reactNativeAndroidContext(context: ActionContext) -> ActionContext {
+        let root = context.config.projectRoot
+        let gradleDir = context.config.gradleProjectDir
+        guard gradleDir == root else { return context }
+        let androidDir = "\(root)/android"
+        guard FileManager.default.fileExists(atPath: "\(androidDir)/gradlew") else { return context }
+        return context.withGradleProjectDir(androidDir)
     }
 
     // MARK: - React Native Tests (package manager run test)
