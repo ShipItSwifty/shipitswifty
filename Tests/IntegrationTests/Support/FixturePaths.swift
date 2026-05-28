@@ -26,6 +26,20 @@ enum FixturePaths {
     /// Minimal KMP-shaped project used for cross-platform integration tests.
     static let kmpSample: URL = fixturesRoot.appendingPathComponent("kmp-sample")
 
+    /// Full real Flutter app vendored in-repo for end-to-end tests.
+    ///
+    /// Source-only: `.dart_tool/`, `build/`, and the android Gradle caches are
+    /// regenerated at test time via `flutter pub get` (see `bootstrapFlutter(in:)`).
+    static let flutterApp: URL = fixturesRoot.appendingPathComponent("flutter-app")
+
+    /// Full real React Native app (pinned to a stable RN release) vendored in-repo
+    /// for end-to-end tests.
+    ///
+    /// Source-only: `node_modules/` and `ios/Pods/` are regenerated at test time via
+    /// `npm install` / `pod install` (see `bootstrapReactNativeNode(in:)` /
+    /// `bootstrapReactNativePods(in:)`).
+    static let reactNativeApp: URL = fixturesRoot.appendingPathComponent("react-native-app")
+
     /// Pre-canned JaCoCo XML report with known coverage numbers.
     static let jacocoReport: URL = fixturesRoot.appendingPathComponent("jacoco-sample.xml")
 

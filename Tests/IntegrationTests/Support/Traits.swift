@@ -191,6 +191,43 @@ extension Trait where Self == CredentialTrait {
             message: "CocoaPods not found on PATH — install CocoaPods to validate React Native iOS builds."
         )
     }
+
+    /// Requires `node` and `npm` on PATH for React Native Jest/eslint tiers.
+    static var requiresNode: CredentialTrait {
+        let node = (try? shellOutput("which", "node"))?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let npm = (try? shellOutput("which", "npm"))?.trimmingCharacters(in: .whitespacesAndNewlines)
+        return CredentialTrait(
+            conditionMet: node?.isEmpty == false && npm?.isEmpty == false,
+            message: "Node.js not found on PATH — install Node (>= 22.11) so `node` and `npm` resolve in your shell."
+        )
+    }
+}
+
+// MARK: - E2E tier gates
+//
+// The build and full e2e tiers run real, slow builds (and, for the full tier,
+// code signing). They are **opt-in**: a plain `swift test --filter IntegrationTests`
+// runs only the quick tier. Set the env flag to opt into a heavier tier.
+
+extension Trait where Self == ConditionTrait {
+
+    /// Gates the e2e **build** tier (`shipit build`/`archive` against real toolchains).
+    /// Opt in with `SHIPIT_E2E_BUILD=1`.
+    static var requiresE2EBuild: ConditionTrait {
+        .enabled(
+            if: ProcessInfo.processInfo.environment["SHIPIT_E2E_BUILD"] == "1",
+            "e2e build tier is opt-in — set SHIPIT_E2E_BUILD=1 to run real Flutter/RN builds."
+        )
+    }
+
+    /// Gates the e2e **full** tier (archive, code signing, validate signing, downstream steps).
+    /// Opt in with `SHIPIT_E2E_FULL=1`.
+    static var requiresE2EFull: ConditionTrait {
+        .enabled(
+            if: ProcessInfo.processInfo.environment["SHIPIT_E2E_FULL"] == "1",
+            "e2e full tier is opt-in — set SHIPIT_E2E_FULL=1 to run archive + code signing."
+        )
+    }
 }
 
 // MARK: - Helpers

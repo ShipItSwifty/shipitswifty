@@ -96,6 +96,30 @@ func assertReactNativeFixtureExists() throws {
     }
 }
 
+/// Asserts the full Flutter app fixture exists on disk.
+func assertFlutterAppFixtureExists() throws {
+    let pubspecPath = FixturePaths.flutterApp
+        .appendingPathComponent("pubspec.yaml")
+        .path
+    guard FileManager.default.fileExists(atPath: pubspecPath) else {
+        throw IntegrationScopeError.fixtureMissing(
+            "Flutter app fixture pubspec not found at \(pubspecPath) — ensure Tests/IntegrationTests/Fixtures/flutter-app/ is present."
+        )
+    }
+}
+
+/// Asserts the full React Native app fixture exists on disk.
+func assertReactNativeAppFixtureExists() throws {
+    let packageJSONPath = FixturePaths.reactNativeApp
+        .appendingPathComponent("package.json")
+        .path
+    guard FileManager.default.fileExists(atPath: packageJSONPath) else {
+        throw IntegrationScopeError.fixtureMissing(
+            "React Native app fixture package.json not found at \(packageJSONPath) — ensure Tests/IntegrationTests/Fixtures/react-native-app/ is present."
+        )
+    }
+}
+
 /// Asserts the KMP fixture project exists on disk.
 func assertKMPFixtureExists() throws {
     let gradleFilePath = FixturePaths.kmpSample
