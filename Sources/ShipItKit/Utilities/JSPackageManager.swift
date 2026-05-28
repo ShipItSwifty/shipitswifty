@@ -1,4 +1,5 @@
 import Foundation
+import Logging
 import SwiftyShell
 
 /// The JavaScript/Node.js package manager to use for running scripts.
@@ -47,11 +48,15 @@ public enum JSPackageManager: String, Sendable, CaseIterable {
     public func scriptArguments(for script: String) -> [String] {
         ["run", script]
     }
+
+    /// Returns the arguments to install dependencies (e.g. `["install"]`).
+    public var installArguments: [String] { ["install"] }
 }
 
 /// Runs a named script from `package.json` using the detected package manager.
 ///
-/// Validates that the script exists before invoking the package manager.
+/// Validates that the script exists before invoking the package manager. Automatically
+/// installs dependencies when `node_modules` is absent.
 ///
 /// ## Usage
 /// ```swift
@@ -62,6 +67,7 @@ public struct JSScriptRunner: Sendable {
     private let shell: ShellContext
     private let projectRoot: String
     private let packageManager: JSPackageManager
+    private let logger = Logger.forType(subsystem: "ShipItSwifty", JSScriptRunner.self)
 
     /// Creates a `JSScriptRunner` using the auto-detected package manager.
     ///
@@ -108,6 +114,8 @@ public struct JSScriptRunner: Sendable {
     ///   ``ShipItError/buildFailed(exitCode:log:)`` if the script exits non-zero.
     @discardableResult
     public func run(script: String) async throws -> ShellOutput {
+        try await ensureInstalled()
+
         // Validate that the script exists in package.json before invoking
         guard packageJSONHasScript(named: script) else {
             throw ShipItError.invalidConfiguration(
@@ -149,6 +157,34 @@ public struct JSScriptRunner: Sendable {
     }
 
     // MARK: - Private Helpers
+
+    /// Runs `<pm> install` when `node_modules` is absent so that subsequent script runs
+    /// find locally-installed binaries (e.g. `eslint`, `jest`) on `PATH`.
+    private func ensureInstalled() async throws {
+        let nodeModulesPath = URL(fileURLWithPath: projectRoot)
+            .appendingPathComponent("node_modules").path
+        guard !FileManager.default.fileExists(atPath: nodeModulesPath) else { return }
+
+        logger.info(
+            "node_modules not found — running '\(packageManager.runCommand) install' in \(projectRoot)"
+        )
+        let command = Command(packageManager.runCommand)
+            .args(packageManager.installArguments)
+            .workingDirectory(projectRoot)
+            .stdout(.discard)
+            .stderr(.capture)
+        do {
+            _ = try await command.run(in: shell)
+            logger.info("Dependency install complete")
+        } catch let ShellError.exitFailure(_, shellOutput) {
+            throw ShipItError.buildFailed(
+                exitCode: Int(shellOutput.exitCode),
+                log: [shellOutput.stdout, shellOutput.stderr]
+                    .filter { !$0.isEmpty }
+                    .joined(separator: "\n")
+            )
+        }
+    }
 
     private func packageJSONHasScript(named name: String) -> Bool {
         let url = URL(fileURLWithPath: projectRoot).appendingPathComponent("package.json")

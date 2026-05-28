@@ -80,6 +80,73 @@ struct LintActionFlutterTests {
         #expect(captured.contains { $0.contains("run") && $0.contains("lint") })
     }
 
+    @Test("React Native lint auto-installs when node_modules is absent")
+    func rnLintAutoInstallsWhenNodeModulesMissing() async throws {
+        let tempDir = try makeTempDirectory(prefix: "RNLintAutoInstall")
+        let packageJSON = """
+            {"name": "my-app", "scripts": {"lint": "eslint src/"}}
+            """
+        try packageJSON.write(
+            to: tempDir.appendingPathComponent("package.json"),
+            atomically: true,
+            encoding: .utf8
+        )
+        // Deliberately omit node_modules so auto-install triggers.
+
+        let (executor, commands) = makeCaptureExecutor { _, _ in
+            ShellOutput(stdout: "", stderr: "", exitCode: 0)
+        }
+        let config = ResolvedConfig(
+            platform: .ios,
+            iosBuildSystem: .reactNative,
+            projectRoot: tempDir.path
+        )
+        let context = makeTestActionContext(executor: executor, config: config, platform: .ios)
+
+        _ = try await LintAction().run(with: LintAction.Options(), context: context)
+
+        let captured = commands()
+        #expect(captured.contains { $0.contains("install") })
+        #expect(captured.contains { $0.contains("run") && $0.contains("lint") })
+        // install must precede lint
+        let installIdx = captured.firstIndex { $0.contains("install") }
+        let lintIdx = captured.firstIndex { $0.contains("run") && $0.contains("lint") }
+        #expect((installIdx ?? Int.max) < (lintIdx ?? Int.min))
+    }
+
+    @Test("React Native lint skips install when node_modules already present")
+    func rnLintSkipsInstallWhenNodeModulesPresent() async throws {
+        let tempDir = try makeTempDirectory(prefix: "RNLintSkipInstall")
+        let packageJSON = """
+            {"name": "my-app", "scripts": {"lint": "eslint src/"}}
+            """
+        try packageJSON.write(
+            to: tempDir.appendingPathComponent("package.json"),
+            atomically: true,
+            encoding: .utf8
+        )
+        try FileManager.default.createDirectory(
+            at: tempDir.appendingPathComponent("node_modules"),
+            withIntermediateDirectories: false
+        )
+
+        let (executor, commands) = makeCaptureExecutor { _, _ in
+            ShellOutput(stdout: "", stderr: "", exitCode: 0)
+        }
+        let config = ResolvedConfig(
+            platform: .ios,
+            iosBuildSystem: .reactNative,
+            projectRoot: tempDir.path
+        )
+        let context = makeTestActionContext(executor: executor, config: config, platform: .ios)
+
+        _ = try await LintAction().run(with: LintAction.Options(), context: context)
+
+        let captured = commands()
+        #expect(!captured.contains { $0 == "npm install" || ($0.contains("npm") && $0.contains("install")) })
+        #expect(captured.contains { $0.contains("run") && $0.contains("lint") })
+    }
+
     @Test("React Native lint throws when lint script missing and failOnError is true")
     func rnLintThrowsWhenScriptMissing() async throws {
         let tempDir = try makeTempDirectory(prefix: "RNLintNoScript")
