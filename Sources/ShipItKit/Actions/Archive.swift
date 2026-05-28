@@ -419,6 +419,9 @@ public struct ArchiveAction: Action {
 
         if context.config.automaticCodeSigning {
             xcodeBuild = xcodeBuild.option(.allowProvisioningUpdates)
+            if let teamID = context.config.teamID {
+                xcodeBuild = xcodeBuild.buildSetting("DEVELOPMENT_TEAM", teamID)
+            }
         }
 
         let allXcargs = context.config.xcargs
