@@ -124,12 +124,12 @@ The suites are tiered and opt-in so a plain run stays fast:
 
 ```bash
 swift build
-swift test --filter FlutterE2ETests          # quick tier: test + lint (needs flutter / node)
-SHIPIT_E2E_BUILD=1 swift test --filter ReactNativeE2ETests   # + build tier (logs ⏱ timings)
-SHIPIT_E2E_FULL=1  swift test --filter E2ETests              # + archive + code signing
+SHIPIT_E2E=1       swift test --filter FlutterE2ETests          # quick tier: test + lint (needs flutter / node)
+SHIPIT_E2E_BUILD=1 swift test --filter ReactNativeE2ETests      # + build tier (logs ⏱ timings)
+SHIPIT_E2E_FULL=1  swift test --filter E2ETests                 # + archive + code signing
 ```
 
-Missing prerequisites (Xcode, CocoaPods, Android SDK, `SHIPIT_TEST_TEAM_ID`) skip the relevant tests cleanly.
+Every tier is opt-in (the quick tier regenerates deps via `flutter pub get` / `npm install`, so a plain `swift test` skips it). Missing prerequisites (Xcode, CocoaPods, Android SDK, `SHIPIT_TEST_TEAM_ID`) skip the relevant tests cleanly.
 
 ### External Flutter / React Native project validation
 

@@ -37,7 +37,23 @@ public struct FlutterMachineOutputParser: Sendable {
                     testsByID.removeValue(forKey: id)
                     continue
                 }
-                if event.result == "success" {
+                // Skipped must be checked before `result == "success"`: the
+                // package:test machine protocol reports a skipped test as
+                // `result: "success"` *with* `skipped: true` in the same event,
+                // so a success-first check would misclassify it as passed.
+                if event.skipped == true {
+                    testCase = ParsedTestCase(
+                        stableID: testCase.stableID,
+                        suite: testCase.suite,
+                        name: testCase.name,
+                        status: .skipped,
+                        durationSeconds: testCase.durationSeconds,
+                        message: testCase.message,
+                        file: testCase.file,
+                        line: testCase.line,
+                        rerunSelector: testCase.rerunSelector
+                    )
+                } else if event.result == "success" {
                     testCase = ParsedTestCase(
                         stableID: testCase.stableID,
                         suite: testCase.suite,
@@ -57,18 +73,6 @@ public struct FlutterMachineOutputParser: Sendable {
                         status: event.result == "failure" ? .failed : .errored,
                         durationSeconds: testCase.durationSeconds,
                         message: event.message,
-                        file: testCase.file,
-                        line: testCase.line,
-                        rerunSelector: testCase.rerunSelector
-                    )
-                } else if event.skipped == true {
-                    testCase = ParsedTestCase(
-                        stableID: testCase.stableID,
-                        suite: testCase.suite,
-                        name: testCase.name,
-                        status: .skipped,
-                        durationSeconds: testCase.durationSeconds,
-                        message: testCase.message,
                         file: testCase.file,
                         line: testCase.line,
                         rerunSelector: testCase.rerunSelector

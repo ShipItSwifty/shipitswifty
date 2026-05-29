@@ -5,8 +5,8 @@ import Testing
 /// (`Fixtures/react-native-app`, pinned to a stable RN release) using real tooling.
 ///
 /// Tiers (see `FixtureBootstrap.swift` tags / `Traits.swift` gates):
-/// - **quick** (`test` (Jest) + `lint` (eslint)) — runs whenever Node is on PATH. `npm install`
-///   regenerates `node_modules` into the temp copy.
+/// - **quick** (`test` (Jest) + `lint` (eslint)) — opt in with `SHIPIT_E2E=1`; also needs Node on
+///   PATH. `npm install` regenerates `node_modules` into the temp copy, so it is not free.
 /// - **build** (`build`) — opt in with `SHIPIT_E2E_BUILD=1`; Android needs the SDK, iOS needs Xcode
 ///   + CocoaPods (Pods are bootstrapped via `pod install`, not committed).
 /// - **full** (`archive` + validate, code signing) — opt in with `SHIPIT_E2E_FULL=1`.
@@ -17,7 +17,7 @@ struct ReactNativeE2ETests {
 
     // MARK: Quick tier
 
-    @Test("jest test passes", .tags(.e2eQuick))
+    @Test("jest test passes", .tags(.e2eQuick), .requiresE2EQuick)
     func test() async throws {
         try assertReactNativeAppFixtureExists()
         try await withFixtureCopy(of: fixture) { tmp in
@@ -39,7 +39,7 @@ struct ReactNativeE2ETests {
         }
     }
 
-    @Test("eslint is clean", .tags(.e2eQuick))
+    @Test("eslint is clean", .tags(.e2eQuick), .requiresE2EQuick)
     func lint() async throws {
         try assertReactNativeAppFixtureExists()
         try await withFixtureCopy(of: fixture) { tmp in
