@@ -168,6 +168,6 @@ struct TestActionRNNativeTests {
         let updated = context.withGradleProjectDir("/project/android")
 
         #expect(updated.config.gradleProjectDir == "/project/android")
-        #expect(context.config.gradleProjectDir == "/project") // original unchanged
+        #expect(context.config.gradleProjectDir == "/project")  // original unchanged
     }
 }

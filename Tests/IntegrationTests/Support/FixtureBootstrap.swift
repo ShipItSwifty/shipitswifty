@@ -101,8 +101,16 @@ func runTool(
 private final class ToolOutputBox: @unchecked Sendable {
     private let lock = NSLock()
     private var _data = Data()
-    var string: String { lock.lock(); defer { lock.unlock() }; return String(data: _data, encoding: .utf8) ?? "" }
-    func append(_ d: Data) { lock.lock(); defer { lock.unlock() }; _data.append(d) }
+    var string: String {
+        lock.lock()
+        defer { lock.unlock() }
+        return String(data: _data, encoding: .utf8) ?? ""
+    }
+    func append(_ d: Data) {
+        lock.lock()
+        defer { lock.unlock() }
+        _data.append(d)
+    }
 }
 
 private final class ToolProcessRunner: @unchecked Sendable {
@@ -172,8 +180,16 @@ private final class ToolProcessRunner: @unchecked Sendable {
 private final class TimeoutFlag: @unchecked Sendable {
     private let lock = NSLock()
     private var _value = false
-    var value: Bool { lock.lock(); defer { lock.unlock() }; return _value }
-    func set() { lock.lock(); defer { lock.unlock() }; _value = true }
+    var value: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return _value
+    }
+    func set() {
+        lock.lock()
+        defer { lock.unlock() }
+        _value = true
+    }
 }
 
 enum BootstrapError: Error, CustomStringConvertible, Sendable {
