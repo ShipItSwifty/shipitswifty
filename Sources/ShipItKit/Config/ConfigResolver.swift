@@ -212,7 +212,7 @@ public struct ConfigResolver: Sendable {
         let rnFallbackWorkspace: String?
         let rnFallbackProject: String?
         if platform == .ios,
-            (iosBuildSystem == .reactNative || iosBuildSystem == .flutter),
+            iosBuildSystem == .reactNative || iosBuildSystem == .flutter,
             effectiveApp?.workspace == nil, environment.appWorkspace == nil,
             autoDetectedAppConfig.workspace == nil
         {
@@ -649,8 +649,11 @@ public struct ConfigResolver: Sendable {
         var foundProject: String?
         for item in items {
             let full = "\(directory)/\(item)"
-            if item.hasSuffix(".xcworkspace") { foundWorkspace = full }
-            else if item.hasSuffix(".xcodeproj") { foundProject = foundProject ?? full }
+            if item.hasSuffix(".xcworkspace") {
+                foundWorkspace = full
+            } else if item.hasSuffix(".xcodeproj") {
+                foundProject = foundProject ?? full
+            }
         }
         guard foundWorkspace != nil || foundProject != nil else { return nil }
         return (workspace: foundWorkspace, project: foundWorkspace == nil ? foundProject : nil)

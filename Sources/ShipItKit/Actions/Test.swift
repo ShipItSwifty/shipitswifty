@@ -544,7 +544,8 @@ public struct TestAction: Action {
             // parser returns an empty run rather than throwing, so fall back to the
             // stdout regex parser instead of reporting zero tests.
             if let parsedRun = try? await FlutterMachineOutputParser(logger: logger).parse(machineOutput: output.stdout),
-                !parsedRun.testCases.isEmpty {
+                !parsedRun.testCases.isEmpty
+            {
                 let named = legacyNamedResults(from: parsedRun)
                 let report = TestRunReport(
                     platform: "flutter",
