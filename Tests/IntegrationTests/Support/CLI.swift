@@ -35,12 +35,21 @@ enum CLI {
         if let override = ProcessInfo.processInfo.environment["SHIPIT_BINARY_PATH"] {
             return override
         }
-        // Prefer debug build; fall back to release.
+        // Pick whichever build is freshest so a `-c release` run doesn't silently exercise a
+        // stale `.build/debug/shipit` left over from an earlier debug build (or vice versa).
+        let fm = FileManager.default
         let debug = packageRoot.appendingPathComponent(".build/debug/shipit").path
         let release = packageRoot.appendingPathComponent(".build/release/shipit").path
-        if FileManager.default.fileExists(atPath: debug) { return debug }
-        if FileManager.default.fileExists(atPath: release) { return release }
-        return debug  // will fail at launch time with a clear error
+        let candidates = [debug, release]
+            .filter { fm.fileExists(atPath: $0) }
+            .sorted { modificationDate(of: $0, fm) > modificationDate(of: $1, fm) }
+        // Falls back to the debug path when neither exists; launch then fails with a clear error.
+        return candidates.first ?? debug
+    }
+
+    private static func modificationDate(of path: String, _ fm: FileManager) -> Date {
+        let attributes = try? fm.attributesOfItem(atPath: path)
+        return (attributes?[.modificationDate] as? Date) ?? .distantPast
     }
 
     // MARK: - Run

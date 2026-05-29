@@ -12,6 +12,7 @@ import Testing
 //   Strict mode (SHIPIT_INTEGRATION_STRICT=1):
 //     Missing credentials → test **fails** immediately in prepare(for:).
 //     Use this in CI jobs where every credential-gated test is expected to run.
+//     (The legacy name SHIPIT_INTEGRATION_RUN_ENABLED=1 is still accepted.)
 //
 // Implementation note: we wrap ConditionTrait and delegate to its prepare(for:) in
 // non-strict mode so it handles the skip signal correctly. In strict mode we throw
@@ -22,7 +23,7 @@ import Testing
 //   func myTest() async throws { ... }
 //
 // Run in strict mode:
-//   SHIPIT_INTEGRATION_RUN_ENABLED=1 swift test --filter IntegrationTests
+//   SHIPIT_INTEGRATION_STRICT=1 swift test --filter IntegrationTests
 
 struct CredentialTrait: TestTrait, SuiteTrait {
     private let conditionMet: Bool
@@ -36,7 +37,10 @@ struct CredentialTrait: TestTrait, SuiteTrait {
     }
 
     private static var isStrictMode: Bool {
-        ProcessInfo.processInfo.environment["SHIPIT_INTEGRATION_RUN_ENABLED"] == "1"
+        let env = ProcessInfo.processInfo.environment
+        // `SHIPIT_INTEGRATION_STRICT` is canonical; `SHIPIT_INTEGRATION_RUN_ENABLED`
+        // is the legacy name kept for back-compat with existing CI configs.
+        return env["SHIPIT_INTEGRATION_STRICT"] == "1" || env["SHIPIT_INTEGRATION_RUN_ENABLED"] == "1"
     }
 
     func prepare(for test: Test) async throws {
@@ -210,6 +214,23 @@ extension Trait where Self == CredentialTrait {
 // runs only the quick tier. Set the env flag to opt into a heavier tier.
 
 extension Trait where Self == ConditionTrait {
+
+    /// Gates the e2e **quick** tier (`shipit test` + `shipit lint` against real toolchains).
+    /// Opt in with `SHIPIT_E2E=1`.
+    ///
+    /// Even the "quick" tier runs a full `npm install` / `flutter pub get` into a temp copy
+    /// before invoking `shipit`, which is slow and hits the network. Gating it keeps a plain
+    /// `swift test --filter IntegrationTests` fast instead of triggering installs implicitly
+    /// on any machine that happens to have Node or Flutter on PATH. The heavier `SHIPIT_E2E_BUILD`
+    /// / `SHIPIT_E2E_FULL` tiers imply the quick tier too.
+    static var requiresE2EQuick: ConditionTrait {
+        let env = ProcessInfo.processInfo.environment
+        let enabled = env["SHIPIT_E2E"] == "1" || env["SHIPIT_E2E_BUILD"] == "1" || env["SHIPIT_E2E_FULL"] == "1"
+        return .enabled(
+            if: enabled,
+            "e2e quick tier is opt-in — set SHIPIT_E2E=1 to run real Flutter/RN test + lint (regenerates deps)."
+        )
+    }
 
     /// Gates the e2e **build** tier (`shipit build`/`archive` against real toolchains).
     /// Opt in with `SHIPIT_E2E_BUILD=1`.

@@ -600,4 +600,50 @@ struct ConfigResolverTests {
         #expect(config.projectGenerationOutputProject == nil)
         #expect(config.projectGenerationAutoGenerate == true)
     }
+
+    // MARK: - ${ENV_VAR} expansion
+
+    @Test("Expands ${ENV_VAR} references against the process environment")
+    func expandsDefinedEnvironmentVariable() async throws {
+        // Uniquely-named var avoids collisions under parallel test execution.
+        let varName = "SHIPIT_TEST_EXPAND_\(UUID().uuidString.replacingOccurrences(of: "-", with: ""))"
+        setenv(varName, "ExpandedScheme", 1)
+        defer { unsetenv(varName) }
+
+        let tempDirectory = try makeTempDirectory()
+        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+
+        let shipfileURL = tempDirectory.appendingPathComponent("Shipfile.yml")
+        try """
+        app:
+          scheme: ${\(varName)}
+        """.write(to: shipfileURL, atomically: true, encoding: .utf8)
+
+        let config = try await ConfigResolver(environment: Environment(env: [:]))
+            .resolve(shipfilePath: shipfileURL.path)
+
+        #expect(config.appScheme == "ExpandedScheme")
+    }
+
+    @Test("Leaves undefined ${ENV_VAR} references untouched")
+    func leavesUndefinedEnvironmentVariableLiteral() async throws {
+        let varName = "SHIPIT_TEST_UNDEFINED_\(UUID().uuidString.replacingOccurrences(of: "-", with: ""))"
+        // Deliberately NOT set in the environment.
+
+        let tempDirectory = try makeTempDirectory()
+        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+
+        let shipfileURL = tempDirectory.appendingPathComponent("Shipfile.yml")
+        try """
+        app:
+          scheme: ${\(varName)}
+        """.write(to: shipfileURL, atomically: true, encoding: .utf8)
+
+        let config = try await ConfigResolver(environment: Environment(env: [:]))
+            .resolve(shipfilePath: shipfileURL.path)
+
+        // Unresolved references are preserved verbatim (and logged as a warning),
+        // never silently collapsed to an empty string.
+        #expect(config.appScheme == "${\(varName)}")
+    }
 }

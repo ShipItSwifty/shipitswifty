@@ -74,5 +74,13 @@ void main() {
       counter.increment(); // 1
       expect(counter.count, equals(1));
     });
+
+    // Exercises the `flutter test --machine` skipped-test shape end-to-end
+    // (reported as result:"success" with skipped:true). Guards against the
+    // parser regressing to counting skipped tests as passed.
+    test('explicitly skipped placeholder', () {
+      counter.increment();
+      expect(counter.count, equals(1));
+    }, skip: 'intentionally skipped to validate skipped-test parsing');
   });
 }

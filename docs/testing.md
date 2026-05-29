@@ -89,16 +89,18 @@ The suites (`FlutterE2ETests`, `ReactNativeE2ETests`) are tiered, gated by tags 
 
 | Tier | Tag | Gate | What runs |
 |---|---|---|---|
-| Quick | `.e2eQuick` | toolchain present (`flutter` / Node) | `shipit test` + `shipit lint` |
+| Quick | `.e2eQuick` | `SHIPIT_E2E=1` (+ `flutter` / Node on PATH) | `shipit test` + `shipit lint` |
 | Build | `.e2eBuild` | `SHIPIT_E2E_BUILD=1` | `shipit build` (logs elapsed time) |
 | Full | `.e2eFull` | `SHIPIT_E2E_FULL=1` | `archive`, code signing, `validate bundle/archive` |
+
+Every tier is opt-in. Even the quick tier regenerates dependencies (`flutter pub get` / `npm install`) into a temp copy before invoking `shipit`, so a plain `swift test` does **not** run it — it skips cleanly unless `SHIPIT_E2E=1` is set. The build/full gates imply the quick tier too.
 
 ```bash
 swift build
 
-# Quick tier (runs when flutter / node are on PATH; heavier tiers skip):
-swift test --filter FlutterE2ETests
-swift test --filter ReactNativeE2ETests
+# Quick tier (opt-in; also needs flutter / node on PATH):
+SHIPIT_E2E=1 swift test --filter FlutterE2ETests
+SHIPIT_E2E=1 swift test --filter ReactNativeE2ETests
 
 # Build tier — confirm the fixtures compile; watch the "⏱ [e2e] …" timing lines:
 SHIPIT_E2E_BUILD=1 swift test --filter FlutterE2ETests

@@ -5,7 +5,8 @@ import Testing
 /// (`Fixtures/flutter-app`) using the real `flutter` toolchain.
 ///
 /// Tiers (see `FixtureBootstrap.swift` tags / `Traits.swift` gates):
-/// - **quick** (`test` + `lint`) — runs whenever `flutter` is on PATH.
+/// - **quick** (`test` + `lint`) — opt in with `SHIPIT_E2E=1`; also needs `flutter` on PATH.
+///   (Regenerates deps via `flutter pub get`, so it is not free — hence opt-in.)
 /// - **build** (`build`) — opt in with `SHIPIT_E2E_BUILD=1`; iOS needs Xcode, Android needs the SDK.
 /// - **full** (`archive` + validate) — opt in with `SHIPIT_E2E_FULL=1`.
 @Suite("Flutter E2E", .serialized, .requiresFlutterToolchain)
@@ -15,7 +16,7 @@ struct FlutterE2ETests {
 
     // MARK: Quick tier
 
-    @Test("flutter test passes", .tags(.e2eQuick))
+    @Test("flutter test passes", .tags(.e2eQuick), .requiresE2EQuick)
     func test() async throws {
         try assertFlutterAppFixtureExists()
         try await withFixtureCopy(of: fixture) { tmp in
@@ -37,7 +38,7 @@ struct FlutterE2ETests {
         }
     }
 
-    @Test("flutter analyze is clean", .tags(.e2eQuick))
+    @Test("flutter analyze is clean", .tags(.e2eQuick), .requiresE2EQuick)
     func lint() async throws {
         try assertFlutterAppFixtureExists()
         try await withFixtureCopy(of: fixture) { tmp in

@@ -54,6 +54,11 @@ public struct CLIOptions: Sendable {
 /// 3. Environment variables (`SHIPIT_*` prefix)
 /// 4. Built-in defaults
 ///
+/// - Note: Inline **secrets** are the one intentional exception to this order. The raw
+///   ASC private key prefers the environment (`ASC_PRIVATE_KEY`) over the Shipfile
+///   (`app_store_connect.private_key`) so CI secrets win without having to strip the value
+///   from a committed Shipfile. See ``resolvePrivateKeyData(shipfile:)``.
+///
 /// ## Usage
 /// ```swift
 /// let resolver = ConfigResolver()
@@ -489,15 +494,54 @@ public struct ConfigResolver: Sendable {
         }
     }
 
+    /// Expands `${VAR_NAME}` references in the Shipfile against the process environment.
+    ///
+    /// Makes a single pass over the text and looks up only the variables that are
+    /// actually referenced (rather than scanning every environment variable against the
+    /// whole document). Undefined references are left untouched and logged as a warning so
+    /// a typo'd `${VAR}` surfaces instead of silently expanding to empty.
     private func expandEnvVars(in text: String) -> String {
-        var result = text
+        // `${NAME}` where NAME is a conventional env var identifier.
+        let pattern = #"\$\{([A-Za-z_][A-Za-z0-9_]*)\}"#
+        guard let regex = try? NSRegularExpression(pattern: pattern) else { return text }
+
         let env = ProcessInfo.processInfo.environment
-        for (key, value) in env {
-            result = result.replacingOccurrences(of: "${\(key)}", with: value)
+        let fullRange = NSRange(text.startIndex..., in: text)
+        var result = ""
+        var lastEnd = text.startIndex
+        var undefined: Set<String> = []
+
+        regex.enumerateMatches(in: text, range: fullRange) { match, _, _ in
+            guard let match,
+                let matchRange = Range(match.range, in: text),
+                let nameRange = Range(match.range(at: 1), in: text)
+            else { return }
+
+            result += text[lastEnd..<matchRange.lowerBound]
+            let name = String(text[nameRange])
+            if let value = env[name] {
+                result += value
+            } else {
+                undefined.insert(name)
+                result += text[matchRange]  // leave the literal `${NAME}` in place
+            }
+            lastEnd = matchRange.upperBound
+        }
+        result += text[lastEnd...]
+
+        if !undefined.isEmpty {
+            logger.warning(
+                "Shipfile references undefined environment variable(s): \(undefined.sorted().joined(separator: ", ")). Left unexpanded."
+            )
         }
         return result
     }
 
+    /// Resolves the ASC private key data.
+    ///
+    /// Unlike most fields, the raw env value (`ASC_PRIVATE_KEY`) intentionally outranks the
+    /// Shipfile value so a CI secret wins over anything checked into the repo. See the
+    /// resolution-order note on ``ConfigResolver``.
     private func resolvePrivateKeyData(shipfile: Shipfile?) throws -> PrivateKeyResolution {
         // Priority: env ASC_PRIVATE_KEY (raw) > Shipfile private_key > env ASC_PRIVATE_KEY_PATH > Shipfile key_path
         if let rawKey = environment.ascPrivateKey {

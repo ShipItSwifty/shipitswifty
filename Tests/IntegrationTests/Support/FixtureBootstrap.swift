@@ -3,8 +3,8 @@ import Testing
 
 // MARK: - E2E tags
 //
-// Tiers let you slice the e2e suites:
-//   swift test --filter IntegrationTests                      # quick tier (test + lint)
+// Tiers let you slice the e2e suites (all opt-in so a plain run stays fast):
+//   SHIPIT_E2E=1       swift test --filter IntegrationTests   # quick tier (test + lint)
 //   SHIPIT_E2E_BUILD=1 swift test --filter IntegrationTests   # + build tier
 //   SHIPIT_E2E_FULL=1  swift test --filter IntegrationTests   # + full tier (archive/signing)
 

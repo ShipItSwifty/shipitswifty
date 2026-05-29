@@ -11,8 +11,12 @@ For config-backed CLI commands, the selected file must exist. A missing `./Shipf
 ## Priority Order
 
 ```
-CLI flags  >  SHIPIT_* env vars  >  .env file  >  config file  >  Built-in defaults
+CLI flags  >  Shipfile.yml (config file)  >  SHIPIT_* env vars  >  .env file  >  Built-in defaults
 ```
+
+`.env` values are loaded into the environment (see below), so they sit just under real `SHIPIT_*` env vars.
+
+> **Secrets exception:** inline secrets prefer the environment over the config file. The raw ASC private key reads `ASC_PRIVATE_KEY` (env) **before** `app_store_connect.private_key` (Shipfile) so CI secrets win over anything committed. See the **Secrets bypass** note below.
 
 ### `.env` file auto-loading
 
