@@ -34,6 +34,15 @@ ShipItSwifty automates the build → archive → distribute pipeline for iOS and
 
 ## Install
 
+After the first Homebrew tap release is published:
+
+```bash
+brew tap shipitswifty/tap
+brew install shipit
+```
+
+Until then, build from source:
+
 ```bash
 git clone https://github.com/shipitswifty/shipitswifty
 cd shipitswifty

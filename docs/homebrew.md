@@ -2,25 +2,53 @@
 
 > Maintainer-only release checklist. Not mirrored in DocC.
 
-Use this checklist when publishing `shipit` to a Homebrew tap.
+Use this checklist when publishing `shipit` to the Homebrew tap.
 
 ## Prerequisites
 
-- `shipitswifty/shipitswifty` is public
-- `maniramezan/swiftyshell` is public or otherwise fetchable by SwiftPM consumers
-- `ShipItSwifty` has a release tag such as `1.0.0`
-- A tap repository exists, for example `shipitswifty/homebrew-tap`
+- `shipitswifty/shipitswifty` is public.
+- `maniramezan/SwiftyShell` is public or otherwise fetchable by SwiftPM consumers.
+- A tap repository exists, for example `shipitswifty/homebrew-tap`.
+- The release tag exists in this repository. For the first release, use `0.1.0`.
+
+## Pre-Tag Validation
+
+Run the release build and blocking test suite before tagging:
+
+```bash
+swift build -c release
+swift test --enable-code-coverage --skip IntegrationTests
+swift test --filter FlutterFixtureIntegrationTests
+swift test --filter ReactNativeFixtureIntegrationTests
+.build/release/shipit --version
+```
+
+Optional real-toolchain e2e smoke checks before tagging:
+
+```bash
+SHIPIT_E2E=1 swift test --filter FlutterE2ETests
+SHIPIT_E2E=1 swift test --filter ReactNativeE2ETests
+```
+
+## Tag the Release
+
+ShipItSwifty uses plain semantic-version tags, not `v`-prefixed tags:
+
+```bash
+git tag 0.1.0
+git push origin 0.1.0
+```
 
 ## Compute Release SHA256
 
 Download the source tarball for the new release and compute its SHA256:
 
 ```bash
-curl -L -o shipit-1.0.0.tar.gz https://github.com/shipitswifty/shipitswifty/archive/refs/tags/1.0.0.tar.gz
-shasum -a 256 shipit-1.0.0.tar.gz
+curl -L -o shipit-0.1.0.tar.gz https://github.com/shipitswifty/shipitswifty/archive/refs/tags/0.1.0.tar.gz
+shasum -a 256 shipit-0.1.0.tar.gz
 ```
 
-## Update the Formula
+## Update the Tap Formula
 
 Copy `Formula/shipit.rb` from this repository into the tap repository:
 
@@ -28,42 +56,39 @@ Copy `Formula/shipit.rb` from this repository into the tap repository:
 cp Formula/shipit.rb ../homebrew-tap/Formula/shipit.rb
 ```
 
-Then replace:
+Then add the stable release lines above `head` in the tap copy:
 
-- `url` with the new tag tarball URL
-- `sha256` with the computed checksum
+```ruby
+url "https://github.com/shipitswifty/shipitswifty/archive/refs/tags/0.1.0.tar.gz"
+sha256 "<computed-sha256>"
+```
 
 ## Validate the Formula Locally
 
-Homebrew 5.1+ requires the formula to live in a tap. For local testing, create a tap and copy the formula into it:
+Homebrew 5.1+ requires the formula to live in a tap. For local testing, create or update a tap and copy the formula into it:
 
 ```bash
 brew tap-new shipitswifty/tap
 TAP_DIR="$(brew --repository)/Library/Taps/shipitswifty/homebrew-tap"
 mkdir -p "$TAP_DIR/Formula"
-cp Formula/shipit.rb "$TAP_DIR/Formula/shipit.rb"
+cp ../homebrew-tap/Formula/shipit.rb "$TAP_DIR/Formula/shipit.rb"
+brew uninstall --force shipit || true
+brew install shipitswifty/tap/shipit
+brew test shipitswifty/tap/shipit
+shipit --version
 ```
 
-If you are testing before the public repository is reachable from the target machine, edit the tap copy and replace the `head` URL with a local checkout:
-
-```ruby
-head "file:///Users/maniramezan/Developer/manman/ShipItSwifty", branch: "main"
-```
-
-If you want to test the stable path before a public release exists, create a local tarball and use a local `file://` URL plus its SHA256 in the tap copy.
+For pre-tag formula testing only, use `--HEAD` or a local `file://` tarball in the tap copy:
 
 ```bash
-brew uninstall --force shipit || true
 brew install --HEAD shipitswifty/tap/shipit
-brew test shipitswifty/tap/shipit
-shipit --help
 ```
 
 ## Publish the Tap Update
 
-Commit and push the formula change in your tap repository, then users can install with:
+Commit and push the formula change in `shipitswifty/homebrew-tap`, then users can install with:
 
 ```bash
 brew tap shipitswifty/tap
-brew install --HEAD shipitswifty/tap/shipit
+brew install shipit
 ```
