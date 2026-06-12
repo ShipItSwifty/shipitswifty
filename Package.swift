@@ -63,6 +63,7 @@ let package = Package(
                 "GradleKit",
                 "XcodeGenKit",
                 .product(name: "SwiftyShell", package: "SwiftyShell"),
+                .product(name: "ArgumentParser", package: "swift-argument-parser"),
                 .product(name: "JWTKit", package: "jwt-kit"),
                 .product(name: "Yams", package: "Yams"),
                 .product(name: "Crypto", package: "swift-crypto"),

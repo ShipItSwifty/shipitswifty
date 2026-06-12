@@ -93,15 +93,24 @@ public struct IPAUploadService: Sendable {
         logger.info("Uploading IPA '\(ipaURL.lastPathComponent)' for bundle ID '\(bundleID)'")
 
         // altool looks for the p8 key at ~/.appstoreconnect/private_keys/AuthKey_<KEY_ID>.p8.
-        // Stage it there if it isn't already present.
+        // Stage it there if it isn't already present. The key grants full ASC API
+        // access for the team, so restrict it to the owning user (0700 dir, 0600 file).
         let keyDir = context.shell.homeDirectory
             .appendingPathComponent(".appstoreconnect/private_keys", isDirectory: true)
-        try FileManager.default.createDirectory(at: keyDir, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(
+            at: keyDir,
+            withIntermediateDirectories: true,
+            attributes: [.posixPermissions: 0o700]
+        )
         let standardKeyPath = keyDir.appendingPathComponent("AuthKey_\(keyID).p8")
         let wroteKey = !FileManager.default.fileExists(atPath: standardKeyPath.path)
         if wroteKey {
             logger.debug("Writing p8 key to standard altool location: \(standardKeyPath.path)")
             try keyData.write(to: standardKeyPath, options: [.atomic])
+            try FileManager.default.setAttributes(
+                [.posixPermissions: 0o600],
+                ofItemAtPath: standardKeyPath.path
+            )
         }
         defer {
             if wroteKey {

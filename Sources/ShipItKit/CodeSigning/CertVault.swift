@@ -1,5 +1,6 @@
 #if os(macOS)
 import Crypto
+import CryptoExtras
 import Foundation
 import Logging
 import SwiftyShell
@@ -89,7 +90,8 @@ public struct CertVault: Sendable {
             The passphrase is required and should be stored in `VAULT_PASSWORD`.
 
             ## Security
-            - All files are encrypted with AES-256-GCM using the team passphrase
+            - All files are encrypted with AES-256-GCM; the key is derived from the
+              team passphrase with scrypt (N=2^17, r=8, p=1) and a random per-file salt
             - Never store the passphrase in this repository
             - Use CI secrets management for the passphrase
             """
@@ -247,31 +249,86 @@ public struct CertVault: Sendable {
     }
 
     private func decryptFile(at sourcePath: String, to destinationPath: String, password: String) async throws {
-        // AES-256-GCM decryption using swift-crypto
         let encryptedData = try Data(contentsOf: URL(fileURLWithPath: sourcePath))
 
-        // Derive key from password using PBKDF2 (placeholder: use a proper KDF in production)
-        let passwordData = Data(password.utf8)
-        let salt = Data(repeating: 0x53, count: 32)  // In production: store salt with the encrypted file
-
-        // Derive key using HKDF as a placeholder (real impl should use PBKDF2)
-        let keyMaterial = HKDF<SHA256>.deriveKey(
-            inputKeyMaterial: SymmetricKey(data: passwordData),
-            salt: salt,
-            info: Data("shipit-vault".utf8),
-            outputByteCount: 32
-        )
-
-        // In the encrypted file format:
-        // [12 bytes nonce][N-12-16 bytes ciphertext][16 bytes tag]
-        guard encryptedData.count > 28 else {
-            throw ShipItError.signingResourceNotFound(description: "Encrypted file too short: \(sourcePath)")
+        let decryptedData: Data
+        do {
+            decryptedData = try CertVaultCrypto.open(encryptedData, password: password)
+        } catch is CertVaultCrypto.FormatError {
+            throw ShipItError.signingResourceNotFound(
+                description: "Not a valid ShipIt vault file (unrecognized format): \(sourcePath)"
+            )
+        } catch is CryptoKitError {
+            throw ShipItError.signingResourceNotFound(
+                description: "Failed to decrypt \(sourcePath) — check that VAULT_PASSWORD matches the passphrase used to encrypt the vault"
+            )
         }
 
-        let sealedBox = try AES.GCM.SealedBox(combined: encryptedData)
-        let decryptedData = try AES.GCM.open(sealedBox, using: keyMaterial)
+        try decryptedData.write(to: URL(fileURLWithPath: destinationPath), options: [.atomic])
+    }
+}
 
-        try decryptedData.write(to: URL(fileURLWithPath: destinationPath))
+/// Encrypts and decrypts certificate vault files.
+///
+/// File format (version 1):
+/// `[1-byte format version][32-byte scrypt salt][AES-256-GCM combined sealed box]`
+///
+/// The AES-256 key is derived from the team passphrase with scrypt
+/// (N = 2^17, r = 8, p = 1 — OWASP-recommended parameters) and a random
+/// per-file salt, so leaked vault files resist offline brute force.
+enum CertVaultCrypto {
+    enum FormatError: Error {
+        case truncated
+        case unsupportedVersion(UInt8)
+    }
+
+    static let formatVersion: UInt8 = 1
+    static let saltByteCount = 32
+
+    private static let scryptRounds = 131_072  // N = 2^17
+    private static let scryptBlockSize = 8
+    private static let scryptParallelism = 1
+
+    /// Encrypts plaintext into the version-1 vault file format.
+    static func seal(_ plaintext: Data, password: String) throws -> Data {
+        let salt = SymmetricKey(size: .bits256).withUnsafeBytes { Data($0) }
+        let key = try deriveKey(password: password, salt: salt)
+        let sealedBox = try AES.GCM.seal(plaintext, using: key)
+        guard let combined = sealedBox.combined else {
+            throw CryptoKitError.authenticationFailure
+        }
+        return Data([formatVersion]) + salt + combined
+    }
+
+    /// Decrypts a version-1 vault file produced by ``seal(_:password:)``.
+    static func open(_ fileData: Data, password: String) throws -> Data {
+        // Minimum: version byte + salt + GCM nonce (12) + tag (16).
+        guard fileData.count >= 1 + saltByteCount + 28 else {
+            throw FormatError.truncated
+        }
+        // Index relative to startIndex — `fileData` may be a slice.
+        let start = fileData.startIndex
+        let version = fileData[start]
+        guard version == formatVersion else {
+            throw FormatError.unsupportedVersion(version)
+        }
+        let salt = Data(fileData[(start + 1)..<(start + 1 + saltByteCount)])
+        let combined = fileData[(start + 1 + saltByteCount)...]
+
+        let key = try deriveKey(password: password, salt: salt)
+        let sealedBox = try AES.GCM.SealedBox(combined: combined)
+        return try AES.GCM.open(sealedBox, using: key)
+    }
+
+    private static func deriveKey(password: String, salt: Data) throws -> SymmetricKey {
+        try KDF.Scrypt.deriveKey(
+            from: Data(password.utf8),
+            salt: salt,
+            outputByteCount: 32,
+            rounds: scryptRounds,
+            blockSize: scryptBlockSize,
+            parallelism: scryptParallelism
+        )
     }
 }
 #endif

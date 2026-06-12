@@ -139,6 +139,36 @@ struct IPAUploadServiceTests {
         #expect(capturedArgs.contains(ipaURL.path))
     }
 
+    @Test("stages the p8 key with owner-only permissions")
+    func stagedKeyHasOwnerOnlyPermissions() async throws {
+        let ipaURL = try makeTempIPA()
+        defer { try? FileManager.default.removeItem(at: ipaURL) }
+
+        nonisolated(unsafe) var keyMode: Int?
+        nonisolated(unsafe) var dirMode: Int?
+
+        // Capture the staged key's permissions while altool "runs" — the key
+        // is deleted as soon as the upload completes.
+        let executor = MockExecutor { command, shell in
+            if command.arguments.first == "altool" {
+                let home = shell.environment["HOME"] ?? ""
+                let keyDir = "\(home)/.appstoreconnect/private_keys"
+                let attrs = FileManager.default
+                keyMode = (try? attrs.attributesOfItem(atPath: "\(keyDir)/AuthKey_TESTKEY.p8"))?[.posixPermissions] as? Int
+                dirMode = (try? attrs.attributesOfItem(atPath: keyDir))?[.posixPermissions] as? Int
+            }
+            return ShellOutput(stdout: "", stderr: "", exitCode: 0)
+        }
+
+        let context = makeContext(executor: executor)
+        _ = try await IPAUploadService(client: makeClient(responses: [])).uploadIPA(
+            at: ipaURL, bundleID: "com.example.app", context: context, resolveBuildID: false
+        )
+
+        #expect(keyMode == 0o600)
+        #expect(dirMode == 0o700)
+    }
+
     @Test("throws uploadFailed when altool exits with non-zero code")
     func throwsWhenAltoolFails() async throws {
         let ipaURL = try makeTempIPA()
