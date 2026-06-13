@@ -1,10 +1,10 @@
-# 0.1.0 Release Checklist
+# Release Checklist
 
-Use this checklist for the first public `0.1.0` release.
+Use this checklist for each public release. Replace `<version>` with the semantic version being released, for example `0.2.0`.
 
 ## Before Tagging
 
-- Confirm `Sources/CLI/ShipItCLI.swift` reports `0.1.0`.
+- Confirm `Sources/CLI/ShipItCLI.swift` reports `<version>`.
 - Confirm the repository is clean with `git status --short`.
 - Confirm there are no existing conflicting tags with `git tag --list`.
 - Confirm `shipitswifty/shipitswifty` is public.
@@ -31,13 +31,13 @@ SHIPIT_E2E=1 swift test --filter ReactNativeE2ETests
 ShipItSwifty uses plain semantic-version tags:
 
 ```bash
-git tag 0.1.0
-git push origin 0.1.0
+git tag <version>
+git push origin <version>
 ```
 
 ## After Tagging
 
-- Create the GitHub Release for `0.1.0`.
+- Create the GitHub Release for `<version>`.
 - Compute the source tarball SHA256.
 - Update and publish `shipitswifty/homebrew-tap` using `docs/homebrew.md`.
 - Verify stable Homebrew install:

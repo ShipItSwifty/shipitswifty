@@ -9,7 +9,7 @@ Use this checklist when publishing `shipit` to the Homebrew tap.
 - `shipitswifty/shipitswifty` is public.
 - `maniramezan/SwiftyShell` is public or otherwise fetchable by SwiftPM consumers.
 - A tap repository exists, for example `shipitswifty/homebrew-tap`.
-- The release tag exists in this repository. For the first release, use `0.1.0`.
+- The release tag exists in this repository.
 
 ## Pre-Tag Validation
 
@@ -35,8 +35,8 @@ SHIPIT_E2E=1 swift test --filter ReactNativeE2ETests
 ShipItSwifty uses plain semantic-version tags, not `v`-prefixed tags:
 
 ```bash
-git tag 0.1.0
-git push origin 0.1.0
+git tag <version>
+git push origin <version>
 ```
 
 ## Compute Release SHA256
@@ -44,8 +44,8 @@ git push origin 0.1.0
 Download the source tarball for the new release and compute its SHA256:
 
 ```bash
-curl -L -o shipit-0.1.0.tar.gz https://github.com/shipitswifty/shipitswifty/archive/refs/tags/0.1.0.tar.gz
-shasum -a 256 shipit-0.1.0.tar.gz
+curl -L -o shipit-<version>.tar.gz https://github.com/shipitswifty/shipitswifty/archive/refs/tags/<version>.tar.gz
+shasum -a 256 shipit-<version>.tar.gz
 ```
 
 ## Update the Tap Formula
@@ -59,7 +59,7 @@ cp Formula/shipit.rb ../homebrew-tap/Formula/shipit.rb
 Then add the stable release lines above `head` in the tap copy:
 
 ```ruby
-url "https://github.com/shipitswifty/shipitswifty/archive/refs/tags/0.1.0.tar.gz"
+url "https://github.com/shipitswifty/shipitswifty/archive/refs/tags/<version>.tar.gz"
 sha256 "<computed-sha256>"
 ```
 

@@ -4,8 +4,8 @@ class Shipit < Formula
   license "MIT"
   # Stable releases are added in the tap after a tag exists, because the
   # GitHub source archive checksum is only knowable after publication.
-  # For 0.1.0, add these lines in shipitswifty/homebrew-tap after tagging:
-  # url "https://github.com/shipitswifty/shipitswifty/archive/refs/tags/0.1.0.tar.gz"
+  # Add these lines in shipitswifty/homebrew-tap after tagging a release:
+  # url "https://github.com/shipitswifty/shipitswifty/archive/refs/tags/<version>.tar.gz"
   # sha256 "<computed-sha256>"
   head "https://github.com/shipitswifty/shipitswifty.git", branch: "main"
 
