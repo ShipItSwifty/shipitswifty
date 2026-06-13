@@ -45,6 +45,8 @@ Composite step `options:` values may reference declared parameters using `{{para
 | `<< parameters.X >>` | CircleCI | No |
 | `$VAR` / `${VAR}` | Xcode Cloud, shell | No |
 
+> `{{param.NAME}}` is for **composite call-site parameters**. Top-level workflow steps have a separate set of reserved tokens produced at run time — `{{version}}`, `{{build_number}}`, `{{version_changed}}` — plus a `when:` condition. See <doc:Workflows>.
+
 ### Substitution rules
 
 - When a string is **exactly** `{{param.NAME}}`, the typed JSON value of the parameter is substituted (preserving `bool`, `int`, `array`, `object`).

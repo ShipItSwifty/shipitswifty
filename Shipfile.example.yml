@@ -107,10 +107,20 @@ workflows:
 
   release:
     - action: version
-      options: { bump: build }
+      options: { bump: patch }
     - action: archive
       options: { configuration: Release, export_method: app-store }
     - action: export
       options: { output_directory: ./build/export }
     - action: upload
       options: { submit_for_review: true, phased_release: true }
+    # Commit the version bump, then tag the released version and push.
+    # `{{version}}` / `{{build_number}}` resolve from the version step above;
+    # the tag step is skipped on build-only bumps (when version_changed is false).
+    - action: git
+      options: { operation: commit, commit_message: "chore: release v{{version}}" }
+    - action: git
+      when: "{{version_changed}}"
+      options: { operation: tag, tag_name: "v{{version}}" }
+    - action: git
+      options: { operation: push, push_tags: true }

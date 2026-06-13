@@ -47,6 +47,19 @@ struct AICommandParsingTests {
         #expect(resolvedPromptValue(answer: "", defaultValue: nil) == "")
     }
 
+    @Test("Release bump-from-CI switches the version step to RELEASE_BUMP when enabled")
+    func releaseBumpFromCISwitchesVersionStep() {
+        let yaml = "    - action: version\n      options: { bump: patch }   # or: { bump: ${RELEASE_BUMP} }\n"
+
+        let enabled = releaseBumpFromCI(yaml: yaml, enabled: true)
+        #expect(enabled.contains("bump: ${RELEASE_BUMP} }"))
+        #expect(!enabled.contains("bump: patch }"))
+
+        // Disabled is a no-op; absent scaffold line is untouched.
+        #expect(releaseBumpFromCI(yaml: yaml, enabled: false) == yaml)
+        #expect(releaseBumpFromCI(yaml: "no version step here", enabled: true) == "no version step here")
+    }
+
     @Test("Generate platform focus defaults to both on empty answer")
     func generatePlatformFocusDefaultsToBoth() {
         #expect(
