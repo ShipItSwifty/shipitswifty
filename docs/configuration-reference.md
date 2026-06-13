@@ -499,6 +499,50 @@ Rules:
 
 `shipit ai-session` includes the user's custom actions in the generated agent prompt (name, description, and declared parameters). Agents are instructed to prefer invoking an existing composite over duplicating its step sequence in a new workflow.
 
+## Workflow tokens & step conditions
+
+Top-level workflow steps support reserved interpolation tokens and an optional `when:` condition. These let a workflow tag the version it just released without external shell/`jq` glue — the whole release runs as one `shipit run release`.
+
+### Reserved tokens
+
+| Token | Resolves to |
+|---|---|
+| `{{version}}` | The marketing version (e.g. `1.2.3`), from a prior `version` step or the current versioning source. |
+| `{{build_number}}` | The build number (e.g. `42`). |
+| `{{version_changed}}` | `true`/`false` — whether the marketing version string changed (`false` for a build-only bump). |
+
+Rules:
+
+- Tokens are substituted into string leaves of a step's `options:` **and** into its `when:` value, at run time.
+- Values come from the most recent `version` step's result. Before any `version` step runs they are seeded best-effort from the current versioning source (and `{{version_changed}}` is `false`).
+- An unknown or not-yet-resolved token is left **literal** (and logged) rather than expanding to empty.
+- These are **distinct** from composite `{{param.NAME}}` references and from Shipfile `${ENV_VAR}` expansion. Resolution is scoped to top-level workflow steps; tokens inside `custom_actions` substeps are not resolved in this release.
+
+### `when:` conditions
+
+A step may carry `when: "<expr>"`. Reserved tokens are substituted first, then the result is evaluated for truthiness: `true`, `1`, or `yes` (case-insensitive) run the step; anything else — including an unresolved literal token — **skips** it (recorded with status `skipped`; the workflow continues). v1 supports a single truthy token, not operators or comparisons.
+
+### Example: tag the released version
+
+```yaml
+workflows:
+  release:
+    - action: version
+      options: { bump: patch }        # or { bump: ${RELEASE_BUMP} } to drive from CI
+    - action: archive
+    - action: play-store
+      options: { track: production }
+    - action: git
+      options: { operation: commit, commit_message: "chore: release v{{version}} (build {{build_number}})" }
+    - action: git
+      when: "{{version_changed}}"      # skipped on build-only bumps
+      options: { operation: tag, tag_name: "v{{version}}" }
+    - action: git
+      options: { operation: push, push_tags: true }
+```
+
+`shipit generate --goal release` scaffolds this workflow (including the git commit/tag/push tail) for both iOS and Android.
+
 ## Environment Variables Summary
 
 | Variable | Maps To |

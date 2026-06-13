@@ -41,14 +41,39 @@ Each step is a YAML object with:
 |---|---|---|---|
 | `action` | string | yes | A registered action name (built-in, plugin, or composite). |
 | `options` | object | no | Free-form key/value map decoded into the action's typed `Options`. |
+| `when` | string | no | Condition gating the step (see *Reserved tokens and conditional steps* below). Reserved tokens are substituted, then the result must be truthy (`true`/`1`/`yes`) for the step to run; otherwise the step is skipped. |
 
 Snake-case YAML keys are decoded to camelCase Swift properties automatically.
 
+## Reserved tokens and conditional steps
+
+A step's string `options` values and its `when` condition may reference reserved tokens that the workflow produces as it runs:
+
+| Token | Resolves to |
+|---|---|
+| `{{version}}` | The marketing version, from a prior `version` step (or the current versioning source). |
+| `{{build_number}}` | The build number. |
+| `{{version_changed}}` | `true`/`false` — whether the marketing version changed (`false` for a build-only bump). |
+
+These resolve at run time and are **distinct** from composite `{{param.NAME}}` references (<doc:CompositeActions>) and from Shipfile `${ENV_VAR}` expansion. An unknown or not-yet-resolved token is left literal. Resolution is scoped to top-level workflow steps.
+
+A `when:` string runs after token substitution and gates the step on a single truthy token — there are no operators. A falsy or unresolved condition skips the step (recorded with status `skipped`) and the workflow continues. This is the one exception to strict fail-fast: skips are not failures.
+
+```yaml
+workflows:
+  release:
+    - action: version
+      options: { bump: patch }
+    - action: git
+      when: "{{version_changed}}"          # skipped on build-only bumps
+      options: { operation: tag, tag_name: "v{{version}}" }
+```
+
 ## Execution order and failure semantics
 
-Workflows are **strictly sequential** and **fail-fast**. There is no parallelism between steps, and there is no `try/recover/continue` block — if step *N* throws, steps *N+1…* never run.
+Workflows are **strictly sequential** and **fail-fast**. There is no parallelism between steps, and there is no `try/recover/continue` block — if step *N* throws, steps *N+1…* never run. (A step whose `when:` condition is falsy is *skipped*, not failed; the workflow continues.)
 
-This is intentional: release workflows are mostly write operations against external services (TestFlight, Play, ASC) and recovery semantics are domain-specific. If you need conditional behaviour, use composite actions (<doc:CompositeActions>) or split into multiple workflows.
+This is intentional: release workflows are mostly write operations against external services (TestFlight, Play, ASC) and recovery semantics are domain-specific. For conditional behaviour use a step `when:` (above), composite actions (<doc:CompositeActions>), or split into multiple workflows.
 
 ## Dry-run mode
 
@@ -113,7 +138,7 @@ workflows:
 
 `${BETA_NOTES}` expands from the environment at config-resolution time.
 
-### Marketing release
+### Marketing release (tag the released version)
 
 ```yaml
 workflows:
@@ -126,7 +151,17 @@ workflows:
       options:
         submit_for_review: true
         phased_release: true
+    # Commit the bump, then tag the released version and push — no shell glue.
+    - action: git
+      options: { operation: commit, commit_message: "chore: release v{{version}}" }
+    - action: git
+      when: "{{version_changed}}"          # skipped on build-only bumps
+      options: { operation: tag, tag_name: "v{{version}}" }
+    - action: git
+      options: { operation: push, push_tags: true }
 ```
+
+`shipit generate --goal release` scaffolds this tail (commit/tag/push) for you, for both iOS and Android.
 
 ### Android beta
 

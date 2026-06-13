@@ -40,7 +40,9 @@ struct RunCommand: AsyncParsableCommand {
             try await registry.registerCustomActions(config.customActions)
             let formatter = makeHumanFormatter(global: global)
 
-            let steps = workflowConfig.steps.map { WorkflowStep(action: $0.action, options: $0.options) }
+            let steps = workflowConfig.steps.map {
+                WorkflowStep(action: $0.action, options: $0.options, when: $0.when)
+            }
             let workflowObj = Workflow(
                 workflow,
                 steps: steps,
