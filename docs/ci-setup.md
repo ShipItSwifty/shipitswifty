@@ -109,6 +109,100 @@ Use `--output json` for machine-readable results:
 shipit run beta --ci --output json | jq .status
 ```
 
+## Writing your own CI script
+
+You have two ways to drive a release from CI. Prefer the first; reach for the second only when a step must live in shell.
+
+### Approach 1 — One Shipfile workflow, one command (recommended)
+
+Put the whole pipeline — build, upload, version bump, commit, and tag — in a `Shipfile.yml` workflow and invoke it with a single `shipit run`. This is the only way to get `commit`/`tag`/`push` as managed steps, because **`git` is a workflow action, not a standalone CLI subcommand** (there is no `shipit git`).
+
+```yaml
+# Shipfile.yml
+workflows:
+  release:
+    - action: archive
+      options: { configuration: Release, export_method: app-store }
+    - action: export
+    - action: upload
+      options: { submit_for_review: true }
+    - action: version              # bump only after upload succeeds
+      options: { bump: patch }
+    - action: git
+      options:
+        operation: commit          # stages all changes (git add -A) then commits
+        commit_message: "chore: release version bump [skip ci]"
+    - action: git
+      options:
+        operation: push            # pushes the commit; pair with a tag step below
+        push_tags: true
+```
+
+```bash
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Git identity for the commit the `git` action will create.
+git config user.name  "ci-bot"
+git config user.email "ci-bot@users.noreply.github.com"
+
+shipit doctor --ci
+shipit run release --ci --output json | tee result.json
+test "$(jq -r '.status' result.json)" = "success"
+```
+
+A non-zero exit from `shipit run` already fails the job; the `jq` status check is a belt-and-suspenders guard for pipelines that swallow exit codes.
+
+> **Tagging:** the `tag` operation needs an explicit `tag_name` (it is not derived from the version bump). Either hardcode it per release, inject it via `${ENV_VAR}` expansion in the Shipfile (e.g. `tag_name: "v${RELEASE_VERSION}"`), or create the tag from shell using Approach 2.
+
+### Approach 2 — Hand-rolled shell script
+
+When you need shell-level control (deriving the tag from the freshly bumped version, conditional logic, extra tooling), drive the individual subcommands and parse their JSON. Each `shipit` subcommand emits the envelope `{ "action", "status", "payload": { … } }` and exits non-zero on failure.
+
+```bash
+#!/usr/bin/env bash
+set -euo pipefail
+
+git config user.name  "ci-bot"
+git config user.email "ci-bot@users.noreply.github.com"
+
+shipit doctor --ci
+
+# Build and distribute.
+shipit archive --ci --output json
+shipit export  --ci --output json
+shipit upload  --ci --output json
+
+# Bump the version, then read the new values straight from the JSON payload.
+bump_json="$(shipit version --bump patch --ci --output json)"
+new_version="$(jq -r '.payload.version'     <<<"$bump_json")"
+new_build="$(  jq -r '.payload.buildNumber' <<<"$bump_json")"
+echo "Bumped to ${new_version} (${new_build})"
+
+# Commit and tag with plain git — there is no `shipit git` subcommand.
+# `shipit version` writes the bump to disk; `git add -A` stages it.
+git add -A
+git commit -m "chore: release ${new_version} [skip ci]"
+git tag -a "v${new_version}" -m "Release ${new_version}"
+git push origin HEAD --follow-tags
+```
+
+Why this shape:
+
+- **`set -euo pipefail`** — fail the script the instant any `shipit` step or `jq` parse fails, instead of pushing a tag for a build that never uploaded.
+- **`--output json`** — every step stays machine-readable so you can gate on `.status` or pull values out of `.payload`.
+- **Bump *after* upload** — if `upload` fails, the version files are never touched, so there is nothing to roll back. See "Version bump ordering and recovery" in `docs/configuration-reference.md`.
+- **`--follow-tags`** — pushes the commit and its annotated tag in one round trip.
+
+### Preview without side effects
+
+Add `--dry-run` to any step to see what it would do without building, uploading, or writing version files:
+
+```bash
+shipit run release --dry-run --output json      # full step list, no execution
+shipit version --bump patch --dry-run --output json   # computed before/after, nothing written
+```
+
 ## Linux Swift Version
 
 The Linux CI job uses `swift:6.3.1-noble` (Ubuntu 24.04, current stable Swift). To update it, change the `container.image` value in `.github/workflows/ci.yml` and the `SWIFT_IMAGE` variable at the top of the `Makefile`.

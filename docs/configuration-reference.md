@@ -230,8 +230,8 @@ workflows:
       options: { bump: build }
     - action: git              # commit immediately so git is the rollback mechanism
       options:
-        commit: "chore: bump build number [skip ci]"
-        files: ["MyApp.xcodeproj/project.pbxproj"]
+        operation: commit      # stages all changes (git add -A) then commits
+        commit_message: "chore: bump build number [skip ci]"
     - action: export
     - action: testflight
 ```

@@ -573,6 +573,8 @@ Place the `version` step **after** `test` and `build` succeed, and pair it with 
 - If the version bump itself fails, nothing was written.
 - If a later step (e.g. `export` or `testflight`) fails, the bumped version is already committed to git — recovery is a plain `git revert`.
 
+> The `git` action with `operation: commit` stages **every** change in the working tree (`git add -A`) before committing — there is no per-file option. In CI this is usually what you want, since the runner starts from a clean checkout and the only modified files are the version bump. If you have unrelated local changes, commit or stash them first.
+
 ```yaml
 workflows:
   beta:
@@ -582,8 +584,8 @@ workflows:
       options: { bump: build }
     - action: git
       options:
-        commit: "chore: bump build number [skip ci]"
-        files: ["MyApp.xcodeproj/project.pbxproj"]
+        operation: commit
+        commit_message: "chore: bump build number [skip ci]"
     - action: export
     - action: testflight
 ```
