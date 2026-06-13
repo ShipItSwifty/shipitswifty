@@ -290,9 +290,9 @@ public struct WorkflowResult: Codable, Sendable {
     /// Total wall-clock duration in seconds.
     public let duration: TimeInterval
 
-    /// Whether all steps completed with `"success"` status.
+    /// Whether all steps completed successfully or were intentionally skipped.
     public var succeeded: Bool {
-        stepResults.allSatisfy { $0.status == "success" }
+        stepResults.allSatisfy { $0.status == "success" || $0.status == "skipped" }
     }
 
     /// Creates a `WorkflowResult`.
