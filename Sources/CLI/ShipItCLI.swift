@@ -64,7 +64,7 @@ struct ShipItCLI: AsyncParsableCommand {
         return commands
     }
 
-    static let versionString = "0.1.0"
+    static let versionString = "0.2.0"
 
     static func main(_ arguments: [String]?) async {
         let arguments = arguments ?? Array(CommandLine.arguments.dropFirst())
