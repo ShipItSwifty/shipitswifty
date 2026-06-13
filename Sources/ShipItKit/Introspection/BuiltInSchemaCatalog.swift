@@ -685,7 +685,8 @@ public enum BuiltInSchemaCatalog {
                     example: .string("{{version_changed}}")),
                 .object(
                     "options",
-                    description: "Action-specific options. String values may reference reserved tokens such as `{{version}}` and `{{build_number}}`.",
+                    description:
+                        "Action-specific options. String values may reference reserved tokens such as `{{version}}` and `{{build_number}}`.",
                     allowsAdditionalProperties: true,
                     additionalProperties: .any(
                         "<option>", description: "Action-specific workflow option value.")

@@ -219,7 +219,7 @@ public struct ActionResultEnvelope: Codable, Sendable {
     /// The name of the action that produced this result.
     public let action: String
 
-    /// Outcome status: `"success"` or `"failure"`.
+    /// Outcome status: `"success"`, `"failure"`, or workflow-level `"skipped"`.
     public let status: String
 
     /// The typed result payload, or `nil` for void-result actions.

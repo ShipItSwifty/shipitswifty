@@ -209,6 +209,21 @@ struct CLIBuildTests {
         #expect(decoded.payload?.objectValue?["exitCode"] == .int(0))
     }
 
+    @Test("Run dry-run JSON includes step when condition")
+    func runDryRunJSONIncludesStepWhenCondition() throws {
+        let steps = dryRunStepValues([
+            WorkflowStep(
+                action: "git",
+                options: .object(["tag_name": .string("v{{version}}")]),
+                when: "{{version_changed}}")
+        ])
+
+        let step = try #require(steps.first?.objectValue)
+        #expect(step["action"] == .string("git"))
+        #expect(step["when"] == .string("{{version_changed}}"))
+        #expect(step["options"]?.objectValue?["tag_name"] == .string("v{{version}}"))
+    }
+
     @Test("Workflow version summary includes build number")
     func workflowVersionSummaryIncludesBuildNumber() {
         let summary = humanStepSummary(

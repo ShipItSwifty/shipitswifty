@@ -162,5 +162,6 @@ struct WorkflowTokenTests {
         #expect(result.stepResults.count == 2)
         #expect(result.stepResults.last?.action == "git")
         #expect(result.stepResults.last?.status == "skipped")
+        #expect(result.succeeded)
     }
 }
