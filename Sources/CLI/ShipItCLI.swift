@@ -83,7 +83,7 @@ struct ShipItCLI: AsyncParsableCommand {
         }
 
         do {
-            var command = try await parseAsRoot(arguments)
+            var command = try parseAsRoot(arguments)
             if var asyncCommand = command as? AsyncParsableCommand {
                 try await asyncCommand.run()
             } else {
