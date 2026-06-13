@@ -815,13 +815,23 @@ public struct WorkflowStepConfig: Codable, Sendable {
     /// Options to pass to the action, as a JSON-compatible dictionary.
     public let options: JSONValue?
 
+    /// Optional condition controlling whether the step runs.
+    ///
+    /// Reserved workflow tokens (e.g. `{{version_changed}}`) are substituted first, then
+    /// the result is evaluated for truthiness (`true`/`1`/`yes`, case-insensitive). When
+    /// falsy, the step is skipped and the workflow continues. Evaluated for top-level
+    /// workflow steps; inert inside `custom_actions` substeps.
+    public let when: String?
+
     /// Creates a `WorkflowStepConfig`.
     ///
     /// - Parameters:
     ///   - action: The registered action name to execute.
     ///   - options: Optional JSON options passed to the action.
-    public init(action: String, options: JSONValue? = nil) {
+    ///   - when: Optional truthy-token condition; when falsy the step is skipped.
+    public init(action: String, options: JSONValue? = nil, when: String? = nil) {
         self.action = action
         self.options = options
+        self.when = when
     }
 }

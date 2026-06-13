@@ -40,7 +40,9 @@ struct RunCommand: AsyncParsableCommand {
             try await registry.registerCustomActions(config.customActions)
             let formatter = makeHumanFormatter(global: global)
 
-            let steps = workflowConfig.steps.map { WorkflowStep(action: $0.action, options: $0.options) }
+            let steps = workflowConfig.steps.map {
+                WorkflowStep(action: $0.action, options: $0.options, when: $0.when)
+            }
             let workflowObj = Workflow(
                 workflow,
                 steps: steps,
@@ -51,13 +53,6 @@ struct RunCommand: AsyncParsableCommand {
             if global.dryRun {
                 switch global.output {
                 case .json:
-                    let stepValues: [JSONValue] = steps.enumerated().map { index, step in
-                        .object([
-                            "index": .int(index + 1),
-                            "action": .string(step.action),
-                            "options": step.options ?? .null,
-                        ])
-                    }
                     let reporter = JSONReporter()
                     let envelope = ActionResultEnvelope(
                         action: "run",
@@ -66,7 +61,7 @@ struct RunCommand: AsyncParsableCommand {
                             "workflow": .string(workflow),
                             "mode": .string("dry_run"),
                             "stepCount": .int(steps.count),
-                            "steps": .array(stepValues),
+                            "steps": .array(dryRunStepValues(steps)),
                         ])
                     )
                     print(try reporter.encode(envelope))
@@ -110,6 +105,17 @@ struct RunCommand: AsyncParsableCommand {
             outputError(error: error, format: global.output, colorMode: global.effectiveColorMode)
             throw ExitCode(error.exitCode)
         }
+    }
+}
+
+func dryRunStepValues(_ steps: [WorkflowStep]) -> [JSONValue] {
+    steps.enumerated().map { index, step in
+        .object([
+            "index": .int(index + 1),
+            "action": .string(step.action),
+            "options": step.options ?? .null,
+            "when": step.when.map(JSONValue.string) ?? .null,
+        ])
     }
 }
 

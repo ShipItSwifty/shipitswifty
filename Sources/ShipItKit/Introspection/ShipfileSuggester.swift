@@ -518,8 +518,10 @@ public struct ShipfileSuggester: Sendable {
         case .release:
             lines.append(contentsOf: [
                 "  release:",
+                "    # Bump the marketing version (patch by default). Use ${RELEASE_BUMP} to",
+                "    # drive the component from CI (major|minor|patch|build).",
                 "    - action: version",
-                "      options: { bump: build }",
+                "      options: { bump: patch }   # or: { bump: ${RELEASE_BUMP} }",
                 "    - action: archive",
                 "    - action: export",
                 "    - action: precheck",
@@ -528,6 +530,15 @@ public struct ShipfileSuggester: Sendable {
                 "      options: { push: true }",
                 "    - action: upload",
                 "      options: { submit_for_review: true, phased_release: true }",
+                "    # Commit the version bump, then tag the released marketing version and push.",
+                "    # The tag step is skipped on build-only bumps (when version_changed is false).",
+                "    - action: git",
+                "      options: { operation: commit, commit_message: \"chore: release v{{version}} (build {{build_number}})\" }",
+                "    - action: git",
+                "      when: \"{{version_changed}}\"",
+                "      options: { operation: tag, tag_name: \"v{{version}}\" }",
+                "    - action: git",
+                "      options: { operation: push, push_tags: true }",
             ])
         }
 
@@ -596,8 +607,10 @@ public struct ShipfileSuggester: Sendable {
         case .release:
             lines.append(contentsOf: [
                 "  release:",
+                "    # Bump the marketing version (patch by default). Use ${RELEASE_BUMP} to",
+                "    # drive the component from CI (major|minor|patch|build).",
                 "    - action: version",
-                "      options: { bump: build }",
+                "      options: { bump: patch }   # or: { bump: ${RELEASE_BUMP} }",
                 "    - action: lint",
                 "    - action: test",
                 "      # options: { infrastructure_retry: { max_attempts: 3, initial_delay_seconds: 2, max_delay_seconds: 30 } }",
@@ -605,6 +618,15 @@ public struct ShipfileSuggester: Sendable {
                 "    - action: archive",
                 "    - action: play-store",
                 "      options: { track: production }",
+                "    # Commit the version bump, then tag the released marketing version and push.",
+                "    # The tag step is skipped on build-only bumps (when version_changed is false).",
+                "    - action: git",
+                "      options: { operation: commit, commit_message: \"chore: release v{{version}} (build {{build_number}})\" }",
+                "    - action: git",
+                "      when: \"{{version_changed}}\"",
+                "      options: { operation: tag, tag_name: \"v{{version}}\" }",
+                "    - action: git",
+                "      options: { operation: push, push_tags: true }",
             ])
         }
 

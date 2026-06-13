@@ -28,6 +28,7 @@ ShipItSwifty is a direct, opinionated replacement for fastlane. The mapping is m
 | `frameit` | `shipit frame` |
 | `increment_build_number` / `increment_version_number` | `shipit version` |
 | `supply` | `shipit play-store` |
+| `add_git_tag` / `push_to_git_remote` | `git` workflow steps (`operation: tag` / `commit` / `push`), tagging with the `{{version}}` token |
 
 ## Step 1: move app identity into the Shipfile
 
@@ -71,13 +72,17 @@ workflows:
         groups: ["Internal QA"]
 ```
 
-A release lane:
+A release lane that also tags the release:
 
 ```ruby
 lane :release do
   capture_screenshots
   build_app
   upload_to_app_store(submit_for_review: true)
+  increment_version_number(bump_type: "patch")
+  commit_version_bump
+  add_git_tag(tag: "v#{lane_context[SharedValues::VERSION_NUMBER]}")
+  push_to_git_remote
 end
 ```
 
@@ -93,6 +98,17 @@ workflows:
       options:
         submit_for_review: true
         phased_release: true
+    - action: version
+      options: { bump: patch }
+    # fastlane's add_git_tag with the bumped version becomes the {{version}} token —
+    # no lane_context plumbing. The tag is skipped on build-only bumps.
+    - action: git
+      options: { operation: commit, commit_message: "chore: release v{{version}}" }
+    - action: git
+      when: "{{version_changed}}"
+      options: { operation: tag, tag_name: "v{{version}}" }
+    - action: git
+      options: { operation: push, push_tags: true }
 ```
 
 ## Step 3: move secrets to environment variables

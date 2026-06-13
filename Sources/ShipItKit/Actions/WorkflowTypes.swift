@@ -12,14 +12,24 @@ public struct WorkflowStep: Codable, Sendable {
     /// Options to forward to the action, decoded from YAML or JSON.
     public let options: JSONValue?
 
+    /// Optional condition controlling whether the step runs.
+    ///
+    /// Reserved workflow tokens (e.g. `{{version_changed}}`) are substituted first, then
+    /// the result is evaluated for truthiness (`true`/`1`/`yes`, case-insensitive). When
+    /// non-nil and falsy, the step is skipped (recorded with status `"skipped"`) and the
+    /// workflow continues.
+    public let when: String?
+
     /// Creates a `WorkflowStep`.
     ///
     /// - Parameters:
     ///   - action: The registered action name to execute.
     ///   - options: Optional JSON options forwarded to the action.
-    public init(action: String, options: JSONValue? = nil) {
+    ///   - when: Optional truthy-token condition; when falsy the step is skipped.
+    public init(action: String, options: JSONValue? = nil, when: String? = nil) {
         self.action = action
         self.options = options
+        self.when = when
     }
 }
 
@@ -157,8 +167,25 @@ public struct Workflow: Sendable {
         }
         #endif
 
+        // Reserved-token resolver (`{{version}}`, `{{build_number}}`, `{{version_changed}}`).
+        // Seed best-effort from the current versioning source so tokens resolve even when
+        // referenced before a `version` step runs; updated after each step.
+        var tokens = await Self.seededTokenResolver(steps: steps, context: effectiveContext)
+
         for (index, step) in steps.enumerated() {
             logger.info("Workflow '\(name)' step \(index + 1)/\(steps.count): \(step.action)")
+
+            // Evaluate an optional `when:` condition after token substitution.
+            if let condition = step.when {
+                let resolved = tokens.substitute(in: condition)
+                if !WorkflowTokenResolver.isTruthy(resolved) {
+                    logger.info(
+                        "Workflow '\(name)' step '\(step.action)' skipped (when: '\(condition)' → '\(resolved)')")
+                    stepResults.append(
+                        ActionResultEnvelope(action: step.action, status: "skipped", payload: nil))
+                    continue
+                }
+            }
 
             guard let descriptor = await registry.descriptor(named: step.action) else {
                 throw ShipItError.invalidConfiguration(
@@ -166,14 +193,55 @@ public struct Workflow: Sendable {
                 )
             }
 
-            let result = try await descriptor.runJSON(step.options, effectiveContext)
+            let substitutedOptions = step.options.map { tokens.substitute($0) }
+            let result = try await descriptor.runJSON(substitutedOptions, effectiveContext)
             stepResults.append(result)
+            tokens.update(from: result)
             logger.info("Workflow '\(name)' step '\(step.action)' succeeded")
         }
 
         let duration = Date().timeIntervalSince(startTime)
         logger.info("Workflow '\(name)' completed in \(String(format: "%.1f", duration))s")
         return WorkflowResult(workflowName: name, stepResults: stepResults, duration: duration)
+    }
+
+    /// Builds a token resolver seeded best-effort from the current versioning source.
+    ///
+    /// Seeding lets `{{version}}` / `{{build_number}}` resolve even when referenced before
+    /// a `version` step runs. `{{version_changed}}` seeds to `false` (nothing has changed
+    /// yet). Reading is skipped entirely when no step references a token, and any read
+    /// failure is non-fatal — tokens simply remain unresolved until a `version` step
+    /// supplies them.
+    private static func seededTokenResolver(
+        steps: [WorkflowStep],
+        context: ActionContext
+    ) async -> WorkflowTokenResolver {
+        guard stepsReferenceTokens(steps) else { return WorkflowTokenResolver() }
+        guard let preview = try? await VersionBumper(context: context).preview(options: .init(bump: .build))
+        else { return WorkflowTokenResolver() }
+        return WorkflowTokenResolver(values: [
+            "version": preview.currentVersion,
+            "build_number": preview.currentBuildNumber,
+            "version_changed": "false",
+        ])
+    }
+
+    /// Returns `true` when any step's `when` or `options` contains a `{{…}}` reference.
+    private static func stepsReferenceTokens(_ steps: [WorkflowStep]) -> Bool {
+        for step in steps {
+            if step.when?.contains("{{") == true { return true }
+            if let options = step.options, jsonContainsToken(options) { return true }
+        }
+        return false
+    }
+
+    private static func jsonContainsToken(_ value: JSONValue) -> Bool {
+        switch value {
+        case .string(let s): return s.contains("{{")
+        case .array(let items): return items.contains(where: jsonContainsToken)
+        case .object(let dict): return dict.values.contains(where: jsonContainsToken)
+        case .null, .bool, .int, .double: return false
+        }
     }
 
     /// Actions that require an `.xcodeproj` or `.xcworkspace` to be present.
@@ -222,9 +290,9 @@ public struct WorkflowResult: Codable, Sendable {
     /// Total wall-clock duration in seconds.
     public let duration: TimeInterval
 
-    /// Whether all steps completed with `"success"` status.
+    /// Whether all steps completed successfully or were intentionally skipped.
     public var succeeded: Bool {
-        stepResults.allSatisfy { $0.status == "success" }
+        stepResults.allSatisfy { $0.status == "success" || $0.status == "skipped" }
     }
 
     /// Creates a `WorkflowResult`.

@@ -133,6 +133,41 @@ struct IntrospectionTests {
         #expect(suggestion.yaml.contains("package_name: com.example.app"))
         #expect(suggestion.yaml.contains("- action: play-store"))
         #expect(!suggestion.missingValues.contains { $0.keyPath == "android.package_name" })
+        // Release scaffold tags the bumped version with a conditional git tail.
+        #expect(suggestion.yaml.contains("bump: patch"))
+        #expect(suggestion.yaml.contains("operation: tag"))
+        #expect(suggestion.yaml.contains("tag_name: \"v{{version}}\""))
+        #expect(suggestion.yaml.contains("when: \"{{version_changed}}\""))
+        #expect(suggestion.yaml.contains("operation: push"))
+    }
+
+    @Test("Shipfile suggester generates iOS release workflow with conditional tag tail")
+    func shipfileSuggesterGeneratesIOSReleaseTagTail() {
+        let inspection = ProjectInspection(
+            rootPath: "/tmp/project",
+            xcodeContainers: [.init(kind: "workspace", path: "App.xcworkspace")],
+            preferredContainer: .init(kind: "workspace", path: "App.xcworkspace"),
+            schemes: [
+                .init(
+                    name: "App", containerPath: "App.xcworkspace", bundleID: "com.example.app",
+                    teamID: "TEAM12345", likelyRunnable: true)
+            ],
+            suggestedAppConfig: .init(
+                workspace: "App.xcworkspace", scheme: "App", bundleID: "com.example.app",
+                teamID: "TEAM12345"),
+            existingShipfiles: [],
+            fastlaneFiles: [],
+            ciFiles: [],
+            warnings: []
+        )
+
+        let suggestion = ShipfileSuggester().suggest(goal: .release, platform: .ios, from: inspection)
+
+        #expect(suggestion.yaml.contains("bump: patch"))
+        #expect(suggestion.yaml.contains("operation: tag"))
+        #expect(suggestion.yaml.contains("tag_name: \"v{{version}}\""))
+        #expect(suggestion.yaml.contains("when: \"{{version_changed}}\""))
+        #expect(suggestion.yaml.contains("operation: push"))
     }
 
     @Test("Shipfile suggester generates combined React Native beta workflows")

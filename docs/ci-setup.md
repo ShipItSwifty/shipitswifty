@@ -131,10 +131,15 @@ workflows:
     - action: git
       options:
         operation: commit          # stages all changes (git add -A) then commits
-        commit_message: "chore: release version bump [skip ci]"
+        commit_message: "chore: release v{{version}} [skip ci]"   # {{version}} from the step above
+    - action: git
+      when: "{{version_changed}}"   # skipped on build-only bumps
+      options:
+        operation: tag
+        tag_name: "v{{version}}"    # resolved from the version step — no shell glue
     - action: git
       options:
-        operation: push            # pushes the commit; pair with a tag step below
+        operation: push
         push_tags: true
 ```
 
@@ -153,11 +158,11 @@ test "$(jq -r '.status' result.json)" = "success"
 
 A non-zero exit from `shipit run` already fails the job; the `jq` status check is a belt-and-suspenders guard for pipelines that swallow exit codes.
 
-> **Tagging:** the `tag` operation needs an explicit `tag_name` (it is not derived from the version bump). Either hardcode it per release, inject it via `${ENV_VAR}` expansion in the Shipfile (e.g. `tag_name: "v${RELEASE_VERSION}"`), or create the tag from shell using Approach 2.
+> **Tagging:** the `tag` step derives its name from the version you just bumped via the `{{version}}` token — no shell parsing or `${ENV_VAR}` round-trip needed. `{{build_number}}` is also available (e.g. `tag_name: "v{{version}}+{{build_number}}"`), and `{{version_changed}}` lets you skip the tag on build-only bumps with `when: "{{version_changed}}"`. See the "Workflow tokens & step conditions" section of `docs/configuration-reference.md`. `shipit generate --goal release` scaffolds this whole tail for you.
 
 ### Approach 2 — Hand-rolled shell script
 
-When you need shell-level control (deriving the tag from the freshly bumped version, conditional logic, extra tooling), drive the individual subcommands and parse their JSON. Each `shipit` subcommand emits the envelope `{ "action", "status", "payload": { … } }` and exits non-zero on failure.
+When you need shell-level control (extra tooling between steps, bespoke conditional logic, or values ShipIt doesn't expose as a token), drive the individual subcommands and parse their JSON. Tagging with the freshly bumped version no longer requires this — use the `{{version}}` token in Approach 1. Each `shipit` subcommand emits the envelope `{ "action", "status", "payload": { … } }` and exits non-zero on failure.
 
 ```bash
 #!/usr/bin/env bash

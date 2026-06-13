@@ -688,6 +688,11 @@ public struct AISessionBuilder: Sendable {
                     "The Android release workflow targets the production track on Google Play (options: { track: production }).",
                     "The `track` option is REQUIRED on every play-store step. Valid tracks: internal, alpha, beta, production.",
                     "Staged rollout is supported via android.rollout_fraction (0.0–1.0) in Shipfile.yml.",
+                    "",
+                    "Tag the released version inside the workflow — do NOT compute it with external shell/jq glue.",
+                    "After the `version` step, later steps can reference `{{version}}` and `{{build_number}}` in their options (e.g. git tag_name: \"v{{version}}\").",
+                    "Gate the `git` tag step with `when: \"{{version_changed}}\"` so build-only bumps don't re-tag the same version.",
+                    "Use `bump: ${RELEASE_BUMP}` on the version step to drive the bump component (major|minor|patch|build) from CI.",
                 ]
             }
         case .ios:
@@ -747,6 +752,10 @@ public struct AISessionBuilder: Sendable {
                     "",
                     "  For XcodeGen / spec-driven projects, use versioning.source: project_spec",
                     "  or the `target: source_of_truth` option on the version step to write to the spec file.",
+                    "",
+                    "Tag the released version inside the workflow — do NOT compute it with external shell/jq glue.",
+                    "After the `version` step, later steps can reference `{{version}}` and `{{build_number}}` in their options (e.g. git tag_name: \"v{{version}}\").",
+                    "Gate the `git` tag step with `when: \"{{version_changed}}\"` so build-only bumps don't re-tag the same version.",
                 ]
             }
         }
@@ -783,6 +792,12 @@ public struct AISessionBuilder: Sendable {
             "  Inside a composite's step options, reference declared parameters as `{{param.NAME}}` — this syntax",
             "  is chosen specifically to avoid collisions with Shipfile's `${ENV_VAR}` expansion, GitHub Actions",
             "  `${{ ... }}`, and CircleCI `<< ... >>` templating, so it is safe to use in any CI environment.",
+            "",
+            "Reserved workflow tokens (distinct from `{{param.NAME}}`):",
+            "  In any top-level workflow step's options or `when`, `{{version}}` and `{{build_number}}` resolve from a",
+            "  prior `version` step (or the current versioning source); `{{version_changed}}` is `true`/`false`.",
+            "  Use these to tag the released version inside the workflow (git tag_name: \"v{{version}}\",",
+            "  when: \"{{version_changed}}\") instead of capturing the version with external shell/jq glue.",
         ]
         if !customActions.isEmpty {
             lines.append("  Defined in this project:")

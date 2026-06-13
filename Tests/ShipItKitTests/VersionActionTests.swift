@@ -35,6 +35,7 @@ struct VersionActionTests {
 
         #expect(result.version == "1.2.4")
         #expect(result.buildNumber == "42")
+        #expect(result.versionChanged == true)  // marketing version advanced
         #expect(executedCommands.contains { $0.contains("new-marketing-version 1.2.4") })
     }
 
@@ -135,6 +136,7 @@ struct VersionActionTests {
 
         #expect(result.version == "1.2.3")
         #expect(result.buildNumber == "128")
+        #expect(result.versionChanged == false)  // build-only bump leaves marketing version unchanged
     }
 
     @Test("VersionAction sequential build bump increments integer by 1")
