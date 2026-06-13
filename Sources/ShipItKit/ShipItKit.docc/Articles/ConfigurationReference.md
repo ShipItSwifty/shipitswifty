@@ -273,6 +273,19 @@ Each workflow is a list of steps. A step has:
 |---|---|
 | `action` | Registered action name |
 | `options` | Optional key-value map passed to the action |
+| `when` | Optional condition. After token substitution the step runs only when truthy (`true`/`1`/`yes`); otherwise it is skipped. |
+
+A step's string `options` and its `when` may use reserved tokens that resolve at run time from a prior `version` step (or the current versioning source): `{{version}}`, `{{build_number}}`, and `{{version_changed}}` (`true`/`false`). These are distinct from composite `{{param.NAME}}` references (see <doc:CompositeActions>) and from `${ENV_VAR}` expansion, and let a release tag the version it just bumped without external scripting:
+
+```yaml
+workflows:
+  release:
+    - action: version
+      options: { bump: patch }
+    - action: git
+      when: "{{version_changed}}"
+      options: { operation: tag, tag_name: "v{{version}}" }
+```
 
 ## Environment Variables
 

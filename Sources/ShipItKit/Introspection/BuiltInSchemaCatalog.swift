@@ -428,10 +428,12 @@ public enum BuiltInSchemaCatalog {
             ),
             .object(
                 "workflows",
-                description: "Named workflows executed with `shipit run <workflow>`.",
+                description:
+                    "Named workflows executed with `shipit run <workflow>`. A step's string options and its `when` may use reserved tokens: `{{version}}` and `{{build_number}}` resolve from a prior `version` step (or the current versioning source), and `{{version_changed}}` is `true`/`false`. A step may also carry `when: \"<expr>\"`; after token substitution the step runs only when the result is truthy (`true`/`1`/`yes`), otherwise it is skipped. Use these to tag a release inside the workflow (git `tag_name: \"v{{version}}\"`, `when: \"{{version_changed}}\"`) instead of external shell/jq glue. These are distinct from composite `{{param.NAME}}` references and resolved for top-level steps only.",
                 notes: [
                     "Workflow names are dynamic keys.",
                     "Each workflow is an ordered list of action steps, or an object with workflow-level overrides and a `steps` array.",
+                    "Reserved step tokens: {{version}}, {{build_number}}, {{version_changed}}. Optional step `when:` gates execution on a truthy token.",
                 ],
                 allowsAdditionalProperties: true,
                 additionalProperties: .any(
@@ -668,13 +670,22 @@ public enum BuiltInSchemaCatalog {
         .object(
             "step",
             description: "A single workflow step.",
+            notes: [
+                "Reserved interpolation tokens may be used inside string option values and in `when`: `{{version}}` and `{{build_number}}` resolve from a prior `version` step (or the current versioning source); `{{version_changed}}` is `true`/`false` for whether the marketing version changed.",
+                "These workflow tokens are distinct from composite `{{param.NAME}}` references and are resolved at run time for top-level workflow steps only.",
+            ],
             properties: [
                 .string(
                     "action", required: true, description: "Registered action name.",
                     example: .string("archive")),
+                .string(
+                    "when",
+                    description:
+                        "Optional condition. Reserved tokens (e.g. `{{version_changed}}`) are substituted, then the result is evaluated for truthiness (`true`/`1`/`yes`). When falsy the step is skipped and the workflow continues.",
+                    example: .string("{{version_changed}}")),
                 .object(
                     "options",
-                    description: "Action-specific options.",
+                    description: "Action-specific options. String values may reference reserved tokens such as `{{version}}` and `{{build_number}}`.",
                     allowsAdditionalProperties: true,
                     additionalProperties: .any(
                         "<option>", description: "Action-specific workflow option value.")

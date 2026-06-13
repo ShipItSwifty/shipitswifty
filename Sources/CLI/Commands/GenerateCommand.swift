@@ -117,6 +117,7 @@ struct GenerateCommand: AsyncParsableCommand {
                 ActionResultEnvelope(action: "generate", status: "success", payload: payload)))
 
         Self.logger.info("Shipfile generation completed")
+        printReleaseSetupGuidance(formatter: formatter)
         try await offerDoctor(outputPath: outputPath, formatter: formatter)
     }
 
@@ -175,6 +176,7 @@ struct GenerateCommand: AsyncParsableCommand {
             suggestion: suggestion, platform: platform, formatter: formatter)
         var confirmedYAML = apply(overrides: overrides, to: suggestion.yaml)
         confirmedYAML = applyTestRetryQuestionnaire(to: confirmedYAML, formatter: formatter)
+        confirmedYAML = applyReleaseTaggingQuestionnaire(to: confirmedYAML, formatter: formatter)
 
         formatter.printHeader("Shipfile Preview")
         formatter.print(confirmedYAML)
@@ -185,6 +187,39 @@ struct GenerateCommand: AsyncParsableCommand {
         }
 
         return confirmedYAML
+    }
+
+    /// For a `release` goal, explains the commit/tag/push tail and offers to drive the
+    /// version bump component from CI via the `RELEASE_BUMP` env var. Interactive only —
+    /// non-interactive generation keeps the default `bump: patch` scaffold.
+    private func applyReleaseTaggingQuestionnaire(to yaml: String, formatter: HumanFormatter) -> String {
+        guard goal == .release, yaml.contains("operation: tag") else { return yaml }
+
+        formatter.printHeader("Release Tagging")
+        formatter.print("The release workflow commits the version bump, tags the released marketing")
+        formatter.print("version (v{{version}}), and pushes — the tag step is skipped on build-only")
+        formatter.print("bumps. It all runs as one `shipit run release`, no external scripting.")
+        let ciDriven = confirm(
+            "Drive the version bump component from CI via the RELEASE_BUMP env var?",
+            defaultAnswer: false)
+        return releaseBumpFromCI(yaml: yaml, enabled: ciDriven)
+    }
+
+    /// Prints the CI prerequisites for the release workflow's commit/tag/push tail.
+    /// Interactive `release` generations only.
+    private func printReleaseSetupGuidance(formatter: HumanFormatter) {
+        guard goal == .release, !nonInteractive, isInteractiveTerminal else { return }
+
+        formatter.printHeader("Release Setup — CI Prerequisites")
+        formatter.print("Your `release` workflow commits, tags, and pushes. The CI job that runs")
+        formatter.print("`shipit run release` needs:")
+        formatter.print("  • Full-history checkout so tags resolve (GitHub Actions: actions/checkout with fetch-depth: 0)")
+        formatter.print("  • Write permission to push the commit and tag (e.g. permissions: contents: write, or a PAT)")
+        formatter.print("  • A git identity (git config user.name / user.email)")
+        formatter.print("  • Optional: set RELEASE_BUMP=major|minor|patch|build at dispatch to choose the bump")
+        formatter.print("")
+        formatter.print("Run locally with:  shipit run release")
+        formatter.print("More: docs/ci-setup.md and the “Workflow tokens” section of docs/configuration-reference.md.")
     }
 
     private func applyTestRetryQuestionnaire(to yaml: String, formatter: HumanFormatter) -> String {
@@ -1421,6 +1456,16 @@ struct GenerateCommand: AsyncParsableCommand {
     private var isInteractiveTerminal: Bool {
         isatty(STDIN_FILENO) != 0 && isatty(STDOUT_FILENO) != 0
     }
+}
+
+/// Switches the generated release workflow's version step to read the bump component from
+/// the `RELEASE_BUMP` env var (CI-driven) instead of the default `patch`. No-op when
+/// `enabled` is false or the scaffold line is absent.
+func releaseBumpFromCI(yaml: String, enabled: Bool) -> String {
+    guard enabled else { return yaml }
+    return yaml.replacingOccurrences(
+        of: "bump: patch }   # or: { bump: ${RELEASE_BUMP} }",
+        with: "bump: ${RELEASE_BUMP} }   # major|minor|patch|build, set at CI dispatch")
 }
 
 func resolvedPlatformFocus(

@@ -224,7 +224,7 @@ workflows:
         changelog: "Bug fixes and improvements"
 ```
 
-**Release** (bumps marketing version, submits for review):
+**Release** (bumps marketing version, submits for review, tags the release):
 
 ```yaml
 workflows:
@@ -235,7 +235,18 @@ workflows:
     - action: export
     - action: upload
       options: { submit_for_review: true, phased_release: true }
+    # Tag the released version. `{{version}}` resolves from the version step above —
+    # no shell parsing. The tag is skipped on build-only bumps (when version_changed is false).
+    - action: git
+      options: { operation: commit, commit_message: "chore: release v{{version}}" }
+    - action: git
+      when: "{{version_changed}}"
+      options: { operation: tag, tag_name: "v{{version}}" }
+    - action: git
+      options: { operation: push, push_tags: true }
 ```
+
+> `shipit generate --goal release` scaffolds this commit/tag/push tail automatically. See the "Workflow tokens & step conditions" section of [`docs/configuration-reference.md`](configuration-reference.md) for the full token list.
 
 Then run a workflow:
 

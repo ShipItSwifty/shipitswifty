@@ -94,10 +94,18 @@ public struct VersionAction: Action {
         /// The new build number string.
         public let buildNumber: String
 
+        /// Whether the marketing version string changed (e.g. `patch`/`minor`/`major`).
+        ///
+        /// `false` for a build-only bump, where `version` is unchanged. Surfaced to
+        /// workflows as the `{{version_changed}}` token so a release can gate its `git tag`
+        /// step and avoid re-tagging the same `v<version>`.
+        public let versionChanged: Bool
+
         /// Creates a `Result`.
-        public init(version: String, buildNumber: String) {
+        public init(version: String, buildNumber: String, versionChanged: Bool = false) {
             self.version = version
             self.buildNumber = buildNumber
+            self.versionChanged = versionChanged
         }
     }
 

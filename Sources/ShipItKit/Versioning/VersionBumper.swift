@@ -93,7 +93,8 @@ public struct VersionBumper: Sendable {
         }
 
         logger.info("Version bumped: \(currentVersion) (\(currentBuild)) -> \(newVersion) (\(newBuild))")
-        return VersionAction.Result(version: newVersion, buildNumber: newBuild)
+        return VersionAction.Result(
+            version: newVersion, buildNumber: newBuild, versionChanged: newVersion != currentVersion)
     }
 
     /// Resolve which versioning source to use based on options and config.

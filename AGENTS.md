@@ -223,6 +223,8 @@ workflows:
 
 Workflow auto-generation also inspects `custom_actions` recursively, so a composite that expands to `build`, `test`, or `archive` still triggers `project_generation.auto_generate` when needed.
 
+**Reserved workflow tokens (distinct from `{{param.NAME}}`):** top-level workflow steps may reference `{{version}}` / `{{build_number}}` (resolved from a prior `version` step or the current versioning source) and `{{version_changed}}` (`true`/`false`) inside their `options` and `when` values, resolved at run time by `Workflow.run`. Steps also support `when: "<truthy-token>"` to skip conditionally (status `skipped`). Prefer tagging the released version inside the workflow (`git` `tag_name: "v{{version}}"`, gated by `when: "{{version_changed}}"`) over capturing the version with external shell/jq glue. The implementation lives in `Sources/ShipItKit/Actions/WorkflowTokens.swift`; scope is top-level steps only (not `custom_actions` substeps).
+
 See `docs/configuration-reference.md` for the full schema and examples.
 
 ## App Store Connect credentials (for ASC-backed features)
