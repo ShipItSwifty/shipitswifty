@@ -1,0 +1,138 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+
+permissions:
+  contents: write
+
+jobs:
+  build-macos:
+    name: Build macOS Universal Binary
+    runs-on: macos-26
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_26.4.app
+
+      - name: Swift version
+        run: swift --version
+
+      - name: Cache SPM dependencies
+        uses: actions/cache@v5
+        with:
+          path: .build/checkouts
+          key: ${{ runner.os }}-spm-${{ hashFiles('Package.resolved') }}
+          restore-keys: |
+            ${{ runner.os }}-spm-
+
+      - name: Build arm64
+        run: |
+          swift build \
+            --configuration release \
+            --product shipit \
+            --arch arm64 \
+            --disable-sandbox
+
+      - name: Build x86_64
+        run: |
+          swift build \
+            --configuration release \
+            --product shipit \
+            --arch x86_64 \
+            --disable-sandbox
+
+      - name: Create universal binary
+        run: |
+          lipo -create -output shipit \
+            .build/arm64-apple-macosx/release/shipit \
+            .build/x86_64-apple-macosx/release/shipit
+          lipo -info shipit
+
+      - name: Package tarball
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          tar -czf "shipit-${VERSION}-macos-universal.tar.gz" shipit
+          echo "TARBALL=shipit-${VERSION}-macos-universal.tar.gz" >> "$GITHUB_ENV"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-universal
+          path: ${{ env.TARBALL }}
+          retention-days: 1
+
+  build-linux:
+    name: Build Linux Static Binary
+    runs-on: ubuntu-24.04
+    container:
+      image: swift:6.3.1-noble
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Swift version
+        run: swift --version
+
+      - name: Cache SPM dependencies
+        uses: actions/cache@v5
+        with:
+          path: .build/checkouts
+          key: linux-spm-${{ hashFiles('Package.resolved') }}
+          restore-keys: |
+            linux-spm-
+
+      - name: Build static binary
+        run: |
+          swift build \
+            --configuration release \
+            --product shipit \
+            --static-swift-stdlib
+
+      - name: Package tarball
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          cp .build/release/shipit shipit
+          tar -czf "shipit-${VERSION}-linux-static.tar.gz" shipit
+          echo "TARBALL=shipit-${VERSION}-linux-static.tar.gz" >> "$GITHUB_ENV"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-static
+          path: ${{ env.TARBALL }}
+          retention-days: 1
+
+  release:
+    name: Create GitHub Release
+    needs: [build-macos, build-linux]
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Download macOS artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: macos-universal
+
+      - name: Download Linux artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: linux-static
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            shipit-*-macos-universal.tar.gz
+            shipit-*-linux-static.tar.gz
