@@ -2,24 +2,20 @@ class Shipit < Formula
   desc "Swift-native CLI toolkit for iOS and Android release automation"
   homepage "https://github.com/shipitswifty/shipitswifty"
   license "MIT"
-  # Stable releases are added in the tap after a tag exists, because the
-  # GitHub source archive checksum is only knowable after publication.
-  # Add these lines in shipitswifty/homebrew-tap after tagging a release:
-  # url "https://github.com/shipitswifty/shipitswifty/archive/refs/tags/<version>.tar.gz"
-  # sha256 "<computed-sha256>"
-  head "https://github.com/shipitswifty/shipitswifty.git", branch: "main"
+  version "0.2.0"
 
-  uses_from_macos "swift" => :build
+  on_macos do
+    url "https://github.com/ShipItSwifty/shipitswifty/releases/download/v#{version}/shipit-#{version}-macos-universal.tar.gz"
+    sha256 "MACOS_SHA256_PLACEHOLDER"
+  end
+
+  on_linux do
+    url "https://github.com/ShipItSwifty/shipitswifty/releases/download/v#{version}/shipit-#{version}-linux-static.tar.gz"
+    sha256 "LINUX_SHA256_PLACEHOLDER"
+  end
 
   def install
-    args = if OS.mac?
-      ["--disable-sandbox"]
-    else
-      ["--static-swift-stdlib"]
-    end
-
-    system "swift", "build", *args, "--configuration", "release", "--product", "shipit"
-    bin.install ".build/release/shipit"
+    bin.install "shipit"
   end
 
   test do
