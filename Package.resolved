@@ -1,5 +1,5 @@
 {
-  "originHash" : "4481c070f64db4744cd28e8013c07691382831455cd9a6a7cdce0ac3e6209329",
+  "originHash" : "0307d7283728b1c944b240d908a7ea5d7dbb825babe93d8ccfc3f1b69308a694",
   "pins" : [
     {
       "identity" : "jwt-kit",
@@ -69,8 +69,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-log",
       "state" : {
-        "revision" : "2aed77ae5ec9a86d8fe42c12275e4c2653a286ee",
-        "version" : "1.13.1"
+        "revision" : "92448c359f00ebe36ae97d3bd9086f13c7692b5a",
+        "version" : "1.13.2"
       }
     },
     {
