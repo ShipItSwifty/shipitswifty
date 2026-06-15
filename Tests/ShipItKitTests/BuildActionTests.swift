@@ -137,6 +137,91 @@ struct BuildActionTests {
 
         #expect(capturedCommand?.arguments.contains("-allowProvisioningUpdates") == true)
     }
+
+    @Test("BuildAction passes ASC API key flags for automatic signing in CI")
+    func buildActionPassesASCAuthKey() async throws {
+        nonisolated(unsafe) var capturedCommand: Command?
+        nonisolated(unsafe) var keyPathExistedDuringRun = false
+        nonisolated(unsafe) var keyContents: Data?
+        let executor = MockExecutor { command, _ in
+            capturedCommand = command
+            if let index = command.arguments.firstIndex(of: "-authenticationKeyPath"),
+                index + 1 < command.arguments.count
+            {
+                let path = command.arguments[index + 1]
+                keyPathExistedDuringRun = FileManager.default.fileExists(atPath: path)
+                keyContents = FileManager.default.contents(atPath: path)
+            }
+            return ShellOutput(stdout: "Build Succeeded\n", stderr: "", exitCode: 0)
+        }
+
+        let pemData = Data("-----BEGIN PRIVATE KEY-----\nMOCK\n-----END PRIVATE KEY-----".utf8)
+        let config = ResolvedConfig(
+            appScheme: "MockApp",
+            ascKeyID: "KEY123",
+            ascIssuerID: "ISSUER456",
+            ascPrivateKeyData: pemData,
+            automaticCodeSigning: true
+        )
+        let context = makeTestActionContext(executor: executor, config: config, platform: .ios)
+
+        _ = try await BuildAction().run(with: .init(scheme: "MockApp"), context: context)
+
+        let arguments = capturedCommand?.arguments ?? []
+        #expect(arguments.contains("-authenticationKeyID"))
+        #expect(arguments.contains("KEY123"))
+        #expect(arguments.contains("-authenticationKeyIssuerID"))
+        #expect(arguments.contains("ISSUER456"))
+        #expect(arguments.contains("-authenticationKeyPath"))
+        #expect(keyPathExistedDuringRun, "Temp .p8 key file should exist during the xcodebuild run")
+        #expect(keyContents == pemData, "Temp .p8 file should contain the resolved private key")
+
+        // The temporary key file must be cleaned up once the action returns.
+        if let index = arguments.firstIndex(of: "-authenticationKeyPath"), index + 1 < arguments.count {
+            #expect(!FileManager.default.fileExists(atPath: arguments[index + 1]), "Temp key file should be removed after run")
+        }
+    }
+
+    @Test("BuildAction omits ASC API key flags when credentials are absent")
+    func buildActionOmitsASCAuthKeyWithoutCredentials() async throws {
+        nonisolated(unsafe) var capturedCommand: Command?
+        let executor = MockExecutor { command, _ in
+            capturedCommand = command
+            return ShellOutput(stdout: "Build Succeeded\n", stderr: "", exitCode: 0)
+        }
+
+        let config = ResolvedConfig(appScheme: "MockApp", automaticCodeSigning: true)
+        let context = makeTestActionContext(executor: executor, config: config, platform: .ios)
+
+        _ = try await BuildAction().run(with: .init(scheme: "MockApp"), context: context)
+
+        let arguments = capturedCommand?.arguments ?? []
+        #expect(arguments.contains("-allowProvisioningUpdates"))
+        #expect(!arguments.contains("-authenticationKeyPath"), "No ASC key flags without credentials")
+    }
+
+    @Test("BuildAction omits ASC API key flags for manual signing")
+    func buildActionOmitsASCAuthKeyForManualSigning() async throws {
+        nonisolated(unsafe) var capturedCommand: Command?
+        let executor = MockExecutor { command, _ in
+            capturedCommand = command
+            return ShellOutput(stdout: "Build Succeeded\n", stderr: "", exitCode: 0)
+        }
+
+        let config = ResolvedConfig(
+            appScheme: "MockApp",
+            ascKeyID: "KEY123",
+            ascIssuerID: "ISSUER456",
+            ascPrivateKeyData: Data("key".utf8),
+            automaticCodeSigning: false
+        )
+        let context = makeTestActionContext(executor: executor, config: config, platform: .ios)
+
+        _ = try await BuildAction().run(with: .init(scheme: "MockApp"), context: context)
+
+        let arguments = capturedCommand?.arguments ?? []
+        #expect(!arguments.contains("-authenticationKeyPath"), "Manual signing should not pass ASC key flags")
+    }
 }
 #endif
 

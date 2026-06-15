@@ -35,6 +35,45 @@ struct ArchiveExportActionTests {
         #expect(capturedCommand?.arguments.contains("-allowProvisioningUpdates") == true)
     }
 
+    @Test("ArchiveAction passes ASC API key flags for automatic signing in CI")
+    func archiveActionPassesASCAuthKey() async throws {
+        nonisolated(unsafe) var capturedCommand: Command?
+        let executor = MockExecutor { command, _ in
+            capturedCommand = command
+            return ShellOutput(stdout: "Archive Succeeded\n", stderr: "", exitCode: 0)
+        }
+
+        let baseContext = ActionContext.mock(executor: executor)
+        let config = ResolvedConfig(
+            appProject: "MockApp.xcodeproj",
+            appScheme: "MockApp",
+            ascKeyID: "KEY123",
+            ascIssuerID: "ISSUER456",
+            ascPrivateKeyData: Data("key".utf8),
+            automaticCodeSigning: true
+        )
+        let context = ActionContext(
+            shell: baseContext.shell,
+            logger: baseContext.logger,
+            config: config,
+            appStoreConnect: baseContext.appStoreConnect,
+            platform: .ios
+        )
+
+        _ = try await ArchiveAction().run(with: .init(scheme: "MockApp"), context: context)
+
+        let arguments = capturedCommand?.arguments ?? []
+        #expect(arguments.contains("-authenticationKeyID"))
+        #expect(arguments.contains("KEY123"))
+        #expect(arguments.contains("-authenticationKeyIssuerID"))
+        #expect(arguments.contains("ISSUER456"))
+        #expect(arguments.contains("-authenticationKeyPath"))
+        // Temp key file is cleaned up once the action returns.
+        if let index = arguments.firstIndex(of: "-authenticationKeyPath"), index + 1 < arguments.count {
+            #expect(!FileManager.default.fileExists(atPath: arguments[index + 1]))
+        }
+    }
+
     @Test("ExportAction enables provisioning updates and automatic signing style")
     func exportActionAutomaticSigning() async throws {
         nonisolated(unsafe) var capturedCommand: Command?
@@ -90,6 +129,55 @@ struct ArchiveExportActionTests {
         #expect(plistContents.contains("<key>signingStyle</key>"))
         #expect(plistContents.contains("<string>automatic</string>"))
         #expect(plistContents.contains("<key>teamID</key>"))
+    }
+
+    @Test("ExportAction passes ASC API key flags for automatic signing in CI")
+    func exportActionPassesASCAuthKey() async throws {
+        nonisolated(unsafe) var capturedCommand: Command?
+
+        let exportDirectory = try makeTempDirectory()
+        defer { try? FileManager.default.removeItem(at: exportDirectory) }
+        try Data().write(to: exportDirectory.appendingPathComponent("MockApp.ipa"))
+
+        let archiveDirectory = try makeTempDirectory()
+        defer { try? FileManager.default.removeItem(at: archiveDirectory) }
+        let archivePath = archiveDirectory.appendingPathComponent("MockApp.xcarchive").path
+        FileManager.default.createFile(atPath: archivePath, contents: Data())
+
+        let executor = MockExecutor { command, _ in
+            capturedCommand = command
+            return ShellOutput(stdout: "Export Succeeded\n", stderr: "", exitCode: 0)
+        }
+
+        let baseContext = ActionContext.mock(executor: executor)
+        let config = ResolvedConfig(
+            teamID: "TEAM12345",
+            ascKeyID: "KEY123",
+            ascIssuerID: "ISSUER456",
+            ascPrivateKeyData: Data("key".utf8),
+            archiveOutputPath: archivePath,
+            exportOutputDirectory: exportDirectory.path,
+            automaticCodeSigning: true
+        )
+        let context = ActionContext(
+            shell: baseContext.shell,
+            logger: baseContext.logger,
+            config: config,
+            appStoreConnect: baseContext.appStoreConnect,
+            platform: .ios
+        )
+
+        _ = try await ExportAction().run(with: .init(), context: context)
+
+        let arguments = capturedCommand?.arguments ?? []
+        #expect(arguments.contains("-authenticationKeyID"))
+        #expect(arguments.contains("KEY123"))
+        #expect(arguments.contains("-authenticationKeyIssuerID"))
+        #expect(arguments.contains("ISSUER456"))
+        #expect(arguments.contains("-authenticationKeyPath"))
+        if let index = arguments.firstIndex(of: "-authenticationKeyPath"), index + 1 < arguments.count {
+            #expect(!FileManager.default.fileExists(atPath: arguments[index + 1]))
+        }
     }
 
     @Test("ExportAction does not pass -allowProvisioningUpdates for manual signing")
