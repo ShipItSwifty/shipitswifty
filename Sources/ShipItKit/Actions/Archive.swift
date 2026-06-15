@@ -404,7 +404,8 @@ public struct ArchiveAction: Action {
         // Materialize ASC API key flags so `-allowProvisioningUpdates` can authenticate
         // to Apple in headless CI. Resolved only for automatic signing; cleaned up after
         // all retry attempts complete.
-        let ascAuth = context.config.automaticCodeSigning
+        let ascAuth =
+            context.config.automaticCodeSigning
             ? try ASCAuthenticationKey.resolve(config: context.config)
             : nil
         defer { ascAuth?.cleanup() }
