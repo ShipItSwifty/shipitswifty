@@ -132,7 +132,7 @@ If ShipIt cannot infer `app.team_id`, use the team selected in Xcode for the app
 
 Set `VAULT_PASSWORD` env var for the encrypted repo passphrase.
 
-With `type: automatic`, ShipIt passes `-allowProvisioningUpdates` to Xcode build/export operations and writes `signingStyle=automatic` into export options.
+With `type: automatic`, ShipIt passes `-allowProvisioningUpdates` to Xcode build/archive/export operations and writes `signingStyle=automatic` into export options. When App Store Connect API credentials (`ASC_KEY_ID`, `ASC_ISSUER_ID`, and `ASC_PRIVATE_KEY` / `ASC_PRIVATE_KEY_PATH`) are configured, ShipIt also passes `-authenticationKeyID`, `-authenticationKeyIssuerID`, and `-authenticationKeyPath` so automatic signing can authenticate to Apple's provisioning servers in headless CI where no Apple ID is signed in to Xcode. A raw `ASC_PRIVATE_KEY` is written to a temporary owner-only `.p8` file for the duration of the command.
 
 With `type: manual`, `shipit sign sync` installs the configured `.p12` certificate and provisioning profile. Local paths are preferred when they exist; base64 values are used as a CI fallback.
 

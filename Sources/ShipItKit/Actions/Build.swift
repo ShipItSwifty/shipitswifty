@@ -474,6 +474,14 @@ public struct BuildAction: Action {
         let configuration = options.configuration?.rawValue ?? context.config.buildConfiguration
         logger.info("Building iOS scheme '\(scheme)' (\(configuration))")
 
+        // Materialize ASC API key flags so `-allowProvisioningUpdates` can authenticate
+        // to Apple in headless CI. Resolved only for automatic signing.
+        let ascAuth =
+            context.config.automaticCodeSigning
+            ? try ASCAuthenticationKey.resolve(config: context.config)
+            : nil
+        defer { ascAuth?.cleanup() }
+
         var xcodeBuild = XcodeBuild(context: context.shell)
             .option(.scheme(scheme))
             .option(.configuration(configuration))
@@ -490,6 +498,9 @@ public struct BuildAction: Action {
 
         if context.config.automaticCodeSigning {
             xcodeBuild = xcodeBuild.option(.allowProvisioningUpdates)
+            for option in ascAuth?.options ?? [] {
+                xcodeBuild = xcodeBuild.option(option)
+            }
         }
 
         let allXcargs = context.config.xcargs.merging(options.xcargs ?? [:]) { _, new in new }
