@@ -401,6 +401,14 @@ public struct ArchiveAction: Action {
 
         logger.info("Archiving scheme '\(scheme)' (\(configuration)) -> \(archivePath)")
 
+        // Materialize ASC API key flags so `-allowProvisioningUpdates` can authenticate
+        // to Apple in headless CI. Resolved only for automatic signing; cleaned up after
+        // all retry attempts complete.
+        let ascAuth = context.config.automaticCodeSigning
+            ? try ASCAuthenticationKey.resolve(config: context.config)
+            : nil
+        defer { ascAuth?.cleanup() }
+
         var xcodeBuild = XcodeBuild(context: context.shell)
             .option(.scheme(scheme))
             .option(.configuration(configuration))
@@ -421,6 +429,9 @@ public struct ArchiveAction: Action {
             xcodeBuild = xcodeBuild.option(.allowProvisioningUpdates)
             if let teamID = context.config.teamID {
                 xcodeBuild = xcodeBuild.buildSetting("DEVELOPMENT_TEAM", teamID)
+            }
+            for option in ascAuth?.options ?? [] {
+                xcodeBuild = xcodeBuild.option(option)
             }
         }
 

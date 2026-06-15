@@ -109,6 +109,13 @@ public struct ExportAction: Action {
             try? FileManager.default.removeItem(atPath: plistPath)
         }
 
+        // Materialize ASC API key flags so `-allowProvisioningUpdates` can authenticate
+        // to Apple in headless CI. Resolved only for automatic signing.
+        let ascAuth = context.config.automaticCodeSigning
+            ? try ASCAuthenticationKey.resolve(config: context.config)
+            : nil
+        defer { ascAuth?.cleanup() }
+
         var command = XcodeBuild(context: context.shell)
             .trailingArguments([
                 "-exportArchive",
@@ -119,6 +126,9 @@ public struct ExportAction: Action {
 
         if context.config.automaticCodeSigning {
             command = command.trailingArgument("-allowProvisioningUpdates")
+            for option in ascAuth?.options ?? [] {
+                command = command.trailingArguments(option.arguments)
+            }
         }
 
         let output = try await command.run()
