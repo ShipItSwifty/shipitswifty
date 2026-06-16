@@ -293,6 +293,7 @@ Shipfile.yml / CLI flags / env vars
 | `GenerateProjectAction` | Generates `.xcodeproj` from a spec file (XcodeGen, Tuist). Auto-invoked by `Workflow.run()` before Xcode-dependent steps. |
 | `BuildSystem` | Enum (`native`, `flutter`, `react_native`, `kmp`) orthogonal to `Platform`. Set per platform via `ios.build_system` / `android.build_system`. Drives `BuildAction` / `ArchiveAction` / `TestAction` dispatch; later distribution actions are artifact-path driven and unchanged. |
 | `ProjectSpecVersionSource` | Reads/writes version values directly in YAML spec files for `project_spec` versioning source. |
+| `XcconfigVersionSource` | Reads/writes named keys (`marketing_key` / `build_key`) directly in an `.xcconfig` file (`spec_path`) for `versioning.source: xcconfig`. Preserves `$(VAR)` indirection referenced from the `.xcodeproj`. |
 | `KMPVersionSource` | Reads/writes `versionName` / `versionCode` in `gradle.properties` for `versioning.source: kmp`. |
 | `GradleVersionSource` | Reads/writes `versionName` / `versionCode` directly in `build.gradle.kts` or `build.gradle` for `versioning.source: gradle`. Default versioning source for Android projects. |
 | `DestinationDiscovery` | Discovers available xcodebuild destinations. Used by `TestAction` for automatic simulator selection. |
@@ -312,6 +313,7 @@ CLI flags > `Shipfile.yml` > `SHIPIT_*` env vars > `.env` file (auto-loaded from
 - KMP defaults: `ios.kmp_shared_module: shared`, `ios.kmp_build_target: IosSimulatorArm64`, `ios.kmp_archive_target: IosArm64`, `ios.kmp_test_task: iosSimulatorArm64Test`.
 - `versioning.source: kmp` reads/writes `versionName` + `versionCode` in `gradle.properties` via `KMPVersionSource`.
 - `versioning.source: gradle` reads/writes `versionName` + `versionCode` directly in `build.gradle.kts` or `build.gradle` via `GradleVersionSource`. This is the default versioning source for Android projects.
+- `versioning.source: xcconfig` reads/writes named keys directly in an `.xcconfig` file via `XcconfigVersionSource`. Set `versioning.spec_path` to the file and `versioning.marketing_key` / `versioning.build_key` to the variable names. Pure file I/O (Linux-compatible).
 - `flutter` / `react_native` are fully implemented: `BuildAction`, `ArchiveAction`, `TestAction`, and `LintAction` all dispatch on `build_system` and invoke the appropriate Flutter/RN CLI. `ValidateBundle` and `PlayStoreAction` auto-discover conventional artifact paths for native Gradle, Flutter, and React Native projects. Flutter iOS archive produces IPA directly (no export step); RN iOS uses `xcodebuild archive` + export.
 
 When recommending changes to an agent:
@@ -320,6 +322,7 @@ When recommending changes to an agent:
 - For KMP, set `build_system: kmp` on **both** `ios:` and `android:`.
 - Suggest `versioning.source: kmp` when the user mentions `gradle.properties` versions or KMP-style version sharing.
 - Suggest `versioning.source: gradle` (or leave as default) when the user has a standard Android project with version info in `build.gradle.kts` / `build.gradle`.
+- Suggest `versioning.source: xcconfig` when the user keeps `MARKETING_VERSION` / build number in an `.xcconfig` file — especially custom-named keys (e.g. `JOT_MARKETING_VERSION` / `JOT_BUILD_NUMBER`) referenced via `$(...)` from the `.xcodeproj`, or an Xcode Cloud setup gated on a version file. Do **not** suggest `xcodeproj` for that layout: it stamps literal values into the pbxproj and breaks the `$(...)` indirection.
 - When adding or changing test workflow behavior, update both `AISessionBuilder` agent guidance and the guided `generate` questionnaire/templates so agents and humans see the same choices.
 - For transient test infrastructure failures, ask whether to add `infrastructure_retry` to test steps. Use `max_attempts: 3`, `initial_delay_seconds: 2`, and `max_delay_seconds: 30` as the safe default when the user wants retries.
 - For Android `kind: instrumented` test steps, **always** use `scope: root`. ShipIt now defaults to root scope when `kind: instrumented` and no explicit scope is set, but specifying it explicitly avoids confusion. With `scope: module` (the unit-test default), only the specified module's connected tests run — in a multi-module project the `app` module typically has zero androidTest sources, so the run finishes with 0 tests (or crashes if the test APK lacks `androidTestImplementation` for the runner). `scope: root` runs the root-level `connected*AndroidTest` task, which cascades across every module. Also ensure `app/build.gradle.kts` (or equivalent) has `androidTestImplementation(libs.junit.ext)` so the test APK can instantiate `AndroidJUnitRunner` even when the app module has no test sources.

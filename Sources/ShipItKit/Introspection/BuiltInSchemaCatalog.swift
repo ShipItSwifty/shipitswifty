@@ -236,20 +236,20 @@ public enum BuiltInSchemaCatalog {
                     .string(
                         "source",
                         description:
-                            "Where CFBundleVersion and CFBundleShortVersionString are read and written. `xcodeproj` reads/writes Xcode build settings directly in the .xcodeproj file. `project_spec` reads/writes a project spec YAML file (e.g. XcodeGen project.yml). `asc` reads the current build number from App Store Connect. `kmp` reads/writes versionName/versionCode in gradle.properties. `gradle` reads/writes versionName/versionCode directly in build.gradle.kts or build.gradle.",
+                            "Where CFBundleVersion and CFBundleShortVersionString are read and written. `xcodeproj` reads/writes Xcode build settings directly in the .xcodeproj file. `project_spec` reads/writes a project spec YAML file (e.g. XcodeGen project.yml). `xcconfig` reads/writes named keys directly in an .xcconfig file (set spec_path to the file and marketing_key/build_key to the variable names) — use this when the version lives in an .xcconfig referenced via $(VAR) from the project. `asc` reads the current build number from App Store Connect. `kmp` reads/writes versionName/versionCode in gradle.properties. `gradle` reads/writes versionName/versionCode directly in build.gradle.kts or build.gradle.",
                         defaultValue: .string("xcodeproj"),
-                        allowedValues: ["xcodeproj", "project_spec", "asc", "kmp", "gradle"], example: .string("xcodeproj")),
+                        allowedValues: ["xcodeproj", "project_spec", "xcconfig", "asc", "kmp", "gradle"], example: .string("xcodeproj")),
                     .string(
                         "spec_path",
                         description:
-                            "Path to the project spec file (e.g. project.yml). Required when source is `project_spec`. Falls back to project_generation.spec_path if not set.",
+                            "Path to the version source file. Required when source is `project_spec` (e.g. project.yml) or `xcconfig` (e.g. Config/Version.xcconfig). For project_spec, falls back to project_generation.spec_path if not set.",
                         example: .string("./project.yml")),
                     .string(
-                        "build_key", description: "YAML key for the build number in the project spec.",
+                        "build_key", description: "Key for the build number in the project spec (YAML) or xcconfig file.",
                         defaultValue: .string("CURRENT_PROJECT_VERSION"),
                         example: .string("CURRENT_PROJECT_VERSION")),
                     .string(
-                        "marketing_key", description: "YAML key for the marketing version in the project spec.",
+                        "marketing_key", description: "Key for the marketing version in the project spec (YAML) or xcconfig file.",
                         defaultValue: .string("MARKETING_VERSION"), example: .string("MARKETING_VERSION")),
                 ]
             ),

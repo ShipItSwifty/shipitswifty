@@ -110,6 +110,8 @@ public struct VersionBumper: Sendable {
                 return "kmp"
             case "gradle", "build_gradle":
                 return "gradle"
+            case "xcconfig", "xcconfig_file":
+                return "xcconfig"
             default:
                 return target
             }
@@ -134,6 +136,11 @@ public struct VersionBumper: Sendable {
         // Gradle source — read directly from build.gradle.kts / build.gradle
         if source == "gradle" {
             return try GradleVersionSource(context: context).readVersion()
+        }
+
+        // xcconfig source — read directly from the .xcconfig file
+        if source == "xcconfig" {
+            return try XcconfigVersionSource(context: context).readVersion()
         }
 
         #if !os(macOS)
@@ -189,6 +196,11 @@ public struct VersionBumper: Sendable {
             return try GradleVersionSource(context: context).readBuildNumber()
         }
 
+        // xcconfig source — read directly from the .xcconfig file
+        if source == "xcconfig" {
+            return try XcconfigVersionSource(context: context).readBuildNumber()
+        }
+
         #if !os(macOS)
         throw ShipItError.invalidConfiguration(
             reason: "Version source '\(source)' requires macOS. Use versioning.source: kmp for Linux-compatible versioning."
@@ -228,6 +240,11 @@ public struct VersionBumper: Sendable {
 
         if source == "gradle" {
             try GradleVersionSource(context: context).writeVersion(version)
+            return
+        }
+
+        if source == "xcconfig" {
+            try XcconfigVersionSource(context: context).writeVersion(version)
             return
         }
 
@@ -272,6 +289,11 @@ public struct VersionBumper: Sendable {
 
         if source == "gradle" {
             try GradleVersionSource(context: context).writeBuildNumber(build)
+            return
+        }
+
+        if source == "xcconfig" {
+            try XcconfigVersionSource(context: context).writeBuildNumber(build)
             return
         }
 
