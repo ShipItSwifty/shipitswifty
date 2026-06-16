@@ -4,7 +4,8 @@ Use this checklist for each public release. Replace `<version>` with the semanti
 
 ## Before Tagging
 
-- Confirm `Sources/CLI/ShipItCLI.swift` reports `<version>`.
+- Confirm the `<version>` tag is correct. (`shipit --version` is stamped from the tag by the
+  release workflow; the literal in `Sources/CLI/ShipItCLI.swift` is only a dev fallback.)
 - Confirm the repository is clean with `git status --short`.
 - Confirm there are no existing conflicting tags with `git tag --list`.
 - Confirm `shipitswifty/shipitswifty` is public.
@@ -37,9 +38,9 @@ git push origin <version>
 
 ## After Tagging
 
-- Create the GitHub Release for `<version>`.
-- Compute the source tarball SHA256.
-- Update and publish `shipitswifty/homebrew-tap` using `docs/homebrew.md`.
+- The release workflow creates the GitHub Release and (when `HOMEBREW_TAP_TOKEN` is configured)
+  auto-updates `ShipItSwifty/homebrew-tap` with the rendered formula. See `docs/homebrew.md`.
+- If the tap secret is not configured, complete the manual fallback in `docs/homebrew.md`.
 - Verify stable Homebrew install:
 
 ```bash
