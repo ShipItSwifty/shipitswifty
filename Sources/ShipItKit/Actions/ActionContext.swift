@@ -204,6 +204,25 @@ extension ActionContext {
         return gradle
     }
 
+    /// Returns a Gradle builder configured to stream output live for long-running builds.
+    ///
+    /// Builds on ``gradle()`` and additionally:
+    /// - Routes stdout and stderr through ``SwiftyShell/OutputDestination/tee`` so Gradle's
+    ///   progress is echoed to the parent process's stdout/stderr **as it is produced**, while
+    ///   still being captured into `ShellOutput.stdout` for downstream parsing (e.g. AAB path,
+    ///   test counts, build summary).
+    /// - Lifts the captured-output limit (`outputLimit(0)`) so a long `--info`/`--scan` build
+    ///   cannot fail by exceeding the default capture cap.
+    ///
+    /// Use this for the long-running Android Gradle invocations (archive/build/test) where live
+    /// progress matters in CI; prefer ``gradle()`` for short, purely-parsed invocations.
+    public func streamingGradle() -> Gradle {
+        gradle()
+            .settingStdoutDestination(.tee)
+            .settingStderrDestination(.tee)
+            .outputLimit(0)
+    }
+
     /// Returns a copy of this context with the given config, preserving all other fields.
     ///
     /// Used by `Workflow.run()` to apply per-workflow config overrides (e.g. `build_variant`).

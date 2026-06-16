@@ -60,6 +60,64 @@ struct AndroidArchiveActionTests {
         #expect(archiveCmd.lowercased().contains("gradlew") || archiveCmd.lowercased().contains("gradle"))
         #expect(archiveCmd.lowercased().contains("bundle"))
     }
+
+    @Test("ArchiveAction parses AAB from a realistic streamed Gradle tail")
+    func androidArchiveParsesRealisticTail() async throws {
+        let tmpDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("shipit-archive-\(UUID().uuidString)", isDirectory: true)
+        let aabDir = tmpDir.appendingPathComponent("app/build/outputs/bundle/release", isDirectory: true)
+        try FileManager.default.createDirectory(at: aabDir, withIntermediateDirectories: true)
+        let aabFile = aabDir.appendingPathComponent("app-release.aab")
+        try Data("fake".utf8).write(to: aabFile)
+        defer { try? FileManager.default.removeItem(at: tmpDir) }
+
+        let stdout = """
+            > Task :app:bundleRelease
+            Built bundle app/build/outputs/bundle/release/app-release.aab
+
+            BUILD SUCCESSFUL in 3m 1s
+            42 actionable tasks: 30 executed, 10 from cache, 2 up-to-date
+            """
+        let (executor, _) = makeCaptureExecutor { _, _ in
+            ShellOutput(stdout: stdout, stderr: "", exitCode: 0)
+        }
+        let config = ResolvedConfig(platform: .android)
+        let shell = ShellContext(executor: executor, workingDirectory: tmpDir.path)
+        let context = makeTestActionContext(shell: shell, config: config, platform: .android)
+
+        let result = try await ArchiveAction().run(with: ArchiveAction.Options(), context: context)
+
+        #expect(result.aabPath == "app/build/outputs/bundle/release/app-release.aab")
+    }
+
+    @Test("ArchiveAction copies the AAB to outputPath when set")
+    func androidArchiveCopiesToOutputPath() async throws {
+        let tmpDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("shipit-archive-\(UUID().uuidString)", isDirectory: true)
+        let aabDir = tmpDir.appendingPathComponent("app/build/outputs/bundle/release", isDirectory: true)
+        try FileManager.default.createDirectory(at: aabDir, withIntermediateDirectories: true)
+        let aabFile = aabDir.appendingPathComponent("app-release.aab")
+        try Data("fake-aab".utf8).write(to: aabFile)
+        defer { try? FileManager.default.removeItem(at: tmpDir) }
+
+        let (executor, _) = makeCaptureExecutor { _, _ in
+            ShellOutput(stdout: "BUILD SUCCESSFUL in 1s\n", stderr: "", exitCode: 0)
+        }
+        let config = ResolvedConfig(platform: .android)
+        let shell = ShellContext(executor: executor, workingDirectory: tmpDir.path)
+        let context = makeTestActionContext(shell: shell, config: config, platform: .android)
+
+        // Relative output path, anchored to the shell working directory.
+        var options = ArchiveAction.Options()
+        options.outputPath = "dist/final.aab"
+
+        let result = try await ArchiveAction().run(with: options, context: context)
+
+        let expectedDest = tmpDir.appendingPathComponent("dist/final.aab").path
+        #expect(result.aabPath == expectedDest)
+        #expect(FileManager.default.fileExists(atPath: expectedDest))
+        #expect(try Data(contentsOf: URL(fileURLWithPath: expectedDest)) == Data("fake-aab".utf8))
+    }
 }
 
 // MARK: - iOS-only platform guard tests

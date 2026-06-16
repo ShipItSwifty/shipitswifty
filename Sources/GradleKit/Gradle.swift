@@ -27,6 +27,20 @@ import SwiftyShell
 ///     .flag(.noDaemon)
 ///     .run()
 /// ```
+///
+/// ## Streaming long builds
+/// For long-running builds (e.g. `bundle<Variant>` can take many minutes), route stdout/stderr
+/// to ``SwiftyShell/OutputDestination/tee`` so progress is echoed live to the parent process
+/// while still being captured for parsing, and lift the capture limit so verbose output does not
+/// trip the default cap:
+/// ```swift
+/// let output = try await Gradle(context: context.shell)
+///     .task(.bundleRelease)
+///     .settingStdoutDestination(.tee)
+///     .settingStderrDestination(.tee)
+///     .outputLimit(0)
+///     .run()
+/// ```
 public struct Gradle: RunnableCommandFamily {
 
     /// Shared configuration applied to commands produced by this client.

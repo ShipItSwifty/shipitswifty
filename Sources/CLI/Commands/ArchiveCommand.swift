@@ -19,7 +19,7 @@ struct ArchiveCommand: AsyncParsableCommand {
     @Option(name: .long, help: "Export method: app-store | ad-hoc | development | enterprise")
     var exportMethod: String?
 
-    @Option(name: .long, help: "Output path for the .xcarchive")
+    @Option(name: .long, help: "Output path: the .xcarchive (iOS) or a deterministic copy of the produced .aab (Android)")
     var outputPath: String?
 
     @Option(name: .long, help: "Gradle module to archive (Android) or KMP shared module (iOS KMP)")
