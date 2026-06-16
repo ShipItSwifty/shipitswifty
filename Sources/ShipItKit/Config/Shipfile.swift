@@ -581,22 +581,27 @@ public struct VersioningConfig: Codable, Sendable {
     /// Strategy for incrementing build numbers.
     public var strategy: String?
 
-    /// Source of version information (`xcodeproj`, `asc`, or `project_spec`).
+    /// Source of version information (`xcodeproj`, `project_spec`, `xcconfig`, `asc`,
+    /// `kmp`, or `gradle`).
     ///
     /// When `project_spec` is selected, version reads and writes target the
     /// project spec file (e.g. `project.yml` for XcodeGen) rather than the
     /// generated `.xcodeproj`. This keeps the source of truth file in sync.
+    ///
+    /// When `xcconfig` is selected, reads and writes target named keys in an
+    /// `.xcconfig` file (`specPath` + `marketingKey`/`buildKey`), preserving any
+    /// `$(VAR)` indirection referenced from the project.
     public var source: String?
 
-    /// Path to the project spec file (e.g. `project.yml`). Required when
-    /// `source` is `project_spec`.
+    /// Path to the version source file. Required when `source` is `project_spec`
+    /// (e.g. `project.yml`) or `xcconfig` (e.g. `Config/Version.xcconfig`).
     public var specPath: String?
 
-    /// The YAML key path used for the build number in the project spec file.
+    /// The key used for the build number in the project spec (YAML) or `.xcconfig` file.
     /// Defaults to `CURRENT_PROJECT_VERSION`.
     public var buildKey: String?
 
-    /// The YAML key path used for the marketing version in the project spec file.
+    /// The key used for the marketing version in the project spec (YAML) or `.xcconfig` file.
     /// Defaults to `MARKETING_VERSION`.
     public var marketingKey: String?
 
