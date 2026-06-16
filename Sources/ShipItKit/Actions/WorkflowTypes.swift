@@ -197,11 +197,16 @@ public struct Workflow: Sendable {
             let result = try await descriptor.runJSON(substitutedOptions, effectiveContext)
             stepResults.append(result)
             tokens.update(from: result)
-            logger.info("Workflow '\(name)' step '\(step.action)' succeeded")
+            if let stepDuration = result.durationSeconds {
+                logger.info(
+                    "Workflow '\(name)' step '\(step.action)' succeeded in \(formatDurationSeconds(stepDuration))")
+            } else {
+                logger.info("Workflow '\(name)' step '\(step.action)' succeeded")
+            }
         }
 
         let duration = Date().timeIntervalSince(startTime)
-        logger.info("Workflow '\(name)' completed in \(String(format: "%.1f", duration))s")
+        logger.info("Workflow '\(name)' completed in \(formatDurationSeconds(duration))")
         return WorkflowResult(workflowName: name, stepResults: stepResults, duration: duration)
     }
 
