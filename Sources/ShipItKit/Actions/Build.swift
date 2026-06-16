@@ -482,7 +482,7 @@ public struct BuildAction: Action {
             : nil
         defer { ascAuth?.cleanup() }
 
-        var xcodeBuild = XcodeBuild(context: context.shell)
+        var xcodeBuild = context.streamingXcodeBuild()
             .option(.scheme(scheme))
             .option(.configuration(configuration))
 
@@ -533,6 +533,7 @@ public struct BuildAction: Action {
 
         logger.info("Build succeeded for scheme '\(scheme)'")
         context.logShellOutput(output, label: "xcodebuild build")
+        logXcodeBuildSummary(from: output.stdout)
 
         return Result(
             appPath: parseAppPath(from: output.stdout),
@@ -624,6 +625,15 @@ public struct BuildAction: Action {
     // MARK: - Private Helpers
 
     #if os(macOS)
+    /// Logs the xcodebuild result marker and warning/error counts at info level. Never throws.
+    private func logXcodeBuildSummary(from stdout: String) {
+        let summary = XcodeBuildSummary.parse(stdout)
+        if let line = summary.resultLine { logger.info("\(line)") }
+        if summary.warningCount > 0 || summary.errorCount > 0 {
+            logger.info("\(summary.warningCount) warning(s), \(summary.errorCount) error(s)")
+        }
+    }
+
     private func parseAppPath(from output: String) -> String? {
         let lines = output.components(separatedBy: "\n")
         for line in lines {
