@@ -32,8 +32,10 @@ struct ActionTimingTests {
 
         #expect(envelope.status == "success")
         let duration = try #require(envelope.durationSeconds)
-        #expect(duration >= 0.02)  // slept 20ms
-        #expect(duration < 5.0)  // sanity upper bound
+        // It slept ~20ms, so the recorded duration must be at least that. No upper bound: under
+        // parallel test execution on a loaded CI runner the wall-clock time can spike well past a
+        // second from scheduling contention, which would flake any tight ceiling.
+        #expect(duration >= 0.02)
     }
 
     @Test("durationSeconds round-trips through the envelope's JSON encoding")
