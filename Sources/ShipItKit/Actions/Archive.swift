@@ -7,7 +7,11 @@ import SwiftyShell
 /// - **iOS**: Uses `xcodebuild archive`, producing a `.xcarchive`.
 ///   The resulting archive is consumed by `ExportAction` to produce an IPA.
 /// - **Android**: Uses `./gradlew bundle<Variant>`, producing a signed `.aab` (Android App Bundle).
-///   For APK-only builds use `BuildAction` instead.
+///   For APK-only builds use `BuildAction` instead. Gradle output is streamed live to the parent
+///   process (so a 15-minute build shows progress in CI), and a concise build summary
+///   (`BUILD SUCCESSFUL …`, the `actionable tasks: … from cache …` line, and any build-scan URL)
+///   is always printed at info level — even without `--verbose`. When `outputPath` is set, the
+///   produced `.aab` is copied to that deterministic path.
 ///
 /// ## Usage
 /// ```swift
@@ -47,7 +51,13 @@ public struct ArchiveAction: Action {
         /// Export method: `app-store`, `ad-hoc`, `development`, or `enterprise`. (iOS only)
         public var exportMethod: String?
 
-        /// Output path for the `.xcarchive`. Default: `./build/<scheme>.xcarchive`. (iOS only)
+        /// Output path for the produced artifact.
+        ///
+        /// - iOS: path for the `.xcarchive`. Default: `./build/<scheme>.xcarchive`.
+        /// - Android: when set, the produced `.aab` is copied to this path (intermediate
+        ///   directories are created, existing files overwritten) and the copied path is
+        ///   returned as `aabPath`. Enables clean build-in-one-job / upload-in-another-job
+        ///   splits (mirrors `play-store --aab`). When unset, the Gradle output location is used.
         public var outputPath: String?
 
         /// Whether to include debug symbols. (iOS only)
@@ -508,7 +518,7 @@ public struct ArchiveAction: Action {
 
         logger.info("Bundling Android module '\(module)' with task '\(scopedTask.name)'")
 
-        var gradle = context.gradle()
+        var gradle = context.streamingGradle()
             .task(scopedTask)
 
         let allProps = context.config.androidGradleProperties.merging(options.gradleProperties ?? [:]) { _, new in new }
@@ -537,18 +547,22 @@ public struct ArchiveAction: Action {
         logger.info("Android bundle succeeded for module '\(module)'")
         context.logShellOutput(output, label: "gradlew bundle")
 
-        let aabPath = parseAabPath(from: output.stdout, module: module, variant: variant)
-        if let aabPath {
-            logger.info("Android AAB path: \(aabPath)")
+        // Always surface the build summary at info level (not gated on --verbose) so the
+        // cache-effectiveness signal is visible in CI. Best-effort: missing lines are skipped.
+        logBuildSummary(from: output.stdout)
+
+        var aabPath = parseAabPath(from: output.stdout, module: module, variant: variant)
+        if let resolvedAabPath = aabPath {
+            logger.info("Android AAB path: \(resolvedAabPath)")
 
             // Verify the AAB file actually exists on disk — Gradle may report success
             // even when no artifact is produced (e.g. UP-TO-DATE with stale cache).
             let baseDir = context.shell.workingDirectory ?? FileManager.default.currentDirectoryPath
             let anchoredPath: String
-            if (aabPath as NSString).isAbsolutePath {
-                anchoredPath = aabPath
+            if (resolvedAabPath as NSString).isAbsolutePath {
+                anchoredPath = resolvedAabPath
             } else {
-                anchoredPath = (baseDir as NSString).appendingPathComponent(aabPath)
+                anchoredPath = (baseDir as NSString).appendingPathComponent(resolvedAabPath)
             }
             if !FileManager.default.fileExists(atPath: anchoredPath) {
                 logger.error("AAB file not found at expected path: \(anchoredPath)")
@@ -558,9 +572,44 @@ public struct ArchiveAction: Action {
                         "Gradle reported success but AAB was not produced at '\(anchoredPath)'. Check build variant and module configuration."
                 )
             }
+
+            // Copy the AAB to a deterministic path when --output is set, so a build job can
+            // hand a stable artifact path to a separate upload job (mirrors `play-store --aab`).
+            if let outputPath = options.outputPath {
+                aabPath = try copyAAB(from: anchoredPath, to: outputPath, baseDir: baseDir)
+            }
         }
 
         return Result(aabPath: aabPath, exitCode: Int(output.exitCode))
+    }
+
+    /// Copies the produced AAB to `outputPath`, creating intermediate directories and overwriting
+    /// any existing file. Relative destinations are anchored to the shell working directory.
+    ///
+    /// - Returns: The destination path (absolute if `outputPath` was relative).
+    private func copyAAB(from sourcePath: String, to outputPath: String, baseDir: String) throws -> String {
+        let destination: String =
+            (outputPath as NSString).isAbsolutePath
+            ? outputPath
+            : (baseDir as NSString).appendingPathComponent(outputPath)
+
+        let destURL = URL(fileURLWithPath: destination)
+        let fm = FileManager.default
+        try fm.createDirectory(at: destURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+        if fm.fileExists(atPath: destination) {
+            try fm.removeItem(atPath: destination)
+        }
+        try fm.copyItem(atPath: sourcePath, toPath: destination)
+        logger.info("Copied AAB to output path: \(destination)")
+        return destination
+    }
+
+    /// Logs the highest-signal lines of a Gradle build at info level. Never throws.
+    private func logBuildSummary(from stdout: String) {
+        let summary = GradleBuildSummary.parse(stdout)
+        if let line = summary.buildResultLine { logger.info("\(line)") }
+        if let line = summary.actionableTasksLine { logger.info("\(line)") }
+        if let url = summary.buildScanURL { logger.info("Build scan: \(url)") }
     }
 
     // MARK: - Private Helpers

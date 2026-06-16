@@ -209,8 +209,8 @@ Android support ships in v1 alongside iOS. Platform is auto-detected from projec
 
 | Action | CLI | Description |
 |---|---|---|
-| **Build** | `shipit build --platform android` | `./gradlew assembleRelease` (or configured variant) |
-| **Archive** | `shipit archive --platform android` | `./gradlew bundleRelease` — produces an `.aab` |
+| **Build** | `shipit build --platform android` | `./gradlew assembleRelease` (or configured variant). Gradle output streams live and a build summary is printed even without `--verbose`. |
+| **Archive** | `shipit archive --platform android` | `./gradlew bundleRelease` — produces an `.aab`. Gradle output streams live to the console during the (often multi-minute) build, and a build summary (`BUILD SUCCESSFUL …`, the `actionable tasks: … from cache …` cache-effectiveness line, and any build-scan URL) is always printed even without `--verbose`. `--output-path` copies the produced `.aab` to a deterministic path for build/upload job splits. |
 | **Test** | `shipit test --platform android` | `./gradlew test` (unit) or `./gradlew connectedAndroidTest` (instrumented). Instrumented runs support connected devices, named AVD boot, and Gradle Managed Devices. |
 | **Lint** | `shipit lint --platform android` | `./gradlew lint` |
 | **Play Store** | `shipit play-store` | Upload AAB to Google Play via service account JWT auth. Supports per-workflow `build_variant` and `flavor` overrides for artifact path auto-discovery. Requires `track` option on the workflow step. |

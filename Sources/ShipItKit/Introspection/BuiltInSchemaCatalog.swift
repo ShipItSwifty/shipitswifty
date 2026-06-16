@@ -144,7 +144,9 @@ public enum BuiltInSchemaCatalog {
                         "include_bitcode", description: "Include bitcode in export options when supported.",
                         example: .bool(false)),
                     .string(
-                        "output_path", description: "Output path for the .xcarchive.",
+                        "output_path",
+                        description:
+                            "Output path. iOS: the .xcarchive. Android: a deterministic copy destination for the produced .aab.",
                         example: .string("./build/MyApp.xcarchive"), envVar: "SHIPIT_ARCHIVE__OUTPUT_PATH"),
                 ]
             ),

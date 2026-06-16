@@ -571,11 +571,11 @@ public struct BuildAction: Action {
 
         logger.info("Building Android module '\(module)' with task '\(scopedTask.name)'")
 
-        var gradle = context.gradle()
+        var gradle = context.streamingGradle()
             .task(scopedTask)
 
         if options.clean == true {
-            gradle = context.gradle()
+            gradle = context.streamingGradle()
                 .task(.clean)
                 .task(scopedTask)
         }
@@ -606,6 +606,12 @@ public struct BuildAction: Action {
 
         logger.info("Android build succeeded for module '\(module)'")
         context.logShellOutput(output, label: "gradlew assemble")
+
+        // Always surface the build summary at info level (not gated on --verbose).
+        let summary = GradleBuildSummary.parse(output.stdout)
+        if let line = summary.buildResultLine { logger.info("\(line)") }
+        if let line = summary.actionableTasksLine { logger.info("\(line)") }
+        if let url = summary.buildScanURL { logger.info("Build scan: \(url)") }
 
         let apkPath = parseApkPath(from: output.stdout, module: module, variant: variant)
         return Result(
