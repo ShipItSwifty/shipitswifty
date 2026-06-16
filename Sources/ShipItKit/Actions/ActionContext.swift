@@ -245,6 +245,26 @@ extension ActionContext {
             .outputLimit(0)
     }
 
+    #if os(macOS)
+    /// Returns an `XcodeBuild` builder configured to stream output live for long-running builds.
+    ///
+    /// Routes stdout and stderr through ``SwiftyShell/OutputDestination/tee`` so xcodebuild's
+    /// progress is echoed to the parent process's stdout/stderr **as it is produced**, while still
+    /// being captured into `ShellOutput.stdout` for downstream parsing (app/dSYM paths, warning
+    /// counts, test-count fallback). Also lifts the captured-output limit (`outputLimit(0)`) —
+    /// xcodebuild output is voluminous, so the default cap could otherwise truncate or fail a build.
+    ///
+    /// Use this for the long-running iOS invocations (build/archive/test); prefer a plain
+    /// `XcodeBuild(context:)` for short, purely-parsed invocations (e.g. `-showBuildSettings`,
+    /// destination discovery).
+    public func streamingXcodeBuild() -> XcodeBuild {
+        XcodeBuild(context: shell)
+            .settingStdoutDestination(.tee)
+            .settingStderrDestination(.tee)
+            .outputLimit(0)
+    }
+    #endif
+
     /// Returns a copy of this context with the given config, preserving all other fields.
     ///
     /// Used by `Workflow.run()` to apply per-workflow config overrides (e.g. `build_variant`).
