@@ -77,7 +77,11 @@ func loadDotEnvIfPresent(directory: String) {
 ///   - verbose: When `true`, raw command output is logged at debug level and stored in
 ///     `ActionContext.verbose` so actions can emit additional diagnostic info.
 /// - Returns: An `ActionContext` ready for use by actions.
-func buildActionContext(config: ResolvedConfig, verbose: Bool = false) async throws -> ActionContext {
+func buildActionContext(
+    config: ResolvedConfig, verbose: Bool = false, jsonOutput: Bool = false
+) async throws
+    -> ActionContext
+{
     let shell = ShellContext()
     let logger = Logger.forType(subsystem: "ShipItSwifty", ActionContext.self)
 
@@ -118,7 +122,8 @@ func buildActionContext(config: ResolvedConfig, verbose: Bool = false) async thr
         appStoreConnect: ascClient,
         googlePlay: googlePlayClient,
         platform: config.platform,
-        verbose: verbose
+        verbose: verbose,
+        jsonOutput: jsonOutput
     )
     #else
     return ActionContext(
@@ -127,14 +132,19 @@ func buildActionContext(config: ResolvedConfig, verbose: Bool = false) async thr
         config: config,
         googlePlay: googlePlayClient,
         platform: config.platform,
-        verbose: verbose
+        verbose: verbose,
+        jsonOutput: jsonOutput
     )
     #endif
 }
 
 /// Build a minimal action context for actions that can run without a Shipfile.
-func buildFallbackActionContext(platform: Platform = .ios, verbose: Bool = false) async throws -> ActionContext {
-    try await buildActionContext(config: ResolvedConfig(platform: platform), verbose: verbose)
+func buildFallbackActionContext(
+    platform: Platform = .ios, verbose: Bool = false, jsonOutput: Bool = false
+)
+    async throws -> ActionContext
+{
+    try await buildActionContext(config: ResolvedConfig(platform: platform), verbose: verbose, jsonOutput: jsonOutput)
 }
 
 /// Output a successful action result in the specified format.

@@ -168,8 +168,19 @@ public struct ActionResultEnvelope: Codable, Sendable {
     public let action: String
     public let status: String
     public let payload: JSONValue?
+    /// Wall-clock execution time in seconds; `nil` for steps that did not run (e.g. `skipped`).
+    public let durationSeconds: Double?
 }
 ```
+
+Every action executed through `ActionDescriptor.runJSON` is timed, so `durationSeconds` is
+populated for workflow steps. `shipit run … --output json` surfaces per-step timings under
+`payload.stepTimings` (`index`, `action`, `status`, `durationSeconds`) alongside the total
+`duration`, and the human output appends `(<duration>)` to each step.
+
+> **Note:** long-running build/archive/test invocations stream their output live (SwiftyShell
+> `.tee`) in human/CI mode, but fall back to silent capture under `--output json` so the streamed
+> build log never interleaves with — and corrupts — the JSON result on stdout.
 
 ### `JSONValue`
 

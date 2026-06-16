@@ -26,7 +26,8 @@ struct RunCommand: AsyncParsableCommand {
                 global: global,
                 cliOptions: CLIOptions(ci: global.ci, dryRun: global.dryRun, platform: global.platform)
             )
-            let context = try await buildActionContext(config: config, verbose: global.verbose)
+            let context = try await buildActionContext(
+                config: config, verbose: global.verbose, jsonOutput: global.output == .json)
 
             guard let workflowConfig = config.workflows[workflow] else {
                 throw ShipItError.invalidConfiguration(
@@ -86,6 +87,7 @@ struct RunCommand: AsyncParsableCommand {
                         "workflow": .string(workflow),
                         "steps": .int(result.stepResults.count),
                         "duration": .double(result.duration),
+                        "stepTimings": .array(stepTimingValues(result.stepResults)),
                     ])
                 )
                 print(try reporter.encode(envelope))
@@ -93,18 +95,32 @@ struct RunCommand: AsyncParsableCommand {
                 for (i, stepResult) in result.stepResults.enumerated() {
                     let stepName = steps[i].action
                     let summary = humanStepSummary(action: stepName, payload: stepResult.payload)
+                    let timing = stepResult.durationSeconds.map { " (\(formatDurationSeconds($0)))" } ?? ""
                     if let summary {
-                        formatter.printSuccess("  \(stepName): \(summary)")
+                        formatter.printSuccess("  \(stepName): \(summary)\(timing)")
                     } else {
-                        formatter.printSuccess("  \(stepName)")
+                        formatter.printSuccess("  \(stepName)\(timing)")
                     }
                 }
-                formatter.printSuccess("Workflow '\(workflow)' completed in \(String(format: "%.1f", result.duration))s")
+                formatter.printSuccess("Workflow '\(workflow)' completed in \(formatDurationSeconds(result.duration))")
             }
         } catch let error as ShipItError {
             outputError(error: error, format: global.output, colorMode: global.effectiveColorMode)
             throw ExitCode(error.exitCode)
         }
+    }
+}
+
+/// Projects per-step timing/status from executed workflow steps for `--output json`,
+/// so CI can profile which step dominated the workflow runtime.
+func stepTimingValues(_ stepResults: [ActionResultEnvelope]) -> [JSONValue] {
+    stepResults.enumerated().map { index, step in
+        .object([
+            "index": .int(index + 1),
+            "action": .string(step.action),
+            "status": .string(step.status),
+            "durationSeconds": step.durationSeconds.map(JSONValue.double) ?? .null,
+        ])
     }
 }
 

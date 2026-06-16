@@ -38,7 +38,8 @@ struct ArchiveCommand: AsyncParsableCommand {
                 cliOptions: CLIOptions(
                     scheme: scheme, configuration: configuration, ci: global.ci, dryRun: global.dryRun, platform: global.platform)
             )
-            let context = try await buildActionContext(config: config, verbose: global.verbose)
+            let context = try await buildActionContext(
+                config: config, verbose: global.verbose, jsonOutput: global.output == .json)
             let formatter = makeHumanFormatter(global: global)
 
             let options = ArchiveAction.Options(

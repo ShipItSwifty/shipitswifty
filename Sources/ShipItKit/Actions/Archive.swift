@@ -550,7 +550,7 @@ public struct ArchiveAction: Action {
         }
 
         logger.info("Android bundle succeeded for module '\(module)'")
-        context.logShellOutput(output, label: "gradlew bundle")
+        // Output already streamed live via streamingGradle()'s .tee destination — no debug re-dump.
 
         // Always surface the build summary at info level (not gated on --verbose) so the
         // cache-effectiveness signal is visible in CI. Best-effort: missing lines are skipped.

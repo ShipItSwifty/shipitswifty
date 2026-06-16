@@ -1437,7 +1437,7 @@ public struct TestAction: Action {
         }
 
         let parsed = self.parseGradleCounts(from: output.stdout + "\n" + output.stderr)
-        context.logShellOutput(output, label: "gradlew test")
+        // Output already streamed live via streamingGradle()'s .tee destination — no debug re-dump.
 
         if parsed.pass == 0 && parsed.fail == 0 && parsed.skip == 0 {
             let xmlCounts = try await self.aggregateJUnitXMLResults(

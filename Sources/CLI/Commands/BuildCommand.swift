@@ -51,7 +51,8 @@ struct BuildCommand: AsyncParsableCommand {
                     platform: global.platform
                 )
             )
-            let context = try await buildActionContext(config: config, verbose: global.verbose)
+            let context = try await buildActionContext(
+                config: config, verbose: global.verbose, jsonOutput: global.output == .json)
             let formatter = makeHumanFormatter(global: global)
 
             let options = BuildAction.Options(

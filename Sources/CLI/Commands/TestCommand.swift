@@ -95,7 +95,8 @@ struct TestCommand: AsyncParsableCommand {
                 global: global,
                 cliOptions: CLIOptions(scheme: scheme, ci: global.ci, dryRun: global.dryRun, platform: global.platform)
             )
-            let context = try await buildActionContext(config: config, verbose: global.verbose)
+            let context = try await buildActionContext(
+                config: config, verbose: global.verbose, jsonOutput: global.output == .json)
             let formatter = makeHumanFormatter(global: global)
 
             // Build device config from CLI flags
