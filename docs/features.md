@@ -59,8 +59,8 @@ This document covers the planned feature surface, current v1 scope, the long-ter
 
 | Feature | Description |
 |---|---|
-| **Build** | `xcodebuild build` — configurable scheme, workspace/project, configuration, destination, build settings |
-| **Archive** | `xcodebuild archive` → `.xcarchive` |
+| **Build** | `xcodebuild build` — configurable scheme, workspace/project, configuration, destination, build settings. xcodebuild output streams live to the console, and a summary (`** … SUCCEEDED **` plus warning/error counts) is printed even without `--verbose`. |
+| **Archive** | `xcodebuild archive` → `.xcarchive`. Output streams live and a summary is printed even without `--verbose`. |
 | **Export** | `xcodebuild -exportArchive` with export options plist generation |
 | **Clean** | Clear derived data for reproducible builds |
 | **SPM Build** | `swift build` for Swift Package Manager projects |

@@ -1139,7 +1139,7 @@ public struct TestAction: Action {
             )
             try self.removeStaleResultBundleIfNeeded(resultBundlePath)
 
-            var xcodeBuild = XcodeBuild(context: context.shell)
+            var xcodeBuild = context.streamingXcodeBuild()
                 .option(.scheme(scheme))
                 .option(.configuration(configuration))
                 .option(.destination(destination))
@@ -1189,6 +1189,11 @@ public struct TestAction: Action {
                     )
                 }
 
+                let summary = XcodeBuildSummary.parse(output.stdout)
+                if let line = summary.resultLine { self.logger.info("\(line)") }
+                if summary.warningCount > 0 || summary.errorCount > 0 {
+                    self.logger.info("\(summary.warningCount) warning(s), \(summary.errorCount) error(s)")
+                }
                 let parsed = self.parseCounts(from: output.stdout)
                 let pass = parsed.pass
                 let skip = parsed.skip
