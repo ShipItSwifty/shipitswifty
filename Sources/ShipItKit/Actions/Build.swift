@@ -532,7 +532,7 @@ public struct BuildAction: Action {
         }
 
         logger.info("Build succeeded for scheme '\(scheme)'")
-        context.logShellOutput(output, label: "xcodebuild build")
+        // Output already streamed live via streamingXcodeBuild()'s .tee destination — no debug re-dump.
         logXcodeBuildSummary(from: output.stdout)
 
         return Result(

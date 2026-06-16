@@ -84,4 +84,19 @@ struct ActionTimingTests {
         #expect(jsonContext.streamingGradle().stdoutDestination == .capture)
         #expect(jsonContext.streamingGradle().stderrDestination == .capture)
     }
+
+    #if os(macOS)
+    @Test("streamingXcodeBuild streams (.tee) in human mode but captures in JSON-output mode")
+    func streamingXcodeBuildRespectsJSONOutput() {
+        let executor = MockExecutor { _, _ in ShellOutput(stdout: "", stderr: "", exitCode: 0) }
+
+        let humanContext = ActionContext.mock(executor: executor, jsonOutput: false)
+        #expect(humanContext.streamingXcodeBuild().stdoutDestination == .tee)
+        #expect(humanContext.streamingXcodeBuild().stderrDestination == .tee)
+
+        let jsonContext = ActionContext.mock(executor: executor, jsonOutput: true)
+        #expect(jsonContext.streamingXcodeBuild().stdoutDestination == .capture)
+        #expect(jsonContext.streamingXcodeBuild().stderrDestination == .capture)
+    }
+    #endif
 }
