@@ -1398,7 +1398,7 @@ public struct TestAction: Action {
         context: ActionContext,
         testFilters: [String]?
     ) async throws -> TestExecutionSnapshot {
-        var gradle = context.gradle().task(scopedTask)
+        var gradle = context.streamingGradle().task(scopedTask)
         if kind == .unit {
             for filter in testFilters ?? [] {
                 gradle = gradle.flag(.custom("--tests")).flag(.custom(filter))
