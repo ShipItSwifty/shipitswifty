@@ -32,8 +32,10 @@ struct ActionTimingTests {
 
         #expect(envelope.status == "success")
         let duration = try #require(envelope.durationSeconds)
-        #expect(duration >= 0.02)  // slept 20ms
-        #expect(duration < 5.0)  // sanity upper bound
+        // It slept ~20ms, so the recorded duration must be at least that. No upper bound: under
+        // parallel test execution on a loaded CI runner the wall-clock time can spike well past a
+        // second from scheduling contention, which would flake any tight ceiling.
+        #expect(duration >= 0.02)
     }
 
     @Test("durationSeconds round-trips through the envelope's JSON encoding")
@@ -84,4 +86,19 @@ struct ActionTimingTests {
         #expect(jsonContext.streamingGradle().stdoutDestination == .capture)
         #expect(jsonContext.streamingGradle().stderrDestination == .capture)
     }
+
+    #if os(macOS)
+    @Test("streamingXcodeBuild streams (.tee) in human mode but captures in JSON-output mode")
+    func streamingXcodeBuildRespectsJSONOutput() {
+        let executor = MockExecutor { _, _ in ShellOutput(stdout: "", stderr: "", exitCode: 0) }
+
+        let humanContext = ActionContext.mock(executor: executor, jsonOutput: false)
+        #expect(humanContext.streamingXcodeBuild().stdoutDestination == .tee)
+        #expect(humanContext.streamingXcodeBuild().stderrDestination == .tee)
+
+        let jsonContext = ActionContext.mock(executor: executor, jsonOutput: true)
+        #expect(jsonContext.streamingXcodeBuild().stdoutDestination == .capture)
+        #expect(jsonContext.streamingXcodeBuild().stderrDestination == .capture)
+    }
+    #endif
 }

@@ -257,8 +257,14 @@ extension ActionContext {
     /// Use this for the long-running iOS invocations (build/archive/test); prefer a plain
     /// `XcodeBuild(context:)` for short, purely-parsed invocations (e.g. `-showBuildSettings`,
     /// destination discovery).
+    ///
+    /// In `--output json` mode (``jsonOutput``) this falls back to a plain capturing
+    /// `XcodeBuild(context:)` so streamed build progress does not interleave with — and corrupt —
+    /// the JSON result on stdout.
     public func streamingXcodeBuild() -> XcodeBuild {
-        XcodeBuild(context: shell)
+        guard !jsonOutput else { return XcodeBuild(context: shell) }
+        return
+            XcodeBuild(context: shell)
             .settingStdoutDestination(.tee)
             .settingStderrDestination(.tee)
             .outputLimit(0)
