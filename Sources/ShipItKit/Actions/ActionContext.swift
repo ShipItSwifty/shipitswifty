@@ -32,6 +32,14 @@ public struct ActionContext: Sendable {
     /// Set by `--verbose` at the CLI layer via `buildActionContext(config:verbose:)`.
     public let verbose: Bool
 
+    /// When `true`, the command's result is being emitted as machine-readable JSON on stdout.
+    ///
+    /// Set by `--output json` at the CLI layer. Long-running build helpers
+    /// (``streamingGradle()`` / ``streamingXcodeBuild()``) must **not** stream live output to
+    /// stdout in this mode — doing so would interleave build progress with the JSON result and
+    /// corrupt it. They fall back to capturing instead so stdout stays pure JSON.
+    public let jsonOutput: Bool
+
     #if os(macOS)
     /// App Store Connect API client (iOS, macOS only).
     public let appStoreConnect: AppStoreConnectClient
@@ -61,7 +69,8 @@ public struct ActionContext: Sendable {
         appStoreConnect: AppStoreConnectClient,
         googlePlay: GooglePlayClient? = nil,
         platform: Platform = .ios,
-        verbose: Bool = false
+        verbose: Bool = false,
+        jsonOutput: Bool = false
     ) {
         self.shell = shell
         self.logger = logger
@@ -70,6 +79,7 @@ public struct ActionContext: Sendable {
         self.googlePlay = googlePlay
         self.platform = platform
         self.verbose = verbose
+        self.jsonOutput = jsonOutput
     }
     #else
     /// Creates an `ActionContext` (Linux). App Store Connect features are unavailable on Linux.
@@ -79,7 +89,8 @@ public struct ActionContext: Sendable {
         config: ResolvedConfig,
         googlePlay: GooglePlayClient? = nil,
         platform: Platform = .android,
-        verbose: Bool = false
+        verbose: Bool = false,
+        jsonOutput: Bool = false
     ) {
         self.shell = shell
         self.logger = logger
@@ -87,6 +98,7 @@ public struct ActionContext: Sendable {
         self.googlePlay = googlePlay
         self.platform = platform
         self.verbose = verbose
+        self.jsonOutput = jsonOutput
     }
     #endif
 
@@ -110,7 +122,8 @@ public struct ActionContext: Sendable {
     public static func mock(
         executor: MockExecutor,
         versioningSource: String = "xcodeproj",
-        platform: Platform = .ios
+        platform: Platform = .ios,
+        jsonOutput: Bool = false
     ) -> ActionContext {
         let shell = ShellContext(executor: executor)
         let config = ResolvedConfig(
@@ -139,7 +152,9 @@ public struct ActionContext: Sendable {
             config: config,
             appStoreConnect: ascClient,
             googlePlay: nil,
-            platform: platform
+            platform: platform,
+            verbose: false,
+            jsonOutput: jsonOutput
         )
         #else
         return ActionContext(
@@ -147,7 +162,9 @@ public struct ActionContext: Sendable {
             logger: Logger.forType(subsystem: "ShipItSwiftyTests", ActionContext.self),
             config: config,
             googlePlay: nil,
-            platform: platform
+            platform: platform,
+            verbose: false,
+            jsonOutput: jsonOutput
         )
         #endif
     }
@@ -216,8 +233,13 @@ extension ActionContext {
     ///
     /// Use this for the long-running Android Gradle invocations (archive/build/test) where live
     /// progress matters in CI; prefer ``gradle()`` for short, purely-parsed invocations.
+    ///
+    /// In `--output json` mode (``jsonOutput``) this falls back to plain ``gradle()`` capture so
+    /// streamed build progress does not interleave with the JSON result on stdout.
     public func streamingGradle() -> Gradle {
-        gradle()
+        guard !jsonOutput else { return gradle() }
+        return
+            gradle()
             .settingStdoutDestination(.tee)
             .settingStderrDestination(.tee)
             .outputLimit(0)
@@ -235,7 +257,7 @@ extension ActionContext {
             appStoreConnect: appStoreConnect,
             googlePlay: googlePlay,
             platform: platform,
-            verbose: verbose
+            verbose: verbose, jsonOutput: jsonOutput
         )
         #else
         return ActionContext(
@@ -244,7 +266,7 @@ extension ActionContext {
             config: newConfig,
             googlePlay: googlePlay,
             platform: platform,
-            verbose: verbose
+            verbose: verbose, jsonOutput: jsonOutput
         )
         #endif
     }
@@ -256,13 +278,13 @@ extension ActionContext {
             shell: shell, logger: logger,
             config: config.overriding(gradleProjectDir: dir),
             appStoreConnect: appStoreConnect, googlePlay: googlePlay,
-            platform: platform, verbose: verbose
+            platform: platform, verbose: verbose, jsonOutput: jsonOutput
         )
         #else
         return ActionContext(
             shell: shell, logger: logger,
             config: config.overriding(gradleProjectDir: dir),
-            googlePlay: googlePlay, platform: platform, verbose: verbose
+            googlePlay: googlePlay, platform: platform, verbose: verbose, jsonOutput: jsonOutput
         )
         #endif
     }

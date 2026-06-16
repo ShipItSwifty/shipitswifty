@@ -155,10 +155,18 @@ extension Action {
                     let data = try JSONEncoder().encode(JSONValue.object([:]))
                     options = try decoder.decode(Options.self, from: data)
                 }
+                let clock = ContinuousClock()
+                let start = clock.now
                 let result = try await instance.run(with: options, context: context)
+                let elapsed = start.duration(to: clock.now).totalSeconds
                 let resultData = try JSONEncoder().encode(result)
                 let resultJSON = try JSONDecoder().decode(JSONValue.self, from: resultData)
-                return ActionResultEnvelope(action: Self.name, status: "success", payload: resultJSON)
+                return ActionResultEnvelope(
+                    action: Self.name,
+                    status: "success",
+                    payload: resultJSON,
+                    durationSeconds: elapsed
+                )
             }
         )
     }
@@ -225,15 +233,23 @@ public struct ActionResultEnvelope: Codable, Sendable {
     /// The typed result payload, or `nil` for void-result actions.
     public let payload: JSONValue?
 
+    /// Wall-clock time the action's `run(with:context:)` took, in seconds.
+    ///
+    /// `nil` for steps that did not execute (e.g. workflow-level `"skipped"`). Surfaced in
+    /// `--output json` so CI can profile which steps dominate a workflow's runtime.
+    public let durationSeconds: Double?
+
     /// Creates an `ActionResultEnvelope`.
     ///
     /// - Parameters:
     ///   - action: The name of the action that produced this result.
     ///   - status: Outcome string — `"success"` or `"failure"`.
     ///   - payload: Optional typed result payload.
-    public init(action: String, status: String, payload: JSONValue?) {
+    ///   - durationSeconds: Wall-clock execution time in seconds, or `nil` if the step did not run.
+    public init(action: String, status: String, payload: JSONValue?, durationSeconds: Double? = nil) {
         self.action = action
         self.status = status
         self.payload = payload
+        self.durationSeconds = durationSeconds
     }
 }

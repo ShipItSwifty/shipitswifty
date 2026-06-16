@@ -605,7 +605,7 @@ public struct BuildAction: Action {
         }
 
         logger.info("Android build succeeded for module '\(module)'")
-        context.logShellOutput(output, label: "gradlew assemble")
+        // Output already streamed live via streamingGradle()'s .tee destination — no debug re-dump.
 
         // Always surface the build summary at info level (not gated on --verbose).
         let summary = GradleBuildSummary.parse(output.stdout)
