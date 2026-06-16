@@ -141,7 +141,9 @@ struct XcconfigVersionSource: Sendable {
 
     /// Replaces the value of `key`, preserving the line's leading indentation. Throws if the key
     /// is not present.
-    private func replaceValue(key: String, with newValue: String, in content: String, path: String)
+    private func replaceValue(
+        key: String, with newValue: String, in content: String, path: String
+    )
         throws -> String
     {
         var lines = content.components(separatedBy: "\n")
