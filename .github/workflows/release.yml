@@ -131,6 +131,11 @@ jobs:
     runs-on: ubuntu-24.04
 
     steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
       - name: Download macOS artifact
         uses: actions/download-artifact@v8
         with:
@@ -159,3 +164,38 @@ jobs:
           files: |
             shipit-*-macos-universal.tar.gz
             shipit-*-linux-static.tar.gz
+
+      - name: Update Homebrew tap
+        env:
+          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          VERSION: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          if [ -z "${HOMEBREW_TAP_TOKEN:-}" ]; then
+            echo "::notice::HOMEBREW_TAP_TOKEN not set — skipping tap update. Render Formula/shipit.rb and push to the tap manually per docs/homebrew.md."
+            exit 0
+          fi
+
+          macos_sha=$(sha256sum "shipit-${VERSION}-macos-universal.tar.gz" | awk '{print $1}')
+          linux_sha=$(sha256sum "shipit-${VERSION}-linux-static.tar.gz" | awk '{print $1}')
+
+          sed -e "s/VERSION_PLACEHOLDER/${VERSION}/g" \
+              -e "s/MACOS_SHA256_PLACEHOLDER/${macos_sha}/g" \
+              -e "s/LINUX_SHA256_PLACEHOLDER/${linux_sha}/g" \
+              Formula/shipit.rb > rendered-shipit.rb
+          echo "Rendered formula:"
+          cat rendered-shipit.rb
+
+          git clone --depth 1 "https://x-access-token:${HOMEBREW_TAP_TOKEN}@github.com/ShipItSwifty/homebrew-tap.git" tap
+          mkdir -p tap/Formula
+          cp rendered-shipit.rb tap/Formula/shipit.rb
+          cd tap
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet; then
+            echo "Tap formula already up to date for ${VERSION}."
+          else
+            git add Formula/shipit.rb
+            git commit -m "shipit ${VERSION}"
+            git push
+          fi

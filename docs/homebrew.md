@@ -39,28 +39,36 @@ git tag <version>
 git push origin <version>
 ```
 
-## Compute Release SHA256
+## Tap Update Is Automated
 
-Download the source tarball for the new release and compute its SHA256:
+The tap formula points at the **prebuilt binary tarballs** attached to each GitHub Release
+(`shipit-<version>-macos-universal.tar.gz` and `shipit-<version>-linux-static.tar.gz`), not a
+source tarball. The release workflow updates the tap automatically:
+
+1. After the macOS + Linux binaries are built and the GitHub Release is created, the
+   `Update Homebrew tap` step computes each tarball's SHA256.
+2. It renders `Formula/shipit.rb` (this repo's template), substituting the version and both
+   SHA256 values. The download URLs use the **bare** tag (no `v` prefix), matching the release.
+3. It commits the rendered formula to `ShipItSwifty/homebrew-tap` (`Formula/shipit.rb`).
+
+This requires a repository secret **`HOMEBREW_TAP_TOKEN`** — a fine-grained PAT (or classic token)
+with `contents: write` on `ShipItSwifty/homebrew-tap`. If the secret is absent the step logs a
+notice and skips; complete the [manual fallback](#manual-fallback) below.
+
+### Manual Fallback
+
+If the automated step was skipped, render and publish the formula by hand from this repo, using
+the SHA256 of the **release binary** tarballs (not a source tarball):
 
 ```bash
-curl -L -o shipit-<version>.tar.gz https://github.com/shipitswifty/shipitswifty/archive/refs/tags/<version>.tar.gz
-shasum -a 256 shipit-<version>.tar.gz
-```
-
-## Update the Tap Formula
-
-Copy `Formula/shipit.rb` from this repository into the tap repository:
-
-```bash
-cp Formula/shipit.rb ../homebrew-tap/Formula/shipit.rb
-```
-
-Then add the stable release lines above `head` in the tap copy:
-
-```ruby
-url "https://github.com/shipitswifty/shipitswifty/archive/refs/tags/<version>.tar.gz"
-sha256 "<computed-sha256>"
+VERSION=<version>
+gh release download "$VERSION" -p 'shipit-*-macos-universal.tar.gz' -p 'shipit-*-linux-static.tar.gz'
+macos_sha=$(shasum -a 256 "shipit-${VERSION}-macos-universal.tar.gz" | awk '{print $1}')
+linux_sha=$(shasum -a 256 "shipit-${VERSION}-linux-static.tar.gz" | awk '{print $1}')
+sed -e "s/VERSION_PLACEHOLDER/${VERSION}/g" \
+    -e "s/MACOS_SHA256_PLACEHOLDER/${macos_sha}/g" \
+    -e "s/LINUX_SHA256_PLACEHOLDER/${linux_sha}/g" \
+    Formula/shipit.rb > ../homebrew-tap/Formula/shipit.rb
 ```
 
 ## Validate the Formula Locally
