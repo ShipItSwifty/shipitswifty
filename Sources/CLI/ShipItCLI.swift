@@ -64,7 +64,12 @@ struct ShipItCLI: AsyncParsableCommand {
         return commands
     }
 
-    static let versionString = "0.2.0"
+    /// The version reported by `shipit --version`.
+    ///
+    /// For released binaries this is overwritten at build time by the release workflow, which
+    /// stamps it from the git tag (see `.github/workflows/release.yml`). The literal below is the
+    /// fallback for local/dev builds and should track the most recent release tag.
+    static let versionString = "0.2.2"
 
     static func main(_ arguments: [String]?) async {
         let arguments = arguments ?? Array(CommandLine.arguments.dropFirst())
