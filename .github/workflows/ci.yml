@@ -59,7 +59,7 @@ jobs:
         run: swift --version
 
       - name: Cache SPM dependencies
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: ShipItSwifty/.build/checkouts
           key: ${{ runner.os }}-spm-${{ hashFiles('ShipItSwifty/Package.resolved') }}
@@ -73,7 +73,7 @@ jobs:
           distribution: 'temurin'
 
       - name: Cache Android SDK
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: |
             ${{ env.ANDROID_HOME }}/platforms
@@ -138,7 +138,7 @@ jobs:
         run: swift --version
 
       - name: Cache SPM dependencies
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: ShipItSwifty/.build/checkouts
           key: ${{ runner.os }}-spm-${{ hashFiles('ShipItSwifty/Package.resolved') }}
@@ -179,7 +179,7 @@ jobs:
         run: swift --version
 
       - name: Cache SPM dependencies
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: ShipItSwifty/.build/checkouts
           key: linux-spm-${{ hashFiles('ShipItSwifty/Package.resolved') }}
