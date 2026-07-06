@@ -201,8 +201,8 @@ The `versioning` section controls how `CFBundleVersion` is incremented. `CFBundl
 | Key | Type | Default | Description |
 |---|---|---|---|
 | `strategy` | string | `sequential` | `sequential` — adds 1 each run (guarantees a plain integer). `timestamp` — uses `YYYYMMDDHHmm` format. |
-| `source` | string | `xcodeproj` | `xcodeproj` — reads `MARKETING_VERSION`/`CURRENT_PROJECT_VERSION` from `xcodebuild -showBuildSettings`; falls back to `agvtool`, then `plutil` on Info.plist. `asc` — reads current build number from App Store Connect; same fallback chain for the read phase. `project_spec` — reads/writes version values directly in a YAML spec file (XcodeGen/Tuist). `xcconfig` — reads/writes named keys directly in an `.xcconfig` file (set `spec_path` to the file and `marketing_key`/`build_key` to the variable names); use when the version lives in an `.xcconfig` referenced via `$(VAR)` from the project so the `$(VAR)` indirection is preserved. `kmp` — reads/writes `versionName`/`versionCode` in `gradle.properties`. `gradle` — reads/writes `versionName`/`versionCode` directly in `build.gradle.kts` or `build.gradle`; default for Android projects. |
-| `spec_path` | string | — | Path to the version source file. Required when `source: project_spec` (e.g. `project.yml`) or `source: xcconfig` (e.g. `Config/Version.xcconfig`). |
+| `source` | string | `xcodeproj` | `xcodeproj` — reads `MARKETING_VERSION`/`CURRENT_PROJECT_VERSION` from `xcodebuild -showBuildSettings`; falls back to `agvtool`, then `plutil` on Info.plist. `asc` — reads current build number from App Store Connect; same fallback chain for the read phase. `project_spec` — reads/writes version values directly in a YAML spec file (XcodeGen/Tuist). `xcconfig` — reads/writes named keys directly in an `.xcconfig` file (set `spec_path` to the file and `marketing_key`/`build_key` to the variable names); use when the version lives in an `.xcconfig` referenced via `$(VAR)` from the project so the `$(VAR)` indirection is preserved. `kmp` — reads/writes `versionName`/`versionCode` in `gradle.properties`. `gradle` — reads/writes `versionName`/`versionCode` directly in `build.gradle.kts` or `build.gradle`; default for Android projects. `pubspec` — reads/writes the `version: X.Y.Z+B` key in `pubspec.yaml`; default for Flutter projects (`flutter build` stamps the native projects from it, so writing `xcodeproj`/`gradle` directly would be overwritten). |
+| `spec_path` | string | — | Path to the version source file. Required when `source: project_spec` (e.g. `project.yml`) or `source: xcconfig` (e.g. `Config/Version.xcconfig`). For `source: pubspec`, defaults to `pubspec.yaml` at the project root. |
 | `build_key` | string | — | Key for the build number in the spec file (YAML, e.g. `settings.CURRENT_PROJECT_VERSION`) or `.xcconfig` (e.g. `JOT_BUILD_NUMBER`). |
 | `marketing_key` | string | — | Key for the marketing version in the spec file (YAML, e.g. `settings.MARKETING_VERSION`) or `.xcconfig` (e.g. `JOT_MARKETING_VERSION`). |
 
@@ -233,6 +233,26 @@ versioning:
 ShipIt rewrites only those two lines, leaving the `$(JOT_MARKETING_VERSION)` references in the
 `.xcodeproj` intact. (The `xcodeproj` source would instead stamp literal values into the project's
 build configurations, breaking the indirection — so prefer `xcconfig` for this layout.)
+
+#### `source: pubspec` example (Flutter)
+
+Flutter treats the pubspec `version:` key as the single source of truth — `flutter build` stamps
+`CFBundleShortVersionString`/`CFBundleVersion` and `versionName`/`versionCode` from it on every
+build, so bumping the native project files directly does not stick. `pubspec` is the default
+source when the resolved build system is Flutter; the config below is only needed to override
+the file location:
+
+```yaml
+# Shipfile.yml
+versioning:
+  source: pubspec            # default for build_system: flutter
+  spec_path: pubspec.yaml    # optional; defaults to pubspec.yaml at the project root
+```
+
+The part before `+` is the marketing version, the part after is the build number
+(`version: 1.2.3+45` → marketing `1.2.3`, build `45`). When the `+build` suffix is absent the
+build number reads as `0`, so the first `bump: build` writes `+1`. Only the top-level
+`version:` key is rewritten; comments and the rest of the file are preserved.
 
 ### `version` action options
 

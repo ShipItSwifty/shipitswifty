@@ -30,6 +30,8 @@ import Foundation
 /// | `pubspec.yaml` with a `flutter:` key                              | `.flutter`      |
 /// | `package.json` containing `react-native` dependency               | `.reactNative`  |
 /// | `build.gradle.kts` declaring `kotlin("multiplatform")` plugin     | `.kmp`          |
+/// | `gradle/libs.versions.toml` declaring the KMP plugin ID           | `.kmp`          |
+/// | a module-level `<dir>/build.gradle.kts` applying the KMP plugin   | `.kmp`          |
 /// | none of the above                                                 | `.native`       |
 public enum BuildSystem: String, Codable, Sendable, CaseIterable {
     /// Pure native build (Swift + xcodebuild for iOS, Kotlin/Java + Gradle for Android).
@@ -53,7 +55,12 @@ extension BuildSystem {
     /// 1. `pubspec.yaml` containing a `flutter:` key → ``BuildSystem/flutter``
     /// 2. `package.json` declaring a `react-native` dependency → ``BuildSystem/reactNative``
     /// 3. `build.gradle.kts` (or `build.gradle`) applying `kotlin("multiplatform")` or
-    ///    `org.jetbrains.kotlin.multiplatform` → ``BuildSystem/kmp``
+    ///    `org.jetbrains.kotlin.multiplatform` → ``BuildSystem/kmp``. Root and first-level
+    ///    module build files are both checked, because version-catalog projects apply the
+    ///    plugin in the shared module, not the root. `gradle/libs.versions.toml` is also
+    ///    scanned for the `org.jetbrains.kotlin.multiplatform` plugin ID, since catalog
+    ///    projects reference it via `alias(libs.plugins…)` and the literal never appears
+    ///    in a build file.
     /// 4. otherwise `nil`, meaning ``BuildSystem/native`` is appropriate.
     ///
     /// - Parameters:
@@ -86,8 +93,46 @@ extension BuildSystem {
             }
         }
 
+        if gradleFileAppliesKMP(in: root, fileManager: fileManager) {
+            return .kmp
+        }
+
+        // Version-catalog projects (the current JetBrains KMP template) never spell the
+        // plugin ID in a build file — it lives in gradle/libs.versions.toml and is applied
+        // via `alias(libs.plugins.kotlinMultiplatform)` in the shared module.
+        let versionCatalogPath = root.appendingPathComponent("gradle/libs.versions.toml").path
+        if fileManager.fileExists(atPath: versionCatalogPath),
+            let contents = try? String(contentsOfFile: versionCatalogPath, encoding: .utf8),
+            contents.contains("org.jetbrains.kotlin.multiplatform")
+        {
+            return .kmp
+        }
+
+        // The plugin may be applied only in a module-level build file (e.g. shared/).
+        if let subdirectories = try? fileManager.contentsOfDirectory(atPath: root.path) {
+            for subdirectory in subdirectories.sorted() where !subdirectory.hasPrefix(".") {
+                let moduleRoot = root.appendingPathComponent(subdirectory)
+                var isDirectory: ObjCBool = false
+                guard fileManager.fileExists(atPath: moduleRoot.path, isDirectory: &isDirectory),
+                    isDirectory.boolValue
+                else { continue }
+                if gradleFileAppliesKMP(in: moduleRoot, fileManager: fileManager) {
+                    return .kmp
+                }
+            }
+        }
+
+        return nil
+    }
+
+    /// Returns `true` when a `build.gradle.kts` / `build.gradle` directly in `directory`
+    /// references the Kotlin Multiplatform plugin.
+    private static func gradleFileAppliesKMP(
+        in directory: URL,
+        fileManager: FileManager
+    ) -> Bool {
         for gradleFile in ["build.gradle.kts", "build.gradle"] {
-            let path = root.appendingPathComponent(gradleFile).path
+            let path = directory.appendingPathComponent(gradleFile).path
             guard fileManager.fileExists(atPath: path),
                 let contents = try? String(contentsOfFile: path, encoding: .utf8)
             else { continue }
@@ -95,10 +140,9 @@ extension BuildSystem {
                 || contents.contains("org.jetbrains.kotlin.multiplatform")
                 || contents.contains("kotlin-multiplatform")
             {
-                return .kmp
+                return true
             }
         }
-
-        return nil
+        return false
     }
 }
