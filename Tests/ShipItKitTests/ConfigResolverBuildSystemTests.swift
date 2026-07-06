@@ -258,4 +258,61 @@ struct ConfigResolverBuildSystemTests {
         // Unknown raw value is ignored — Shipfile value wins.
         #expect(config.iosBuildSystem == .kmp)
     }
+
+    @Test("Flutter build system defaults versioning source to pubspec")
+    func flutterDefaultsVersioningSourceToPubspec() async throws {
+        let tempDirectory = try makeTempDirectory()
+        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+        let shipfileURL = tempDirectory.appendingPathComponent("Shipfile.yml")
+        try """
+        app:
+          scheme: Runner
+        ios:
+          build_system: flutter
+        android:
+          build_system: flutter
+        """.write(to: shipfileURL, atomically: true, encoding: .utf8)
+
+        let config = try await ConfigResolver(environment: Environment(env: [:]))
+            .resolve(shipfilePath: shipfileURL.path)
+
+        #expect(config.versioningSource == "pubspec")
+    }
+
+    @Test("Explicit versioning source overrides the Flutter pubspec default")
+    func explicitVersioningSourceWinsOverFlutterDefault() async throws {
+        let tempDirectory = try makeTempDirectory()
+        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+        let shipfileURL = tempDirectory.appendingPathComponent("Shipfile.yml")
+        try """
+        app:
+          scheme: Runner
+        ios:
+          build_system: flutter
+        versioning:
+          source: xcodeproj
+        """.write(to: shipfileURL, atomically: true, encoding: .utf8)
+
+        let config = try await ConfigResolver(environment: Environment(env: [:]))
+            .resolve(shipfilePath: shipfileURL.path)
+
+        #expect(config.versioningSource == "xcodeproj")
+    }
+
+    @Test("Native build system keeps the platform versioning source defaults")
+    func nativeKeepsPlatformVersioningDefaults() async throws {
+        let tempDirectory = try makeTempDirectory()
+        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+        let shipfileURL = tempDirectory.appendingPathComponent("Shipfile.yml")
+        try "app:\n  scheme: MyApp\n".write(to: shipfileURL, atomically: true, encoding: .utf8)
+
+        let resolver = ConfigResolver(environment: Environment(env: [:]))
+        let iosConfig = try await resolver.resolve(
+            cliOptions: CLIOptions(platform: .ios), shipfilePath: shipfileURL.path)
+        let androidConfig = try await resolver.resolve(
+            cliOptions: CLIOptions(platform: .android), shipfilePath: shipfileURL.path)
+
+        #expect(iosConfig.versioningSource == "xcodeproj")
+        #expect(androidConfig.versioningSource == "gradle")
+    }
 }

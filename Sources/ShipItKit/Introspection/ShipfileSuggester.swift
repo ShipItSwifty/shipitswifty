@@ -250,6 +250,12 @@ public struct ShipfileSuggester: Sendable {
             "android:",
             "  build_system: flutter",
             "",
+            "versioning:",
+            "  strategy: sequential",
+            "  # pubspec.yaml `version: X.Y.Z+B` is Flutter's source of truth; `flutter build`",
+            "  # stamps the native projects from it.",
+            "  source: pubspec",
+            "",
             "workflows:",
         ]
 

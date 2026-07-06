@@ -198,8 +198,14 @@ public struct ConfigResolver: Sendable {
         let projGenOutputProject = projGen?.outputProject
         let projGenAutoGenerate = projGen?.autoGenerate ?? true
 
-        // Versioning config — resolve spec_path from project_generation if not set
-        let versioningSourceDefault = platform == .android ? "gradle" : "xcodeproj"
+        // Versioning config — resolve spec_path from project_generation if not set.
+        // Flutter owns the version in pubspec.yaml (`flutter build` stamps the native
+        // projects from it), so writing xcodeproj/gradle directly would be overwritten.
+        let platformBuildSystem = platform == .android ? androidBuildSystem : iosBuildSystem
+        let versioningSourceDefault =
+            platformBuildSystem == .flutter
+            ? "pubspec"
+            : platform == .android ? "gradle" : "xcodeproj"
         let versioningSource = shipfile?.versioning?.source ?? versioningSourceDefault
         let versioningSpecPath = shipfile?.versioning?.specPath ?? projGenSpecPath
         var androidGradleProperties = androidConfig?.gradleProperties ?? [:]

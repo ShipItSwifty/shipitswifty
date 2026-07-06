@@ -112,6 +112,8 @@ public struct VersionBumper: Sendable {
                 return "gradle"
             case "xcconfig", "xcconfig_file":
                 return "xcconfig"
+            case "pubspec", "pubspec_yaml":
+                return "pubspec"
             default:
                 return target
             }
@@ -141,6 +143,11 @@ public struct VersionBumper: Sendable {
         // xcconfig source — read directly from the .xcconfig file
         if source == "xcconfig" {
             return try XcconfigVersionSource(context: context).readVersion()
+        }
+
+        // pubspec source — read directly from pubspec.yaml (Flutter)
+        if source == "pubspec" {
+            return try PubspecVersionSource(context: context).readVersion()
         }
 
         #if !os(macOS)
@@ -201,6 +208,11 @@ public struct VersionBumper: Sendable {
             return try XcconfigVersionSource(context: context).readBuildNumber()
         }
 
+        // pubspec source — read directly from pubspec.yaml (Flutter)
+        if source == "pubspec" {
+            return try PubspecVersionSource(context: context).readBuildNumber()
+        }
+
         #if !os(macOS)
         throw ShipItError.invalidConfiguration(
             reason: "Version source '\(source)' requires macOS. Use versioning.source: kmp for Linux-compatible versioning."
@@ -245,6 +257,11 @@ public struct VersionBumper: Sendable {
 
         if source == "xcconfig" {
             try XcconfigVersionSource(context: context).writeVersion(version)
+            return
+        }
+
+        if source == "pubspec" {
+            try PubspecVersionSource(context: context).writeVersion(version)
             return
         }
 
@@ -294,6 +311,11 @@ public struct VersionBumper: Sendable {
 
         if source == "xcconfig" {
             try XcconfigVersionSource(context: context).writeBuildNumber(build)
+            return
+        }
+
+        if source == "pubspec" {
+            try PubspecVersionSource(context: context).writeBuildNumber(build)
             return
         }
 

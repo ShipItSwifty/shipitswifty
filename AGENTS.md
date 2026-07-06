@@ -296,6 +296,7 @@ Shipfile.yml / CLI flags / env vars
 | `XcconfigVersionSource` | Reads/writes named keys (`marketing_key` / `build_key`) directly in an `.xcconfig` file (`spec_path`) for `versioning.source: xcconfig`. Preserves `$(VAR)` indirection referenced from the `.xcodeproj`. |
 | `KMPVersionSource` | Reads/writes `versionName` / `versionCode` in `gradle.properties` for `versioning.source: kmp`. |
 | `GradleVersionSource` | Reads/writes `versionName` / `versionCode` directly in `build.gradle.kts` or `build.gradle` for `versioning.source: gradle`. Default versioning source for Android projects. |
+| `PubspecVersionSource` | Reads/writes the `version: X.Y.Z+B` key in `pubspec.yaml` for `versioning.source: pubspec`. Default versioning source for Flutter projects (`flutter build` stamps the native projects from pubspec). |
 | `DestinationDiscovery` | Discovers available xcodebuild destinations. Used by `TestAction` for automatic simulator selection. |
 
 ### Config resolution priority
@@ -307,13 +308,14 @@ CLI flags > `Shipfile.yml` > `SHIPIT_*` env vars > `.env` file (auto-loaded from
 `Platform` (`.ios` / `.android`) and `BuildSystem` (`.native` / `.flutter` / `.reactNative` / `.kmp`) are independent axes. `Platform` selects which distribution pipeline runs; `BuildSystem` selects how the native artifact is compiled before that pipeline.
 
 - Set per platform: `ios.build_system:` / `android.build_system:` (or `SHIPIT_IOS__BUILD_SYSTEM` / `SHIPIT_ANDROID__BUILD_SYSTEM`).
-- Auto-detection rules (`BuildSystem.autoDetect(in:)`): `pubspec.yaml` with `flutter:` → `.flutter`; `package.json` with `react-native` dep → `.reactNative`; `kotlin("multiplatform")` in `build.gradle.kts` → `.kmp`; otherwise `nil` (resolves to `.native`).
+- Auto-detection rules (`BuildSystem.autoDetect(in:)`): `pubspec.yaml` with `flutter:` → `.flutter`; `package.json` with `react-native` dep → `.reactNative`; the KMP plugin (`kotlin("multiplatform")` / `org.jetbrains.kotlin.multiplatform`) in the root or a first-level module `build.gradle(.kts)`, or the plugin ID in `gradle/libs.versions.toml` (version-catalog projects) → `.kmp`; otherwise `nil` (resolves to `.native`).
 - `BuildAction`, `ArchiveAction`, and `TestAction` switch on `BuildSystem`. Later actions (`sign`, `export`, `testflight`, `play-store`, `upload`, `dsym`, `frame`, `screenshot`) keep their platform checks and operate on artifact paths.
 - KMP iOS builds run `gradlew :<shared-module>:link…Framework…` automatically before `xcodebuild build`; archives use the archive target before `xcodebuild archive`.
 - KMP defaults: `ios.kmp_shared_module: shared`, `ios.kmp_build_target: IosSimulatorArm64`, `ios.kmp_archive_target: IosArm64`, `ios.kmp_test_task: iosSimulatorArm64Test`.
 - `versioning.source: kmp` reads/writes `versionName` + `versionCode` in `gradle.properties` via `KMPVersionSource`.
 - `versioning.source: gradle` reads/writes `versionName` + `versionCode` directly in `build.gradle.kts` or `build.gradle` via `GradleVersionSource`. This is the default versioning source for Android projects.
 - `versioning.source: xcconfig` reads/writes named keys directly in an `.xcconfig` file via `XcconfigVersionSource`. Set `versioning.spec_path` to the file and `versioning.marketing_key` / `versioning.build_key` to the variable names. Pure file I/O (Linux-compatible).
+- `versioning.source: pubspec` reads/writes the `version: X.Y.Z+B` key in `pubspec.yaml` via `PubspecVersionSource` (marketing version before `+`, build number after). This is the default versioning source when the resolved build system is Flutter. Pure file I/O (Linux-compatible).
 - `flutter` / `react_native` are fully implemented: `BuildAction`, `ArchiveAction`, `TestAction`, and `LintAction` all dispatch on `build_system` and invoke the appropriate Flutter/RN CLI. `ValidateBundle` and `PlayStoreAction` auto-discover conventional artifact paths for native Gradle, Flutter, and React Native projects. Flutter iOS archive produces IPA directly (no export step); RN iOS uses `xcodebuild archive` + export.
 
 When recommending changes to an agent:
@@ -321,6 +323,7 @@ When recommending changes to an agent:
 - Prefer setting KMP module/target overrides under `ios:` over hardcoding Gradle task names in workflows.
 - For KMP, set `build_system: kmp` on **both** `ios:` and `android:`.
 - Suggest `versioning.source: kmp` when the user mentions `gradle.properties` versions or KMP-style version sharing.
+- Suggest `versioning.source: pubspec` (or leave as default) for Flutter projects. Do **not** suggest `xcodeproj` or `gradle` there: `flutter build` re-stamps the native projects from `pubspec.yaml`, so direct native writes are overwritten on the next build.
 - Suggest `versioning.source: gradle` (or leave as default) when the user has a standard Android project with version info in `build.gradle.kts` / `build.gradle`.
 - Suggest `versioning.source: xcconfig` when the user keeps `MARKETING_VERSION` / build number in an `.xcconfig` file — especially custom-named keys (e.g. `JOT_MARKETING_VERSION` / `JOT_BUILD_NUMBER`) referenced via `$(...)` from the `.xcodeproj`, or an Xcode Cloud setup gated on a version file. Do **not** suggest `xcodeproj` for that layout: it stamps literal values into the pbxproj and breaks the `$(...)` indirection.
 - When adding or changing test workflow behavior, update both `AISessionBuilder` agent guidance and the guided `generate` questionnaire/templates so agents and humans see the same choices.
