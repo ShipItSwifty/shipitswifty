@@ -26,7 +26,7 @@ jobs:
         run: |
           sed -i.bak 's/static let versionString = "[^"]*"/static let versionString = "'"${GITHUB_REF_NAME}"'"/' Sources/CLI/ShipItCLI.swift
           rm -f Sources/CLI/ShipItCLI.swift.bak
-          grep 'static let versionString' Sources/CLI/ShipItCLI.swift
+          grep -q "static let versionString = \"${GITHUB_REF_NAME}\"" Sources/CLI/ShipItCLI.swift
 
       - name: Swift version
         run: swift --version
@@ -38,6 +38,9 @@ jobs:
           key: ${{ runner.os }}-spm-${{ hashFiles('Package.resolved') }}
           restore-keys: |
             ${{ runner.os }}-spm-
+
+      - name: Test
+        run: swift test --skip IntegrationTests
 
       - name: Build arm64
         run: |
@@ -91,7 +94,7 @@ jobs:
         run: |
           sed -i.bak 's/static let versionString = "[^"]*"/static let versionString = "'"${GITHUB_REF_NAME}"'"/' Sources/CLI/ShipItCLI.swift
           rm -f Sources/CLI/ShipItCLI.swift.bak
-          grep 'static let versionString' Sources/CLI/ShipItCLI.swift
+          grep -q "static let versionString = \"${GITHUB_REF_NAME}\"" Sources/CLI/ShipItCLI.swift
 
       - name: Swift version
         run: swift --version
@@ -192,10 +195,10 @@ jobs:
           cd tap
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          if git diff --quiet; then
+          git add Formula/shipit.rb
+          if git diff --cached --quiet; then
             echo "Tap formula already up to date for ${VERSION}."
           else
-            git add Formula/shipit.rb
             git commit -m "shipit ${VERSION}"
             git push
           fi
