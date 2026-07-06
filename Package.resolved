@@ -1,13 +1,13 @@
 {
-  "originHash" : "25612441ee185381cfaf5734d4536b4684f196b9e1d51874899f6b81c28b5118",
+  "originHash" : "459ac046276fc7685945cf2b2d0c8227277de3c3589025f4ac32c64bf1bee0c1",
   "pins" : [
     {
       "identity" : "jwt-kit",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/vapor/jwt-kit",
       "state" : {
-        "revision" : "a93a262fefb0938b799191b54f581ffa43422d96",
-        "version" : "5.5.0"
+        "revision" : "7abc497b0f907191933c87166e9b6a41b9d028d6",
+        "version" : "5.6.0"
       }
     },
     {
@@ -69,8 +69,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-log",
       "state" : {
-        "revision" : "92448c359f00ebe36ae97d3bd9086f13c7692b5a",
-        "version" : "1.13.2"
+        "revision" : "a878e7f8f46cfc0e1125e565b5c08e7d5272dc9a",
+        "version" : "1.14.0"
       }
     },
     {
