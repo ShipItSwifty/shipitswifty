@@ -217,4 +217,88 @@ struct BuildSystemTests {
 
         #expect(BuildSystem.autoDetect(in: dir.path) == .flutter)
     }
+
+    @Test("autoDetect returns .kmp when the plugin ID is only in gradle/libs.versions.toml")
+    func detectsKMPViaVersionCatalog() throws {
+        let dir = try makeTempDirectory()
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        // JetBrains wizard layout: the root build file only references the catalog alias,
+        // so none of the plugin-ID literals appear in any build.gradle.kts.
+        try """
+        plugins {
+            alias(libs.plugins.kotlinMultiplatform).apply(false)
+            alias(libs.plugins.androidApplication).apply(false)
+        }
+        """.write(
+            to: dir.appendingPathComponent("build.gradle.kts"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        let gradleDir = dir.appendingPathComponent("gradle")
+        try FileManager.default.createDirectory(at: gradleDir, withIntermediateDirectories: true)
+        try """
+        [versions]
+        kotlin = "2.1.0"
+
+        [plugins]
+        kotlinMultiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
+        androidApplication = { id = "com.android.application", version = "8.7.0" }
+        """.write(
+            to: gradleDir.appendingPathComponent("libs.versions.toml"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        #expect(BuildSystem.autoDetect(in: dir.path) == .kmp)
+    }
+
+    @Test("autoDetect returns .kmp when only a module-level build file applies the plugin")
+    func detectsKMPViaModuleBuildFile() throws {
+        let dir = try makeTempDirectory()
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        try """
+        // Root build file with no plugin references.
+        """.write(
+            to: dir.appendingPathComponent("build.gradle.kts"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        let sharedDir = dir.appendingPathComponent("shared")
+        try FileManager.default.createDirectory(at: sharedDir, withIntermediateDirectories: true)
+        try """
+        plugins {
+            kotlin("multiplatform")
+        }
+        """.write(
+            to: sharedDir.appendingPathComponent("build.gradle.kts"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        #expect(BuildSystem.autoDetect(in: dir.path) == .kmp)
+    }
+
+    @Test("autoDetect ignores a version catalog without the KMP plugin ID")
+    func ignoresVersionCatalogWithoutKMP() throws {
+        let dir = try makeTempDirectory()
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        let gradleDir = dir.appendingPathComponent("gradle")
+        try FileManager.default.createDirectory(at: gradleDir, withIntermediateDirectories: true)
+        try """
+        [plugins]
+        androidApplication = { id = "com.android.application", version = "8.7.0" }
+        kotlinAndroid = { id = "org.jetbrains.kotlin.android", version = "2.1.0" }
+        """.write(
+            to: gradleDir.appendingPathComponent("libs.versions.toml"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        #expect(BuildSystem.autoDetect(in: dir.path) == nil)
+    }
 }
