@@ -423,13 +423,12 @@ public struct ArchiveAction: Action {
         var xcodeBuild = context.streamingXcodeBuild()
             .option(.scheme(scheme))
             .option(.configuration(configuration))
-            .option(.archivePath(archivePath))
-            .trailingArgument("archive")
+            .archive(path: archivePath)
 
         if let workspace = context.config.appWorkspace {
-            xcodeBuild = xcodeBuild.option(.workspace(workspace))
+            xcodeBuild = xcodeBuild.workspace(workspace)
         } else if let project = context.config.appProject {
-            xcodeBuild = xcodeBuild.option(.project(project))
+            xcodeBuild = xcodeBuild.project(project)
         }
 
         if let derivedData = context.config.derivedDataPath {

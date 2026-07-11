@@ -1143,12 +1143,12 @@ public struct TestAction: Action {
                 .option(.scheme(scheme))
                 .option(.configuration(configuration))
                 .option(.destination(destination))
-                .trailingArgument("test")
+                .test()
 
             if let workspace = context.config.appWorkspace {
-                xcodeBuild = xcodeBuild.option(.workspace(workspace))
+                xcodeBuild = xcodeBuild.workspace(workspace)
             } else if let project = context.config.appProject {
-                xcodeBuild = xcodeBuild.option(.project(project))
+                xcodeBuild = xcodeBuild.project(project)
             }
 
             if options.enableCodeCoverage == true {
