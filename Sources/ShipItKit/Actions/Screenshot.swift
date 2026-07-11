@@ -137,12 +137,12 @@ public struct SnapshotAction: Action {
                         .option(.destination("platform=iOS Simulator,name=\(device)"))
                         .buildSetting("SNAPSHOT_LOCALE", locale)
                         .buildSetting("SCREENSHOT_OUTPUT_DIR", deviceOutputDir)
-                        .trailingArgument("test")
+                        .test()
 
                     if let workspace = context.config.appWorkspace {
-                        xcodeBuild = xcodeBuild.option(.workspace(workspace))
+                        xcodeBuild = xcodeBuild.workspace(workspace)
                     } else if let project = context.config.appProject {
-                        xcodeBuild = xcodeBuild.option(.project(project))
+                        xcodeBuild = xcodeBuild.project(project)
                     }
 
                     let output = try await xcodeBuild.run()

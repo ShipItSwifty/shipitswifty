@@ -157,7 +157,7 @@ public struct ProjectInspector: Sendable {
     private func buildSettings(for scheme: String, in container: ProjectInspection.XcodeContainer) async throws -> [String: String] {
         let output = try await xcodebuild(for: container)
             .option(.scheme(scheme))
-            .option(.showBuildSettings)
+            .showBuildSettings()
             .run()
 
         // Note: SubprocessExecutor already throws ShellError.exitFailure before returning a
@@ -176,11 +176,11 @@ public struct ProjectInspector: Sendable {
 
     private func xcodebuild(for container: ProjectInspection.XcodeContainer) -> XcodeBuild {
         let absoluteContainerPath = URL(fileURLWithPath: rootPath).appendingPathComponent(container.path).path
-        let option: XcodeBuildOption =
+        let selectedContainer: XcodeBuildContainer =
             container.kind == "workspace"
             ? .workspace(absoluteContainerPath)
             : .project(absoluteContainerPath)
-        return XcodeBuild(context: shell).option(option)
+        return XcodeBuild(context: shell).container(selectedContainer)
     }
     #endif
 

@@ -487,9 +487,9 @@ public struct BuildAction: Action {
             .option(.configuration(configuration))
 
         if let workspace = options.workspace ?? context.config.appWorkspace {
-            xcodeBuild = xcodeBuild.option(.workspace(workspace))
+            xcodeBuild = xcodeBuild.workspace(workspace)
         } else if let project = options.project ?? context.config.appProject {
-            xcodeBuild = xcodeBuild.option(.project(project))
+            xcodeBuild = xcodeBuild.project(project)
         }
 
         if let derivedData = options.derivedDataPath ?? context.config.derivedDataPath {
@@ -508,10 +508,7 @@ public struct BuildAction: Action {
             xcodeBuild = xcodeBuild.buildSetting(key, value)
         }
 
-        if options.clean == true {
-            xcodeBuild = xcodeBuild.trailingArgument("clean")
-        }
-        xcodeBuild = xcodeBuild.trailingArgument("build")
+        xcodeBuild = xcodeBuild.build(clean: options.clean == true)
 
         let output: ShellOutput
         do {
