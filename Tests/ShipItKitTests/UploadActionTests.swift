@@ -21,8 +21,8 @@ struct UploadActionTests {
             if command.arguments.first == "altool" {
                 return ShellOutput(stdout: "", stderr: "", exitCode: 0)
             }
-            // bash -c "unzip | plutil" → build version
-            if command.arguments.first == "-c" {
+            // Typed plutil pipeline stage returns the build version.
+            if command.executableName == "plutil" {
                 return ShellOutput(stdout: "1\n", stderr: "", exitCode: 0)
             }
             return ShellOutput(stdout: "", stderr: "", exitCode: 0)
@@ -73,7 +73,7 @@ struct UploadActionTests {
             if command.arguments.first == "altool" {
                 return ShellOutput(stdout: "", stderr: "", exitCode: 0)
             }
-            if command.arguments.first == "-c" {
+            if command.executableName == "plutil" {
                 return ShellOutput(stdout: "2\n", stderr: "", exitCode: 0)
             }
             return ShellOutput(stdout: "", stderr: "", exitCode: 0)
@@ -148,7 +148,7 @@ struct UploadActionTests {
             if command.arguments.first == "altool" {
                 return ShellOutput(stdout: "", stderr: "", exitCode: 0)
             }
-            if command.arguments.first == "-c" {
+            if command.executableName == "plutil" {
                 return ShellOutput(stdout: "3\n", stderr: "", exitCode: 0)
             }
             return ShellOutput(stdout: "", stderr: "", exitCode: 0)

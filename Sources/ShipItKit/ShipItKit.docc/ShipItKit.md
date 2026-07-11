@@ -188,6 +188,13 @@ These constraints are enforced throughout the codebase:
 
 ### Lower-level wrappers
 
+- ``Plutil``
+- ``PlutilConversionFormat``
+- ``PlutilConversionOutput``
+- ``PlutilExtractionFormat``
+- ``PlutilValueType``
+- ``PlutilValue``
+- ``PlutilEmptyCollection``
 - ``Xcrun``
 - ``Simctl``
 - ``SimctlCommand``
