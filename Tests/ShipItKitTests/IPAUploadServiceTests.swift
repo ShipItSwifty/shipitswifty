@@ -103,8 +103,8 @@ struct IPAUploadServiceTests {
                 capturedArgs = command.arguments
                 return ShellOutput(stdout: "", stderr: "", exitCode: 0)
             }
-            // bash -c "unzip | plutil" → return a build version
-            if command.arguments.first == "-c" {
+            // Typed plutil pipeline stage returns the build version.
+            if command.executableName == "plutil" {
                 return ShellOutput(stdout: "42\n", stderr: "", exitCode: 0)
             }
             return ShellOutput(stdout: "", stderr: "", exitCode: 0)
@@ -202,7 +202,7 @@ struct IPAUploadServiceTests {
         nonisolated(unsafe) var ascWasCalled = false
 
         let executor = MockExecutor { command, _ in
-            if command.arguments.first == "-c" {
+            if command.executableName == "plutil" {
                 extractedBuildVersion = true
             }
             return ShellOutput(stdout: "", stderr: "", exitCode: 0)
@@ -241,7 +241,7 @@ struct IPAUploadServiceTests {
         defer { try? FileManager.default.removeItem(at: ipaURL) }
 
         let executor = MockExecutor { command, _ in
-            if command.arguments.first == "-c" {
+            if command.executableName == "plutil" {
                 return ShellOutput(stdout: "99\n", stderr: "", exitCode: 0)
             }
             return ShellOutput(stdout: "", stderr: "", exitCode: 0)
@@ -265,7 +265,7 @@ struct IPAUploadServiceTests {
         defer { try? FileManager.default.removeItem(at: ipaURL) }
 
         let executor = MockExecutor { command, _ in
-            if command.arguments.first == "-c" {
+            if command.executableName == "plutil" {
                 return ShellOutput(stdout: "77\n", stderr: "", exitCode: 0)
             }
             return ShellOutput(stdout: "", stderr: "", exitCode: 0)
@@ -304,7 +304,7 @@ struct IPAUploadServiceTests {
         defer { try? FileManager.default.removeItem(at: ipaURL) }
 
         let executor = MockExecutor { command, _ in
-            if command.arguments.first == "-c" {
+            if command.executableName == "plutil" {
                 return ShellOutput(stdout: "123\n", stderr: "", exitCode: 0)
             }
             return ShellOutput(stdout: "", stderr: "", exitCode: 0)

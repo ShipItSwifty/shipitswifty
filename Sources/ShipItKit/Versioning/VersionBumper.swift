@@ -518,7 +518,7 @@ public struct VersionBumper: Sendable {
         // plutil exits 0 on success; fall through to NSDictionary on failure.
         do {
             let output = try await Plutil(context: context.shell)
-                .extractRaw(key: key, plistPath: plistPath)
+                .extractRaw(key, expectedType: .string, from: plistPath)
                 .run()
             return output.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
         } catch {
@@ -542,7 +542,7 @@ public struct VersionBumper: Sendable {
 
         // Command.run() throws on non-zero exit; propagate plutil failures directly.
         _ = try await Plutil(context: context.shell)
-            .replaceString(key: key, value: value, plistPath: plistPath)
+            .replace(.string(value), at: key, in: plistPath)
             .run()
     }
 
