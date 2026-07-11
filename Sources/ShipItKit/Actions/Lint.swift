@@ -227,9 +227,9 @@ public struct LintAction: Action {
             .trailingArgument("analyze")
 
         if let workspace = context.config.appWorkspace {
-            xcodeBuild = xcodeBuild.option(.workspace(workspace))
+            xcodeBuild = xcodeBuild.workspace(workspace)
         } else if let project = context.config.appProject {
-            xcodeBuild = xcodeBuild.option(.project(project))
+            xcodeBuild = xcodeBuild.project(project)
         }
 
         let output: ShellOutput

@@ -601,9 +601,9 @@ public struct ConfigResolver: Sendable {
 
         do {
             let output = try await XcodeBuild(context: shell)
-                .option(containerOption)
+                .container(containerOption)
                 .option(.scheme(scheme))
-                .option(.showBuildSettings)
+                .showBuildSettings()
                 .run()
 
             guard output.exitCode == 0 else {
@@ -630,7 +630,7 @@ public struct ConfigResolver: Sendable {
     }
 
     #if os(macOS)
-    private func xcodeContainerOption(workspace: String?, project: String?) -> XcodeBuildOption? {
+    private func xcodeContainerOption(workspace: String?, project: String?) -> XcodeBuildContainer? {
         if let workspace {
             return .workspace(workspace)
         }

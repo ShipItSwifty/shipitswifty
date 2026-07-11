@@ -73,13 +73,13 @@ public struct DestinationDiscovery: Sendable {
 
         var xcodeBuild = XcodeBuild(context: shell)
             .option(.scheme(scheme))
-            .option(.showDestinations)
-            .trailingArgument("-quiet")
+            .option(.quiet)
+            .showDestinations()
 
         if let workspace {
-            xcodeBuild = xcodeBuild.option(.workspace(workspace))
+            xcodeBuild = xcodeBuild.workspace(workspace)
         } else if let project {
-            xcodeBuild = xcodeBuild.option(.project(project))
+            xcodeBuild = xcodeBuild.project(project)
         }
 
         let output: ShellOutput

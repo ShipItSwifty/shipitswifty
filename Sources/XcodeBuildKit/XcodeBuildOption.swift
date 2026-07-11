@@ -6,6 +6,10 @@ public struct XcodeBuildOption: Sendable, Equatable, Hashable {
     /// The raw arguments emitted for the option.
     public let arguments: [String]
 
+    var isContainerOption: Bool {
+        arguments.first == "-project" || arguments.first == "-workspace"
+    }
+
     /// Creates an `xcodebuild` option from raw arguments.
     public init(_ arguments: String...) {
         precondition(!arguments.isEmpty, "An xcodebuild option must include at least one argument.")

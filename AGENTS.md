@@ -443,7 +443,7 @@ Every non-trivial code change (new feature, changed behaviour, new/renamed comma
 
 | Task | How |
 |---|---|
-| Run xcodebuild | `XcodeBuild(context:).option(.scheme("X")).trailingArgument("build").run()` |
+| Run xcodebuild | `XcodeBuild(context:).workspace("App.xcworkspace").option(.scheme("X")).build().run()` |
 | Run git operations | `Git(context:).workingDirectory(path).status().run()` |
 | Call ASC API | `context.appStoreConnect.get("/v1/apps")` |
 | Upload asset | `context.appStoreConnect.uploadAsset(at:reservation:)` |

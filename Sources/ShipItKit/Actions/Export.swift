@@ -118,17 +118,16 @@ public struct ExportAction: Action {
         defer { ascAuth?.cleanup() }
 
         var command = XcodeBuild(context: context.shell)
-            .trailingArguments([
-                "-exportArchive",
-                "-archivePath", archivePath,
-                "-exportPath", outputDirectory,
-                "-exportOptionsPlist", plistPath,
-            ])
+            .exportArchive(
+                archivePath: archivePath,
+                exportPath: outputDirectory,
+                exportOptionsPlist: plistPath
+            )
 
         if context.config.automaticCodeSigning {
-            command = command.trailingArgument("-allowProvisioningUpdates")
+            command = command.option(.allowProvisioningUpdates)
             for option in ascAuth?.options ?? [] {
-                command = command.trailingArguments(option.arguments)
+                command = command.option(option)
             }
         }
 

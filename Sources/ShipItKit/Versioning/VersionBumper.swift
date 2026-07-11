@@ -441,21 +441,21 @@ public struct VersionBumper: Sendable {
     /// resolution or when a custom toolchain is active). Callers fall through to
     /// the agvtool / plutil strategy chain in that case.
     private func readBuildSetting(_ setting: String) async throws -> String? {
-        var extraArgs: [String] = []
-        if let project = context.config.appProject {
-            extraArgs += ["-project", project]
-        } else if let workspace = context.config.appWorkspace {
-            extraArgs += ["-workspace", workspace]
+        var xcodeBuild = XcodeBuild(context: context.shell)
+        if let workspace = context.config.appWorkspace {
+            xcodeBuild = xcodeBuild.workspace(workspace)
+        } else if let project = context.config.appProject {
+            xcodeBuild = xcodeBuild.project(project)
         }
         if let scheme = context.config.appScheme {
-            extraArgs += ["-scheme", scheme]
+            xcodeBuild = xcodeBuild.option(.scheme(scheme))
         }
 
         let output: ShellOutput
         do {
-            output = try await XcodeBuild(context: context.shell)
-                .trailingArgument("-showBuildSettings")
-                .trailingArguments(extraArgs)
+            output =
+                try await xcodeBuild
+                .showBuildSettings()
                 .run()
         } catch let ShellError.exitFailure(command, shellOutput) {
             // xcodebuild can exit non-zero (e.g. 74) when packages haven't been

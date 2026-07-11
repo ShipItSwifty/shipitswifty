@@ -50,6 +50,37 @@ let output = try await Gradle()
 print(output.stdout)
 ```
 
+## XcodeBuildKit script
+
+Operation methods place `xcodebuild` actions and standalone modes in the correct
+part of the command. Selecting a project or workspace replaces the previous typed
+container, so scripts cannot accidentally emit both.
+
+```swift
+import XcodeBuildKit
+
+let archive = try await XcodeBuild()
+    .workspace("App.xcworkspace")
+    .option(.scheme("App"))
+    .option(.configuration("Release"))
+    .buildSetting("CODE_SIGN_STYLE", "Automatic")
+    .archive(path: "./build/App.xcarchive")
+    .run()
+
+let exported = try await XcodeBuild()
+    .exportArchive(
+        archivePath: "./build/App.xcarchive",
+        exportPath: "./build/export",
+        exportOptionsPlist: "./ExportOptions.plist"
+    )
+    .run()
+```
+
+Use `.build(clean:)`, `.test()`, `.showBuildSettings(json:)`,
+`.showDestinations()`, and `.createXCFramework(inputs:output:)` for the other
+modeled operations. Raw `.option(...)` and `.trailingArgument(...)` builders are
+still available for unsupported or newly introduced `xcodebuild` arguments.
+
 ## ShipItKit workflow script
 
 ```swift
