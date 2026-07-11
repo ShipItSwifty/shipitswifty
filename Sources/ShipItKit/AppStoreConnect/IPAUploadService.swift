@@ -173,15 +173,18 @@ public struct IPAUploadService: Sendable {
 
     /// Extracts `CFBundleVersion` from an IPA's embedded `Info.plist`.
     ///
-    /// Runs `unzip -p` piped through `plutil` inside a bash subshell so that
-    /// the glob `Payload/*.app/Info.plist` expands correctly.
+    /// Pipes `unzip -p` into `plutil` through SwiftyShell without shell parsing.
     private func extractBuildVersion(from ipaURL: URL, shell: ShellContext) async throws -> String {
-        // Single-quote the path to handle spaces; escape any embedded single quotes.
-        let escapedPath = ipaURL.path.replacingOccurrences(of: "'", with: "'\\''")
+        logger.debug("Extracting CFBundleVersion from IPA")
         do {
-            let output = try await Bash(context: shell)
-                .script("unzip -p '\(escapedPath)' 'Payload/*.app/Info.plist' | plutil -extract CFBundleVersion raw -")
-                .run()
+            let output = try await Command("unzip")
+                .args(["-p", ipaURL.path, "Payload/*.app/Info.plist"])
+                .pipe(
+                    to: Plutil(context: shell)
+                        .extractRaw("CFBundleVersion", expectedType: .string, from: "-")
+                        .command()
+                )
+                .run(in: shell)
             let version = output.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !version.isEmpty else {
                 throw ShipItError.uploadFailed(
@@ -189,12 +192,17 @@ public struct IPAUploadService: Sendable {
                     reason: "CFBundleVersion is empty in IPA Info.plist"
                 )
             }
+            logger.debug("Extracted CFBundleVersion from IPA")
             return version
         } catch let ShellError.exitFailure(_, shellOutput) {
+            logger.error("Failed to extract CFBundleVersion from IPA")
             throw ShipItError.uploadFailed(
                 asset: ipaURL.lastPathComponent,
                 reason: "Could not extract CFBundleVersion from IPA (exit \(shellOutput.exitCode)): \(shellOutput.stderr)"
             )
+        } catch {
+            logger.error("Failed to extract CFBundleVersion from IPA: \(error.localizedDescription)")
+            throw error
         }
     }
 

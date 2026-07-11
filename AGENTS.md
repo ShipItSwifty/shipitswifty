@@ -447,7 +447,7 @@ Every non-trivial code change (new feature, changed behaviour, new/renamed comma
 | Run git operations | `Git(context:).workingDirectory(path).status().run()` |
 | Call ASC API | `context.appStoreConnect.get("/v1/apps")` |
 | Upload asset | `context.appStoreConnect.uploadAsset(at:reservation:)` |
-| Read Info.plist | `Command("plutil", "-extract", key, "raw", plistPath).run(in: context.shell)` |
+| Read Info.plist | `Plutil(context: context.shell).extractRaw(key, expectedType: .string, from: plistPath).run()` |
 | Generate JWT | `context.appStoreConnect.jwtGenerator.cachedOrNewToken()` |
 
 ## Reference docs

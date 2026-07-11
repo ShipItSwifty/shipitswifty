@@ -23,8 +23,8 @@ struct TestFlightActionTests {
             if command.arguments.first == "altool" {
                 return ShellOutput(stdout: "", stderr: "", exitCode: 0)
             }
-            // bash -c "unzip | plutil" → build version "1"
-            if command.arguments.first == "-c" {
+            // Typed plutil pipeline stage returns build version "1".
+            if command.executableName == "plutil" {
                 return ShellOutput(stdout: "1\n", stderr: "", exitCode: 0)
             }
             return ShellOutput(stdout: "", stderr: "", exitCode: 0)
@@ -192,7 +192,7 @@ struct TestFlightActionTests {
             if command.arguments.first == "altool" {
                 return ShellOutput(stdout: "", stderr: "", exitCode: 0)
             }
-            if command.arguments.first == "-c" {
+            if command.executableName == "plutil" {
                 return ShellOutput(stdout: "1\n", stderr: "", exitCode: 0)
             }
             return ShellOutput(stdout: "", stderr: "", exitCode: 0)
