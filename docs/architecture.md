@@ -116,18 +116,18 @@ See `docs/configuration-reference.md#build-systems` for the user-facing referenc
 // swiftLanguageModes: [.v6]
 
 dependencies: [
-    .package(url: "https://github.com/maniramezan/swiftyshell", from: "0.1.0"),  // shell execution
+    .package(url: "https://github.com/maniramezan/SwiftyShell.git", from: "0.5.0"), // shell execution
     .package(url: "https://github.com/apple/swift-argument-parser", from: "1.7.1"),
     .package(url: "https://github.com/vapor/jwt-kit", from: "5.4.0"),       // ES256 JWT
     .package(url: "https://github.com/jpsim/Yams", from: "6.2.1"),          // YAML config
     .package(url: "https://github.com/apple/swift-crypto", from: "4.4.0"),  // code signing
-    .package(url: "https://github.com/apple/swift-log", from: "1.6.3"),     // logging
-    .package(url: "https://github.com/swiftlang/swift-docc-plugin", from: "1.4.3"), // DocC
+    .package(url: "https://github.com/apple/swift-log", from: "1.12.0"),    // logging
+    .package(url: "https://github.com/swiftlang/swift-docc-plugin", from: "1.5.0"), // DocC
 ]
 ```
 
 **Products:**
-- `.executable("shipit", targets: ["CLI"])`
+- `.executable("shipit", targets: ["ShipItCLI"])`
 - `.library("ShipItKit", targets: ["ShipItKit"])`
 - `.library("XcodeBuildKit", targets: ["XcodeBuildKit"])` — standalone xcodebuild wrapper
 - `.library("GradleKit", targets: ["GradleKit"])` — standalone Gradle/adb/bundletool wrapper

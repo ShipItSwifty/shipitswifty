@@ -18,7 +18,7 @@ let package = Package(
     ],
     dependencies: [
         // Shell execution
-        .package(url: "https://github.com/maniramezan/SwiftyShell.git", from: "0.4.0"),
+        .package(url: "https://github.com/maniramezan/SwiftyShell.git", from: "0.5.0"),
         // DocC generation command plugin
         .package(url: "https://github.com/swiftlang/swift-docc-plugin", from: "1.5.0"),
         // CLI argument parsing

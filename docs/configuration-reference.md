@@ -601,9 +601,9 @@ workflows:
 | `ASC_PRIVATE_KEY_PATH` | `app_store_connect.key_path` |
 | `VAULT_PASSWORD` | Code signing passphrase |
 | `SLACK_WEBHOOK_URL` | `notifications.slack.webhook_url` |
-| `SHIPIT_SCHEME` | `app.scheme` |
-| `SHIPIT_BUNDLE_ID` | `app.bundle_id` |
-| `SHIPIT_TEAM_ID` | `app.team_id` |
+| `SHIPIT_APP__SCHEME` | `app.scheme` |
+| `SHIPIT_APP__BUNDLE_ID` | `app.bundle_id` |
+| `SHIPIT_APP__TEAM_ID` | `app.team_id` |
 
 ## `android`
 
