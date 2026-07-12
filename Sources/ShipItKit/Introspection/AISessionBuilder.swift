@@ -604,7 +604,7 @@ public struct AISessionBuilder: Sendable {
                 "  shipit run \(goal.rawValue)\(platformFlag) --ci --output json  # execute the workflow",
                 "  shipit schema --workflow \(goal.rawValue) --output json        # schema for this goal",
                 "  shipit lint --platform android                                 # run Gradle lint",
-                "  shipit play-store --aab <path> --track beta                   # upload to Google Play",
+                "  shipit play-store --platform android --aab <path> --track beta # upload to Google Play",
                 "  shipit coverage --platform android --first-party-only --targets  # summarize JaCoCo coverage",
                 "  shipit test-results --platform android --report <dir>          # parse JUnit XML into a structured report",
                 "",

@@ -114,7 +114,7 @@ struct CLIIntegrationTests {
 
     // MARK: - Generate
 
-    @Test("generate --non-interactive exits 0 and always outputs JSON")
+    @Test("generate --non-interactive exits 0")
     func generateNonInteractiveExitsZero() async throws {
         let tmp = FileManager.default.temporaryDirectory
             .appendingPathComponent("generate-test-\(UUID().uuidString)")
@@ -127,6 +127,19 @@ struct CLIIntegrationTests {
         )
         #expect(result.exitCode == 0, "output: \(result.output)")
         #expect(FileManager.default.fileExists(atPath: tmp.appendingPathComponent("Shipfile.yml").path))
+    }
+
+    @Test("build JSON dry-run emits one valid JSON document")
+    func buildJSONDryRunIsValidJSON() async throws {
+        let result = try await CLI.run(
+            "build", "--platform", "android", "--dry-run", "--output", "json",
+            "--shipfile", FixturePaths.androidSample.appendingPathComponent("Shipfile.yml").path
+        )
+        #expect(result.exitCode == 0, "stderr: \(result.stderr)")
+
+        let object = try JSONSerialization.jsonObject(with: Data(result.stdout.utf8)) as? [String: Any]
+        #expect(object?["action"] as? String == "build")
+        #expect(object?["status"] as? String == "dry_run")
     }
 
     @Test("init command is removed")

@@ -27,7 +27,6 @@ struct ExportCommand: AsyncParsableCommand {
                 cliOptions: CLIOptions(ci: global.ci, dryRun: global.dryRun, platform: global.platform)
             )
             let context = try await buildActionContext(config: config, verbose: global.verbose)
-            let formatter = makeHumanFormatter(global: global)
 
             let options = ExportAction.Options(
                 archivePath: archive,
@@ -36,7 +35,11 @@ struct ExportCommand: AsyncParsableCommand {
             )
 
             if global.dryRun {
-                formatter.print("DRY RUN: Would export archive '\(archive ?? config.exportArchivePath ?? "unknown")'")
+                try outputDryRun(
+                    action: "export",
+                    message: "Would export archive '\(archive ?? config.exportArchivePath ?? "unknown")'",
+                    global: global
+                )
                 return
             }
 

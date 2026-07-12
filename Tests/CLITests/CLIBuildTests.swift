@@ -156,6 +156,23 @@ struct CLIBuildTests {
         #expect(command.reportPath == "./artifacts/test-report.json")
     }
 
+    @Test("Coverage rejects unknown formats")
+    func coverageRejectsUnknownFormat() {
+        #expect(throws: Error.self) {
+            try CoverageCommand.parseAsRoot(["--format", "xml"])
+        }
+    }
+
+    @Test("Coverage rejects non-JSON format with global JSON output")
+    func coverageRejectsConflictingOutputFormats() {
+        #expect(throws: Error.self) {
+            try CoverageCommand.parseAsRoot([
+                "--output", "json",
+                "--format", "markdown",
+            ])
+        }
+    }
+
     #if os(macOS)
     @Test("BuildAction returns Result with exitCode 0 on success")
     func buildSuccessResult() async throws {

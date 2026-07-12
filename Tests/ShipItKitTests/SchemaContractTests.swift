@@ -119,6 +119,14 @@ struct SchemaContractTests {
         #expect(names.contains("report_output_path"))
     }
 
+    @Test("Play Store schema requires an explicit track")
+    func playStoreSchemaRequiresTrack() {
+        let track = BuiltInSchemaCatalog.optionSchema(for: PlayStoreAction.name)
+            .first { $0.name == "track" }
+        #expect(track?.required == true)
+        #expect(track?.defaultValue == nil)
+    }
+
     @Test("Archive schema retains critical option keys")
     func archiveSchemaRetainsCriticalKeys() {
         let fields = BuiltInSchemaCatalog.optionSchema(for: ArchiveAction.name)

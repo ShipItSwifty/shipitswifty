@@ -36,7 +36,6 @@ struct MetadataCommand: AsyncParsableCommand {
                 cliOptions: CLIOptions(ci: global.ci, dryRun: global.dryRun, platform: global.platform)
             )
             let context = try await buildActionContext(config: config, verbose: global.verbose)
-            let formatter = makeHumanFormatter(global: global)
 
             let options = MetadataAction.Options(
                 pull: pull ? true : nil,
@@ -49,7 +48,7 @@ struct MetadataCommand: AsyncParsableCommand {
 
             if global.dryRun {
                 let op = push ? "push" : "pull"
-                formatter.print("DRY RUN: Would \(op) metadata")
+                try outputDryRun(action: "metadata", message: "Would \(op) metadata", global: global)
                 return
             }
 
