@@ -78,6 +78,16 @@ struct CoverageCommand: AsyncParsableCommand {
 
     // MARK: - Run
 
+    mutating func validate() throws {
+        guard let format else { return }
+        guard CoverageFormat(rawValue: format) != nil else {
+            throw ValidationError("Invalid --format '\(format)'. Use text, json, or markdown.")
+        }
+        if global.output == .json, format != CoverageFormat.json.rawValue {
+            throw ValidationError("--output json cannot be combined with --format \(format). Use --format json or omit --format.")
+        }
+    }
+
     func run() async throws {
         do {
             let config = try await resolveRequiredConfig(
@@ -108,10 +118,14 @@ struct CoverageCommand: AsyncParsableCommand {
             )
 
             if global.dryRun {
-                let formatter = makeHumanFormatter(global: global)
                 let platform = context.platform.rawValue
                 let source = xcresultPath ?? report ?? "<auto-discovered>"
-                formatter.print("DRY RUN: Would read \(platform) coverage from '\(source)'")
+                try outputDryRun(
+                    action: CoverageAction.name,
+                    message: "Would read \(platform) coverage from '\(source)'",
+                    payload: ["platform": .string(platform), "source": .string(source)],
+                    global: global
+                )
                 return
             }
 

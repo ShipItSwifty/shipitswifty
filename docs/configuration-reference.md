@@ -16,6 +16,10 @@ CLI flags  >  Shipfile.yml (config file)  >  SHIPIT_* env vars  >  .env file  > 
 
 `.env` values are loaded into the environment (see below), so they sit just under real `SHIPIT_*` env vars.
 
+Relative filesystem paths are resolved against the directory containing the loaded Shipfile.
+This applies to Xcode containers, build/export outputs, signing assets, version/project specs,
+and Android Gradle or keystore paths. Absolute paths are preserved.
+
 > **Secrets exception:** inline secrets prefer the environment over the config file. The raw ASC private key reads `ASC_PRIVATE_KEY` (env) **before** `app_store_connect.private_key` (Shipfile) so CI secrets win over anything committed. See the **Secrets bypass** note below.
 
 ### `.env` file auto-loading

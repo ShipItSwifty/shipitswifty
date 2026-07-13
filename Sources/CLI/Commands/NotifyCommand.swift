@@ -26,7 +26,6 @@ struct NotifyCommand: AsyncParsableCommand {
                 cliOptions: CLIOptions(ci: global.ci, dryRun: global.dryRun, platform: global.platform)
             )
             let context = try await buildActionContext(config: config, verbose: global.verbose)
-            let formatter = makeHumanFormatter(global: global)
 
             var options = NotifyAction.Options()
 
@@ -39,7 +38,7 @@ struct NotifyCommand: AsyncParsableCommand {
             }
 
             if global.dryRun {
-                formatter.print("DRY RUN: Would send notification")
+                try outputDryRun(action: "notify", message: "Would send notification", global: global)
                 return
             }
 

@@ -40,7 +40,6 @@ struct ArchiveCommand: AsyncParsableCommand {
             )
             let context = try await buildActionContext(
                 config: config, verbose: global.verbose, jsonOutput: global.output == .json)
-            let formatter = makeHumanFormatter(global: global)
 
             let options = ArchiveAction.Options(
                 scheme: scheme,
@@ -53,17 +52,17 @@ struct ArchiveCommand: AsyncParsableCommand {
             )
 
             if global.dryRun {
+                let message: String
                 if config.platform == .android {
-                    formatter.print(
-                        "DRY RUN: Would run Gradle bundle for module '\(module ?? config.androidModule)' variant '\(buildVariant ?? config.androidBuildVariant)'"
-                    )
+                    message =
+                        "Would run Gradle bundle for module '\(module ?? config.androidModule)' variant '\(buildVariant ?? config.androidBuildVariant)'"
                 } else if config.iosBuildSystem == .kmp {
-                    formatter.print(
-                        "DRY RUN: Would link KMP module '\(module ?? config.kmpSharedModule)' target '\(config.kmpArchiveTarget)' then archive scheme '\(scheme ?? config.appScheme ?? "unknown")'"
-                    )
+                    message =
+                        "Would link KMP module '\(module ?? config.kmpSharedModule)' target '\(config.kmpArchiveTarget)' then archive scheme '\(scheme ?? config.appScheme ?? "unknown")'"
                 } else {
-                    formatter.print("DRY RUN: Would archive scheme '\(scheme ?? config.appScheme ?? "unknown")'")
+                    message = "Would archive scheme '\(scheme ?? config.appScheme ?? "unknown")'"
                 }
+                try outputDryRun(action: "archive", message: message, global: global)
                 return
             }
 

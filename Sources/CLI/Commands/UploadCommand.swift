@@ -27,7 +27,6 @@ struct UploadCommand: AsyncParsableCommand {
                 cliOptions: CLIOptions(ci: global.ci, dryRun: global.dryRun, platform: global.platform)
             )
             let context = try await buildActionContext(config: config, verbose: global.verbose)
-            let formatter = makeHumanFormatter(global: global)
 
             let options = UploadAction.Options(
                 ipaPath: ipa,
@@ -36,7 +35,7 @@ struct UploadCommand: AsyncParsableCommand {
             )
 
             if global.dryRun {
-                formatter.print("DRY RUN: Would upload IPA '\(ipa ?? "unknown")'")
+                try outputDryRun(action: "upload", message: "Would upload IPA '\(ipa ?? "unknown")'", global: global)
                 return
             }
 

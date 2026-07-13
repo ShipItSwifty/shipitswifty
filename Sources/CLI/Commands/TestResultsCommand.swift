@@ -29,6 +29,24 @@ struct TestResultsCommand: AsyncParsableCommand {
     @Option(name: .customLong("report-path"), help: "Write the structured JSON report to a file")
     var reportPath: String?
 
+    mutating func validate() throws {
+        if xcresultPath != nil, report != nil {
+            throw ValidationError("Specify either --xcresult or --report, not both.")
+        }
+        if xcresultPath != nil, global.platform == .android {
+            throw ValidationError("--xcresult is only valid with --platform ios.")
+        }
+        if report != nil, global.platform == .ios {
+            throw ValidationError("--report is only valid with --platform android.")
+        }
+        if let format, TestResultsFormat(rawValue: format) == nil {
+            throw ValidationError("Invalid --format '\(format)'. Use text, json, or markdown.")
+        }
+        if global.output == .json, let format, format != TestResultsFormat.json.rawValue {
+            throw ValidationError("--output json cannot be combined with --format \(format). Use --format json or omit --format.")
+        }
+    }
+
     func run() async throws {
         do {
             let hasExplicitArtifact = xcresultPath != nil || report != nil
@@ -55,9 +73,13 @@ struct TestResultsCommand: AsyncParsableCommand {
             )
 
             if global.dryRun {
-                let formatter = makeHumanFormatter(global: global)
                 let source = xcresultPath ?? report ?? "<auto-discovered>"
-                formatter.print("DRY RUN: Would read \(options.platform ?? inferredPlatform().rawValue) test results from '\(source)'")
+                try outputDryRun(
+                    action: TestResultsAction.name,
+                    message: "Would read \(options.platform ?? inferredPlatform().rawValue) test results from '\(source)'",
+                    payload: ["platform": .string(options.platform ?? inferredPlatform().rawValue), "source": .string(source)],
+                    global: global
+                )
                 return
             }
 
@@ -77,9 +99,10 @@ struct TestResultsCommand: AsyncParsableCommand {
     }
 
     private func inferredPlatform() -> Platform {
+        if let platform = global.platform { return platform }
         if xcresultPath != nil { return .ios }
         if report != nil { return .android }
-        return global.platform ?? .ios
+        return .ios
     }
 
     private func resolvedFormat() -> TestResultsFormat? {

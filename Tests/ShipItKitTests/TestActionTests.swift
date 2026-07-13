@@ -183,6 +183,55 @@ struct TestActionTests {
         #expect(result.skipCount == 0)
     }
 
+    @Test("Merges result bundles across multiple destinations before parsing")
+    func mergesResultBundlesAcrossDestinations() async throws {
+        let tempDirectory = try makeTempDirectory(prefix: "MultiDestinationResults")
+        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+        let resultBundlePath = tempDirectory.appendingPathComponent("Tests.xcresult").path
+
+        let (executor, commands) = makeCaptureExecutor { command, _ in
+            let description = command.description
+            if description.contains("xcresulttool get test-results summary") {
+                return ShellOutput(
+                    stdout: "{ \"metrics\": { \"testsCount\": 10, \"testsFailedCount\": 0, \"testsSkippedCount\": 0 } }",
+                    stderr: "",
+                    exitCode: 0
+                )
+            }
+            if description.contains("xcresulttool get test-results tests") {
+                return ShellOutput(stdout: "{ \"subtests\": [] }", stderr: "", exitCode: 0)
+            }
+            if description.contains("xcresulttool merge") {
+                return ShellOutput(stdout: "", stderr: "", exitCode: 0)
+            }
+            return ShellOutput(
+                stdout: "Executed 5 tests, with 0 failures (0 unexpected) in 1.000 seconds\n",
+                stderr: "",
+                exitCode: 0
+            )
+        }
+        let context = ActionContext.mock(executor: executor)
+
+        let result = try await TestAction().run(
+            with: .init(
+                scheme: "MockApp",
+                destinations: [
+                    "platform=iOS Simulator,name=iPhone 16",
+                    "platform=iOS Simulator,name=iPhone 15",
+                ],
+                resultBundlePath: resultBundlePath
+            ),
+            context: context
+        )
+
+        let captured = commands()
+        #expect(captured.contains { $0.contains("Tests-1.xcresult") })
+        #expect(captured.contains { $0.contains("Tests-2.xcresult") })
+        #expect(captured.contains { $0.contains("xcresulttool merge") && $0.contains(resultBundlePath) })
+        #expect(result.passCount == 10)
+        #expect(result.resultBundlePath == resultBundlePath)
+    }
+
     @Test("destinations array takes precedence over legacy destination string")
     func destinationsArrayWinsOverLegacyDestination() async throws {
         let (executor, commands) = makeCaptureExecutor { _, _ in

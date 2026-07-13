@@ -53,7 +53,6 @@ struct BuildCommand: AsyncParsableCommand {
             )
             let context = try await buildActionContext(
                 config: config, verbose: global.verbose, jsonOutput: global.output == .json)
-            let formatter = makeHumanFormatter(global: global)
 
             let options = BuildAction.Options(
                 scheme: scheme,
@@ -65,17 +64,17 @@ struct BuildCommand: AsyncParsableCommand {
             )
 
             if global.dryRun {
+                let message: String
                 if config.platform == .android {
-                    formatter.print(
-                        "DRY RUN: Would run Gradle assemble for module '\(module ?? config.androidModule)' variant '\(buildVariant ?? config.androidBuildVariant)'"
-                    )
+                    message =
+                        "Would run Gradle assemble for module '\(module ?? config.androidModule)' variant '\(buildVariant ?? config.androidBuildVariant)'"
                 } else if config.iosBuildSystem == .kmp {
-                    formatter.print(
-                        "DRY RUN: Would link KMP module '\(module ?? config.kmpSharedModule)' target '\(config.kmpBuildTarget)' then build scheme '\(scheme ?? config.appScheme ?? "unknown")'"
-                    )
+                    message =
+                        "Would link KMP module '\(module ?? config.kmpSharedModule)' target '\(config.kmpBuildTarget)' then build scheme '\(scheme ?? config.appScheme ?? "unknown")'"
                 } else {
-                    formatter.print("DRY RUN: Would build scheme '\(scheme ?? config.appScheme ?? "unknown")'")
+                    message = "Would build scheme '\(scheme ?? config.appScheme ?? "unknown")'"
                 }
+                try outputDryRun(action: "build", message: message, global: global)
                 return
             }
 

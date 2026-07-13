@@ -36,10 +36,13 @@ struct PlayStoreCommand: AsyncParsableCommand {
         do {
             let config = try await resolveRequiredConfig(
                 global: global,
-                cliOptions: CLIOptions(ci: global.ci, dryRun: global.dryRun, platform: global.platform)
+                cliOptions: CLIOptions(
+                    ci: global.ci,
+                    dryRun: global.dryRun,
+                    platform: global.platform ?? .android
+                )
             )
             let context = try await buildActionContext(config: config, verbose: global.verbose)
-            let formatter = makeHumanFormatter(global: global)
 
             // Parse "lang=text" entries into a dictionary
             let releaseNotes: [String: String]? =
@@ -70,7 +73,11 @@ struct PlayStoreCommand: AsyncParsableCommand {
                         reason: "play-store: '--track' is required. Specify a Google Play track (e.g. --track internal)."
                     )
                 }
-                formatter.print("DRY RUN: Would upload '\(artifact)' to Google Play track '\(effectiveTrack)'")
+                try outputDryRun(
+                    action: "play-store",
+                    message: "Would upload '\(artifact)' to Google Play track '\(effectiveTrack)'",
+                    global: global
+                )
                 return
             }
 

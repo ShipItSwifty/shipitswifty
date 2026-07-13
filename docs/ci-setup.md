@@ -208,6 +208,10 @@ shipit run release --dry-run --output json      # full step list, no execution
 shipit version --bump patch --dry-run --output json   # computed before/after, nothing written
 ```
 
+Direct action dry-runs also honor `--output json` and emit one `ActionResultEnvelope` with
+`status: "dry_run"`. For `coverage` and `test-results`, do not combine `--output json` with a
+non-JSON `--format`; omit `--format` or set it to `json`.
+
 ## Linux Swift Version
 
 The Linux CI job uses `swift:6.3.1-noble` (Ubuntu 24.04, current stable Swift). To update it, change the `container.image` value in `.github/workflows/ci.yml` and the `SWIFT_IMAGE` variable at the top of the `Makefile`.

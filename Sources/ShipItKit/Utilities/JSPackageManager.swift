@@ -107,13 +107,15 @@ public struct JSScriptRunner: Sendable {
     /// absent, giving clear guidance for cross-platform projects where test/lint scripts
     /// may not be defined.
     ///
-    /// - Parameter script: The script name (e.g. `"test"`, `"lint"`).
+    /// - Parameters:
+    ///   - script: The script name (e.g. `"test"`, `"lint"`).
+    ///   - arguments: Arguments forwarded to the script after `--`.
     /// - Returns: Shell output from the script run.
     /// - Throws: ``ShipItError/invalidConfiguration(reason:)`` if the script is not
     ///   declared in `package.json`.
     ///   ``ShipItError/buildFailed(exitCode:log:)`` if the script exits non-zero.
     @discardableResult
-    public func run(script: String) async throws -> ShellOutput {
+    public func run(script: String, arguments: [String] = []) async throws -> ShellOutput {
         try await ensureInstalled()
 
         // Validate that the script exists in package.json before invoking
@@ -125,7 +127,9 @@ public struct JSScriptRunner: Sendable {
             )
         }
 
-        let args = packageManager.scriptArguments(for: script)
+        let args =
+            packageManager.scriptArguments(for: script)
+            + (arguments.isEmpty ? [] : ["--"] + arguments)
         let command = Command(packageManager.runCommand)
             .args(args)
             .workingDirectory(projectRoot)

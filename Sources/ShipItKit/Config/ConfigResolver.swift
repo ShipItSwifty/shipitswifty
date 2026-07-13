@@ -149,12 +149,13 @@ public struct ConfigResolver: Sendable {
         let effectiveBuild = mergeBuildConfig(
             base: shipfile?.build, platform: platform, shipfile: shipfile)
 
-        let privateKeyResolution = try resolvePrivateKeyData(shipfile: shipfile)
+        let privateKeyResolution = try resolvePrivateKeyData(shipfile: shipfile, projectRoot: projectRoot)
         let autoDetectedAppConfig = try await autoDetectAppConfig(
             shipfile: shipfile,
             effectiveApp: effectiveApp,
             cliOptions: cliOptions,
-            platform: platform
+            platform: platform,
+            projectRoot: projectRoot
         )
         let bundleIDFromTargetBuildSettings =
             environment.appBundleId == nil
@@ -172,13 +173,19 @@ public struct ConfigResolver: Sendable {
         let androidConfig = shipfile?.android
 
         let p12Resolution = try resolveSigningAsset(
-            path: shipfile?.codeSigning?.p12Path ?? environment.codeSigningP12Path,
+            path: resolvePath(
+                shipfile?.codeSigning?.p12Path ?? environment.codeSigningP12Path,
+                relativeTo: projectRoot
+            ),
             base64: shipfile?.codeSigning?.p12Base64 ?? environment.codeSigningP12Base64,
             missingPathDescription: "Code signing .p12 file"
         )
         let provisioningProfileResolution = try resolveSigningAsset(
-            path: shipfile?.codeSigning?.provisioningProfilePath
-                ?? environment.codeSigningProvisioningProfilePath,
+            path: resolvePath(
+                shipfile?.codeSigning?.provisioningProfilePath
+                    ?? environment.codeSigningProvisioningProfilePath,
+                relativeTo: projectRoot
+            ),
             base64: shipfile?.codeSigning?.provisioningProfileBase64
                 ?? environment.codeSigningProvisioningProfileBase64,
             missingPathDescription: "Code signing provisioning profile"
@@ -194,8 +201,8 @@ public struct ConfigResolver: Sendable {
         let projGen = shipfile?.projectGeneration
         let projGenTool = projGen?.tool
         let projGenCommand = projGen?.command ?? defaultProjectGenCommand(tool: projGenTool)
-        let projGenSpecPath = projGen?.specPath
-        let projGenOutputProject = projGen?.outputProject
+        let projGenSpecPath = resolvePath(projGen?.specPath, relativeTo: projectRoot)
+        let projGenOutputProject = resolvePath(projGen?.outputProject, relativeTo: projectRoot)
         let projGenAutoGenerate = projGen?.autoGenerate ?? true
 
         // Versioning config — resolve spec_path from project_generation if not set.
@@ -207,7 +214,7 @@ public struct ConfigResolver: Sendable {
             ? "pubspec"
             : platform == .android ? "gradle" : "xcodeproj"
         let versioningSource = shipfile?.versioning?.source ?? versioningSourceDefault
-        let versioningSpecPath = shipfile?.versioning?.specPath ?? projGenSpecPath
+        let versioningSpecPath = resolvePath(shipfile?.versioning?.specPath, relativeTo: projectRoot) ?? projGenSpecPath
         var androidGradleProperties = androidConfig?.gradleProperties ?? [:]
         if let flavor = androidConfig?.flavor, !flavor.isEmpty {
             androidGradleProperties["flavor"] = flavor
@@ -232,10 +239,16 @@ public struct ConfigResolver: Sendable {
 
         return ResolvedConfig(
             processedFiles: processedFiles,
-            appWorkspace: effectiveApp?.workspace ?? environment.appWorkspace
-                ?? autoDetectedAppConfig.workspace ?? rnFallbackWorkspace,
-            appProject: effectiveApp?.project ?? environment.appProject
-                ?? autoDetectedAppConfig.project ?? rnFallbackProject,
+            appWorkspace: resolvePath(
+                effectiveApp?.workspace ?? environment.appWorkspace
+                    ?? autoDetectedAppConfig.workspace ?? rnFallbackWorkspace,
+                relativeTo: projectRoot
+            ),
+            appProject: resolvePath(
+                effectiveApp?.project ?? environment.appProject
+                    ?? autoDetectedAppConfig.project ?? rnFallbackProject,
+                relativeTo: projectRoot
+            ),
             appScheme: cliOptions.scheme ?? effectiveApp?.scheme ?? environment.appScheme
                 ?? autoDetectedAppConfig.scheme,
             bundleID: effectiveApp?.bundleId ?? environment.appBundleId ?? autoDetectedAppConfig.bundleID,
@@ -249,15 +262,21 @@ public struct ConfigResolver: Sendable {
                 ?? effectiveBuild?.configuration
                 ?? environment.buildConfiguration
                 ?? "Release",
-            derivedDataPath: effectiveBuild?.derivedDataPath ?? environment.buildDerivedDataPath,
+            derivedDataPath: resolvePath(
+                effectiveBuild?.derivedDataPath ?? environment.buildDerivedDataPath,
+                relativeTo: projectRoot
+            ),
             xcargs: effectiveBuild?.xcargs ?? [:],
             archiveExportMethod: shipfile?.archive?.exportMethod
                 ?? environment.archiveExportMethod
                 ?? "app-store",
             archiveIncludeSymbols: shipfile?.archive?.includeSymbols ?? true,
-            archiveOutputPath: shipfile?.archive?.outputPath ?? environment.archiveOutputPath,
-            exportArchivePath: shipfile?.export?.archivePath,
-            exportOutputDirectory: shipfile?.export?.outputDirectory,
+            archiveOutputPath: resolvePath(
+                shipfile?.archive?.outputPath ?? environment.archiveOutputPath,
+                relativeTo: projectRoot
+            ),
+            exportArchivePath: resolvePath(shipfile?.export?.archivePath, relativeTo: projectRoot),
+            exportOutputDirectory: resolvePath(shipfile?.export?.outputDirectory, relativeTo: projectRoot),
             codeSigningType: shipfile?.codeSigning?.type ?? "vault",
             automaticCodeSigning: (shipfile?.codeSigning?.type == "automatic") ? true : nil,
             codeSigningStorage: shipfile?.codeSigning?.storage ?? "git",
@@ -276,8 +295,14 @@ public struct ConfigResolver: Sendable {
             screenshotDevices: shipfile?.screenshots?.devices ?? [],
             screenshotLocales: shipfile?.screenshots?.locales ?? ["en-US"],
             screenshotScheme: shipfile?.screenshots?.scheme,
-            screenshotOutputDirectory: shipfile?.screenshots?.outputDirectory ?? "./screenshots",
-            metadataDirectory: shipfile?.metadata?.directory ?? "./metadata",
+            screenshotOutputDirectory: resolvePath(
+                shipfile?.screenshots?.outputDirectory ?? "./screenshots",
+                relativeTo: projectRoot
+            ) ?? "\(projectRoot)/screenshots",
+            metadataDirectory: resolvePath(
+                shipfile?.metadata?.directory ?? "./metadata",
+                relativeTo: projectRoot
+            ) ?? "\(projectRoot)/metadata",
             submitForReview: shipfile?.metadata?.submitForReview ?? false,
             automaticRelease: shipfile?.metadata?.automaticRelease ?? false,
             phasedRelease: shipfile?.metadata?.phasedRelease ?? false,
@@ -313,10 +338,19 @@ public struct ConfigResolver: Sendable {
             androidBuildType: androidConfig?.buildType
                 ?? AndroidBuildType(rawValue: environment.androidBuildType ?? "")
                 ?? .aab,
-            gradlewPath: androidConfig?.gradlewPath ?? environment.androidGradlewPath,
-            gradleProjectDir: androidConfig?.gradleProjectDir ?? environment.androidGradleProjectDir,
+            gradlewPath: resolvePath(
+                androidConfig?.gradlewPath ?? environment.androidGradlewPath,
+                relativeTo: projectRoot
+            ),
+            gradleProjectDir: resolvePath(
+                androidConfig?.gradleProjectDir ?? environment.androidGradleProjectDir,
+                relativeTo: projectRoot
+            ),
             androidGradleFlags: androidConfig?.gradleFlags ?? [],
-            androidKeystorePath: androidConfig?.keystorePath ?? environment.androidKeystorePath,
+            androidKeystorePath: resolvePath(
+                androidConfig?.keystorePath ?? environment.androidKeystorePath,
+                relativeTo: projectRoot
+            ),
             androidKeystorePassword: environment.androidKeystorePassword,
             androidKeyAlias: androidConfig?.keystoreAlias ?? environment.androidKeyAlias,
             androidKeyPassword: environment.androidKeyPassword,
@@ -478,6 +512,12 @@ public struct ConfigResolver: Sendable {
         return trimmed.isEmpty ? nil : trimmed
     }
 
+    private func resolvePath(_ path: String?, relativeTo root: String) -> String? {
+        guard let path = nonEmpty(path) else { return nil }
+        if path.hasPrefix("/") { return URL(fileURLWithPath: path).standardizedFileURL.path }
+        return URL(fileURLWithPath: root).appendingPathComponent(path).standardizedFileURL.path
+    }
+
     private func loadShipfile(from path: String) async throws -> ShipfileLoadResult {
         let fileURL = URL(fileURLWithPath: path)
         guard FileManager.default.fileExists(atPath: fileURL.path) else {
@@ -548,7 +588,10 @@ public struct ConfigResolver: Sendable {
     /// Unlike most fields, the raw env value (`ASC_PRIVATE_KEY`) intentionally outranks the
     /// Shipfile value so a CI secret wins over anything checked into the repo. See the
     /// resolution-order note on ``ConfigResolver``.
-    private func resolvePrivateKeyData(shipfile: Shipfile?) throws -> PrivateKeyResolution {
+    private func resolvePrivateKeyData(
+        shipfile: Shipfile?,
+        projectRoot: String
+    ) throws -> PrivateKeyResolution {
         // Priority: env ASC_PRIVATE_KEY (raw) > Shipfile private_key > env ASC_PRIVATE_KEY_PATH > Shipfile key_path
         if let rawKey = environment.ascPrivateKey {
             return PrivateKeyResolution(data: Data(rawKey.utf8), loadedPath: nil)
@@ -558,7 +601,10 @@ public struct ConfigResolver: Sendable {
             return PrivateKeyResolution(data: Data(rawKey.utf8), loadedPath: nil)
         }
 
-        let keyPath = environment.ascKeyPath ?? shipfile?.appStoreConnect?.keyPath
+        let keyPath = resolvePath(
+            environment.ascKeyPath ?? shipfile?.appStoreConnect?.keyPath,
+            relativeTo: projectRoot
+        )
         guard let path = keyPath else { return PrivateKeyResolution(data: nil, loadedPath: nil) }
 
         let fileURL = URL(fileURLWithPath: path)
@@ -574,10 +620,17 @@ public struct ConfigResolver: Sendable {
         shipfile: Shipfile?,
         effectiveApp: AppConfig?,
         cliOptions: CLIOptions,
-        platform: Platform
+        platform: Platform,
+        projectRoot: String
     ) async throws -> AutoDetectedAppConfig {
-        let workspace = effectiveApp?.workspace ?? environment.appWorkspace
-        let project = effectiveApp?.project ?? environment.appProject
+        let workspace = resolvePath(
+            effectiveApp?.workspace ?? environment.appWorkspace,
+            relativeTo: projectRoot
+        )
+        let project = resolvePath(
+            effectiveApp?.project ?? environment.appProject,
+            relativeTo: projectRoot
+        )
         let scheme = cliOptions.scheme ?? effectiveApp?.scheme ?? environment.appScheme
 
         // Skip xcodebuild auto-detection for Android or non-macOS hosts

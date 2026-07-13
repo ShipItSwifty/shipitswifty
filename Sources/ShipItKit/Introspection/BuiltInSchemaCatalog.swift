@@ -1507,7 +1507,7 @@ public enum BuiltInSchemaCatalog {
                 "apk_path", description: "Path to the .apk file to upload.",
                 example: .string("./app/build/outputs/apk/release/app-release.apk")),
             .string(
-                "track", description: "Google Play distribution track.", defaultValue: .string("internal"),
+                "track", required: true, description: "Google Play distribution track.",
                 allowedValues: ["internal", "alpha", "beta", "production"], example: .string("beta")),
             .object(
                 "release_notes",
