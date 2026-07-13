@@ -9,8 +9,8 @@ import Foundation
 ///
 /// ## Priority
 /// 1. CLI flags (highest)
-/// 2. Environment variables (`SHIPIT_*`)
-/// 3. Shipfile.yml values
+/// 2. Shipfile.yml values
+/// 3. Environment variables (`SHIPIT_*`)
 /// 4. Built-in defaults (lowest)
 public struct ResolvedConfig: Sendable {
 

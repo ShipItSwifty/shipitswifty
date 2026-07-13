@@ -8,7 +8,7 @@ This document covers the planned feature surface, current v1 scope, the long-ter
 
 | Area | Included in v1.0 | Deferred |
 |---|---|---|
-| **CLI** | `generate`, `schema`, `inspect project`, `suggest-config`, `ai-session`, `validate`, `validate yml`, `validate metadata`, `validate archive`, `validate all`, `build`, `test`, `archive`, `export`, `sign sync`, `testflight`, `metadata`, `version`, `run`, `env`, `doctor` | Advanced git automation, PR creation, sales/finance reporting |
+| **CLI** | `generate`, `schema`, `inspect project`, `suggest-config`, `ai-session`, `validate` (`yml`, `metadata`, `archive`, `bundle`, `all`), `build`, `test`, `test-results`, `coverage`, `archive`, `lint`, `export`, `sign sync`, `testflight`, `play-store`, `metadata`, `version`, `notify`, `run`, `env`, `doctor` | Advanced git automation, PR creation, sales/finance reporting |
 | **Code signing** | Vault-style sync from Git-backed encrypted storage | S3/GCS backends, certificate lifecycle beyond core sync |
 | **Distribution** | TestFlight upload, metadata push/pull, App Store submission primitives | Full review automation coverage |
 | **Screenshots** | Capture + upload basics | Framing, visual diffing, preview video processing |
@@ -36,7 +36,7 @@ This document covers the planned feature surface, current v1 scope, the long-ter
 | **`.env` auto-loading** | ShipIt automatically loads `KEY=VALUE` pairs from a `.env` file in the Shipfile's directory before running any action. Existing process environment variables take precedence (are never overwritten). |
 | **Smart `.env` generation** | When `shipit generate` writes a `.env` file and a value is already set in the process environment, it writes a `${VAR_NAME}` reference instead of inlining the literal — keeping the file portable and secret-free. |
 | **Shell profile export** | `shipit generate` can alternatively append `export` lines to `~/.zshrc` or `~/.bashrc`. Detects which profile exists, avoids duplicates, and offers overwrite if signing vars already present. |
-| **Config resolution priority** | CLI flags > `SHIPIT_*` env vars > `.env` file > `Shipfile.yml` > built-in defaults. Shipfile supports `${ENV_VAR}` expansion. |
+| **Config resolution priority** | CLI flags > `Shipfile.yml` > `SHIPIT_*` process environment > `.env` file > built-in defaults. Shipfile supports `${ENV_VAR}` expansion. |
 
 ### Linux and Docker support
 

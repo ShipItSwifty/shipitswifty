@@ -288,7 +288,7 @@ Shipfile.yml / CLI flags / env vars
 | `ActionRegistry` | `actor` — serializes concurrent registration and lookup by name. |
 | `Workflow` / `WorkflowStep` | A named sequence of steps; defined in Shipfile YAML or via `@WorkflowBuilder` DSL. |
 | `ActionContext` | Passed to every `Action.run(...)`. Carries `ShellContext` (SwiftyShell), `Logger`, `ResolvedConfig`, `AppStoreConnectClient`. Provides `ensureProjectGenerated()` for auto-generation. |
-| `ConfigResolver` | Merges CLI flags → env vars (`SHIPIT_*`) → Shipfile.yml → built-in defaults. |
+| `ConfigResolver` | Merges CLI flags → Shipfile.yml → env vars (`SHIPIT_*`) → built-in defaults. |
 | `AppStoreConnectClient` | JWT-authenticated HTTP client for the ASC REST API. |
 | `GenerateProjectAction` | Generates `.xcodeproj` from a spec file (XcodeGen, Tuist). Auto-invoked by `Workflow.run()` before Xcode-dependent steps. |
 | `BuildSystem` | Enum (`native`, `flutter`, `react_native`, `kmp`) orthogonal to `Platform`. Set per platform via `ios.build_system` / `android.build_system`. Drives `BuildAction` / `ArchiveAction` / `TestAction` dispatch; later distribution actions are artifact-path driven and unchanged. |
