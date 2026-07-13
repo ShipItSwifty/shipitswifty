@@ -104,18 +104,14 @@ jobs:
       - name: Generate coverage report
         working-directory: ShipItSwifty
         run: |
-          XCTEST_BIN=$(find .build -name "ShipItSwiftyPackageTests.xctest" -type d | head -1)
-          xcrun llvm-cov export \
-            "$XCTEST_BIN/Contents/MacOS/ShipItSwiftyPackageTests" \
-            -instr-profile .build/debug/codecov/default.profdata \
-            -ignore-filename-regex='Tests/|.build/' \
-            -format lcov \
-            > coverage.lcov
+          COVERAGE_JSON=$(swift test --show-codecov-path --skip IntegrationTests)
+          test -s "$COVERAGE_JSON"
+          cp "$COVERAGE_JSON" coverage.json
 
       - name: Upload coverage
         uses: codecov/codecov-action@v7
         with:
-          files: ShipItSwifty/coverage.lcov
+          files: ShipItSwifty/coverage.json
           working-directory: ShipItSwifty
           fail_ci_if_error: false
 
