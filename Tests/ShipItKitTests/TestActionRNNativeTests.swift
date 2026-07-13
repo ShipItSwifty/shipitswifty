@@ -163,6 +163,41 @@ struct TestActionRNNativeTests {
         #expect(!captured.contains { $0.contains("gradlew") })
     }
 
+    @Test("RN custom test script runs once without Jest-only flags")
+    func rnCustomTestScriptOmitsJestFlags() async throws {
+        let tempDir = try makeTempDirectory(prefix: "RNCustomTest")
+        let packageJSON = """
+            {"name": "my-app", "scripts": {"test": "node -e \"console.log('Tests: 5 passed, 5 total')\""}}
+            """
+        try packageJSON.write(
+            to: tempDir.appendingPathComponent("package.json"),
+            atomically: true,
+            encoding: .utf8
+        )
+        try FileManager.default.createDirectory(
+            at: tempDir.appendingPathComponent("node_modules"),
+            withIntermediateDirectories: false
+        )
+
+        let (executor, commands) = makeCaptureExecutor { _, _ in
+            ShellOutput(stdout: "Tests: 5 passed, 5 total", stderr: "", exitCode: 0)
+        }
+        let config = ResolvedConfig(
+            platform: .android,
+            androidBuildSystem: .reactNative,
+            projectRoot: tempDir.path
+        )
+        let context = makeTestActionContext(executor: executor, config: config, platform: .android)
+
+        let result = try await TestAction().run(with: TestAction.Options(), context: context)
+
+        let testCommands = commands().filter { $0.contains("run") && $0.contains("test") }
+        #expect(testCommands.count == 1)
+        #expect(!testCommands[0].contains("--json"))
+        #expect(!testCommands[0].contains("--outputFile"))
+        #expect(result.passCount == 5)
+    }
+
     // MARK: - ActionContext.withGradleProjectDir
 
     @Test("withGradleProjectDir returns context with updated gradleProjectDir")
