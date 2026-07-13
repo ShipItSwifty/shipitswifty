@@ -33,7 +33,6 @@ struct SnapshotCommand: AsyncParsableCommand {
                 cliOptions: CLIOptions(scheme: scheme, ci: global.ci, dryRun: global.dryRun, platform: global.platform)
             )
             let context = try await buildActionContext(config: config, verbose: global.verbose)
-            let formatter = makeHumanFormatter(global: global)
 
             let options = SnapshotAction.Options(
                 devices: devices.isEmpty ? nil : devices,
@@ -44,7 +43,11 @@ struct SnapshotCommand: AsyncParsableCommand {
             )
 
             if global.dryRun {
-                formatter.print("DRY RUN: Would capture screenshots for \(devices.count) device(s) and \(locales.count) locale(s)")
+                try outputDryRun(
+                    action: "snapshot",
+                    message: "Would capture screenshots for \(devices.count) device(s) and \(locales.count) locale(s)",
+                    global: global
+                )
                 return
             }
 

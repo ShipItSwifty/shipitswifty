@@ -61,14 +61,41 @@ struct GenerateCommand: AsyncParsableCommand {
 
         let formatter = makeHumanFormatter(global: global)
         let inspection = try await inspectProject()
+        let outputPath = resolvedOutputPath()
+        if global.dryRun, global.output == .json {
+            let focus = resolvedNonInteractivePlatformFocus(from: inspection)
+            let platform = focus.platform ?? inspection.detectedPlatform
+            let suggestion = ShipfileSuggester().suggest(goal: goal, platform: platform, from: inspection)
+            try outputDryRun(
+                action: "generate",
+                message: "Would generate Shipfile at '\(outputPath)'",
+                payload: [
+                    "path": .string(outputPath),
+                    "goal": .string(goal.rawValue),
+                    "platform": .string(platform.rawValue),
+                    "yaml": .string(suggestion.yaml),
+                ],
+                global: global
+            )
+            return
+        }
+
         let focus = try resolvePlatformFocus(from: inspection, formatter: formatter)
         let platform = focus.platform ?? inspection.detectedPlatform
         let suggestion = ShipfileSuggester().suggest(goal: goal, platform: platform, from: inspection)
-        let outputPath = resolvedOutputPath()
 
         if global.dryRun {
-            formatter.printHeader("Shipfile Preview")
-            formatter.print(suggestion.yaml)
+            try outputDryRun(
+                action: "generate",
+                message: "Would generate Shipfile at '\(outputPath)'",
+                payload: [
+                    "path": .string(outputPath),
+                    "goal": .string(goal.rawValue),
+                    "platform": .string(platform.rawValue),
+                    "yaml": .string(suggestion.yaml),
+                ],
+                global: global
+            )
             return
         }
 
@@ -112,13 +139,30 @@ struct GenerateCommand: AsyncParsableCommand {
                 }),
             "warnings": .array(suggestion.warnings.map(JSONValue.string)),
         ])
-        print(
-            try JSONReporter().encode(
-                ActionResultEnvelope(action: "generate", status: "success", payload: payload)))
+        switch global.output {
+        case .json:
+            print(
+                try JSONReporter().encode(
+                    ActionResultEnvelope(action: "generate", status: "success", payload: payload)))
+        case .human:
+            formatter.printSuccess("Generated Shipfile at \(outputPath)")
+        }
 
         Self.logger.info("Shipfile generation completed")
-        printReleaseSetupGuidance(formatter: formatter)
-        try await offerDoctor(outputPath: outputPath, formatter: formatter)
+        if global.output == .human {
+            printReleaseSetupGuidance(formatter: formatter)
+            try await offerDoctor(outputPath: outputPath, formatter: formatter)
+        }
+    }
+
+    private func resolvedNonInteractivePlatformFocus(from inspection: ProjectInspection) -> PlatformFocus {
+        if let platform = global.platform {
+            return platform == .ios ? .ios : .android
+        }
+        if inspection.detectedBuildSystem == .reactNative || inspection.detectedBuildSystem == .flutter {
+            return .both
+        }
+        return inspection.detectedPlatform == .ios ? .ios : .android
     }
 
     private func resolvePlatformFocus(

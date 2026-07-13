@@ -159,6 +159,31 @@ func outputResult<T: Codable & Sendable>(
     }
 }
 
+/// Output a dry-run preview without violating the selected output contract.
+func outputDryRun(
+    action: String,
+    message: String,
+    payload: [String: JSONValue] = [:],
+    global: GlobalOptions
+) throws {
+    switch global.output {
+    case .human:
+        makeHumanFormatter(global: global).print("DRY RUN: \(message)")
+    case .json:
+        var values = payload
+        values["message"] = .string(message)
+        print(
+            try JSONReporter().encode(
+                ActionResultEnvelope(
+                    action: action,
+                    status: "dry_run",
+                    payload: .object(values)
+                )
+            )
+        )
+    }
+}
+
 /// Output an error in the specified format.
 func outputError(error: ShipItError, format: OutputFormat, colorMode: ConsoleColorMode = .auto) {
     let suggestions = errorSuggestions(for: error)

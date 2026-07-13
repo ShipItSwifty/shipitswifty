@@ -79,13 +79,12 @@ struct SignSyncCommand: AsyncParsableCommand {
                 cliOptions: CLIOptions(ci: global.ci, dryRun: global.dryRun, platform: global.platform)
             )
             let context = try await buildActionContext(config: config, verbose: global.verbose)
-            let formatter = makeHumanFormatter(global: global)
 
             let options = SignAction.Options(
                 operation: .sync, type: type, ci: global.ci ? true : nil, gitUrl: gitUrl)
 
             if global.dryRun {
-                formatter.print("DRY RUN: Would sync \(type) certificates")
+                try outputDryRun(action: "sign sync", message: "Would sync \(type) certificates", global: global)
                 return
             }
 

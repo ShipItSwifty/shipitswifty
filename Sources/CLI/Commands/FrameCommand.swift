@@ -24,7 +24,6 @@ struct FrameCommand: AsyncParsableCommand {
                 cliOptions: CLIOptions(ci: global.ci, dryRun: global.dryRun, platform: global.platform)
             )
             let context = try await buildActionContext(config: config, verbose: global.verbose)
-            let formatter = makeHumanFormatter(global: global)
 
             let options = FrameAction.Options(
                 screenshotsDirectory: screenshotsDirectory,
@@ -32,7 +31,11 @@ struct FrameCommand: AsyncParsableCommand {
             )
 
             if global.dryRun {
-                formatter.print("DRY RUN: Would frame screenshots from '\(screenshotsDirectory ?? config.screenshotOutputDirectory)'")
+                try outputDryRun(
+                    action: "frame",
+                    message: "Would frame screenshots from '\(screenshotsDirectory ?? config.screenshotOutputDirectory)'",
+                    global: global
+                )
                 return
             }
 

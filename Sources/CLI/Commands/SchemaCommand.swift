@@ -104,7 +104,8 @@ struct SchemaCommand: AsyncParsableCommand {
             return ["build", "test", "test-results", "archive", "export", "testflight", "sign", "version", "notify", "git"]
         case .release:
             return [
-                "build", "test-results", "archive", "export", "upload", "testflight", "precheck", "metadata", "sign", "version", "notify",
+                "build", "test", "test-results", "archive", "export", "upload", "testflight", "precheck", "metadata", "sign", "version",
+                "notify",
                 "git",
             ]
         }

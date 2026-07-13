@@ -88,7 +88,10 @@ struct TestActionRNNativeTests {
         _ = try? await TestAction().run(with: TestAction.Options(), context: context)
 
         let captured = commands()
-        #expect(captured.contains { $0.contains("run") && $0.contains("test") })
+        let testCommands = captured.filter { $0.contains("run") && $0.contains("test") }
+        #expect(testCommands.count == 1)
+        #expect(testCommands[0].contains("--json"))
+        #expect(testCommands[0].contains("--outputFile"))
         #expect(!captured.contains { $0.contains("xcodebuild") })
     }
     #endif
@@ -153,7 +156,10 @@ struct TestActionRNNativeTests {
         _ = try? await TestAction().run(with: TestAction.Options(), context: context)
 
         let captured = commands()
-        #expect(captured.contains { $0.contains("run") && $0.contains("test") })
+        let testCommands = captured.filter { $0.contains("run") && $0.contains("test") }
+        #expect(testCommands.count == 1)
+        #expect(testCommands[0].contains("--json"))
+        #expect(testCommands[0].contains("--outputFile"))
         #expect(!captured.contains { $0.contains("gradlew") })
     }
 

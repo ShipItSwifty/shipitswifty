@@ -645,14 +645,11 @@ public struct TestAction: Action {
             classifier: ReactNativeInfrastructureClassifier(),
             label: "npm test"
         ) {
-            let output = try await runner.run(script: "test")
             let outputFile = URL(fileURLWithPath: projectRoot).appendingPathComponent(".shipit-jest-results.json")
-            let command = Command(runner.resolvedPackageManager.runCommand)
-                .args(runner.resolvedPackageManager.scriptArguments(for: "test") + ["--", "--json", "--outputFile", outputFile.path])
-                .workingDirectory(projectRoot)
-                .stdout(.capture)
-                .stderr(.capture)
-            _ = try? await command.run(in: context.shell)
+            let output = try await runner.run(
+                script: "test",
+                arguments: ["--json", "--outputFile", outputFile.path]
+            )
 
             if FileManager.default.fileExists(atPath: outputFile.path),
                 let parsedRun = try? await JestJSONTestParser(logger: logger).parse(jsonFilePath: outputFile.path)
@@ -1065,15 +1062,19 @@ public struct TestAction: Action {
         var totalSkip = 0
         var passedTests: [String] = []
         var failedTests: [String] = []
+        var destinationResultBundlePaths: [String] = []
 
-        for destination in destinations {
+        for (index, destination) in destinations.enumerated() {
             logger.info("Testing scheme '\(scheme)' on '\(destination)'")
+            let destinationResultBundlePath = resultBundlePath.map {
+                destinations.count == 1 ? $0 : indexedResultBundlePath(basePath: $0, index: index)
+            }
 
             let singleResult = try await runSingle(
                 scheme: scheme,
                 destination: destination,
                 configuration: configuration,
-                resultBundlePath: resultBundlePath,
+                resultBundlePath: destinationResultBundlePath,
                 options: options,
                 context: context,
                 overrideOnlyTesting: overrideOnlyTesting
@@ -1083,10 +1084,20 @@ public struct TestAction: Action {
             totalSkip += singleResult.skip
             passedTests += singleResult.passedTests
             failedTests += singleResult.failedTests
+            if let destinationResultBundlePath {
+                destinationResultBundlePaths.append(destinationResultBundlePath)
+            }
         }
 
         let parsedRun: ParsedTestRun?
         if let resultBundlePath {
+            if destinationResultBundlePaths.count > 1 {
+                try await mergeResultBundles(
+                    destinationResultBundlePaths,
+                    outputPath: resultBundlePath,
+                    context: context
+                )
+            }
             parsedRun = try? await IOSXCResultTestParser(shell: context.shell, logger: logger).parse(xcresultPath: resultBundlePath)
         } else {
             parsedRun = nil
@@ -1114,6 +1125,41 @@ public struct TestAction: Action {
             failedTests: failedTests,
             parsedRun: nil
         )
+    }
+
+    private func indexedResultBundlePath(basePath: String, index: Int) -> String {
+        let url = URL(fileURLWithPath: basePath)
+        let extensionName = url.pathExtension
+        let stem = extensionName.isEmpty ? url.lastPathComponent : url.deletingPathExtension().lastPathComponent
+        let fileName = extensionName.isEmpty ? "\(stem)-\(index + 1)" : "\(stem)-\(index + 1).\(extensionName)"
+        return url.deletingLastPathComponent().appendingPathComponent(fileName).path
+    }
+
+    private func mergeResultBundles(
+        _ inputPaths: [String],
+        outputPath: String,
+        context: ActionContext
+    ) async throws {
+        try removeStaleResultBundleIfNeeded(outputPath)
+        logger.info("Merging \(inputPaths.count) destination result bundles into '\(outputPath)'")
+        do {
+            _ = try await Xcrun(context: context.shell)
+                .tool("xcresulttool")
+                .trailingArguments(["merge", "--output-path", outputPath] + inputPaths)
+                .command()
+                .run(in: context.shell)
+            for inputPath in inputPaths {
+                try? FileManager.default.removeItem(atPath: inputPath)
+            }
+            logger.info("Merged destination result bundles into '\(outputPath)'")
+        } catch let ShellError.exitFailure(_, output) {
+            logger.error("Failed to merge destination result bundles: \(output.stderr)")
+            throw ShipItError.testFailed(
+                exitCode: Int(output.exitCode),
+                failureCount: 0,
+                log: "Failed to merge xcresult bundles: \(output.stderr)"
+            )
+        }
     }
 
     // MARK: - Single destination run (iOS)

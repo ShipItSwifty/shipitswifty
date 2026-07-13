@@ -30,7 +30,6 @@ struct TestFlightCommand: AsyncParsableCommand {
                 cliOptions: CLIOptions(ci: global.ci, dryRun: global.dryRun, platform: global.platform)
             )
             let context = try await buildActionContext(config: config, verbose: global.verbose)
-            let formatter = makeHumanFormatter(global: global)
 
             let options = TestFlightAction.Options(
                 ipa: ipa,
@@ -40,7 +39,11 @@ struct TestFlightCommand: AsyncParsableCommand {
             )
 
             if global.dryRun {
-                formatter.print("DRY RUN: Would upload '\(ipa ?? "unknown")' to TestFlight")
+                try outputDryRun(
+                    action: "testflight",
+                    message: "Would upload '\(ipa ?? "unknown")' to TestFlight",
+                    global: global
+                )
                 return
             }
 

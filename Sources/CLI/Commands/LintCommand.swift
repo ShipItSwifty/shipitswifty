@@ -38,7 +38,6 @@ struct LintCommand: AsyncParsableCommand {
                 cliOptions: CLIOptions(ci: global.ci, dryRun: global.dryRun, platform: global.platform)
             )
             let context = try await buildActionContext(config: config, verbose: global.verbose)
-            let formatter = makeHumanFormatter(global: global)
 
             let options = LintAction.Options(
                 scheme: scheme,
@@ -51,12 +50,14 @@ struct LintCommand: AsyncParsableCommand {
             )
 
             if global.dryRun {
+                let message: String
                 switch config.platform {
                 case .ios:
-                    formatter.print("DRY RUN: Would run xcodebuild analyze on scheme '\(scheme ?? config.appScheme ?? "unknown")'")
+                    message = "Would run xcodebuild analyze on scheme '\(scheme ?? config.appScheme ?? "unknown")'"
                 case .android:
-                    formatter.print("DRY RUN: Would run gradlew lint on module '\(module ?? config.androidModule)'")
+                    message = "Would run gradlew lint on module '\(module ?? config.androidModule)'"
                 }
+                try outputDryRun(action: "lint", message: message, global: global)
                 return
             }
 

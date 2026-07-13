@@ -42,13 +42,56 @@ struct ConfigResolverTests {
 
         // Shipfile values win when both sources provide a value
         #expect(config.appScheme == "ShipfileScheme")
-        #expect(config.appWorkspace == "Example.xcworkspace")
+        #expect(config.appWorkspace == tempDirectory.appendingPathComponent("Example.xcworkspace").path)
         #expect(config.bundleID == "com.example.shipfile")
         #expect(config.buildConfiguration == "Debug")
         #expect(config.ascKeyID == "ShipfileKey")
         #expect(config.ascIssuerID == "ShipfileIssuer")
         // Env is used as fallback when Shipfile doesn't provide the value
         #expect(config.teamID == "ENVTEAM123")
+    }
+
+    @Test("Relative paths resolve from the Shipfile directory")
+    func relativePathsResolveFromShipfileDirectory() async throws {
+        let tempDirectory = try makeTempDirectory()
+        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+        let shipfileURL = tempDirectory.appendingPathComponent("Shipfile.yml")
+        try """
+        platform: android
+        app:
+          project: ios/App.xcodeproj
+        build:
+          derived_data_path: build/DerivedData
+        archive:
+          output_path: build/App.xcarchive
+        export:
+          archive_path: build/App.xcarchive
+          output_directory: build/export
+        versioning:
+          source: project_spec
+          spec_path: config/project.yml
+        project_generation:
+          tool: xcodegen
+          spec_path: config/project.yml
+          output_project: ios/App.xcodeproj
+        android:
+          gradlew_path: android/gradlew
+          gradle_project_dir: android
+          keystore_path: signing/release.jks
+        """.write(to: shipfileURL, atomically: true, encoding: .utf8)
+
+        let config = try await ConfigResolver(environment: Environment(env: [:]))
+            .resolve(shipfilePath: shipfileURL.path)
+
+        #expect(config.appProject == tempDirectory.appendingPathComponent("ios/App.xcodeproj").path)
+        #expect(config.derivedDataPath == tempDirectory.appendingPathComponent("build/DerivedData").path)
+        #expect(config.archiveOutputPath == tempDirectory.appendingPathComponent("build/App.xcarchive").path)
+        #expect(config.exportOutputDirectory == tempDirectory.appendingPathComponent("build/export").path)
+        #expect(config.versioningSpecPath == tempDirectory.appendingPathComponent("config/project.yml").path)
+        #expect(config.projectGenerationOutputProject == tempDirectory.appendingPathComponent("ios/App.xcodeproj").path)
+        #expect(config.gradlewPath == tempDirectory.appendingPathComponent("android/gradlew").path)
+        #expect(config.gradleProjectDir == tempDirectory.appendingPathComponent("android").path)
+        #expect(config.androidKeystorePath == tempDirectory.appendingPathComponent("signing/release.jks").path)
     }
 
     @Test("CLI overrides environment and shipfile values")
@@ -200,7 +243,7 @@ struct ConfigResolverTests {
         )
 
         #expect(config.appScheme == "CLIScheme")
-        #expect(config.appWorkspace == "Example.xcworkspace")
+        #expect(config.appWorkspace == tempDirectory.appendingPathComponent("Example.xcworkspace").path)
     }
 
     @Test("Raw ASC private key environment is loaded")
@@ -448,8 +491,8 @@ struct ConfigResolverTests {
 
         #expect(config.projectGenerationTool == "xcodegen")
         #expect(config.projectGenerationCommand == "xcodegen generate --spec custom.yml")
-        #expect(config.projectGenerationSpecPath == "custom.yml")
-        #expect(config.projectGenerationOutputProject == "MyApp.xcodeproj")
+        #expect(config.projectGenerationSpecPath == tempDirectory.appendingPathComponent("custom.yml").path)
+        #expect(config.projectGenerationOutputProject == tempDirectory.appendingPathComponent("MyApp.xcodeproj").path)
         #expect(config.projectGenerationAutoGenerate == false)
     }
 
@@ -513,7 +556,7 @@ struct ConfigResolverTests {
         let config = try await resolver.resolve(shipfilePath: shipfileURL.path)
 
         #expect(config.versioningSource == "project_spec")
-        #expect(config.versioningSpecPath == "project.yml")
+        #expect(config.versioningSpecPath == tempDirectory.appendingPathComponent("project.yml").path)
     }
 
     @Test("Explicit versioning.spec_path overrides project_generation.spec_path")
@@ -536,8 +579,8 @@ struct ConfigResolverTests {
         let resolver = ConfigResolver(environment: Environment())
         let config = try await resolver.resolve(shipfilePath: shipfileURL.path)
 
-        #expect(config.versioningSpecPath == "custom-version-spec.yml")
-        #expect(config.projectGenerationSpecPath == "project.yml")
+        #expect(config.versioningSpecPath == tempDirectory.appendingPathComponent("custom-version-spec.yml").path)
+        #expect(config.projectGenerationSpecPath == tempDirectory.appendingPathComponent("project.yml").path)
     }
 
     @Test("Versioning custom build_key and marketing_key are resolved")

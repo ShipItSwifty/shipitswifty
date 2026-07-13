@@ -97,7 +97,6 @@ struct TestCommand: AsyncParsableCommand {
             )
             let context = try await buildActionContext(
                 config: config, verbose: global.verbose, jsonOutput: global.output == .json)
-            let formatter = makeHumanFormatter(global: global)
 
             // Build device config from CLI flags
             let devices: TestDeviceConfig?
@@ -133,6 +132,7 @@ struct TestCommand: AsyncParsableCommand {
             )
 
             if global.dryRun {
+                let message: String
                 if config.platform == .android {
                     let effectiveModule = module ?? config.androidModule
                     let effectiveKind = kind ?? config.androidTestKind
@@ -143,18 +143,16 @@ struct TestCommand: AsyncParsableCommand {
                             ? "connectedDebugAndroidTest"
                             : "test\(buildVariant ?? config.androidBuildVariant)UnitTest")
                     if effectiveScope == .root {
-                        formatter.print("DRY RUN: Would run root Gradle task '\(effectiveTask)'")
+                        message = "Would run root Gradle task '\(effectiveTask)'"
                     } else {
-                        formatter.print(
-                            "DRY RUN: Would run Gradle task ':\(effectiveModule):\(effectiveTask)'"
-                        )
+                        message = "Would run Gradle task ':\(effectiveModule):\(effectiveTask)'"
                     }
                 } else if config.iosBuildSystem == .kmp {
-                    formatter.print(
-                        "DRY RUN: Would run KMP iOS test task '\(config.kmpTestTask)' in module '\(module ?? config.kmpSharedModule)'")
+                    message = "Would run KMP iOS test task '\(config.kmpTestTask)' in module '\(module ?? config.kmpSharedModule)'"
                 } else {
-                    formatter.print("DRY RUN: Would test scheme '\(scheme ?? config.appScheme ?? "unknown")'")
+                    message = "Would test scheme '\(scheme ?? config.appScheme ?? "unknown")'"
                 }
+                try outputDryRun(action: "test", message: message, global: global)
                 return
             }
 

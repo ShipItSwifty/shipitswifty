@@ -35,4 +35,41 @@ struct TestResultsCommandTests {
         #expect(command.failedOnly)
         #expect(command.excludePassed)
     }
+
+    @Test("Test-results rejects conflicting artifact options")
+    func rejectsConflictingArtifacts() {
+        #expect(throws: Error.self) {
+            try TestResultsCommand.parseAsRoot([
+                "--xcresult", "./Tests.xcresult",
+                "--report", "./build/test-results",
+            ])
+        }
+    }
+
+    @Test("Test-results rejects artifact and platform conflicts")
+    func rejectsArtifactPlatformConflict() {
+        #expect(throws: Error.self) {
+            try TestResultsCommand.parseAsRoot([
+                "--platform", "android",
+                "--xcresult", "./Tests.xcresult",
+            ])
+        }
+    }
+
+    @Test("Test-results rejects unknown formats")
+    func rejectsUnknownFormat() {
+        #expect(throws: Error.self) {
+            try TestResultsCommand.parseAsRoot(["--format", "xml"])
+        }
+    }
+
+    @Test("Test-results rejects non-JSON format with global JSON output")
+    func rejectsConflictingOutputFormats() {
+        #expect(throws: Error.self) {
+            try TestResultsCommand.parseAsRoot([
+                "--output", "json",
+                "--format", "markdown",
+            ])
+        }
+    }
 }
