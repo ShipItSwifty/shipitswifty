@@ -234,8 +234,8 @@ struct ConfigResolverBuildSystemTests {
         #expect(config.kmpArchiveTarget == "IosArm64")
         #expect(config.kmpTestTask == "iosX64Test")
         #expect(config.androidModule == "androidApp")
-        #expect(config.gradlewPath == "./android/gradlew")
-        #expect(config.gradleProjectDir == "./android")
+        #expect(config.gradlewPath == tempDirectory.appendingPathComponent("android/gradlew").path)
+        #expect(config.gradleProjectDir == tempDirectory.appendingPathComponent("android").path)
         #expect(config.androidGradleFlags == ["--configuration-cache", "--stacktrace"])
     }
 
