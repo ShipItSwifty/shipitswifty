@@ -100,6 +100,13 @@ public struct JSScriptRunner: Sendable {
     /// The resolved package manager for this runner.
     public var resolvedPackageManager: JSPackageManager { packageManager }
 
+    /// Whether the named package script invokes Jest and accepts Jest's JSON output flags.
+    public func scriptUsesJest(_ script: String) -> Bool {
+        packageJSONScript(named: script)?
+            .split(whereSeparator: { $0.isWhitespace })
+            .contains(where: { $0 == "jest" || $0.hasSuffix("/jest") }) == true
+    }
+
     /// Runs a named script from `package.json`.
     ///
     /// Validates that the script exists in `package.json` before invoking the package
@@ -196,10 +203,20 @@ public struct JSScriptRunner: Sendable {
             let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
             let scripts = json["scripts"] as? [String: Any]
         else {
-            // If we cannot read package.json, allow the script to run and let the
-            // package manager emit its own error.
+            // Let the package manager provide the actionable error when package.json is unreadable.
             return true
         }
         return scripts[name] != nil
+    }
+
+    private func packageJSONScript(named name: String) -> String? {
+        let url = URL(fileURLWithPath: projectRoot).appendingPathComponent("package.json")
+        guard let data = try? Data(contentsOf: url),
+            let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+            let scripts = json["scripts"] as? [String: Any]
+        else {
+            return nil
+        }
+        return scripts[name] as? String
     }
 }

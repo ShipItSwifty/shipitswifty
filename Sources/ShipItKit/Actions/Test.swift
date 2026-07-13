@@ -646,9 +646,13 @@ public struct TestAction: Action {
             label: "npm test"
         ) {
             let outputFile = URL(fileURLWithPath: projectRoot).appendingPathComponent(".shipit-jest-results.json")
+            let arguments =
+                runner.scriptUsesJest("test")
+                ? ["--json", "--outputFile", outputFile.path]
+                : []
             let output = try await runner.run(
                 script: "test",
-                arguments: ["--json", "--outputFile", outputFile.path]
+                arguments: arguments
             )
 
             if FileManager.default.fileExists(atPath: outputFile.path),
