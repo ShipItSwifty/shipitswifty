@@ -1,5 +1,5 @@
 {
-  "originHash" : "e9651224db2a37cf5aba6e5646f38085260b70d2416028d2a9a19797d48fcd87",
+  "originHash" : "99e1bb349d3ac6f93d7a4dfb9dfd0eef1e90e7b484fc5ffad5efb6b0dfc9d5ea",
   "pins" : [
     {
       "identity" : "jwt-kit",
@@ -42,8 +42,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-crypto",
       "state" : {
-        "revision" : "1b6b2e274e85105bfa155183145a1dcfd63331f1",
-        "version" : "4.5.0"
+        "revision" : "47d3869a7291f085c1fb9fb1e6d3b97a793f45c6",
+        "version" : "4.5.1"
       }
     },
     {
