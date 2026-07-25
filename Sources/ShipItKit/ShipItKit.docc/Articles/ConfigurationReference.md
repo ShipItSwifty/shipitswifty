@@ -275,6 +275,13 @@ Each workflow is a list of steps. A step has:
 | `options` | Optional key-value map passed to the action |
 | `when` | Optional condition. After token substitution the step runs only when truthy (`true`/`1`/`yes`); otherwise it is skipped. |
 
+A workflow may also be written as an object with a `steps` array plus workflow-level overrides —
+`build_variant` and `flavor` on Android, and `app`, `build`, `archive`, `export`, and
+`code_signing` on iOS. Each group takes the same keys as its top-level counterpart, and only the
+keys you set are overridden. Overrides apply just to that workflow's execution, so a staging lane
+can coexist with production in one Shipfile without changing the production defaults. See
+<doc:Workflows> for a worked example.
+
 A step's string `options` and its `when` may use reserved tokens that resolve at run time from a prior `version` step (or the current versioning source): `{{version}}`, `{{build_number}}`, and `{{version_changed}}` (`true`/`false`). These are distinct from composite `{{param.NAME}}` references (see <doc:CompositeActions>) and from `${ENV_VAR}` expansion, and let a release tag the version it just bumped without external scripting:
 
 ```yaml

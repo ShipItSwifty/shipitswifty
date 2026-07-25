@@ -295,6 +295,107 @@ extension NotifyAction {
     }
 }
 
+// MARK: FirebaseAppDistributionAction
+
+extension FirebaseAppDistributionAction {
+    public static var validationRules: [ActionValidationRule] {
+        [
+            // `app_id` is required, but an unexpanded `${VAR}` reference is legitimate at
+            // validation time — CI supplies it at run time — so only a literal absence fails.
+            ActionValidationRule { ctx in
+                guard ctx.options["app_id"]?.stringValue?.isEmpty ?? true else { return nil }
+                return ValidationIssue(
+                    severity: .error,
+                    path: ".options.app_id",
+                    message:
+                        "firebase-app-distribution requires an explicit `app_id` (e.g. ${FIREBASE_IOS_QA_APP_ID}).")
+            },
+            ActionValidationRule { ctx in
+                guard ctx.options["artifact_path"]?.stringValue?.isEmpty ?? true else { return nil }
+                return ValidationIssue(
+                    severity: .error,
+                    path: ".options.artifact_path",
+                    message: "firebase-app-distribution requires an `artifact_path` to the signed .ipa or .apk.")
+            },
+            // A release with no audience uploads successfully but reaches nobody.
+            ActionValidationRule { ctx in
+                let hasGroups = !(ctx.options["groups"]?.arrayValue?.isEmpty ?? true)
+                let hasTesters = !(ctx.options["testers"]?.arrayValue?.isEmpty ?? true)
+                guard !hasGroups, !hasTesters else { return nil }
+                return ValidationIssue(
+                    severity: .error,
+                    path: ".options",
+                    message:
+                        "firebase-app-distribution needs at least one `groups` alias or `testers` email, otherwise the release reaches no one."
+                )
+            },
+            // Catches a production .aab or a swapped-platform artifact wired into the step.
+            ActionValidationRule { ctx in
+                guard let path = ctx.options["artifact_path"]?.stringValue,
+                    !path.isEmpty,
+                    !path.contains("${")
+                else { return nil }
+                let ext = (path as NSString).pathExtension.lowercased()
+                guard !["ipa", "apk", "aab"].contains(ext) else { return nil }
+                return ValidationIssue(
+                    severity: .error,
+                    path: ".options.artifact_path",
+                    message:
+                        "firebase-app-distribution can only distribute .ipa, .apk, or .aab artifacts — '\(path)' is not one.")
+            },
+            // Credentials must come from CI, never from the committed Shipfile.
+            ActionValidationRule { ctx in
+                guard let path = ctx.options["service_account_path"]?.stringValue,
+                    path.trimmingCharacters(in: .whitespaces).hasPrefix("{")
+                else { return nil }
+                return ValidationIssue(
+                    severity: .error,
+                    path: ".options.service_account_path",
+                    message:
+                        "firebase-app-distribution: `service_account_path` must be a path, not inline credential JSON. Store the key in CI secret storage."
+                )
+            },
+        ]
+    }
+}
+
+// MARK: - Built-in rule lookup
+
+/// Maps built-in action names to their semantic validation rules.
+///
+/// `shipit validate yml` builds its action descriptors from ``BuiltInSchemaCatalog`` rather
+/// than from the run-time registry, so it has no action *types* to read `validationRules`
+/// from. This table is the bridge: without it, every rule in this file would be evaluated
+/// only on the `shipit run` path and silently skipped during validation.
+public enum BuiltInValidationRules {
+    /// Returns the validation rules registered for a built-in action name.
+    ///
+    /// - Parameter actionName: The registered action name (e.g. `"archive"`, `"version"`).
+    /// - Returns: The action's rules, or an empty array when the name has none.
+    public static func rules(for actionName: String) -> [ActionValidationRule] {
+        byActionName[actionName] ?? []
+    }
+
+    /// All built-in rules, keyed by action name.
+    public static let byActionName: [String: [ActionValidationRule]] = [
+        ArchiveAction.name: ArchiveAction.validationRules,
+        BuildAction.name: BuildAction.validationRules,
+        DsymAction.name: DsymAction.validationRules,
+        ExportAction.name: ExportAction.validationRules,
+        FirebaseAppDistributionAction.name: FirebaseAppDistributionAction.validationRules,
+        GitAction.name: GitAction.validationRules,
+        MetadataAction.name: MetadataAction.validationRules,
+        NotifyAction.name: NotifyAction.validationRules,
+        ProvisionAction.name: ProvisionAction.validationRules,
+        SignAction.name: SignAction.validationRules,
+        SnapshotAction.name: SnapshotAction.validationRules,
+        TestAction.name: TestAction.validationRules,
+        TestFlightAction.name: TestFlightAction.validationRules,
+        UploadAction.name: UploadAction.validationRules,
+        VersionAction.name: VersionAction.validationRules,
+    ]
+}
+
 // MARK: - Shared helpers
 
 extension ActionValidationRule {

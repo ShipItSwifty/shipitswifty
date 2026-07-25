@@ -752,6 +752,34 @@ public struct SlackConfig: Codable, Sendable {
 ///       - action: play-store
 ///         options: { track: production }
 /// ```
+///
+/// ## iOS overrides
+/// The `app`, `build`, `archive`, `export`, and `code_signing` groups accept the same keys as
+/// their top-level Shipfile counterparts and are applied only while this workflow runs. This
+/// lets a staging lane coexist with production in one Shipfile without weakening the
+/// production defaults or mutating them through environment variables:
+///
+/// ```yaml
+/// workflows:
+///   staging:
+///     app:
+///       scheme: MyApp-QA
+///       bundle_id: com.example.app.qa
+///     build:
+///       configuration: QA
+///     archive:
+///       export_method: ad-hoc
+///       output_path: ./build/MyApp-QA.xcarchive
+///     export:
+///       archive_path: ./build/MyApp-QA.xcarchive
+///       output_directory: ./build/staging-export
+///     steps:
+///       - action: archive
+///       - action: export
+/// ```
+///
+/// Only the keys you set are overridden; everything else falls through to the top-level
+/// configuration, and other workflows are unaffected.
 public struct WorkflowConfig: Codable, Sendable {
     /// Gradle build variant override for all steps in this workflow.
     /// When set, overrides `android.build_variant` from Shipfile for this workflow's execution.
@@ -761,23 +789,59 @@ public struct WorkflowConfig: Codable, Sendable {
     /// When set, overrides `android.gradle_properties.flavor` for this workflow's execution.
     public var flavor: String?
 
+    /// App identity overrides (scheme, bundle ID, team, workspace/project) for this workflow.
+    public var app: AppConfig?
+
+    /// Build setting overrides (configuration, derived data, xcargs) for this workflow.
+    public var build: BuildConfig?
+
+    /// Archive overrides (export method, output path, symbols) for this workflow.
+    public var archive: ArchiveConfig?
+
+    /// Export overrides (archive path, output directory) for this workflow.
+    public var export: ExportConfig?
+
+    /// Code-signing overrides for this workflow, e.g. a different provisioning profile type.
+    public var codeSigning: CodeSigningConfig?
+
     /// The ordered sequence of steps in this workflow.
     public var steps: [WorkflowStepConfig]
+
+    /// Whether this workflow declares any override at all.
+    var hasOverrides: Bool {
+        buildVariant != nil || flavor != nil || app != nil || build != nil || archive != nil
+            || export != nil || codeSigning != nil
+    }
 
     /// Creates a `WorkflowConfig`.
     public init(
         buildVariant: String? = nil,
         flavor: String? = nil,
+        app: AppConfig? = nil,
+        build: BuildConfig? = nil,
+        archive: ArchiveConfig? = nil,
+        export: ExportConfig? = nil,
+        codeSigning: CodeSigningConfig? = nil,
         steps: [WorkflowStepConfig]
     ) {
         self.buildVariant = buildVariant
         self.flavor = flavor
+        self.app = app
+        self.build = build
+        self.archive = archive
+        self.export = export
+        self.codeSigning = codeSigning
         self.steps = steps
     }
 
     enum CodingKeys: String, CodingKey {
         case buildVariant = "build_variant"
         case flavor
+        case app
+        case build
+        case archive
+        case export
+        case codeSigning = "code_signing"
         case steps
     }
 
@@ -788,6 +852,11 @@ public struct WorkflowConfig: Codable, Sendable {
         {
             self.buildVariant = nil
             self.flavor = nil
+            self.app = nil
+            self.build = nil
+            self.archive = nil
+            self.export = nil
+            self.codeSigning = nil
             self.steps = steps
             return
         }
@@ -795,18 +864,28 @@ public struct WorkflowConfig: Codable, Sendable {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.buildVariant = try container.decodeIfPresent(String.self, forKey: .buildVariant)
         self.flavor = try container.decodeIfPresent(String.self, forKey: .flavor)
+        self.app = try container.decodeIfPresent(AppConfig.self, forKey: .app)
+        self.build = try container.decodeIfPresent(BuildConfig.self, forKey: .build)
+        self.archive = try container.decodeIfPresent(ArchiveConfig.self, forKey: .archive)
+        self.export = try container.decodeIfPresent(ExportConfig.self, forKey: .export)
+        self.codeSigning = try container.decodeIfPresent(CodeSigningConfig.self, forKey: .codeSigning)
         self.steps = try container.decode([WorkflowStepConfig].self, forKey: .steps)
     }
 
     public func encode(to encoder: any Encoder) throws {
         // If no overrides, encode as plain array for cleaner output
-        if buildVariant == nil && flavor == nil {
+        if !hasOverrides {
             var container = encoder.singleValueContainer()
             try container.encode(steps)
         } else {
             var container = encoder.container(keyedBy: CodingKeys.self)
             try container.encodeIfPresent(buildVariant, forKey: .buildVariant)
             try container.encodeIfPresent(flavor, forKey: .flavor)
+            try container.encodeIfPresent(app, forKey: .app)
+            try container.encodeIfPresent(build, forKey: .build)
+            try container.encodeIfPresent(archive, forKey: .archive)
+            try container.encodeIfPresent(export, forKey: .export)
+            try container.encodeIfPresent(codeSigning, forKey: .codeSigning)
             try container.encode(steps, forKey: .steps)
         }
     }
