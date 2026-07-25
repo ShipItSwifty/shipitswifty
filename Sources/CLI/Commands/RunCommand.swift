@@ -48,7 +48,12 @@ struct RunCommand: AsyncParsableCommand {
                 workflow,
                 steps: steps,
                 buildVariant: workflowConfig.buildVariant,
-                flavor: workflowConfig.flavor
+                flavor: workflowConfig.flavor,
+                app: workflowConfig.app,
+                build: workflowConfig.build,
+                archive: workflowConfig.archive,
+                export: workflowConfig.export,
+                codeSigning: workflowConfig.codeSigning
             )
 
             if global.dryRun {
@@ -170,6 +175,12 @@ func builtInActionDescriptors() -> [ActionDescriptor] {
         PlayStoreAction.descriptor(
             for: PlayStoreAction(),
             optionSchema: BuiltInSchemaCatalog.optionSchema(for: PlayStoreAction.name)),
+        // Cross-platform: distributes both IPAs and APKs, and needs only networking,
+        // so it stays out of the macOS-only block below.
+        FirebaseAppDistributionAction.descriptor(
+            for: FirebaseAppDistributionAction(),
+            optionSchema: BuiltInSchemaCatalog.optionSchema(for: FirebaseAppDistributionAction.name),
+            validationRules: FirebaseAppDistributionAction.validationRules),
         ValidateBundleAction.descriptor(
             for: ValidateBundleAction(),
             optionSchema: BuiltInSchemaCatalog.optionSchema(for: ValidateBundleAction.name)),
@@ -243,6 +254,10 @@ func validationActionDescriptors() -> [ActionDescriptor] {
             name: schema.name,
             description: schema.description,
             optionSchema: schema.options,
+            // Without this the semantic rules declared in ActionValidationRules.swift would
+            // only run on the `shipit run` path — `validate yml` builds descriptors from the
+            // schema catalog, which carries no action types to read the rules from.
+            validationRules: BuiltInValidationRules.rules(for: schema.name),
             runJSON: { _, _ in
                 ActionResultEnvelope(action: schema.name, status: "success", payload: nil)
             }
