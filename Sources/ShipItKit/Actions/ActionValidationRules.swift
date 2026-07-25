@@ -377,23 +377,32 @@ public enum BuiltInValidationRules {
     }
 
     /// All built-in rules, keyed by action name.
-    public static let byActionName: [String: [ActionValidationRule]] = [
-        ArchiveAction.name: ArchiveAction.validationRules,
-        BuildAction.name: BuildAction.validationRules,
-        DsymAction.name: DsymAction.validationRules,
-        ExportAction.name: ExportAction.validationRules,
-        FirebaseAppDistributionAction.name: FirebaseAppDistributionAction.validationRules,
-        GitAction.name: GitAction.validationRules,
-        MetadataAction.name: MetadataAction.validationRules,
-        NotifyAction.name: NotifyAction.validationRules,
-        ProvisionAction.name: ProvisionAction.validationRules,
-        SignAction.name: SignAction.validationRules,
-        SnapshotAction.name: SnapshotAction.validationRules,
-        TestAction.name: TestAction.validationRules,
-        TestFlightAction.name: TestFlightAction.validationRules,
-        UploadAction.name: UploadAction.validationRules,
-        VersionAction.name: VersionAction.validationRules,
-    ]
+    ///
+    /// The Apple-only actions above are declared inside `#if os(macOS)`, so their rules can only
+    /// be referenced there. On Linux those action names simply carry no semantic rules, which
+    /// matches the fact that the actions themselves are unavailable.
+    public static let byActionName: [String: [ActionValidationRule]] = {
+        var rules: [String: [ActionValidationRule]] = [
+            ArchiveAction.name: ArchiveAction.validationRules,
+            BuildAction.name: BuildAction.validationRules,
+            FirebaseAppDistributionAction.name: FirebaseAppDistributionAction.validationRules,
+            GitAction.name: GitAction.validationRules,
+            NotifyAction.name: NotifyAction.validationRules,
+            TestAction.name: TestAction.validationRules,
+            VersionAction.name: VersionAction.validationRules,
+        ]
+        #if os(macOS)
+        rules[DsymAction.name] = DsymAction.validationRules
+        rules[ExportAction.name] = ExportAction.validationRules
+        rules[MetadataAction.name] = MetadataAction.validationRules
+        rules[ProvisionAction.name] = ProvisionAction.validationRules
+        rules[SignAction.name] = SignAction.validationRules
+        rules[SnapshotAction.name] = SnapshotAction.validationRules
+        rules[TestFlightAction.name] = TestFlightAction.validationRules
+        rules[UploadAction.name] = UploadAction.validationRules
+        #endif
+        return rules
+    }()
 }
 
 // MARK: - Shared helpers
