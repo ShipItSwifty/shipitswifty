@@ -16,10 +16,39 @@ import FoundationNetworking
 /// ```swift
 /// let generator = GooglePlayJWTGenerator(credentials: credentials)
 /// let token = try await generator.cachedOrNewToken()
+///
+/// // Firebase App Distribution needs a different scope:
+/// let firebase = GooglePlayJWTGenerator(credentials: credentials, scope: .cloudPlatform)
 /// ```
 public actor GooglePlayJWTGenerator: Sendable {
 
+    /// An OAuth2 scope requested when exchanging the signed JWT for an access token.
+    ///
+    /// Google issues scope-limited tokens, so each API family needs the scope it accepts:
+    /// the Play Developer API only honours ``androidPublisher``, while the Firebase App
+    /// Distribution API only honours ``cloudPlatform``.
+    public struct Scope: RawRepresentable, Hashable, Sendable {
+        /// The fully-qualified scope URL sent in the JWT payload.
+        public let rawValue: String
+
+        /// Creates a scope from a fully-qualified Google OAuth2 scope URL.
+        public init(rawValue: String) {
+            self.rawValue = rawValue
+        }
+
+        /// Scope for the Google Play Developer API (`androidpublisher`).
+        public static let androidPublisher = Scope(
+            rawValue: "https://www.googleapis.com/auth/androidpublisher"
+        )
+
+        /// Scope for the Firebase App Distribution API (`cloud-platform`).
+        public static let cloudPlatform = Scope(
+            rawValue: "https://www.googleapis.com/auth/cloud-platform"
+        )
+    }
+
     private let credentials: GoogleServiceAccountCredentials
+    private let scope: Scope
     private let logger = Logger.forType(subsystem: "ShipItSwifty", GooglePlayJWTGenerator.self)
 
     // Cached access token
@@ -27,8 +56,13 @@ public actor GooglePlayJWTGenerator: Sendable {
     private var tokenExpiresAt: Date?
 
     /// Creates a `GooglePlayJWTGenerator` with service account credentials.
-    public init(credentials: GoogleServiceAccountCredentials) {
+    ///
+    /// - Parameters:
+    ///   - credentials: The parsed service-account key.
+    ///   - scope: The OAuth2 scope to request. Defaults to ``Scope/androidPublisher``.
+    public init(credentials: GoogleServiceAccountCredentials, scope: Scope = .androidPublisher) {
         self.credentials = credentials
+        self.scope = scope
     }
 
     /// Returns a valid access token, reusing the cached token if it hasn't expired.
@@ -71,7 +105,7 @@ public actor GooglePlayJWTGenerator: Sendable {
         let payload = """
             {
               "iss": "\(credentials.clientEmail)",
-              "scope": "https://www.googleapis.com/auth/androidpublisher",
+              "scope": "\(scope.rawValue)",
               "aud": "\(credentials.tokenUri)",
               "iat": \(now),
               "exp": \(expiry)
@@ -98,14 +132,14 @@ public actor GooglePlayJWTGenerator: Sendable {
             return signature.rawRepresentation
         } catch {
             throw ShipItError.invalidConfiguration(
-                reason: "Google Play: RSA signing failed — \(error.localizedDescription)"
+                reason: "Google OAuth2: RSA signing failed — \(error.localizedDescription)"
             )
         }
     }
 
     private func exchangeJWTForToken(jwt: String) async throws -> GoogleOAuth2TokenResponse {
         guard let url = URL(string: credentials.tokenUri) else {
-            throw ShipItError.invalidConfiguration(reason: "Google Play: invalid token URI '\(credentials.tokenUri)'")
+            throw ShipItError.invalidConfiguration(reason: "Google OAuth2: invalid token URI '\(credentials.tokenUri)'")
         }
 
         var request = URLRequest(url: url)

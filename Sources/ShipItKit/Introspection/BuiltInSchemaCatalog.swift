@@ -442,10 +442,13 @@ public enum BuiltInSchemaCatalog {
                 additionalProperties: .any(
                     "<workflow>",
                     description:
-                        "Workflow definition. Can be a plain array of steps (legacy) or an object with optional `build_variant`, `flavor`, and required `steps`.",
+                        "Workflow definition. Can be a plain array of steps (legacy) or an object with workflow-level overrides and a required `steps` array.",
                     notes: [
                         "Legacy format: a plain array of step objects [{action, options?}, ...].",
-                        "New format: an object with optional `build_variant` and `flavor` keys, plus a required `steps` array.",
+                        "New format: an object with a required `steps` array plus optional overrides.",
+                        "Android overrides: `build_variant`, `flavor`.",
+                        "iOS overrides: `app` (scheme, bundle_id, team_id, workspace, project), `build` (configuration, derived_data_path, xcargs), `archive` (export_method, output_path, include_symbols), `export` (archive_path, output_directory), and `code_signing`.",
+                        "Overrides apply only while that workflow runs, so a staging lane can coexist with production in one Shipfile without changing the top-level production defaults.",
                     ]
                 )
             ),
@@ -534,6 +537,11 @@ public enum BuiltInSchemaCatalog {
                 name: PlayStoreAction.name, description: PlayStoreAction.description,
                 options: playStoreOptions(), example: playStoreExample()),
             actionSchema(
+                name: FirebaseAppDistributionAction.name,
+                description: FirebaseAppDistributionAction.description,
+                options: firebaseAppDistributionOptions(),
+                example: firebaseAppDistributionExample()),
+            actionSchema(
                 name: ValidateBundleAction.name, description: ValidateBundleAction.description,
                 options: validateBundleOptions(), example: validateBundleExample()),
             actionSchema(
@@ -621,6 +629,9 @@ public enum BuiltInSchemaCatalog {
             actionSchema(
                 name: "export", description: "Export an IPA from an xcarchive.", options: exportOptions(),
                 example: exportExample()),
+            actionSchema(
+                name: "firebase-app-distribution", description: FirebaseAppDistributionAction.description,
+                options: firebaseAppDistributionOptions(), example: firebaseAppDistributionExample()),
             actionSchema(
                 name: "frame", description: "Frame screenshots with device bezels.", options: frameOptions(),
                 example: frameExample()),
@@ -1544,6 +1555,60 @@ public enum BuiltInSchemaCatalog {
             options: [
                 "aab_path": .string("./app/build/outputs/bundle/release/app-release.aab"),
                 "track": .string("beta"),
+            ])
+    }
+
+    private static func firebaseAppDistributionOptions() -> [SchemaField] {
+        [
+            .string(
+                "app_id", required: true,
+                description:
+                    "Firebase app ID. The project number and platform are read from it, so no separate project setting is needed.",
+                example: .string("${FIREBASE_IOS_QA_APP_ID}"),
+                notes: [
+                    "Must be explicit — ShipIt will not derive it from a local GoogleService-Info.plist or google-services.json, because a stale file could silently redirect the release to another Firebase project."
+                ]),
+            .string(
+                "artifact_path", required: true,
+                description: "Path to the signed .ipa (iOS) or .apk/.aab (Android) to upload.",
+                example: .string("./build/staging-export/App.ipa"),
+                notes: ["Must match the platform encoded in app_id, or the step fails before uploading."]),
+            .array(
+                "groups",
+                description: "Firebase App Distribution tester group aliases to release to.",
+                example: .array([.string("qa-testers")]),
+                items: .string("<alias>", description: "A tester group alias.")),
+            .array(
+                "testers",
+                description: "Individual tester email addresses to release to.",
+                items: .string("<email>", description: "A tester email address.")),
+            .string(
+                "release_notes", description: "Release notes shown to testers.",
+                example: .string("Staging candidate")),
+            .string(
+                "service_account_path",
+                description: "Path to a Google service-account JSON key. Overrides environment credentials.",
+                notes: [
+                    "Falls back to FIREBASE_SERVICE_ACCOUNT_JSON, then GOOGLE_APPLICATION_CREDENTIALS.",
+                    "Must be a path. Inline credential JSON is rejected during validation.",
+                ]),
+            .boolean(
+                "dry_run", description: "Validate options and the artifact, then report without uploading.",
+                defaultValue: .bool(false)),
+            .integer(
+                "timeout_seconds",
+                description: "How long to wait for the upload to finish processing.",
+                defaultValue: .int(300)),
+        ]
+    }
+
+    private static func firebaseAppDistributionExample() -> JSONValue? {
+        workflowExample(
+            action: "firebase-app-distribution",
+            options: [
+                "app_id": .string("${FIREBASE_IOS_QA_APP_ID}"),
+                "artifact_path": .string("./build/staging-export/App.ipa"),
+                "groups": .array([.string("qa-testers")]),
             ])
     }
 

@@ -46,6 +46,7 @@ shipit schema --action build --output json
 | ``ValidateArchiveAction`` | ✅ | — | Static validation of `.xcarchive` / `.ipa` |
 | ``ValidateBundleAction`` | — | ✅ | Static validation of `.aab` / APK |
 | ``PlayStoreAction`` | — | ✅ | Edit→upload→track→commit via Google Play API |
+| ``FirebaseAppDistributionAction`` | ✅ | ✅ | Upload→poll→release notes→distribute to tester groups |
 
 ## Versioning & screenshots
 

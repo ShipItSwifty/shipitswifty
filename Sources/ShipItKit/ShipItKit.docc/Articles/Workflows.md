@@ -179,6 +179,88 @@ workflows:
         rollout_fraction: 1.0
 ```
 
+### Staging alongside production (workflow-level overrides)
+
+A workflow can be written as an object with a `steps` array plus override groups, instead of a
+plain array. Overrides apply only while that workflow runs, so a staging lane can live in the
+same Shipfile as production without weakening the top-level production defaults or mutating
+them through environment variables.
+
+| Group | Keys | Platform |
+|---|---|---|
+| `build_variant`, `flavor` | (scalar) | Android |
+| `app` | `scheme`, `bundle_id`, `team_id`, `workspace`, `project` | iOS |
+| `build` | `configuration`, `derived_data_path`, `xcargs` | iOS |
+| `archive` | `export_method`, `output_path`, `include_symbols` | iOS |
+| `export` | `archive_path`, `output_directory` | iOS |
+| `code_signing` | `type`, `provisioning_profile_path`, storage keys | iOS |
+
+Only the keys you set are overridden; everything else falls through to the top-level
+configuration.
+
+```yaml
+platform: ios
+
+app:
+  scheme: MyApp
+  bundle_id: com.example.app
+build:
+  configuration: Release
+archive:
+  export_method: app-store
+
+workflows:
+  # Production — unchanged, still uses the top-level Release / app-store defaults.
+  beta:
+    - action: archive
+    - action: export
+    - action: testflight
+
+  # Staging — same Shipfile, different scheme, configuration, and export method.
+  staging:
+    app:
+      scheme: MyApp-QA
+      bundle_id: com.example.app.qa
+    build:
+      configuration: QA
+    archive:
+      export_method: ad-hoc
+      output_path: ./build/MyApp-QA.xcarchive
+    export:
+      archive_path: ./build/MyApp-QA.xcarchive
+      output_directory: ./build/staging-export
+    steps:
+      - action: archive
+      - action: export
+      - action: firebase-app-distribution
+        options:
+          app_id: ${FIREBASE_IOS_QA_APP_ID}
+          artifact_path: ./build/staging-export/MyApp.ipa
+          groups:
+            - qa-testers
+```
+
+The Android equivalent uses `build_variant` in place of the iOS groups:
+
+```yaml
+workflows:
+  staging:
+    build_variant: qaRelease
+    steps:
+      - action: build
+        options: { build_variant: qaRelease, build_type: apk }
+      - action: firebase-app-distribution
+        options:
+          app_id: ${FIREBASE_ANDROID_QA_APP_ID}
+          artifact_path: ./app/build/outputs/apk/qa/release/app-qa-release.apk
+          groups:
+            - qa-testers
+```
+
+Keep the distribution channels separated by construction: give the staging workflow no
+`testflight` or `play-store` step, and give the production workflows no
+`firebase-app-distribution` step.
+
 ### Composite step
 
 ```yaml

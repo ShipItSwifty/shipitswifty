@@ -12,6 +12,7 @@ struct SchemaContractTests {
         ArchiveAction.name,
         BuildAction.name,
         CoverageAction.name,
+        FirebaseAppDistributionAction.name,
         GitAction.name,
         LintAction.name,
         NotifyAction.name,

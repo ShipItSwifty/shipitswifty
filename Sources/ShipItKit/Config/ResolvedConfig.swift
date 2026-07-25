@@ -518,40 +518,70 @@ public struct ResolvedConfig: Sendable {
         )
     }
 
-    public func overriding(buildVariant: String? = nil, flavor: String? = nil) -> ResolvedConfig {
+    /// Returns a copy of this configuration with workflow-level overrides applied.
+    ///
+    /// Only non-nil values replace the resolved defaults, so a workflow that overrides just
+    /// `app.scheme` keeps every other setting from the top-level Shipfile. The receiver is
+    /// never mutated — each workflow derives its own config, so a staging lane cannot leak
+    /// its settings into the production lane.
+    ///
+    /// - Parameters:
+    ///   - buildVariant: Gradle build variant override (Android).
+    ///   - flavor: Gradle product flavor override (Android).
+    ///   - app: App identity overrides (iOS).
+    ///   - build: Build setting overrides (iOS).
+    ///   - archive: Archive overrides (iOS).
+    ///   - export: Export overrides (iOS).
+    ///   - codeSigning: Code-signing overrides (iOS).
+    public func overriding(
+        buildVariant: String? = nil,
+        flavor: String? = nil,
+        app: AppConfig? = nil,
+        build: BuildConfig? = nil,
+        archive: ArchiveConfig? = nil,
+        export: ExportConfig? = nil,
+        codeSigning: CodeSigningConfig? = nil
+    ) -> ResolvedConfig {
         var updatedProperties = androidGradleProperties
         if let flavor {
             updatedProperties["flavor"] = flavor
         }
+        // An overridden bundle ID must also drop the value auto-detected from the target's
+        // build settings, otherwise the detected production ID would keep winning downstream.
+        let overriddenBundleID = app?.bundleId ?? bundleID
+        let overriddenTeamID = app?.teamId ?? teamID
         return ResolvedConfig(
             processedFiles: processedFiles,
-            appWorkspace: appWorkspace,
-            appProject: appProject,
-            appScheme: appScheme,
-            bundleID: bundleID,
-            bundleIDFromTargetBuildSettings: bundleIDFromTargetBuildSettings,
-            teamID: teamID,
-            teamIDFromTargetBuildSettings: teamIDFromTargetBuildSettings,
+            appWorkspace: app?.workspace ?? appWorkspace,
+            appProject: app?.project ?? appProject,
+            appScheme: app?.scheme ?? appScheme,
+            bundleID: overriddenBundleID,
+            bundleIDFromTargetBuildSettings: app?.bundleId != nil
+                ? false : bundleIDFromTargetBuildSettings,
+            teamID: overriddenTeamID,
+            teamIDFromTargetBuildSettings: app?.teamId != nil ? false : teamIDFromTargetBuildSettings,
             ascKeyID: ascKeyID,
             ascIssuerID: ascIssuerID,
             ascPrivateKeyData: ascPrivateKeyData,
-            buildConfiguration: buildConfiguration,
-            derivedDataPath: derivedDataPath,
-            xcargs: xcargs,
-            archiveExportMethod: archiveExportMethod,
-            archiveIncludeSymbols: archiveIncludeSymbols,
-            archiveOutputPath: archiveOutputPath,
-            exportArchivePath: exportArchivePath,
-            exportOutputDirectory: exportOutputDirectory,
-            codeSigningType: codeSigningType,
-            automaticCodeSigning: automaticCodeSigning,
-            codeSigningStorage: codeSigningStorage,
-            codeSigningGitUrl: codeSigningGitUrl,
+            buildConfiguration: build?.configuration ?? buildConfiguration,
+            derivedDataPath: build?.derivedDataPath ?? derivedDataPath,
+            xcargs: build?.xcargs ?? xcargs,
+            archiveExportMethod: archive?.exportMethod ?? archiveExportMethod,
+            archiveIncludeSymbols: archive?.includeSymbols ?? archiveIncludeSymbols,
+            archiveOutputPath: archive?.outputPath ?? archiveOutputPath,
+            exportArchivePath: export?.archivePath ?? exportArchivePath,
+            exportOutputDirectory: export?.outputDirectory ?? exportOutputDirectory,
+            codeSigningType: codeSigning?.type ?? codeSigningType,
+            automaticCodeSigning: codeSigning?.type.map { $0.lowercased() == "automatic" }
+                ?? automaticCodeSigning,
+            codeSigningStorage: codeSigning?.storage ?? codeSigningStorage,
+            codeSigningGitUrl: codeSigning?.gitUrl ?? codeSigningGitUrl,
             vaultPassword: vaultPassword,
-            codeSigningP12Path: codeSigningP12Path,
+            codeSigningP12Path: codeSigning?.p12Path ?? codeSigningP12Path,
             codeSigningP12Data: codeSigningP12Data,
-            codeSigningP12Password: codeSigningP12Password,
-            codeSigningProvisioningProfilePath: codeSigningProvisioningProfilePath,
+            codeSigningP12Password: codeSigning?.p12Password ?? codeSigningP12Password,
+            codeSigningProvisioningProfilePath: codeSigning?.provisioningProfilePath
+                ?? codeSigningProvisioningProfilePath,
             codeSigningProvisioningProfileData: codeSigningProvisioningProfileData,
             skipWaitingForBuildProcessing: skipWaitingForBuildProcessing,
             distributeExternal: distributeExternal,

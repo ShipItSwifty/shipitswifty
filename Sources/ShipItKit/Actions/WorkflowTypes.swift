@@ -98,7 +98,51 @@ public struct Workflow: Sendable {
     /// When set, overrides `config.androidGradleProperties["flavor"]` in the `ActionContext`.
     public let flavor: String?
 
+    /// Optional app identity override (scheme, bundle ID, team) for all steps in this workflow.
+    public let app: AppConfig?
+
+    /// Optional build setting override for all steps in this workflow.
+    public let build: BuildConfig?
+
+    /// Optional archive override for all steps in this workflow.
+    public let archive: ArchiveConfig?
+
+    /// Optional export override for all steps in this workflow.
+    public let export: ExportConfig?
+
+    /// Optional code-signing override for all steps in this workflow.
+    public let codeSigning: CodeSigningConfig?
+
     private let logger = Logger.forType(subsystem: "ShipItSwifty", Workflow.self)
+
+    /// Whether this workflow declares any override at all.
+    private var hasOverrides: Bool {
+        buildVariant != nil || flavor != nil || app != nil || build != nil || archive != nil
+            || export != nil || codeSigning != nil
+    }
+
+    /// A log-safe, one-line summary of the overrides this workflow applies.
+    ///
+    /// Lists only identity and path settings — never credential material such as the
+    /// `.p12` password, which `CodeSigningConfig` can also carry.
+    private var overrideSummary: String {
+        var parts: [String] = []
+        if let buildVariant { parts.append("build_variant=\(buildVariant)") }
+        if let flavor { parts.append("flavor=\(flavor)") }
+        if let scheme = app?.scheme { parts.append("app.scheme=\(scheme)") }
+        if let bundleId = app?.bundleId { parts.append("app.bundle_id=\(bundleId)") }
+        if let configuration = build?.configuration {
+            parts.append("build.configuration=\(configuration)")
+        }
+        if let method = archive?.exportMethod { parts.append("archive.export_method=\(method)") }
+        if let path = archive?.outputPath { parts.append("archive.output_path=\(path)") }
+        if let path = export?.archivePath { parts.append("export.archive_path=\(path)") }
+        if let directory = export?.outputDirectory {
+            parts.append("export.output_directory=\(directory)")
+        }
+        if let type = codeSigning?.type { parts.append("code_signing.type=\(type)") }
+        return parts.isEmpty ? "(none)" : parts.joined(separator: ", ")
+    }
 
     /// Initialize from an explicit array (used by the YAML config decoder).
     ///
@@ -107,11 +151,31 @@ public struct Workflow: Sendable {
     ///   - steps: Array of steps to execute in order.
     ///   - buildVariant: Optional build variant override for all steps.
     ///   - flavor: Optional product flavor override for all steps.
-    public init(_ name: String, steps: [WorkflowStep], buildVariant: String? = nil, flavor: String? = nil) {
+    ///   - app: Optional app identity override for all steps.
+    ///   - build: Optional build setting override for all steps.
+    ///   - archive: Optional archive override for all steps.
+    ///   - export: Optional export override for all steps.
+    ///   - codeSigning: Optional code-signing override for all steps.
+    public init(
+        _ name: String,
+        steps: [WorkflowStep],
+        buildVariant: String? = nil,
+        flavor: String? = nil,
+        app: AppConfig? = nil,
+        build: BuildConfig? = nil,
+        archive: ArchiveConfig? = nil,
+        export: ExportConfig? = nil,
+        codeSigning: CodeSigningConfig? = nil
+    ) {
         self.name = name
         self.steps = steps
         self.buildVariant = buildVariant
         self.flavor = flavor
+        self.app = app
+        self.build = build
+        self.archive = archive
+        self.export = export
+        self.codeSigning = codeSigning
     }
 
     /// Initialize using the `@WorkflowBuilder` result-builder DSL.
@@ -120,12 +184,32 @@ public struct Workflow: Sendable {
     ///   - name: The workflow identifier.
     ///   - buildVariant: Optional build variant override for all steps.
     ///   - flavor: Optional product flavor override for all steps.
+    ///   - app: Optional app identity override for all steps.
+    ///   - build: Optional build setting override for all steps.
+    ///   - archive: Optional archive override for all steps.
+    ///   - export: Optional export override for all steps.
+    ///   - codeSigning: Optional code-signing override for all steps.
     ///   - builder: A result builder closure producing workflow steps.
-    public init(_ name: String, buildVariant: String? = nil, flavor: String? = nil, @WorkflowBuilder _ builder: () -> [WorkflowStep]) {
+    public init(
+        _ name: String,
+        buildVariant: String? = nil,
+        flavor: String? = nil,
+        app: AppConfig? = nil,
+        build: BuildConfig? = nil,
+        archive: ArchiveConfig? = nil,
+        export: ExportConfig? = nil,
+        codeSigning: CodeSigningConfig? = nil,
+        @WorkflowBuilder _ builder: () -> [WorkflowStep]
+    ) {
         self.name = name
         self.steps = builder()
         self.buildVariant = buildVariant
         self.flavor = flavor
+        self.app = app
+        self.build = build
+        self.archive = archive
+        self.export = export
+        self.codeSigning = codeSigning
     }
 
     /// Run all steps in this workflow sequentially.
@@ -147,15 +231,22 @@ public struct Workflow: Sendable {
         var stepResults: [ActionResultEnvelope] = []
         let startTime = Date()
 
-        // Apply workflow-level overrides to the context config
+        // Apply workflow-level overrides to the context config. This derives a new config
+        // rather than mutating the shared one, so a staging lane's scheme, configuration, and
+        // export method cannot bleed into the production lane running from the same Shipfile.
         let effectiveContext: ActionContext
-        if buildVariant != nil || flavor != nil {
+        if hasOverrides {
             let overriddenConfig = context.config.overriding(
                 buildVariant: buildVariant,
-                flavor: flavor
+                flavor: flavor,
+                app: app,
+                build: build,
+                archive: archive,
+                export: export,
+                codeSigning: codeSigning
             )
             effectiveContext = context.withConfig(overriddenConfig)
-            logger.info("Workflow '\(name)' overrides: build_variant=\(buildVariant ?? "(none)"), flavor=\(flavor ?? "(none)")")
+            logger.info("Workflow '\(name)' overrides: \(overrideSummary)")
         } else {
             effectiveContext = context
         }
