@@ -81,14 +81,17 @@ jobs:
   build-linux:
     name: Build Linux Static Binary
     runs-on: ubuntu-24.04
-    container:
-      image: swift:6.3.1-noble
 
     steps:
       - name: Checkout
         uses: actions/checkout@v7
         with:
           persist-credentials: false
+
+      - name: Set up Swift
+        uses: swift-actions/setup-swift@v2.4.0
+        with:
+          swift-version: "6.3.1"
 
       - name: Stamp version from tag
         run: |
