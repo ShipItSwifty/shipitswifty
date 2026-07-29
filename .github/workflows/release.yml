@@ -4,9 +4,22 @@ on:
   push:
     tags:
       - '[0-9]+.[0-9]+.[0-9]+'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Existing release tag to rebuild and publish
+        required: true
+        type: string
 
 permissions:
   contents: write
+
+env:
+  RELEASE_VERSION: ${{ inputs.version || github.ref_name }}
+
+concurrency:
+  group: release-${{ inputs.version || github.ref_name }}
+  cancel-in-progress: false
 
 jobs:
   build-macos:
@@ -18,15 +31,16 @@ jobs:
         uses: actions/checkout@v7
         with:
           persist-credentials: false
+          ref: ${{ env.RELEASE_VERSION }}
 
       - name: Select Xcode
         run: sudo xcode-select -s /Applications/Xcode_26.4.app
 
       - name: Stamp version from tag
         run: |
-          sed -i.bak 's/static let versionString = "[^"]*"/static let versionString = "'"${GITHUB_REF_NAME}"'"/' Sources/CLI/ShipItCLI.swift
+          sed -i.bak 's/static let versionString = "[^"]*"/static let versionString = "'"${RELEASE_VERSION}"'"/' Sources/CLI/ShipItCLI.swift
           rm -f Sources/CLI/ShipItCLI.swift.bak
-          grep -q "static let versionString = \"${GITHUB_REF_NAME}\"" Sources/CLI/ShipItCLI.swift
+          grep -q "static let versionString = \"${RELEASE_VERSION}\"" Sources/CLI/ShipItCLI.swift
 
       - name: Swift version
         run: swift --version
@@ -67,7 +81,7 @@ jobs:
 
       - name: Package tarball
         run: |
-          VERSION="${GITHUB_REF_NAME}"
+          VERSION="${RELEASE_VERSION}"
           tar -czf "shipit-${VERSION}-macos-universal.tar.gz" shipit
           echo "TARBALL=shipit-${VERSION}-macos-universal.tar.gz" >> "$GITHUB_ENV"
 
@@ -76,7 +90,7 @@ jobs:
         with:
           name: macos-universal
           path: ${{ env.TARBALL }}
-          retention-days: 1
+          retention-days: 7
 
   build-linux:
     name: Build Linux Static Binary
@@ -87,6 +101,7 @@ jobs:
         uses: actions/checkout@v7
         with:
           persist-credentials: false
+          ref: ${{ env.RELEASE_VERSION }}
 
       - name: Set up Swift
         uses: swift-actions/setup-swift@v3
@@ -95,9 +110,9 @@ jobs:
 
       - name: Stamp version from tag
         run: |
-          sed -i.bak 's/static let versionString = "[^"]*"/static let versionString = "'"${GITHUB_REF_NAME}"'"/' Sources/CLI/ShipItCLI.swift
+          sed -i.bak 's/static let versionString = "[^"]*"/static let versionString = "'"${RELEASE_VERSION}"'"/' Sources/CLI/ShipItCLI.swift
           rm -f Sources/CLI/ShipItCLI.swift.bak
-          grep -q "static let versionString = \"${GITHUB_REF_NAME}\"" Sources/CLI/ShipItCLI.swift
+          grep -q "static let versionString = \"${RELEASE_VERSION}\"" Sources/CLI/ShipItCLI.swift
 
       - name: Swift version
         run: swift --version
@@ -119,7 +134,7 @@ jobs:
 
       - name: Package tarball
         run: |
-          VERSION="${GITHUB_REF_NAME}"
+          VERSION="${RELEASE_VERSION}"
           cp .build/release/shipit shipit
           tar -czf "shipit-${VERSION}-linux-static.tar.gz" shipit
           echo "TARBALL=shipit-${VERSION}-linux-static.tar.gz" >> "$GITHUB_ENV"
@@ -129,7 +144,7 @@ jobs:
         with:
           name: linux-static
           path: ${{ env.TARBALL }}
-          retention-days: 1
+          retention-days: 7
 
   release:
     name: Create GitHub Release
@@ -141,6 +156,7 @@ jobs:
         uses: actions/checkout@v7
         with:
           persist-credentials: false
+          ref: ${{ env.RELEASE_VERSION }}
 
       - name: Download macOS artifact
         uses: actions/download-artifact@v8
@@ -159,13 +175,14 @@ jobs:
           gh api \
             --method POST \
             "/repos/${{ github.repository }}/releases/generate-notes" \
-            -f tag_name="${GITHUB_REF_NAME}" \
+            -f tag_name="${RELEASE_VERSION}" \
             -f target_commitish=main \
             --jq '.body' > release_notes.md
 
       - name: Create release
         uses: softprops/action-gh-release@v3
         with:
+          tag_name: ${{ env.RELEASE_VERSION }}
           body_path: release_notes.md
           files: |
             shipit-*-macos-universal.tar.gz
@@ -174,7 +191,7 @@ jobs:
       - name: Update Homebrew tap
         env:
           HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
-          VERSION: ${{ github.ref_name }}
+          VERSION: ${{ env.RELEASE_VERSION }}
         run: |
           set -euo pipefail
           if [ -z "${HOMEBREW_TAP_TOKEN:-}" ]; then
