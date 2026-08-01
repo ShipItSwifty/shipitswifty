@@ -1,9 +1,15 @@
 name: Mirror Swift Image to GHCR
 
-# Manual only — this rarely changes. Re-run whenever the pinned Swift toolchain
-# version (currently 6.3.1) is bumped in ci.yml/release.yml, to refresh the mirror
-# before updating those workflows' container reference.
+# Manual after the initial bootstrap — this rarely changes. Re-run whenever the
+# pinned Swift toolchain version is bumped in ci.yml/release.yml, before updating
+# those workflows' container reference.
 on:
+  # Bootstrap the package from this PR branch. Remove this trigger after the
+  # first successful mirror; workflow_dispatch is only available once the
+  # workflow exists on the default branch.
+  push:
+    branches: [mirror-swift-image-to-ghcr]
+    paths: [.github/workflows/mirror-swift-image.yml]
   workflow_dispatch:
     inputs:
       swift_tag:
@@ -17,7 +23,7 @@ permissions:
 
 jobs:
   mirror:
-    name: Mirror swift:${{ inputs.swift_tag }} to GHCR
+    name: Mirror Swift image to GHCR
     runs-on: ubuntu-24.04
 
     steps:
@@ -28,15 +34,16 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Pull from Docker Hub, tag, and push to GHCR
+      - name: Copy multi-platform image from Docker Hub to GHCR
+        env:
+          SWIFT_TAG: ${{ inputs.swift_tag || '6.3.1-noble' }}
         run: |
           set -euo pipefail
-          SOURCE="swift:${{ inputs.swift_tag }}"
-          TARGET="ghcr.io/${{ github.repository_owner }}/swift:${{ inputs.swift_tag }}"
+          SOURCE="docker.io/library/swift:${SWIFT_TAG}"
+          TARGET="ghcr.io/${{ github.repository_owner }}/swift:${SWIFT_TAG}"
           # Lowercase, as GHCR image paths are case-sensitive and reject uppercase.
           TARGET=$(echo "$TARGET" | tr '[:upper:]' '[:lower:]')
 
-          docker pull "$SOURCE"
-          docker tag "$SOURCE" "$TARGET"
-          docker push "$TARGET"
+          docker buildx imagetools create --tag "$TARGET" "$SOURCE"
+          docker buildx imagetools inspect "$TARGET"
           echo "Mirrored $SOURCE -> $TARGET"
