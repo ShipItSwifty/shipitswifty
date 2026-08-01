@@ -8,13 +8,22 @@ import Logging
 /// and checked against the artifact's extension so a mismatched build fails before upload.
 ///
 /// ## Credentials
-/// The service-account key is resolved, in order, from the `service_account_path` option, the
-/// `FIREBASE_SERVICE_ACCOUNT_JSON` environment variable (raw JSON), or
-/// `GOOGLE_APPLICATION_CREDENTIALS` (Application Default Credentials path). Inline credentials
-/// in a Shipfile are never accepted.
+/// Two mutually exclusive paths, checked in this order:
+/// 1. **Workload Identity Federation** (keyless) — needs both `workload_identity_provider` and
+///    `service_account_email` (options or, respectively, the `GOOGLE_WORKLOAD_IDENTITY_PROVIDER` /
+///    `GOOGLE_SERVICE_ACCOUNT_EMAIL` environment variables). No service-account key ever exists;
+///    this is the required path wherever an org enforces `iam.disableServiceAccountKeyCreation`.
+///    See ``WorkloadIdentityFederationClient`` for the exchange and the IAM bindings it needs.
+/// 2. **Service-account JSON key** — resolved, in order, from the `service_account_path` option,
+///    the `FIREBASE_SERVICE_ACCOUNT_JSON` environment variable (raw JSON), or
+///    `GOOGLE_APPLICATION_CREDENTIALS` (a path).
+///
+/// Inline credentials in a Shipfile are never accepted — `workload_identity_provider` and
+/// `service_account_email` are identifiers, not secrets, so they're fine directly in a Shipfile.
 ///
 /// ## Usage
 /// ```yaml
+/// # Keyless, via Workload Identity Federation:
 /// - action: firebase-app-distribution
 ///   options:
 ///     app_id: ${FIREBASE_IOS_QA_APP_ID}
@@ -22,6 +31,8 @@ import Logging
 ///     groups:
 ///       - qa-testers
 ///     release_notes: Staging candidate
+///     workload_identity_provider: projects/123456789/locations/global/workloadIdentityPools/github-actions/providers/github
+///     service_account_email: firebase-app-distribution-ci@novalingo-staging.iam.gserviceaccount.com
 /// ```
 ///
 /// ## Topics
@@ -84,6 +95,14 @@ public struct FirebaseAppDistributionAction: Action {
         /// Path to a Google service-account JSON key. Overrides environment credentials.
         public var serviceAccountPath: String?
 
+        /// Workload identity pool provider's full resource name, for keyless auth via GitHub
+        /// Actions OIDC. Must be paired with `serviceAccountEmail`. Not a secret.
+        public var workloadIdentityProvider: String?
+
+        /// Service account to impersonate after the Workload Identity Federation exchange. Must
+        /// be paired with `workloadIdentityProvider`. Not a secret.
+        public var serviceAccountEmail: String?
+
         /// When true, validate everything and report the planned distribution without uploading.
         public var dryRun: Bool?
 
@@ -98,6 +117,8 @@ public struct FirebaseAppDistributionAction: Action {
             testers: [String]? = nil,
             releaseNotes: String? = nil,
             serviceAccountPath: String? = nil,
+            workloadIdentityProvider: String? = nil,
+            serviceAccountEmail: String? = nil,
             dryRun: Bool? = nil,
             timeoutSeconds: Int? = nil
         ) {
@@ -107,6 +128,8 @@ public struct FirebaseAppDistributionAction: Action {
             self.testers = testers
             self.releaseNotes = releaseNotes
             self.serviceAccountPath = serviceAccountPath
+            self.workloadIdentityProvider = workloadIdentityProvider
+            self.serviceAccountEmail = serviceAccountEmail
             self.dryRun = dryRun
             self.timeoutSeconds = timeoutSeconds
         }
@@ -223,7 +246,13 @@ public struct FirebaseAppDistributionAction: Action {
             )
         }
 
-        let client = try clientOverride ?? Self.makeClient(serviceAccountPath: options.serviceAccountPath)
+        let client =
+            try clientOverride
+            ?? Self.makeClient(
+                serviceAccountPath: options.serviceAccountPath,
+                workloadIdentityProvider: options.workloadIdentityProvider,
+                serviceAccountEmail: options.serviceAccountEmail
+            )
         let fileName = URL(fileURLWithPath: artifactPath).lastPathComponent
         let data = try Data(contentsOf: URL(fileURLWithPath: artifactPath))
 
@@ -288,12 +317,39 @@ public struct FirebaseAppDistributionAction: Action {
         }
     }
 
-    /// Resolves service-account credentials from the option, then the environment.
-    static func makeClient(serviceAccountPath: String?) throws -> FirebaseAppDistributionClient {
+    /// Resolves credentials, preferring keyless Workload Identity Federation over any
+    /// service-account key source.
+    static func makeClient(
+        serviceAccountPath: String?,
+        workloadIdentityProvider: String?,
+        serviceAccountEmail: String?
+    ) throws -> FirebaseAppDistributionClient {
+        let environment = ProcessInfo.processInfo.environment
+
+        let provider = Self.nonEmpty(workloadIdentityProvider) ?? Self.nonEmpty(environment["GOOGLE_WORKLOAD_IDENTITY_PROVIDER"])
+        let serviceAccount = Self.nonEmpty(serviceAccountEmail) ?? Self.nonEmpty(environment["GOOGLE_SERVICE_ACCOUNT_EMAIL"])
+
+        switch (provider, serviceAccount) {
+        case (let provider?, let serviceAccount?):
+            return FirebaseAppDistributionClient(
+                workloadIdentityProvider: provider, serviceAccountEmail: serviceAccount)
+        case (.some, nil):
+            throw ShipItError.invalidConfiguration(
+                reason:
+                    "firebase-app-distribution: 'workload_identity_provider' is set but 'service_account_email' is missing — both are required together."
+            )
+        case (nil, .some):
+            throw ShipItError.invalidConfiguration(
+                reason:
+                    "firebase-app-distribution: 'service_account_email' is set but 'workload_identity_provider' is missing — both are required together."
+            )
+        case (nil, nil):
+            break
+        }
+
         if let serviceAccountPath, !serviceAccountPath.isEmpty {
             return try FirebaseAppDistributionClient(serviceAccountJSONPath: serviceAccountPath)
         }
-        let environment = ProcessInfo.processInfo.environment
         if let json = environment["FIREBASE_SERVICE_ACCOUNT_JSON"], !json.isEmpty {
             return try FirebaseAppDistributionClient(serviceAccountJSON: Data(json.utf8))
         }
@@ -302,10 +358,17 @@ public struct FirebaseAppDistributionAction: Action {
         }
         throw ShipItError.invalidConfiguration(
             reason: """
-                firebase-app-distribution: no credentials found. Set GOOGLE_APPLICATION_CREDENTIALS to a \
-                service-account key path, set FIREBASE_SERVICE_ACCOUNT_JSON to the key contents, or pass \
-                the 'service_account_path' option. Never inline credentials in Shipfile.yml.
+                firebase-app-distribution: no credentials found. Set 'workload_identity_provider' + \
+                'service_account_email' (or GOOGLE_WORKLOAD_IDENTITY_PROVIDER + GOOGLE_SERVICE_ACCOUNT_EMAIL) \
+                for keyless auth, set GOOGLE_APPLICATION_CREDENTIALS to a service-account key path, set \
+                FIREBASE_SERVICE_ACCOUNT_JSON to the key contents, or pass the 'service_account_path' option. \
+                Never inline credentials in Shipfile.yml.
                 """
         )
+    }
+
+    private static func nonEmpty(_ value: String?) -> String? {
+        guard let value, !value.isEmpty else { return nil }
+        return value
     }
 }

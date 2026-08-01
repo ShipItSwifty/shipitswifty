@@ -11,9 +11,12 @@ import FoundationNetworking
 /// `cloud-platform` OAuth scope that the App Distribution API accepts.
 ///
 /// ## Authentication
-/// Authenticates with a Google Cloud service-account key via the OAuth2 service-account
-/// JWT flow (RS256). Credentials are supplied as raw JSON or a path on disk — never
-/// inline in a Shipfile.
+/// Two supported paths:
+/// - A Google Cloud service-account key via the OAuth2 service-account JWT flow (RS256).
+///   Credentials are supplied as raw JSON or a path on disk — never inline in a Shipfile.
+/// - Workload Identity Federation (see ``WorkloadIdentityFederationClient``), which exchanges
+///   a GitHub Actions OIDC token for short-lived credentials with no key ever created. Required
+///   wherever an org enforces the `iam.disableServiceAccountKeyCreation` policy.
 ///
 /// ## Usage
 /// Callers normally reach this through ``FirebaseAppDistributionAction`` rather than directly:
@@ -77,9 +80,24 @@ public struct FirebaseAppDistributionClient: Sendable {
         try self.init(serviceAccountJSON: data)
     }
 
+    /// Creates a client authenticated via Workload Identity Federation (GitHub Actions OIDC),
+    /// impersonating the given service account. No service-account key ever exists on disk or
+    /// in CI secrets — this is the supported path when an org enforces
+    /// `iam.disableServiceAccountKeyCreation`.
+    ///
+    /// - Parameters:
+    ///   - workloadIdentityProvider: The workload identity pool provider's full resource name.
+    ///   - serviceAccountEmail: The service account to impersonate.
+    public init(workloadIdentityProvider: String, serviceAccountEmail: String) {
+        let federation = WorkloadIdentityFederationClient(
+            provider: workloadIdentityProvider, serviceAccountEmail: serviceAccountEmail)
+        self.init(tokenProvider: { try await federation.cachedOrNewToken() }, session: .shared)
+    }
+
     /// Creates a client with an explicit token provider and URL session.
     ///
-    /// Intended for tests so that a canned token can be returned without RSA signing.
+    /// Used both by the Workload Identity Federation initializer above and by tests, so a
+    /// canned or externally-sourced token can be supplied without RSA signing.
     init(tokenProvider: @escaping @Sendable () async throws -> String, session: URLSession) {
         let placeholderJSON = Data(
             """
