@@ -213,6 +213,16 @@ struct AISessionTests {
         #expect(payload.agentPrompt.contains("transient test infrastructure failures"))
     }
 
+    @Test("Distribution agent prompt documents Firebase keyless authentication")
+    func distributionPromptMentionsFirebaseWIF() {
+        let payload = AISessionBuilder().build(
+            goal: .beta, inspection: fullInspection(), hasExistingShipfile: false)
+        #expect(payload.agentPrompt.contains("firebase-app-distribution"))
+        #expect(payload.agentPrompt.contains("workload_identity_provider"))
+        #expect(payload.agentPrompt.contains("id-token: write"))
+        #expect(payload.agentPrompt.contains("APK or AAB"))
+    }
+
     @Test("Agent prompt mentions NOT READY when blockers exist")
     func agentPromptMentionsNotReadyWhenBlocked() {
         let payload = AISessionBuilder().build(

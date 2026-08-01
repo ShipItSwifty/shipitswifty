@@ -340,6 +340,8 @@ When recommending changes to an agent:
         - action: play-store
           options: { track: production }
   ```
+- When the user wants pre-store tester distribution, recommend a `firebase-app-distribution` workflow step with an explicit `app_id`, signed `artifact_path`, and at least one `groups` alias or `testers` email. IPA is supported for iOS; APK and AAB are supported for Android. Never infer `app_id` from `GoogleService-Info.plist` or `google-services.json` because stale files can target the wrong Firebase project.
+- Prefer keyless Workload Identity Federation in GitHub Actions when available: pair `workload_identity_provider` with `service_account_email` (or set `GOOGLE_WORKLOAD_IDENTITY_PROVIDER` + `GOOGLE_SERVICE_ACCOUNT_EMAIL`), add `permissions: { id-token: write }`, and grant the repository identity `roles/iam.workloadIdentityUser` on the service account. Otherwise use `service_account_path`, `FIREBASE_SERVICE_ACCOUNT_JSON`, or `GOOGLE_APPLICATION_CREDENTIALS`; never place inline credential JSON in Shipfile.yml.
 
 ### Source layout
 

@@ -301,7 +301,7 @@ See [`docs/kmp-quickstart.md`](kmp-quickstart.md) for a worked KMP example.
 | Lint | **Implemented** |
 | Play Store upload | **Implemented** |
 | Bundle validation (bundletool) | **Implemented** |
-| Firebase App Distribution | **Implemented** (cross-platform: IPA and APK/AAB) |
+| Firebase App Distribution | **Implemented** (cross-platform: IPA and APK/AAB; service-account JSON or keyless Workload Identity Federation authentication) |
 | Screenshots (Screengrab + emulators) | Deferred |
 | Play Console metadata API | Deferred |
 
