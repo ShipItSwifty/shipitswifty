@@ -43,7 +43,13 @@ public actor WorkloadIdentityFederationClient: Sendable {
     /// Email of the service account to impersonate after the federated token is issued.
     private let serviceAccountEmail: String
 
-    private let session: URLSession
+    /// The raw request/response transport. Matches `URLSession.data(for:)`'s signature exactly,
+    /// so production code just wraps a session while tests can inject a closure directly —
+    /// deterministic, and independent of any shared URLProtocol-based HTTP mocking (and its
+    /// cross-suite session-routing behavior, which is unreliable on Linux for concurrently
+    /// running test suites; see `WorkloadIdentityFederationClientTests`).
+    private let transport: @Sendable (URLRequest) async throws -> (Data, URLResponse)
+
     private let logger = Logger.forType(subsystem: "ShipItSwifty", WorkloadIdentityFederationClient.self)
 
     private var cachedToken: String?
@@ -58,7 +64,21 @@ public actor WorkloadIdentityFederationClient: Sendable {
     public init(provider: String, serviceAccountEmail: String, session: URLSession = .shared) {
         self.provider = provider
         self.serviceAccountEmail = serviceAccountEmail
-        self.session = session
+        self.transport = { request in try await session.data(for: request) }
+    }
+
+    /// Creates a client with an injected transport, bypassing `URLSession` entirely.
+    ///
+    /// Intended for tests: a plain closure is a fully deterministic test double, with no
+    /// dependency on `URLProtocol` registration or session-scoped routing.
+    init(
+        provider: String,
+        serviceAccountEmail: String,
+        transport: @escaping @Sendable (URLRequest) async throws -> (Data, URLResponse)
+    ) {
+        self.provider = provider
+        self.serviceAccountEmail = serviceAccountEmail
+        self.transport = transport
     }
 
     /// Returns a valid access token, reusing the cached token if it hasn't expired.
@@ -115,7 +135,7 @@ public actor WorkloadIdentityFederationClient: Sendable {
         var request = URLRequest(url: url)
         request.setValue("Bearer \(requestToken)", forHTTPHeaderField: "Authorization")
 
-        let (data, response) = try await session.data(for: request)
+        let (data, response) = try await transport(request)
         guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
             let status = (response as? HTTPURLResponse)?.statusCode ?? 0
             throw ShipItError.uploadFailed(
@@ -145,7 +165,7 @@ public actor WorkloadIdentityFederationClient: Sendable {
                 subjectToken: githubToken
             ))
 
-        let (data, response) = try await session.data(for: request)
+        let (data, response) = try await transport(request)
         guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
             let status = (response as? HTTPURLResponse)?.statusCode ?? 0
             let body = String(data: data, encoding: .utf8) ?? ""
@@ -172,7 +192,7 @@ public actor WorkloadIdentityFederationClient: Sendable {
         request.httpBody = try JSONEncoder().encode(
             GenerateAccessTokenRequest(scope: ["https://www.googleapis.com/auth/cloud-platform"]))
 
-        let (data, response) = try await session.data(for: request)
+        let (data, response) = try await transport(request)
         guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
             let status = (response as? HTTPURLResponse)?.statusCode ?? 0
             let body = String(data: data, encoding: .utf8) ?? ""

@@ -11,6 +11,12 @@ import FoundationNetworking
 /// `.serialized` because these tests mutate process-wide environment variables
 /// (`ACTIONS_ID_TOKEN_REQUEST_URL`/`ACTIONS_ID_TOKEN_REQUEST_TOKEN`) that a parallel test
 /// would race on.
+///
+/// These tests inject the transport closure directly rather than going through the shared
+/// `makeMockSession`/`MockURLProtocol` helper in TestSupport.swift — that helper routes mock
+/// responses by a session-ID HTTP header, which is not reliably delivered to `URLProtocol` on
+/// Linux under concurrent test execution, causing responses to cross-talk between unrelated
+/// test suites. Injecting the transport directly is fully deterministic and platform-independent.
 @Suite("WorkloadIdentityFederationClient", .serialized)
 struct WorkloadIdentityFederationClientTests {
 
@@ -46,31 +52,51 @@ struct WorkloadIdentityFederationClientTests {
         return try await body()
     }
 
+    private func jsonResponse(_ object: [String: Any], statusCode: Int = 200) -> (Data, URLResponse) {
+        let data = try! JSONSerialization.data(withJSONObject: object)
+        let response = HTTPURLResponse(
+            url: URL(string: "https://example.com")!, statusCode: statusCode, httpVersion: nil,
+            headerFields: ["Content-Type": "application/json"])!
+        return (data, response)
+    }
+
+    private func errorResponse(statusCode: Int, body: String) -> (Data, URLResponse) {
+        let response = HTTPURLResponse(
+            url: URL(string: "https://example.com")!, statusCode: statusCode, httpVersion: nil,
+            headerFields: [:])!
+        return (Data(body.utf8), response)
+    }
+
+    private func makeClient(
+        transport: @escaping @Sendable (URLRequest) async throws -> (Data, URLResponse)
+    ) -> WorkloadIdentityFederationClient {
+        WorkloadIdentityFederationClient(
+            provider: Self.provider, serviceAccountEmail: Self.serviceAccountEmail, transport: transport)
+    }
+
     @Test("Exchanges a GitHub token for a federated token, then impersonates the service account")
     func performsFullExchange() async throws {
         try await withGitHubActionsOIDCEnvironment {
-            let session = makeMockSession { request in
+            let client = makeClient { request in
                 let urlString = request.url?.absoluteString ?? ""
                 if urlString.contains("token.actions.githubusercontent.com") {
                     #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer gha-request-token")
                     #expect(urlString.contains("audience="))
-                    return .json(["value": "github-oidc-jwt"])
+                    return self.jsonResponse(["value": "github-oidc-jwt"])
                 }
                 if urlString.contains("sts.googleapis.com") {
-                    return .json(["access_token": "federated-token", "expires_in": 3600, "token_type": "Bearer"])
+                    return self.jsonResponse(["access_token": "federated-token", "expires_in": 3600, "token_type": "Bearer"])
                 }
                 if urlString.contains("iamcredentials.googleapis.com") {
                     #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer federated-token")
-                    return .json([
+                    return self.jsonResponse([
                         "accessToken": "impersonated-token",
                         "expireTime": "2099-01-01T00:00:00Z",
                     ])
                 }
-                return .error(statusCode: 404, body: "unexpected URL \(urlString)")
+                return self.errorResponse(statusCode: 404, body: "unexpected URL \(urlString)")
             }
 
-            let client = WorkloadIdentityFederationClient(
-                provider: Self.provider, serviceAccountEmail: Self.serviceAccountEmail, session: session)
             let token = try await client.cachedOrNewToken()
             #expect(token == "impersonated-token")
         }
@@ -80,20 +106,18 @@ struct WorkloadIdentityFederationClientTests {
     func cachesToken() async throws {
         try await withGitHubActionsOIDCEnvironment {
             let callCount = Mutex(0)
-            let session = makeMockSession { request in
+            let client = makeClient { request in
                 let urlString = request.url?.absoluteString ?? ""
                 if urlString.contains("token.actions.githubusercontent.com") {
                     callCount.withLock { $0 += 1 }
-                    return .json(["value": "github-oidc-jwt"])
+                    return self.jsonResponse(["value": "github-oidc-jwt"])
                 }
                 if urlString.contains("sts.googleapis.com") {
-                    return .json(["access_token": "federated-token", "expires_in": 3600, "token_type": "Bearer"])
+                    return self.jsonResponse(["access_token": "federated-token", "expires_in": 3600, "token_type": "Bearer"])
                 }
-                return .json(["accessToken": "impersonated-token", "expireTime": "2099-01-01T00:00:00Z"])
+                return self.jsonResponse(["accessToken": "impersonated-token", "expireTime": "2099-01-01T00:00:00Z"])
             }
 
-            let client = WorkloadIdentityFederationClient(
-                provider: Self.provider, serviceAccountEmail: Self.serviceAccountEmail, session: session)
             _ = try await client.cachedOrNewToken()
             _ = try await client.cachedOrNewToken()
             #expect(callCount.withLock { $0 } == 1)
@@ -103,9 +127,7 @@ struct WorkloadIdentityFederationClientTests {
     @Test("Throws an actionable error when GitHub Actions OIDC env vars are absent")
     func throwsWithoutOIDCEnvironment() async throws {
         await withGitHubActionsOIDCEnvironment(requestURL: nil, requestToken: nil) {
-            let session = makeMockSession { _ in .error(statusCode: 500, body: "should not be called") }
-            let client = WorkloadIdentityFederationClient(
-                provider: Self.provider, serviceAccountEmail: Self.serviceAccountEmail, session: session)
+            let client = makeClient { _ in self.errorResponse(statusCode: 500, body: "should not be called") }
             await #expect(throws: ShipItError.self) {
                 _ = try await client.cachedOrNewToken()
             }
@@ -115,19 +137,17 @@ struct WorkloadIdentityFederationClientTests {
     @Test("Surfaces a permission-denied hint when impersonation is rejected")
     func surfacesImpersonationPermissionError() async throws {
         await withGitHubActionsOIDCEnvironment {
-            let session = makeMockSession { request in
+            let client = makeClient { request in
                 let urlString = request.url?.absoluteString ?? ""
                 if urlString.contains("token.actions.githubusercontent.com") {
-                    return .json(["value": "github-oidc-jwt"])
+                    return self.jsonResponse(["value": "github-oidc-jwt"])
                 }
                 if urlString.contains("sts.googleapis.com") {
-                    return .json(["access_token": "federated-token", "expires_in": 3600, "token_type": "Bearer"])
+                    return self.jsonResponse(["access_token": "federated-token", "expires_in": 3600, "token_type": "Bearer"])
                 }
-                return .error(statusCode: 403, body: "PERMISSION_DENIED")
+                return self.errorResponse(statusCode: 403, body: "PERMISSION_DENIED")
             }
 
-            let client = WorkloadIdentityFederationClient(
-                provider: Self.provider, serviceAccountEmail: Self.serviceAccountEmail, session: session)
             await #expect(throws: ShipItError.self) {
                 _ = try await client.cachedOrNewToken()
             }
