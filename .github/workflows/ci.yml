@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: read
+  packages: read
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
@@ -161,8 +162,11 @@ jobs:
     name: Build & Test (Linux)
     needs: lint
     runs-on: ubuntu-24.04
+    # Mirrored via mirror-swift-image.yml instead of pulling swift:6.3.1-noble
+    # from Docker Hub directly — avoids anonymous-pull rate limiting (GHCR pulls
+    # use GITHUB_TOKEN, no rate limit for this repo).
     container:
-      image: swift:6.3.1-noble
+      image: ghcr.io/shipitswifty/swift:6.3.1-noble
 
     steps:
       - name: Checkout ShipItSwifty
