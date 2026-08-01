@@ -1,15 +1,9 @@
 name: Mirror Swift Image to GHCR
 
-# Manual after the initial bootstrap — this rarely changes. Re-run whenever the
-# pinned Swift toolchain version is bumped in ci.yml/release.yml, before updating
-# those workflows' container reference.
+# Manual only — this rarely changes. Re-run whenever the pinned Swift toolchain
+# version is bumped in ci.yml/release.yml, before updating those workflows'
+# container reference.
 on:
-  # Bootstrap the package from this PR branch. Remove this trigger after the
-  # first successful mirror; workflow_dispatch is only available once the
-  # workflow exists on the default branch.
-  push:
-    branches: [mirror-swift-image-to-ghcr]
-    paths: [.github/workflows/mirror-swift-image.yml]
   workflow_dispatch:
     inputs:
       swift_tag:
@@ -28,7 +22,7 @@ jobs:
 
     steps:
       - name: Log in to GHCR
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
