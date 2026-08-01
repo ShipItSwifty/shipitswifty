@@ -432,9 +432,12 @@ struct FirebaseAppDistributionActionTests {
         let environment = ProcessInfo.processInfo.environment
         try #require(environment["GOOGLE_APPLICATION_CREDENTIALS"] == nil)
         try #require(environment["FIREBASE_SERVICE_ACCOUNT_JSON"] == nil)
+        try #require(environment["GOOGLE_WORKLOAD_IDENTITY_PROVIDER"] == nil)
+        try #require(environment["GOOGLE_SERVICE_ACCOUNT_EMAIL"] == nil)
 
         #expect(throws: ShipItError.self) {
-            try FirebaseAppDistributionAction.makeClient(serviceAccountPath: nil)
+            try FirebaseAppDistributionAction.makeClient(
+                serviceAccountPath: nil, workloadIdentityProvider: nil, serviceAccountEmail: nil)
         }
     }
 
@@ -442,7 +445,42 @@ struct FirebaseAppDistributionActionTests {
     func reportsUnreadableCredentialPath() {
         #expect(throws: ShipItError.self) {
             try FirebaseAppDistributionAction.makeClient(
-                serviceAccountPath: "/nonexistent/service-account.json")
+                serviceAccountPath: "/nonexistent/service-account.json",
+                workloadIdentityProvider: nil, serviceAccountEmail: nil)
+        }
+    }
+
+    @Test("Builds a Workload Identity Federation client when both options are given")
+    func buildsWorkloadIdentityClientFromOptions() throws {
+        // Building the client never makes a network call — it only wires the token provider —
+        // so no credential exchange happens (or can fail) at this point.
+        _ = try FirebaseAppDistributionAction.makeClient(
+            serviceAccountPath: nil,
+            workloadIdentityProvider: "projects/1/locations/global/workloadIdentityPools/p/providers/gh",
+            serviceAccountEmail: "ci@example.iam.gserviceaccount.com")
+    }
+
+    @Test("Workload Identity Federation takes precedence over a service-account path")
+    func workloadIdentityPrecedesServiceAccountPath() throws {
+        // Even though a (nonexistent) service-account path is also supplied, the WIF pair
+        // being present must short-circuit before the JSON-key path is ever attempted —
+        // otherwise this would throw on the unreadable path instead of succeeding.
+        _ = try FirebaseAppDistributionAction.makeClient(
+            serviceAccountPath: "/nonexistent/service-account.json",
+            workloadIdentityProvider: "projects/1/locations/global/workloadIdentityPools/p/providers/gh",
+            serviceAccountEmail: "ci@example.iam.gserviceaccount.com")
+    }
+
+    @Test(
+        "Rejects a lone workload_identity_provider or service_account_email without its pair",
+        arguments: [
+            (provider: "projects/1/locations/global/workloadIdentityPools/p/providers/gh", email: nil),
+            (provider: nil, email: "ci@example.iam.gserviceaccount.com"),
+        ] as [(provider: String?, email: String?)])
+    func rejectsUnpairedWorkloadIdentityOption(provider: String?, email: String?) {
+        #expect(throws: ShipItError.self) {
+            try FirebaseAppDistributionAction.makeClient(
+                serviceAccountPath: nil, workloadIdentityProvider: provider, serviceAccountEmail: email)
         }
     }
 }
