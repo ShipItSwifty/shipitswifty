@@ -104,7 +104,7 @@ jobs:
           ref: ${{ env.RELEASE_VERSION }}
 
       - name: Set up Swift
-        uses: swift-actions/setup-swift@v3
+        uses: swift-actions/setup-swift@v2.4.0
         with:
           swift-version: "6.3.1"
 
