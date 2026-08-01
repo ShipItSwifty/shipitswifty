@@ -95,6 +95,11 @@ jobs:
   build-linux:
     name: Build Linux Static Binary
     runs-on: ubuntu-24.04
+    # Mirrored via mirror-swift-image.yml instead of pulling swift:6.3.1-noble
+    # from Docker Hub directly — avoids the anonymous-pull rate limit that broke
+    # this job in #37 (GHCR pulls use GITHUB_TOKEN, no rate limit for this repo).
+    container:
+      image: ghcr.io/shipitswifty/swift:6.3.1-noble
 
     steps:
       - name: Checkout
@@ -102,11 +107,6 @@ jobs:
         with:
           persist-credentials: false
           ref: ${{ env.RELEASE_VERSION }}
-
-      - name: Set up Swift
-        uses: swift-actions/setup-swift@v2.4.0
-        with:
-          swift-version: "6.3.1"
 
       - name: Stamp version from tag
         run: |
