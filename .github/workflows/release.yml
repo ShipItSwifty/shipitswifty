@@ -104,9 +104,14 @@ jobs:
           ref: ${{ env.RELEASE_VERSION }}
 
       - name: Set up Swift
-        uses: swift-actions/setup-swift@v2.4.0
+        uses: swift-actions/setup-swift@v3
         with:
           swift-version: "6.3.1"
+          # v3.0.0-beta.1's Swift 6.3.1 install fails GPG verification
+          # ("Can't check signature: No public key") — documented workaround,
+          # see swift-actions/setup-swift action.yml. HTTPS from swift.org's
+          # CDN still applies; this only drops the extra signature check.
+          skip-verify-signature: true
 
       - name: Stamp version from tag
         run: |
