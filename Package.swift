@@ -69,7 +69,12 @@ let package = Package(
                 .product(name: "Crypto", package: "swift-crypto"),
                 .product(name: "CryptoExtras", package: "swift-crypto"),
                 .product(name: "Logging", package: "swift-log"),
-            ]
+            ],
+            // ShipItKit.docc is built separately by the DocC plugin (docc.yml,
+            // `swift package generate-documentation`), which locates the catalog on
+            // its own — excluding it here just stops `swift build`/`swift test` from
+            // flagging it as an unhandled resource.
+            exclude: ["ShipItKit.docc"]
         ),
 
         // MARK: - CLI
