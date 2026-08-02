@@ -16,8 +16,18 @@ public struct NotifyAction: Action {
 
     private let logger = Logger.forType(subsystem: "ShipItSwifty", NotifyAction.self)
 
+    /// Injected notifier used by tests. When nil, a default `Notifier()` is used.
+    private let notifierOverride: Notifier?
+
     /// Creates a `NotifyAction`.
-    public init() {}
+    public init() {
+        self.notifierOverride = nil
+    }
+
+    /// Creates a `NotifyAction` with an injected notifier, for tests.
+    init(notifier: Notifier) {
+        self.notifierOverride = notifier
+    }
 
     /// Configuration for the notify action.
     public struct Options: Codable, Sendable {
@@ -81,7 +91,7 @@ public struct NotifyAction: Action {
     public func run(with options: Options, context: ActionContext) async throws -> Result {
         logger.info("Sending notifications")
         var destinations: [String] = []
-        let notifier = Notifier()
+        let notifier = notifierOverride ?? Notifier()
 
         // Send Slack notification
         if let slack = options.slack {

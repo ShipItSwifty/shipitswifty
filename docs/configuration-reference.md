@@ -412,6 +412,45 @@ Configuration for automatic project file generation (XcodeGen, Tuist) before Xco
 | `on_success` | bool | Notify on success |
 | `on_failure` | bool | Notify on failure |
 
+## Firebase App Distribution action
+
+Use `firebase-app-distribution` in an iOS or Android workflow to upload a signed IPA, APK, or AAB and release it to Firebase tester groups or individual testers.
+
+```yaml
+workflows:
+  staging:
+    steps:
+      - action: firebase-app-distribution
+        options:
+          app_id: ${FIREBASE_IOS_QA_APP_ID}
+          artifact_path: ./build/staging-export/MyApp.ipa
+          groups: [qa-testers]
+          release_notes: "Staging candidate"
+```
+
+| Option | Type | Default | Description |
+|---|---|---|---|
+| `app_id` | string | — | Required Firebase app ID. It must be explicit; ShipIt does not infer it from local Firebase config files. |
+| `artifact_path` | string | — | Required signed `.ipa`, `.apk`, or `.aab` path. Its platform must match `app_id`. |
+| `groups` | string array | `[]` | Firebase tester-group aliases. At least one group or tester is required. |
+| `testers` | string array | `[]` | Individual tester email addresses. |
+| `release_notes` | string | — | Release notes shown to testers. |
+| `service_account_path` | string | — | Path to a Google service-account JSON key. Inline key JSON in Shipfile is rejected. |
+| `workload_identity_provider` | string | — | Full Workload Identity provider resource name for keyless GitHub Actions authentication. Must be paired with `service_account_email`. |
+| `service_account_email` | string | — | Service account to impersonate through Workload Identity Federation. Must be paired with `workload_identity_provider`. |
+| `dry_run` | bool | `false` | Validate the artifact and planned audience without uploading. |
+| `timeout_seconds` | integer | `300` | Maximum time to wait for Firebase to process the upload. |
+
+Credential resolution prefers a complete Workload Identity Federation pair, then `service_account_path`, `FIREBASE_SERVICE_ACCOUNT_JSON` (raw JSON), and finally `GOOGLE_APPLICATION_CREDENTIALS` (path). The WIF identifiers can instead come from `GOOGLE_WORKLOAD_IDENTITY_PROVIDER` and `GOOGLE_SERVICE_ACCOUNT_EMAIL`.
+
+For keyless authentication, grant the target service account `roles/iam.workloadIdentityUser` to the repository identity and allow GitHub to mint an OIDC token:
+
+```yaml
+permissions:
+  contents: read
+  id-token: write
+```
+
 ## `workflows`
 
 Workflows can be defined as a plain array of steps (legacy) or as an object with optional workflow-level overrides:

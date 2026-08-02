@@ -14,14 +14,27 @@ import FoundationNetworking
 /// try await notifier.sendSlack(payload: payload, to: "https://hooks.slack.com/services/...")
 /// ```
 public struct Notifier: Sendable {
-    private let session: URLSession
+    /// The raw request/response transport. Matches `URLSession.data(for:)`'s signature exactly,
+    /// so production code just wraps a session while tests can inject a closure directly —
+    /// deterministic, and independent of any shared URLProtocol-based HTTP mocking (see
+    /// `WorkloadIdentityFederationClient` for why: session-ID header routing is unreliable on
+    /// Linux under concurrent test execution).
+    private let transport: @Sendable (URLRequest) async throws -> (Data, URLResponse)
+
     private let logger = Logger.forType(subsystem: "ShipItSwifty", Notifier.self)
 
     /// Creates a `Notifier`.
     ///
     /// - Parameter session: URL session for HTTP requests. Defaults to `.shared`.
     public init(session: URLSession = .shared) {
-        self.session = session
+        self.transport = { request in try await session.data(for: request) }
+    }
+
+    /// Creates a `Notifier` with an injected transport, bypassing `URLSession` entirely.
+    ///
+    /// Intended for tests: a plain closure is a fully deterministic test double.
+    init(transport: @escaping @Sendable (URLRequest) async throws -> (Data, URLResponse)) {
+        self.transport = transport
     }
 
     /// Sends a Slack message via an incoming webhook URL.
@@ -43,7 +56,7 @@ public struct Notifier: Sendable {
         request.httpBody = body
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
-        let (_, response) = try await session.data(for: request)
+        let (_, response) = try await transport(request)
         guard let httpResponse = response as? HTTPURLResponse,
             (200..<300).contains(httpResponse.statusCode)
         else {
@@ -72,7 +85,7 @@ public struct Notifier: Sendable {
         request.httpBody = body
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
-        let (_, response) = try await session.data(for: request)
+        let (_, response) = try await transport(request)
         guard let httpResponse = response as? HTTPURLResponse,
             (200..<300).contains(httpResponse.statusCode)
         else {

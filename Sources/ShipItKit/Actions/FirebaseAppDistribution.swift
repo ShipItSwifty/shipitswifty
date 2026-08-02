@@ -1,7 +1,7 @@
 import Foundation
 import Logging
 
-/// Uploads a signed IPA or APK to Firebase App Distribution and releases it to tester groups.
+/// Uploads a signed IPA, APK, or AAB to Firebase App Distribution and releases it to testers.
 ///
 /// Runs the upload → poll → release-notes → distribute sequence against the App Distribution
 /// v1 API. Works on both iOS and Android; the platform is derived from the Firebase app ID
@@ -46,7 +46,7 @@ public struct FirebaseAppDistributionAction: Action {
 
     /// Human-readable description for `--help` output.
     public static let description =
-        "Upload a signed IPA or APK to Firebase App Distribution and release it to tester groups"
+        "Upload a signed IPA, APK, or AAB to Firebase App Distribution and release it to testers"
 
     private let logger = Logger.forType(subsystem: "ShipItSwifty", FirebaseAppDistributionAction.self)
 
@@ -80,7 +80,7 @@ public struct FirebaseAppDistributionAction: Action {
         /// config file silently redirect a release to another Firebase project.
         public var appId: String?
 
-        /// Path to the `.ipa` or `.apk` to upload. Required.
+        /// Path to the `.ipa`, `.apk`, or `.aab` to upload. Required.
         public var artifactPath: String?
 
         /// Tester group aliases to distribute to.
