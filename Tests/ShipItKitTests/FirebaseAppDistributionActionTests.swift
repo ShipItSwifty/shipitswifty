@@ -119,7 +119,7 @@ struct FirebaseAppDistributionActionTests {
 
     // MARK: - Artifact validation
 
-    @Test("Accepts an IPA for an iOS app and an APK for an Android app")
+    @Test("Accepts an IPA for iOS and APK or AAB artifacts for Android")
     func acceptsMatchingArtifacts() async throws {
         try await withArtifact(named: "App.ipa") { _, path in
             try FirebaseAppDistributionAction.validateArtifact(
@@ -129,11 +129,15 @@ struct FirebaseAppDistributionActionTests {
             try FirebaseAppDistributionAction.validateArtifact(
                 at: path, matches: try FirebaseAppID(Self.androidAppID))
         }
+        try await withArtifact(named: "app-qa-release.aab") { _, path in
+            try FirebaseAppDistributionAction.validateArtifact(
+                at: path, matches: try FirebaseAppID(Self.androidAppID))
+        }
     }
 
     @Test("Rejects an IPA uploaded against an Android app ID")
     func rejectsPlatformMismatch() async throws {
-        try await withArtifact(named: "App.ipa") { _, path in
+        _ = try await withArtifact(named: "App.ipa") { _, path in
             #expect(throws: ShipItError.self) {
                 try FirebaseAppDistributionAction.validateArtifact(
                     at: path, matches: try FirebaseAppID(Self.androidAppID))
@@ -143,7 +147,7 @@ struct FirebaseAppDistributionActionTests {
 
     @Test("Rejects an APK uploaded against an iOS app ID")
     func rejectsReversePlatformMismatch() async throws {
-        try await withArtifact(named: "app.apk") { _, path in
+        _ = try await withArtifact(named: "app.apk") { _, path in
             #expect(throws: ShipItError.self) {
                 try FirebaseAppDistributionAction.validateArtifact(
                     at: path, matches: try FirebaseAppID(Self.iosAppID))

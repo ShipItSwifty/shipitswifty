@@ -1592,6 +1592,22 @@ public enum BuiltInSchemaCatalog {
                     "Falls back to FIREBASE_SERVICE_ACCOUNT_JSON, then GOOGLE_APPLICATION_CREDENTIALS.",
                     "Must be a path. Inline credential JSON is rejected during validation.",
                 ]),
+            .string(
+                "workload_identity_provider",
+                description: "Full Google Workload Identity provider resource name for keyless GitHub Actions authentication.",
+                example: .string("projects/123456789/locations/global/workloadIdentityPools/github-actions/providers/github"),
+                notes: [
+                    "Must be paired with service_account_email.",
+                    "Falls back to GOOGLE_WORKLOAD_IDENTITY_PROVIDER. The GitHub Actions job needs id-token: write permission.",
+                ]),
+            .string(
+                "service_account_email",
+                description: "Google service account to impersonate through Workload Identity Federation.",
+                example: .string("firebase-distribution-ci@example.iam.gserviceaccount.com"),
+                notes: [
+                    "Must be paired with workload_identity_provider.",
+                    "Falls back to GOOGLE_SERVICE_ACCOUNT_EMAIL.",
+                ]),
             .boolean(
                 "dry_run", description: "Validate options and the artifact, then report without uploading.",
                 defaultValue: .bool(false)),

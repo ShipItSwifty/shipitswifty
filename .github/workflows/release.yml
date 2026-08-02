@@ -80,6 +80,11 @@ jobs:
             .build/x86_64-apple-macosx/release/shipit
           lipo -info shipit
 
+      - name: Smoke test stamped binary
+        run: |
+          test "$(./shipit --version)" = "${RELEASE_VERSION}"
+          ./shipit --help >/dev/null
+
       - name: Package tarball
         run: |
           VERSION="${RELEASE_VERSION}"
@@ -132,6 +137,11 @@ jobs:
             --configuration release \
             --product shipit \
             --static-swift-stdlib
+
+      - name: Smoke test stamped binary
+        run: |
+          test "$(.build/release/shipit --version)" = "${RELEASE_VERSION}"
+          .build/release/shipit --help >/dev/null
 
       - name: Package tarball
         run: |

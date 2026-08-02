@@ -261,6 +261,22 @@ Keep the distribution channels separated by construction: give the staging workf
 `testflight` or `play-store` step, and give the production workflows no
 `firebase-app-distribution` step.
 
+The action supports either service-account JSON credentials or keyless Workload Identity
+Federation. For GitHub Actions, prefer WIF by setting `workload_identity_provider` and
+`service_account_email` on the step (or `GOOGLE_WORKLOAD_IDENTITY_PROVIDER` and
+`GOOGLE_SERVICE_ACCOUNT_EMAIL` in the environment), granting the repository identity
+`roles/iam.workloadIdentityUser`, and enabling OIDC for the job:
+
+```yaml
+permissions:
+  contents: read
+  id-token: write
+```
+
+For JSON-key authentication, use `service_account_path`, `FIREBASE_SERVICE_ACCOUNT_JSON`, or
+`GOOGLE_APPLICATION_CREDENTIALS`. Never place inline credential JSON in Shipfile.yml. Always
+provide `app_id` explicitly; ShipIt does not infer it from local Firebase configuration files.
+
 ### Composite step
 
 ```yaml

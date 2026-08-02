@@ -20,8 +20,12 @@ swift build -c release
 swift test --enable-code-coverage --skip IntegrationTests
 swift test --filter FlutterFixtureIntegrationTests
 swift test --filter ReactNativeFixtureIntegrationTests
-.build/release/shipit --version
+.build/release/shipit --help
 ```
+
+The checked-in development version is not the pending tag: the release workflow stamps the tag
+into `ShipItCLI.swift` in its isolated checkout, then asserts both packaged binaries report that
+exact version before publishing them.
 
 Optional real-toolchain e2e smoke checks before tagging:
 

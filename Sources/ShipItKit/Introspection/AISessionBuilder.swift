@@ -770,6 +770,17 @@ public struct AISessionBuilder: Sendable {
             }
         }
 
+        if goal == .beta || goal == .release {
+            lines += [
+                "",
+                "Firebase App Distribution is available for pre-store tester distribution on both platforms.",
+                "Use a `firebase-app-distribution` step with an explicit `app_id`, a signed `artifact_path` (IPA on iOS; APK or AAB on Android), and at least one `groups` alias or `testers` email.",
+                "Never infer app_id from GoogleService-Info.plist or google-services.json; a stale file could silently target the wrong Firebase project.",
+                "Prefer keyless Workload Identity Federation in GitHub Actions when available: pair `workload_identity_provider` with `service_account_email` (or GOOGLE_WORKLOAD_IDENTITY_PROVIDER + GOOGLE_SERVICE_ACCOUNT_EMAIL), add `permissions: { id-token: write }`, and grant roles/iam.workloadIdentityUser on the service account.",
+                "Otherwise use `service_account_path`, FIREBASE_SERVICE_ACCOUNT_JSON, or GOOGLE_APPLICATION_CREDENTIALS. Never put inline credential JSON in Shipfile.yml.",
+            ]
+        }
+
         if !readiness.missingSecrets.isEmpty {
             lines += [
                 "",

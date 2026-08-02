@@ -128,6 +128,22 @@ struct SchemaContractTests {
         #expect(track?.defaultValue == nil)
     }
 
+    @Test("Firebase App Distribution schema retains artifact and credential keys")
+    func firebaseAppDistributionSchemaRetainsCriticalKeys() {
+        let fields = BuiltInSchemaCatalog.optionSchema(for: FirebaseAppDistributionAction.name)
+        let names = Set(fields.map(\.name))
+        #expect(names.contains("app_id"))
+        #expect(names.contains("artifact_path"))
+        #expect(names.contains("groups"))
+        #expect(names.contains("testers"))
+        #expect(names.contains("service_account_path"))
+        #expect(names.contains("workload_identity_provider"))
+        #expect(names.contains("service_account_email"))
+        #expect(names.contains("timeout_seconds"))
+        #expect(fields.first(where: { $0.name == "app_id" })?.required == true)
+        #expect(fields.first(where: { $0.name == "artifact_path" })?.required == true)
+    }
+
     @Test("Archive schema retains critical option keys")
     func archiveSchemaRetainsCriticalKeys() {
         let fields = BuiltInSchemaCatalog.optionSchema(for: ArchiveAction.name)
