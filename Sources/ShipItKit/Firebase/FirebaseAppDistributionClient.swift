@@ -204,17 +204,60 @@ public struct FirebaseAppDistributionClient: Sendable {
     /// The updated release is decoded permissively: the response body is not used, so an
     /// unexpected shape must not fail a release whose binary already uploaded successfully.
     /// A non-2xx status still throws.
-    func updateReleaseNotes(releaseName: String, notes: String) async throws {
+    ///
+    /// - Parameter sleep: Sleep hook, overridden in tests to avoid real delays.
+    func updateReleaseNotes(
+        releaseName: String, notes: String,
+        sleep: @Sendable (Duration) async throws -> Void = { try await Task.sleep(for: $0) }
+    ) async throws {
         let body = ReleaseNotesPatch(name: releaseName, releaseNotes: FirebaseReleaseNotes(text: notes))
-        let _: EmptyResponse = try await patch(
-            "/\(releaseName)", query: "updateMask=release_notes.text", body: body)
+        try await withReleasePropagationRetry(releaseName: releaseName, sleep: sleep) {
+            let _: EmptyResponse = try await self.patch(
+                "/\(releaseName)", query: "updateMask=release_notes.text", body: body)
+        }
     }
 
     /// Distributes a release to tester groups and/or individual testers.
-    func distribute(releaseName: String, groups: [String], testers: [String]) async throws {
+    ///
+    /// - Parameter sleep: Sleep hook, overridden in tests to avoid real delays.
+    func distribute(
+        releaseName: String, groups: [String], testers: [String],
+        sleep: @Sendable (Duration) async throws -> Void = { try await Task.sleep(for: $0) }
+    ) async throws {
         let body = DistributeRequest(groupAliases: groups, testerEmails: testers)
-        // The API returns an empty JSON object on success.
-        let _: EmptyResponse = try await post("/\(releaseName):distribute", body: body)
+        try await withReleasePropagationRetry(releaseName: releaseName, sleep: sleep) {
+            // The API returns an empty JSON object on success.
+            let _: EmptyResponse = try await self.post("/\(releaseName):distribute", body: body)
+        }
+    }
+
+    /// Retries an operation against a just-uploaded release that can 404 briefly: the upload
+    /// operation reports `done` before the release resource is reliably queryable by other
+    /// endpoints (`:distribute`, release-notes `PATCH`), so an immediate follow-up call can hit
+    /// that propagation gap even though the release already exists — visible in the Firebase
+    /// console — and the binary already uploaded successfully.
+    private func withReleasePropagationRetry(
+        releaseName: String,
+        attempts: Int = 4,
+        sleep: @Sendable (Duration) async throws -> Void,
+        _ operation: @Sendable () async throws -> Void
+    ) async throws {
+        var backoff = Duration.seconds(1)
+        for attempt in 1...attempts {
+            do {
+                try await operation()
+                return
+            } catch ShipItError.uploadFailed(let asset, let reason) where reason.hasPrefix("HTTP 404") {
+                guard attempt < attempts else {
+                    throw ShipItError.uploadFailed(asset: asset, reason: reason)
+                }
+                logger.info(
+                    "Release \(releaseName) not yet queryable (attempt \(attempt)/\(attempts)) — retrying in \(backoff)"
+                )
+                try await sleep(backoff)
+                backoff = min(backoff * 2, .seconds(10))
+            }
+        }
     }
 
     // MARK: - HTTP Primitives

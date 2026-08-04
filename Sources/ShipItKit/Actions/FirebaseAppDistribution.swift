@@ -271,10 +271,20 @@ public struct FirebaseAppDistributionAction: Action {
         let release = response.release
 
         if let notes = options.releaseNotes, !notes.isEmpty {
-            try await client.updateReleaseNotes(releaseName: release.name, notes: notes)
+            if let sleepHook {
+                try await client.updateReleaseNotes(
+                    releaseName: release.name, notes: notes, sleep: sleepHook)
+            } else {
+                try await client.updateReleaseNotes(releaseName: release.name, notes: notes)
+            }
         }
 
-        try await client.distribute(releaseName: release.name, groups: groups, testers: testers)
+        if let sleepHook {
+            try await client.distribute(
+                releaseName: release.name, groups: groups, testers: testers, sleep: sleepHook)
+        } else {
+            try await client.distribute(releaseName: release.name, groups: groups, testers: testers)
+        }
 
         logger.info(
             "Firebase App Distribution succeeded — \(response.result?.rawValue ?? "released") to \(groups.count) group(s) and \(testers.count) tester(s)"
