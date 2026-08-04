@@ -355,6 +355,70 @@ struct FirebaseAppDistributionActionTests {
         }
     }
 
+    @Test("Retries distribute on a transient 404 right after upload, then succeeds")
+    func retriesDistributeOnTransient404() async throws {
+        try await withArtifact(named: "App.ipa") { directory, path in
+            let releaseName = "projects/1234567890/apps/x/releases/r1"
+            let queue = ResponseQueue(
+                [
+                    .json(["name": "operations/upload-1"]),
+                    .json([
+                        "name": "operations/upload-1", "done": true,
+                        "response": [
+                            "result": "RELEASE_CREATED",
+                            "release": ["name": releaseName],
+                        ],
+                    ]),
+                    .error(
+                        statusCode: 404,
+                        body: #"{"error": {"status": "NOT_FOUND", "message": "not found"}}"#),
+                    .json([:]),
+                ])
+            let session = makeMockSession { _ in queue.next() }
+            // Non-nil client-init sleep hook (a no-op) exercises the same code path CI hits,
+            // without a real delay in the test.
+            let action = FirebaseAppDistributionAction(client: makeClient(session: session))
+            let context = makeContext(workingDirectory: directory, platform: .ios)
+
+            let result = try await action.run(
+                with: .init(appId: Self.iosAppID, artifactPath: path, groups: ["qa-testers"]),
+                context: context)
+
+            #expect(result.releaseName == releaseName)
+        }
+    }
+
+    @Test("Surfaces a 404 from distribute once retries are exhausted")
+    func surfacesPersistentDistribute404() async throws {
+        try await withArtifact(named: "App.ipa") { directory, path in
+            let releaseName = "projects/1234567890/apps/x/releases/r1"
+            let notFound = MockHTTPResponse.error(
+                statusCode: 404,
+                body: #"{"error": {"status": "NOT_FOUND", "message": "not found"}}"#)
+            let queue = ResponseQueue(
+                [
+                    .json(["name": "operations/upload-1"]),
+                    .json([
+                        "name": "operations/upload-1", "done": true,
+                        "response": [
+                            "result": "RELEASE_CREATED",
+                            "release": ["name": releaseName],
+                        ],
+                    ]),
+                    notFound, notFound, notFound, notFound,
+                ])
+            let session = makeMockSession { _ in queue.next() }
+            let action = FirebaseAppDistributionAction(client: makeClient(session: session))
+            let context = makeContext(workingDirectory: directory, platform: .ios)
+
+            await #expect(throws: ShipItError.self) {
+                try await action.run(
+                    with: .init(appId: Self.iosAppID, artifactPath: path, groups: ["qa-testers"]),
+                    context: context)
+            }
+        }
+    }
+
     @Test("Fails when the upload response carries no operation name")
     func failsWithoutOperationName() async throws {
         try await withArtifact(named: "App.ipa") { directory, path in
