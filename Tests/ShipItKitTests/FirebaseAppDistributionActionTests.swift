@@ -314,6 +314,48 @@ struct FirebaseAppDistributionActionTests {
         }
     }
 
+    @Test("Retries release notes on a transient 404 right after upload, then succeeds")
+    func retriesReleaseNotesOnTransient404() async throws {
+        try await withArtifact(named: "App.ipa") { directory, path in
+            let releaseName = "projects/1234567890/apps/x/releases/r1"
+            let methods = Mutex<[String]>([])
+            let delays = Mutex<[Duration]>([])
+            let queue = ResponseQueue([
+                .json(["name": "operations/upload-1"]),
+                .json([
+                    "name": "operations/upload-1", "done": true,
+                    "response": [
+                        "result": "RELEASE_CREATED",
+                        "release": ["name": releaseName],
+                    ],
+                ]),
+                .error(
+                    statusCode: 404,
+                    body: #"{"error": {"status": "NOT_FOUND", "message": "not found"}}"#),
+                .json([:]),
+                .json([:]),
+            ])
+            let session = makeMockSession { request in
+                methods.withLock { $0.append(request.httpMethod ?? "") }
+                return queue.next()
+            }
+            let action = FirebaseAppDistributionAction(
+                client: makeClient(session: session),
+                sleep: { delay in delays.withLock { $0.append(delay) } })
+            let context = makeContext(workingDirectory: directory, platform: .ios)
+
+            let result = try await action.run(
+                with: .init(
+                    appId: Self.iosAppID, artifactPath: path, groups: ["qa"],
+                    releaseNotes: "Staging candidate"),
+                context: context)
+
+            #expect(result.releaseName == releaseName)
+            #expect(methods.withLock { $0 }.filter { $0 == "PATCH" }.count == 2)
+            #expect(delays.withLock { $0 } == [.seconds(1)])
+        }
+    }
+
     @Test("Skips the release notes patch when no notes are supplied")
     func skipsReleaseNotesWhenAbsent() async throws {
         try await withArtifact(named: "App.ipa") { directory, path in
@@ -352,6 +394,88 @@ struct FirebaseAppDistributionActionTests {
                     with: .init(appId: Self.iosAppID, artifactPath: path, groups: ["qa"]),
                     context: context)
             }
+        }
+    }
+
+    @Test("Retries distribute on a transient 404 right after upload, then succeeds")
+    func retriesDistributeOnTransient404() async throws {
+        try await withArtifact(named: "App.ipa") { directory, path in
+            let releaseName = "projects/1234567890/apps/x/releases/r1"
+            let queue = ResponseQueue(
+                [
+                    .json(["name": "operations/upload-1"]),
+                    .json([
+                        "name": "operations/upload-1", "done": true,
+                        "response": [
+                            "result": "RELEASE_CREATED",
+                            "release": ["name": releaseName],
+                        ],
+                    ]),
+                    .error(
+                        statusCode: 404,
+                        body: #"{"error": {"status": "NOT_FOUND", "message": "not found"}}"#),
+                    .json([:]),
+                ])
+            let session = makeMockSession { _ in queue.next() }
+            // Non-nil client-init sleep hook (a no-op) exercises the same code path CI hits,
+            // without a real delay in the test.
+            let action = FirebaseAppDistributionAction(client: makeClient(session: session))
+            let context = makeContext(workingDirectory: directory, platform: .ios)
+
+            let result = try await action.run(
+                with: .init(appId: Self.iosAppID, artifactPath: path, groups: ["qa-testers"]),
+                context: context)
+
+            #expect(result.releaseName == releaseName)
+        }
+    }
+
+    @Test("Surfaces a 404 from distribute once retries are exhausted")
+    func surfacesPersistentDistribute404() async throws {
+        try await withArtifact(named: "App.ipa") { directory, path in
+            let releaseName = "projects/1234567890/apps/x/releases/r1"
+            let distributeRequestCount = Mutex(0)
+            let delays = Mutex<[Duration]>([])
+            let notFound = MockHTTPResponse.error(
+                statusCode: 404,
+                body: #"{"error": {"status": "NOT_FOUND", "message": "not found"}}"#)
+            let queue = ResponseQueue(
+                [
+                    .json(["name": "operations/upload-1"]),
+                    .json([
+                        "name": "operations/upload-1", "done": true,
+                        "response": [
+                            "result": "RELEASE_CREATED",
+                            "release": ["name": releaseName],
+                        ],
+                    ]),
+                    notFound, notFound, notFound, notFound,
+                ])
+            let session = makeMockSession { request in
+                if request.url?.path.hasSuffix(":distribute") == true {
+                    distributeRequestCount.withLock { $0 += 1 }
+                }
+                return queue.next()
+            }
+            let action = FirebaseAppDistributionAction(
+                client: makeClient(session: session),
+                sleep: { delay in delays.withLock { $0.append(delay) } })
+            let context = makeContext(workingDirectory: directory, platform: .ios)
+
+            do {
+                _ = try await action.run(
+                    with: .init(appId: Self.iosAppID, artifactPath: path, groups: ["qa-testers"]),
+                    context: context)
+                Issue.record("Expected distribution to fail after exhausting 404 retries")
+            } catch ShipItError.uploadFailed(let asset, let reason) {
+                #expect(asset.hasSuffix(":distribute"))
+                #expect(reason.hasPrefix("HTTP 404"))
+            } catch {
+                Issue.record("Expected uploadFailed, got \(error)")
+            }
+
+            #expect(distributeRequestCount.withLock { $0 } == 4)
+            #expect(delays.withLock { $0 } == [.seconds(1), .seconds(2), .seconds(4)])
         }
     }
 
