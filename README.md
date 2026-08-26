@@ -16,6 +16,7 @@ ShipItSwifty automates the build → archive → distribute pipeline for iOS and
 
 - **`ShipItKit`** — a reusable Swift library where all domain logic lives
 - **`shipit`** — a thin CLI you run locally or in CI
+- **Standalone tool libraries** — typed wrappers for Xcode, Gradle, XcodeGen, and Google's preview AndroidCLI
 
 ## Why open-source and local-first?
 
@@ -63,9 +64,15 @@ shipit doctor
 shipit build --scheme MyApp
 shipit test --scheme MyApp
 
+# Use Google's AndroidCLI directly (optional preview integration)
+shipit android-cli emulator list
+shipit android-cli skills list --long
+
 # Run a workflow defined in Shipfile.yml
 shipit run beta
 ```
+
+AndroidCLI support is opt-in for workflows and complements the existing Gradle/ADB pipeline. Gradle remains the build, test, archive, and lint engine. See the [Android quickstart](docs/android-quickstart.md) and [configuration reference](docs/configuration-reference.md#androidcli-preview-opt-in).
 
 ## Documentation
 

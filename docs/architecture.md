@@ -131,6 +131,7 @@ dependencies: [
 - `.library("ShipItKit", targets: ["ShipItKit"])`
 - `.library("XcodeBuildKit", targets: ["XcodeBuildKit"])` — standalone xcodebuild wrapper
 - `.library("GradleKit", targets: ["GradleKit"])` — standalone Gradle/adb/bundletool wrapper
+- `.library("AndroidCLIKit", targets: ["AndroidCLIKit"])` — standalone typed wrapper for Google's preview AndroidCLI
 - `.library("XcodeGenKit", targets: ["XcodeGenKit"])` — standalone xcodegen wrapper
 
 ---
@@ -309,6 +310,7 @@ COMMANDS:
   upload        Upload IPA to App Store Connect (iOS only)
   testflight    Upload to TestFlight & distribute to groups (iOS only)
   play-store    Upload AAB to Google Play via service account (Android only)
+  android-cli   Mirror AndroidCLI create/describe/docs/emulator/info/init/install/layout/run/screen/sdk/skills/studio/update commands
   snapshot      Capture localized screenshots on simulators (iOS only)
   frame         Add device frames to screenshots (iOS only)
   version       Bump version / build number

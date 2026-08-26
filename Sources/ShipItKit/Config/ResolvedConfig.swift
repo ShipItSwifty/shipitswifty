@@ -241,6 +241,9 @@ public struct ResolvedConfig: Sendable {
     /// Gradle module name (e.g. `app`).
     public let androidModule: String
 
+    /// Resolved AndroidCLI integration settings.
+    public let androidCLI: AndroidCLIConfig
+
     /// Default Android Gradle test scope.
     public let androidScope: GradleTaskScope
 
@@ -357,6 +360,7 @@ public struct ResolvedConfig: Sendable {
         kmpBuildTarget: String = "IosSimulatorArm64",
         kmpArchiveTarget: String = "IosArm64",
         kmpTestTask: String = "iosSimulatorArm64Test",
+        androidCLI: AndroidCLIConfig = AndroidCLIConfig(enabled: false, executablePath: "android"),
         androidModule: String = "app",
         androidScope: GradleTaskScope = .module,
         androidTestKind: TestKind = .unit,
@@ -439,6 +443,7 @@ public struct ResolvedConfig: Sendable {
         self.kmpBuildTarget = kmpBuildTarget
         self.kmpArchiveTarget = kmpArchiveTarget
         self.kmpTestTask = kmpTestTask
+        self.androidCLI = androidCLI
         self.androidModule = androidModule
         self.androidScope = androidScope
         self.androidTestKind = androidTestKind
@@ -505,7 +510,7 @@ public struct ResolvedConfig: Sendable {
             iosBuildSystem: iosBuildSystem, androidBuildSystem: androidBuildSystem, ci: ci,
             projectRoot: projectRoot, kmpSharedModule: kmpSharedModule,
             kmpBuildTarget: kmpBuildTarget, kmpArchiveTarget: kmpArchiveTarget,
-            kmpTestTask: kmpTestTask, androidModule: androidModule, androidScope: androidScope,
+            kmpTestTask: kmpTestTask, androidCLI: androidCLI, androidModule: androidModule, androidScope: androidScope,
             androidTestKind: androidTestKind, androidTestDevices: androidTestDevices,
             androidBuildVariant: androidBuildVariant, androidBuildType: androidBuildType,
             gradlewPath: gradlewPath, gradleProjectDir: dir,
@@ -618,6 +623,7 @@ public struct ResolvedConfig: Sendable {
             kmpBuildTarget: kmpBuildTarget,
             kmpArchiveTarget: kmpArchiveTarget,
             kmpTestTask: kmpTestTask,
+            androidCLI: androidCLI,
             androidModule: androidModule,
             androidScope: androidScope,
             androidTestKind: androidTestKind,

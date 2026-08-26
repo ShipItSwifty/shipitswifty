@@ -154,6 +154,54 @@ When you need to drive the SDK directly:
 - `Emulator` — typed `emulator` wrapper for headless CI runs.
 - `Bundletool` — typed `bundletool` wrapper for AAB inspection.
 
+## AndroidCLI preview integration
+
+ShipIt also provides optional support for Google's preview AndroidCLI. AndroidCLI complements the release pipeline with project description, layout and screen inspection, emulator and SDK management, documentation search, skills, and Android Studio integration. It does not replace Gradle compilation, tests, lint, archives, signing, or Play Store upload.
+
+Use the direct passthrough without changing your Shipfile:
+
+```bash
+shipit android-cli describe
+shipit android-cli emulator list
+shipit android-cli layout --pretty
+shipit android-cli skills list --long
+```
+
+To use the `android-*` actions in workflows, opt in explicitly:
+
+```yaml
+android:
+  cli:
+    enabled: true
+    executable_path: android
+    sdk_path: /opt/android-sdk
+
+workflows:
+  inspect:
+    - action: android-describe
+      options: { operation: describe, arguments: ["--json"] }
+    - action: android-layout
+      options: { operation: layout, arguments: ["--pretty"] }
+```
+
+Environment- or device-changing operations such as creating projects, installing APKs, changing SDK packages, adding skills, or updating AndroidCLI require `allow_mutation: true`. ShipIt validates AndroidCLI 1.0 or newer when workflow integration is enabled and never installs or updates AndroidCLI or its skills automatically.
+
+AndroidCLI is preview software. Keep `android.cli.enabled` off when it is unavailable or when a workflow requires the established Gradle/ADB behavior. AndroidCLI emulator management is currently unavailable on Windows.
+
+### AndroidCLIKit
+
+Swift scripts can depend on `AndroidCLIKit` directly:
+
+```swift
+import AndroidCLIKit
+
+let output = try await AndroidCLI()
+    .emulatorList(arguments: ["--long"])
+    .run()
+
+print(output.stdout)
+```
+
 ## CI integration
 
 ```yaml
@@ -180,6 +228,7 @@ See <doc:CIIntegration>.
 - `Bundletool`
 - `Adb`
 - `Emulator`
+- `AndroidCLI`
 - <doc:CredentialLookup>
 - <doc:Validation>
 - <doc:Coverage>

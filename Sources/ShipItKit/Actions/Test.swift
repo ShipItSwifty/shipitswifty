@@ -1535,7 +1535,7 @@ public struct TestAction: Action {
                 )
             }
 
-            let available = try await listAvailableEmulators(shell: context.shell)
+            let available = try await listAvailableEmulators(context: context)
             guard !available.isEmpty else {
                 throw ShipItError.invalidConfiguration(
                     reason:
@@ -1558,7 +1558,7 @@ public struct TestAction: Action {
             return []
         case .namedEmulators:
             let shouldPrompt = devices.promptLocally ?? true
-            let availableEmulators = try await listAvailableEmulators(shell: context.shell)
+            let availableEmulators = try await listAvailableEmulators(context: context)
             let desiredEmulators = try await resolvedAndroidEmulators(
                 configured: devices.emulators,
                 available: availableEmulators,
@@ -1639,12 +1639,39 @@ public struct TestAction: Action {
         return promptForAndroidEmulatorsHandler(available)
     }
 
-    private func listAvailableEmulators(shell: ShellContext) async throws -> [String] {
-        let output = try await Emulator(context: shell).list().run()
+    private func listAvailableEmulators(context: ActionContext) async throws -> [String] {
+        let output: ShellOutput
+        if context.config.androidCLI.enabled == true {
+            let executable = context.config.androidCLI.executablePath ?? "android"
+            let cli = AndroidCLI(
+                context: context.shell,
+                executablePath: executable,
+                sdkPath: context.config.androidCLI.sdkPath
+            )
+            do {
+                try await AndroidCLIVersionGate.ensureSupported(cli)
+                output = try await cli.emulatorList().run()
+            } catch let error as ShipItError {
+                throw error
+            } catch {
+                throw ShipItError.invalidConfiguration(
+                    reason: "AndroidCLI command failed using '\(executable)': \(error.localizedDescription)"
+                )
+            }
+        } else {
+            output = try await Emulator(context: context.shell).list().run()
+        }
         return output.stdout
             .components(separatedBy: .newlines)
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
+            .compactMap { line -> String? in
+                // Tolerates either a bare AVD name per line (native `emulator -list-avds`) or a
+                // tabular "name  status" format, and drops an obvious header row.
+                let name = line.split(separator: " ", maxSplits: 1).first.map(String.init) ?? line
+                guard !["name", "avd", "avd name", "device"].contains(name.lowercased()) else { return nil }
+                return name
+            }
     }
 
     private static func defaultPromptForAndroidEmulators(available: [String]) -> [String] {

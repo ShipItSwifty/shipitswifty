@@ -63,6 +63,24 @@ shipit schema --action build --output json
 | ``NotifyAction`` | ✅ | ✅ | Slack, Teams, Discord, webhook, macOS notifications |
 | ``DsymAction`` | ✅ | — | Upload dSYMs to Firebase / custom destinations |
 
+## AndroidCLI integration
+
+These Android-only workflow actions mirror Google's preview AndroidCLI. They require `android.cli.enabled: true`; direct passthrough remains available through `shipit android-cli`. Every action accepts an `operation`, optional raw `arguments`, and `allow_mutation`. Device- or environment-changing operations fail unless `allow_mutation: true` is explicit.
+
+| Actions | Purpose |
+|---|---|
+| `android-create`, `android-init` | Create or initialize Android projects |
+| `android-describe`, `android-info` | Inspect projects and the local Android environment |
+| `android-layout`, `android-screen` | Inspect UI layout, resolve elements, and capture screens |
+| `android-run`, `android-install` | Launch or install prebuilt APKs |
+| `android-emulator`, `android-sdk` | Manage emulators and SDK packages |
+| `android-docs`, `android-help` | Search/fetch documentation and inspect command help |
+| `android-skills` | Find, list, add, or remove AndroidCLI skills |
+| `android-studio` | Analyze projects and interact with Android Studio declarations/previews |
+| `android-update`, `android-version` | Update AndroidCLI or report its version |
+
+AndroidCLI does not replace ``BuildAction``, ``TestAction``, ``ArchiveAction``, or ``LintAction``; those retain their Gradle-backed implementations.
+
 ## Calling an action from Swift
 
 Every action follows the same pattern:

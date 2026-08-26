@@ -122,18 +122,21 @@ These are enforced by the codebase and reviewed for in every PR:
 4. **All async work uses structured concurrency.** `async let`, `TaskGroup`. Never `Task.detached` for production work.
 5. **Actions read only from `Options` and `ActionContext`.** No singletons, no global mutable state, no hidden caches.
 
+AndroidCLI workflow actions additionally enforce explicit opt-in through ``ResolvedConfig/androidCLI`` and require `allow_mutation: true` for device- or environment-changing operations. The integration is additive: GradleKit and ADB remain responsible for build/test/archive/lint and lower-level device operations AndroidCLI does not expose.
+
 ## Source layout
 
 ```
 Sources/
   XcodeBuildKit/      Typed xcodebuild builder, xcode-select, destination discovery
   GradleKit/          Typed Gradle, adb, emulator, and bundletool wrappers
+  AndroidCLIKit/      Typed wrapper for Google's preview AndroidCLI
   XcodeGenKit/        Typed xcodegen builder
   ShipItKit/
     Actions/          One file per Action type
     AppStoreConnect/  Client, JWT, upload service, models
     GooglePlay/       Client, upload service, models, JWT
-    ReExports/        Re-exports XcodeBuildKit, GradleKit, and XcodeGenKit
+    ReExports/        Re-exports XcodeBuildKit, GradleKit, AndroidCLIKit, and XcodeGenKit
     Xcrun/            xcrun + simctl wrappers
     CodeSigning/      Keychain, certs, profiles, vault
     Config/           Shipfile model, ConfigResolver, Platform
