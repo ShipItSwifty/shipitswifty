@@ -7,10 +7,11 @@ Use ShipItSwifty as regular Swift packages when you want typed release scripts i
 | Library | Use when |
 |---|---|
 | `GradleKit` | You only need typed Gradle, adb, emulator, or bundletool commands. |
+| `AndroidCLIKit` | You need typed access to Google's preview AndroidCLI command families. |
 | `XcodeBuildKit` | You only need typed `xcodebuild` and destination discovery. |
 | ``ShipItKit`` | You want release-domain actions, workflows, config resolution, KMP build-system handling, versioning, or distribution clients. |
 
-`ShipItKit` re-exports the tool libraries, so scripts that import `ShipItKit` can also use `Gradle`, `GradleTask`, and `XcodeBuild` directly.
+`ShipItKit` re-exports the tool libraries, so scripts that import `ShipItKit` can also use `Gradle`, `GradleTask`, `AndroidCLI`, and `XcodeBuild` directly.
 
 ## Gradle-only script
 
@@ -49,6 +50,35 @@ let output = try await Gradle()
 
 print(output.stdout)
 ```
+
+## AndroidCLIKit script
+
+AndroidCLIKit is independent of the Gradle build pipeline and can be used without ShipItKit:
+
+```swift
+// Package.swift target dependency
+.product(name: "AndroidCLIKit", package: "ShipItSwifty")
+```
+
+```swift
+import AndroidCLIKit
+
+let project = try await AndroidCLI(
+    executablePath: "android",
+    sdkPath: "/opt/android-sdk"
+)
+.describe(arguments: ["--json"])
+.run()
+
+let emulators = try await AndroidCLI()
+    .emulatorList(arguments: ["--long"])
+    .run()
+
+print(project.stdout)
+print(emulators.stdout)
+```
+
+The raw-argument builder is available for preview-version drift, while typed methods cover AndroidCLI 1.0 command families. AndroidCLI itself may report basic command/option telemetry; consult Google's AndroidCLI documentation before enabling it in sensitive environments.
 
 ## XcodeBuildKit script
 

@@ -4,7 +4,7 @@ A Swift-native library for automating iOS and Android app release workflows.
 
 ## Overview
 
-`ShipItKit` is the reusable core of ShipItSwifty — a Swift-native release toolkit for both Apple and Android platforms. It provides a composable action model, YAML-based workflow configuration, App Store Connect and Google Play API integration, code-signing utilities, and an AI-friendly schema for agent-driven setup.
+`ShipItKit` is the reusable core of ShipItSwifty — a Swift-native release toolkit for both Apple and Android platforms. It provides a composable action model, YAML-based workflow configuration, App Store Connect and Google Play API integration, code-signing utilities, an optional AndroidCLI integration, and an AI-friendly schema for agent-driven setup.
 
 All domain logic lives in `ShipItKit`. The `shipit` CLI is a thin argument-parsing layer on top of it, and any Swift app, server, or CI script can embed `ShipItKit` directly.
 
@@ -103,6 +103,7 @@ These constraints are enforced throughout the codebase:
 
 - <doc:AndroidAndGooglePlay>
 - <doc:CredentialLookup>
+- `AndroidCLI`
 - ``PlayStoreAction``
 - ``GooglePlayClient``
 - ``GooglePlayUploadService``

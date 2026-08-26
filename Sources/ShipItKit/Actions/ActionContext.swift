@@ -62,6 +62,7 @@ public struct ActionContext: Sendable {
     ///   - googlePlay: Google Play API client (optional; only present for Android).
     ///   - platform: Target platform (default: `.ios`).
     ///   - verbose: When `true`, raw command output is logged at debug level (default: `false`).
+    ///   - jsonOutput: When `true`, suppresses human-oriented command streaming for JSON output.
     public init(
         shell: ShellContext,
         logger: Logger,
@@ -118,6 +119,8 @@ public struct ActionContext: Sendable {
     ///   - executor: A `MockExecutor` to capture and mock shell commands.
     ///   - versioningSource: Override the `versioning.source` value (default: `"xcodeproj"`).
     ///   - platform: Target platform (default: `.ios`).
+    ///   - jsonOutput: When `true`, configures the context for JSON-oriented output.
+    ///   - suppliedConfig: Optional fully resolved configuration for tests that exercise specific settings.
     /// - Returns: An `ActionContext` suitable for unit tests.
     public static func mock(
         executor: MockExecutor,
