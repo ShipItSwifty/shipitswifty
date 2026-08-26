@@ -73,12 +73,7 @@ extension AndroidCLIFamilyAction {
         )
 
         do {
-            let versionOutput = try await cli.version().run()
-            guard Self.supports(versionOutput.stdout) else {
-                throw ShipItError.invalidConfiguration(
-                    reason: "AndroidCLI 1.0 or newer is required; found '\(versionOutput.stdout.trimmingCharacters(in: .whitespacesAndNewlines))'."
-                )
-            }
+            try await AndroidCLIVersionGate.ensureSupported(cli)
             let commandArguments = Self.commandArguments(
                 operation: operation,
                 arguments: options.arguments ?? []
@@ -98,9 +93,41 @@ extension AndroidCLIFamilyAction {
             )
         }
     }
+}
 
-    private static func supports(_ output: String) -> Bool {
-        guard let major = output.split(separator: ".").first.flatMap({ Int($0.trimmingCharacters(in: .whitespacesAndNewlines)) }) else {
+/// Shared minimum-version enforcement for every `android` CLI invocation, so the version
+/// requirement and its error wrapping stay consistent between workflow actions and any
+/// action (like `TestAction`) that needs to shell out to AndroidCLI directly.
+enum AndroidCLIVersionGate {
+    static func ensureSupported(_ cli: AndroidCLI) async throws {
+        let versionOutput: ShellOutput
+        do {
+            versionOutput = try await cli.version().run()
+        } catch let error as ShipItError {
+            throw error
+        } catch {
+            throw ShipItError.invalidConfiguration(
+                reason: "AndroidCLI version check failed: \(error.localizedDescription)"
+            )
+        }
+        guard supports(versionOutput.stdout) else {
+            throw ShipItError.invalidConfiguration(
+                reason: "AndroidCLI 1.0 or newer is required; found '\(versionOutput.stdout.trimmingCharacters(in: .whitespacesAndNewlines))'."
+            )
+        }
+    }
+
+    /// Extracts the first `X.Y[.Z]`-shaped version number anywhere in `output` (rather than
+    /// assuming the string starts with a bare version) and checks its major component.
+    static func supports(_ output: String) -> Bool {
+        guard let regex = try? NSRegularExpression(pattern: #"(\d+)\.\d+(?:\.\d+)?"#) else {
+            return false
+        }
+        let range = NSRange(output.startIndex..., in: output)
+        guard let match = regex.firstMatch(in: output, range: range),
+            let majorRange = Range(match.range(at: 1), in: output),
+            let major = Int(output[majorRange])
+        else {
             return false
         }
         return major >= 1

@@ -76,6 +76,17 @@ struct AndroidCLIActionsTests {
         }
     }
 
+    @Test("version parsing tolerates prefixed version strings", arguments: [
+        ("1.0.15985488", true),
+        ("Android CLI, version 1.2.0", true),
+        ("android-cli v1.2.0", true),
+        ("0.9.0", false),
+        ("not a version", false),
+    ])
+    func versionParsingHandlesRealisticOutput(output: String, expectedSupported: Bool) {
+        #expect(AndroidCLIVersionGate.supports(output) == expectedSupported)
+    }
+
     private func enabledContext(executor: MockExecutor) -> ActionContext {
         ActionContext.mock(
             executor: executor,

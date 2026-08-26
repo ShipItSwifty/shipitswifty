@@ -1642,11 +1642,22 @@ public struct TestAction: Action {
     private func listAvailableEmulators(context: ActionContext) async throws -> [String] {
         let output: ShellOutput
         if context.config.androidCLI.enabled == true {
-            output = try await AndroidCLI(
+            let executable = context.config.androidCLI.executablePath ?? "android"
+            let cli = AndroidCLI(
                 context: context.shell,
-                executablePath: context.config.androidCLI.executablePath ?? "android",
+                executablePath: executable,
                 sdkPath: context.config.androidCLI.sdkPath
-            ).emulatorList().run()
+            )
+            do {
+                try await AndroidCLIVersionGate.ensureSupported(cli)
+                output = try await cli.emulatorList().run()
+            } catch let error as ShipItError {
+                throw error
+            } catch {
+                throw ShipItError.invalidConfiguration(
+                    reason: "AndroidCLI command failed using '\(executable)': \(error.localizedDescription)"
+                )
+            }
         } else {
             output = try await Emulator(context: context.shell).list().run()
         }
@@ -1654,6 +1665,13 @@ public struct TestAction: Action {
             .components(separatedBy: .newlines)
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
+            .compactMap { line -> String? in
+                // Tolerates either a bare AVD name per line (native `emulator -list-avds`) or a
+                // tabular "name  status" format, and drops an obvious header row.
+                let name = line.split(separator: " ", maxSplits: 1).first.map(String.init) ?? line
+                guard !["name", "avd", "avd name", "device"].contains(name.lowercased()) else { return nil }
+                return name
+            }
     }
 
     private static func defaultPromptForAndroidEmulators(available: [String]) -> [String] {

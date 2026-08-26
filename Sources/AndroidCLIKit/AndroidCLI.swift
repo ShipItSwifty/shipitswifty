@@ -280,7 +280,7 @@ public struct AndroidCLI: RunnableCommandFamily {
             stderrDestination: stderrDestination ?? self.stderrDestination,
             arguments: arguments ?? self.arguments,
             executablePath: executablePath ?? self.executablePath,
-            sdkPath: sdkPath != .none ? sdkPath! : self.sdkPath
+            sdkPath: sdkPath ?? self.sdkPath
         )
     }
 }
