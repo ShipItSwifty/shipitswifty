@@ -55,7 +55,8 @@ extension AndroidCLIFamilyAction {
         }
         if let operation, !Self.operations.isEmpty, !Self.operations.contains(operation) {
             throw ShipItError.invalidConfiguration(
-                reason: "Unsupported \(Self.name) operation '\(operation)'. Supported values: \(Self.operations.sorted().joined(separator: ", "))."
+                reason:
+                    "Unsupported \(Self.name) operation '\(operation)'. Supported values: \(Self.operations.sorted().joined(separator: ", "))."
             )
         }
         let mutates = operation.map(Self.mutationOperations.contains) ?? Self.mutationOperations.contains("*")
@@ -112,7 +113,8 @@ enum AndroidCLIVersionGate {
         }
         guard supports(versionOutput.stdout) else {
             throw ShipItError.invalidConfiguration(
-                reason: "AndroidCLI 1.0 or newer is required; found '\(versionOutput.stdout.trimmingCharacters(in: .whitespacesAndNewlines))'."
+                reason:
+                    "AndroidCLI 1.0 or newer is required; found '\(versionOutput.stdout.trimmingCharacters(in: .whitespacesAndNewlines))'."
             )
         }
     }

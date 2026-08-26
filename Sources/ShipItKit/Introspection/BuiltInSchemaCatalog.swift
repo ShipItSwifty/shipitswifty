@@ -708,7 +708,10 @@ public enum BuiltInSchemaCatalog {
             (AndroidScreenAction.name, AndroidScreenAction.description, ["capture", "resolve"]),
             (AndroidSDKAction.name, AndroidSDKAction.description, ["install", "update", "remove", "list"]),
             (AndroidSkillsAction.name, AndroidSkillsAction.description, ["add", "remove", "list", "find"]),
-            (AndroidStudioAction.name, AndroidStudioAction.description, ["check", "analyze-file", "find-declaration", "find-usages", "open-file", "render-compose-preview", "version-lookup"]),
+            (
+                AndroidStudioAction.name, AndroidStudioAction.description,
+                ["check", "analyze-file", "find-declaration", "find-usages", "open-file", "render-compose-preview", "version-lookup"]
+            ),
             (AndroidUpdateAction.name, AndroidUpdateAction.description, ["update"]),
             (AndroidCLIVersionAction.name, AndroidCLIVersionAction.description, ["--version"]),
         ]
@@ -718,8 +721,12 @@ public enum BuiltInSchemaCatalog {
                 description: description,
                 options: [
                     .string("operation", required: true, description: "AndroidCLI operation.", allowedValues: allowed),
-                    .array("arguments", description: "Arguments following the operation.", items: .string("argument", description: "Raw AndroidCLI argument.")),
-                    .boolean("allow_mutation", description: "Explicitly authorize environment- or device-changing operations.", defaultValue: .bool(false)),
+                    .array(
+                        "arguments", description: "Arguments following the operation.",
+                        items: .string("argument", description: "Raw AndroidCLI argument.")),
+                    .boolean(
+                        "allow_mutation", description: "Explicitly authorize environment- or device-changing operations.",
+                        defaultValue: .bool(false)),
                 ],
                 example: .object(["operation": .string(allowed[0]), "arguments": .array([])])
             )

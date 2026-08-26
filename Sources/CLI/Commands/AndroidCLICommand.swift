@@ -98,16 +98,18 @@ struct AndroidCLICommand: AsyncParsableCommand {
             if result.exitCode != 0 { throw ExitCode(result.exitCode) }
         case .json:
             let reporter = JSONReporter()
-            print(try reporter.encode(ActionResultEnvelope(
-                action: "android-cli",
-                status: result.exitCode == 0 ? "success" : "failure",
-                payload: .object([
-                    "arguments": .array(arguments.map(JSONValue.string)),
-                    "stdout": .string(result.stdout),
-                    "stderr": .string(result.stderr),
-                    "exitCode": .int(Int(result.exitCode)),
-                ])
-            )))
+            print(
+                try reporter.encode(
+                    ActionResultEnvelope(
+                        action: "android-cli",
+                        status: result.exitCode == 0 ? "success" : "failure",
+                        payload: .object([
+                            "arguments": .array(arguments.map(JSONValue.string)),
+                            "stdout": .string(result.stdout),
+                            "stderr": .string(result.stderr),
+                            "exitCode": .int(Int(result.exitCode)),
+                        ])
+                    )))
             if result.exitCode != 0 { throw ExitCode(result.exitCode) }
         }
     }

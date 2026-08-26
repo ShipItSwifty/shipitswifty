@@ -116,11 +116,12 @@ public struct AndroidCLI: RunnableCommandFamily {
         apks: [String], device: String? = nil, installOptions: [String] = [],
         useDeltaInstall: Bool? = nil, verbose: Bool = false
     ) -> Self {
-        rawArguments(deploymentArguments(
-            command: "install", apks: apks, device: device, activity: nil, type: nil,
-            installOptions: installOptions, useDeltaInstall: useDeltaInstall,
-            debug: false, verbose: verbose
-        ))
+        rawArguments(
+            deploymentArguments(
+                command: "install", apks: apks, device: device, activity: nil, type: nil,
+                installOptions: installOptions, useDeltaInstall: useDeltaInstall,
+                debug: false, verbose: verbose
+            ))
     }
 
     public func layout(
@@ -139,11 +140,12 @@ public struct AndroidCLI: RunnableCommandFamily {
         type: AndroidComponentType? = nil, installOptions: [String] = [],
         useDeltaInstall: Bool? = nil, debug: Bool = false, verbose: Bool = false
     ) -> Self {
-        rawArguments(deploymentArguments(
-            command: "run", apks: apks, device: device, activity: activity, type: type,
-            installOptions: installOptions, useDeltaInstall: useDeltaInstall,
-            debug: debug, verbose: verbose
-        ))
+        rawArguments(
+            deploymentArguments(
+                command: "run", apks: apks, device: device, activity: activity, type: type,
+                installOptions: installOptions, useDeltaInstall: useDeltaInstall,
+                debug: debug, verbose: verbose
+            ))
     }
 
     public func screenCapture(device: String? = nil, output: String? = nil, annotate: Bool = false) -> Self {
@@ -160,13 +162,21 @@ public struct AndroidCLI: RunnableCommandFamily {
     public func sdkInstall(
         packages: [String], beta: Bool = false, canary: Bool = false,
         force: Bool = false, platform: String? = nil
-    ) -> Self { rawArguments(sdkArguments(operation: "install", values: packages, beta: beta, canary: canary, force: force, platform: platform)) }
+    ) -> Self {
+        rawArguments(sdkArguments(operation: "install", values: packages, beta: beta, canary: canary, force: force, platform: platform))
+    }
     public func sdkUpdate(
         package: String? = nil, beta: Bool = false, canary: Bool = false,
         force: Bool = false, platform: String? = nil
-    ) -> Self { rawArguments(sdkArguments(operation: "update", values: package.map { [$0] } ?? [], beta: beta, canary: canary, force: force, platform: platform)) }
+    ) -> Self {
+        rawArguments(
+            sdkArguments(
+                operation: "update", values: package.map { [$0] } ?? [], beta: beta, canary: canary, force: force, platform: platform))
+    }
     public func sdkRemove(packages: [String]) -> Self { rawArguments(["sdk", "remove"] + packages) }
-    public func sdkList(pattern: String? = nil, all: Bool = false, allVersions: Bool = false, beta: Bool = false, canary: Bool = false) -> Self {
+    public func sdkList(
+        pattern: String? = nil, all: Bool = false, allVersions: Bool = false, beta: Bool = false, canary: Bool = false
+    ) -> Self {
         var args = ["sdk", "list"]
         if all { args.append("--all") }
         if allVersions { args.append("--all-versions") }
@@ -194,7 +204,9 @@ public struct AndroidCLI: RunnableCommandFamily {
     public func studioAnalyzeFile(path: String, pid: Int? = nil, project: String? = nil) -> Self {
         rawArguments(studioArguments(operation: "analyze-file", pid: pid, project: project) + [path])
     }
-    public func studioFindDeclaration(symbol: String, contextFile: String? = nil, short: Bool = false, pid: Int? = nil, project: String? = nil) -> Self {
+    public func studioFindDeclaration(
+        symbol: String, contextFile: String? = nil, short: Bool = false, pid: Int? = nil, project: String? = nil
+    ) -> Self {
         var args = studioArguments(operation: "find-declaration", pid: pid, project: project)
         if short { args.append("--short") }
         if let contextFile { args.append("--context-file=\(contextFile)") }
@@ -305,7 +317,10 @@ public struct AndroidLayoutElement: Codable, Sendable, Equatable {
     public let center: String?
     public let offScreen: Bool?
 
-    public init(text: String? = nil, resourceId: String? = nil, contentDesc: String? = nil, interactions: [String]? = nil, state: [String]? = nil, bounds: String? = nil, center: String? = nil, offScreen: Bool? = nil) {
+    public init(
+        text: String? = nil, resourceId: String? = nil, contentDesc: String? = nil, interactions: [String]? = nil, state: [String]? = nil,
+        bounds: String? = nil, center: String? = nil, offScreen: Bool? = nil
+    ) {
         self.text = text
         self.resourceId = resourceId
         self.contentDesc = contentDesc

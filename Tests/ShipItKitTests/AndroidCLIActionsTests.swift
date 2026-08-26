@@ -46,10 +46,12 @@ struct AndroidCLIActionsTests {
         #expect(captured.withLock { $0 }.count == 2)
     }
 
-    @Test("create operations map to AndroidCLI's asymmetric command syntax", arguments: [
-        ("create", ["create", "--template", "compose-app"]),
-        ("list", ["create", "--list", "--json"]),
-    ])
+    @Test(
+        "create operations map to AndroidCLI's asymmetric command syntax",
+        arguments: [
+            ("create", ["create", "--template", "compose-app"]),
+            ("list", ["create", "--list", "--json"]),
+        ])
     func createCommandShape(operation: String, expected: [String]) async throws {
         let executor = MockExecutor { command, _ in
             if command.arguments.contains("--version") {
@@ -76,13 +78,15 @@ struct AndroidCLIActionsTests {
         }
     }
 
-    @Test("version parsing tolerates prefixed version strings", arguments: [
-        ("1.0.15985488", true),
-        ("Android CLI, version 1.2.0", true),
-        ("android-cli v1.2.0", true),
-        ("0.9.0", false),
-        ("not a version", false),
-    ])
+    @Test(
+        "version parsing tolerates prefixed version strings",
+        arguments: [
+            ("1.0.15985488", true),
+            ("Android CLI, version 1.2.0", true),
+            ("android-cli v1.2.0", true),
+            ("0.9.0", false),
+            ("not a version", false),
+        ])
     func versionParsingHandlesRealisticOutput(output: String, expectedSupported: Bool) {
         #expect(AndroidCLIVersionGate.supports(output) == expectedSupported)
     }

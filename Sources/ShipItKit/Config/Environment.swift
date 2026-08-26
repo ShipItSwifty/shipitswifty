@@ -184,7 +184,11 @@ public struct Environment: Sendable {
     /// `SHIPIT_ANDROID__CLI__ENABLED` — opt in to AndroidCLI-backed behavior.
     public var androidCLIEnabled: Bool? {
         env["SHIPIT_ANDROID__CLI__ENABLED"].flatMap {
-            switch $0.lowercased() { case "1", "true", "yes": true; case "0", "false", "no": false; default: nil }
+            switch $0.lowercased() {
+            case "1", "true", "yes": true
+            case "0", "false", "no": false
+            default: nil
+            }
         }
     }
 

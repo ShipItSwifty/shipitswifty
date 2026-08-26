@@ -127,16 +127,18 @@ public struct ActionContext: Sendable {
         config suppliedConfig: ResolvedConfig? = nil
     ) -> ActionContext {
         let shell = ShellContext(executor: executor)
-        let config = suppliedConfig ?? ResolvedConfig(
-            appScheme: "MockApp",
-            bundleID: "com.example.mock",
-            teamID: "MOCK12345",
-            ascKeyID: "MOCKKEY",
-            ascIssuerID: "mock-issuer-id",
-            ascPrivateKeyData: nil,
-            versioningSource: versioningSource,
-            platform: platform
-        )
+        let config =
+            suppliedConfig
+            ?? ResolvedConfig(
+                appScheme: "MockApp",
+                bundleID: "com.example.mock",
+                teamID: "MOCK12345",
+                ascKeyID: "MOCKKEY",
+                ascIssuerID: "mock-issuer-id",
+                ascPrivateKeyData: nil,
+                versioningSource: versioningSource,
+                platform: platform
+            )
         #if os(macOS)
         // Create a placeholder client — tests that need ASC API calls should mock at a higher level
         let dummyKeyData = Data(
