@@ -161,6 +161,11 @@ jobs:
     name: Create GitHub Release
     needs: [build-macos, build-linux]
     runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+      artifact-metadata: write
 
     steps:
       - name: Checkout
@@ -178,6 +183,16 @@ jobs:
         uses: actions/download-artifact@v8
         with:
           name: linux-static
+
+      - name: Generate checksums
+        run: |
+          sha256sum shipit-*-macos-universal.tar.gz shipit-*-linux-static.tar.gz \
+            > "shipit-${RELEASE_VERSION}-checksums.txt"
+
+      - name: Attest release archives
+        uses: actions/attest@v4
+        with:
+          subject-path: 'shipit-*.tar.gz'
 
       - name: Generate release notes
         env:
@@ -198,6 +213,7 @@ jobs:
           files: |
             shipit-*-macos-universal.tar.gz
             shipit-*-linux-static.tar.gz
+            shipit-*-checksums.txt
 
       - name: Update Homebrew tap
         env:
