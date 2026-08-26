@@ -103,7 +103,7 @@ shipit archive --platform android
 shipit lint --platform android
 
 # Validate the AAB before uploading
-shipit validate bundle --bundle ./app/build/outputs/bundle/release/app-release.aab
+shipit validate bundle --aab ./app/build/outputs/bundle/release/app-release.aab
 
 # Upload to Google Play
 shipit play-store --platform android

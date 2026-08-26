@@ -17,6 +17,8 @@ swift build -c release
 swift test --enable-code-coverage --skip IntegrationTests
 swift test --filter FlutterFixtureIntegrationTests
 swift test --filter ReactNativeFixtureIntegrationTests
+swift test --filter KMPFixtureIntegrationTests
+swift test --filter AndroidCLIKitTests
 .build/release/shipit --version
 ```
 
@@ -25,6 +27,14 @@ Optional real-toolchain e2e smoke checks:
 ```bash
 SHIPIT_E2E=1 swift test --filter FlutterE2ETests
 SHIPIT_E2E=1 swift test --filter ReactNativeE2ETests
+```
+
+- Confirm the Android quickstart commands still parse via `swift test --filter DocumentationCommandTests`.
+- Smoke-test representative AndroidCLI commands without mutating the local SDK or devices:
+
+```bash
+.build/release/shipit android-cli info
+.build/release/shipit android-cli skills list --long
 ```
 
 ## Tagging
