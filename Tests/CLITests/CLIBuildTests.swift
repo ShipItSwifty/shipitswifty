@@ -103,6 +103,18 @@ struct CLIBuildTests {
         #expect(command.buildVariant == "debug")
     }
 
+    @Test("AndroidCLI command preserves the mirrored argument hierarchy")
+    func androidCLICommandParsesArguments() throws {
+        let command = try AndroidCLICommand.parseAsRoot([
+            "--android-path", "/opt/android",
+            "--sdk", "/opt/sdk",
+            "skills", "list", "--long",
+        ]) as! AndroidCLICommand
+        #expect(command.androidPath == "/opt/android")
+        #expect(command.sdk == "/opt/sdk")
+        #expect(command.arguments == ["skills", "list", "--long"])
+    }
+
     @Test("Archive command parses Gradle module and variant")
     func archiveCommandParsesGradleOptions() throws {
         let command =

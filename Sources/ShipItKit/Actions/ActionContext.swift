@@ -123,10 +123,11 @@ public struct ActionContext: Sendable {
         executor: MockExecutor,
         versioningSource: String = "xcodeproj",
         platform: Platform = .ios,
-        jsonOutput: Bool = false
+        jsonOutput: Bool = false,
+        config suppliedConfig: ResolvedConfig? = nil
     ) -> ActionContext {
         let shell = ShellContext(executor: executor)
-        let config = ResolvedConfig(
+        let config = suppliedConfig ?? ResolvedConfig(
             appScheme: "MockApp",
             bundleID: "com.example.mock",
             teamID: "MOCK12345",

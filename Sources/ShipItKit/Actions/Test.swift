@@ -1535,7 +1535,7 @@ public struct TestAction: Action {
                 )
             }
 
-            let available = try await listAvailableEmulators(shell: context.shell)
+            let available = try await listAvailableEmulators(context: context)
             guard !available.isEmpty else {
                 throw ShipItError.invalidConfiguration(
                     reason:
@@ -1558,7 +1558,7 @@ public struct TestAction: Action {
             return []
         case .namedEmulators:
             let shouldPrompt = devices.promptLocally ?? true
-            let availableEmulators = try await listAvailableEmulators(shell: context.shell)
+            let availableEmulators = try await listAvailableEmulators(context: context)
             let desiredEmulators = try await resolvedAndroidEmulators(
                 configured: devices.emulators,
                 available: availableEmulators,
@@ -1639,8 +1639,17 @@ public struct TestAction: Action {
         return promptForAndroidEmulatorsHandler(available)
     }
 
-    private func listAvailableEmulators(shell: ShellContext) async throws -> [String] {
-        let output = try await Emulator(context: shell).list().run()
+    private func listAvailableEmulators(context: ActionContext) async throws -> [String] {
+        let output: ShellOutput
+        if context.config.androidCLI.enabled == true {
+            output = try await AndroidCLI(
+                context: context.shell,
+                executablePath: context.config.androidCLI.executablePath ?? "android",
+                sdkPath: context.config.androidCLI.sdkPath
+            ).emulatorList().run()
+        } else {
+            output = try await Emulator(context: context.shell).list().run()
+        }
         return output.stdout
             .components(separatedBy: .newlines)
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }

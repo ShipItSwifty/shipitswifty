@@ -225,6 +225,15 @@ struct DoctorCommand: AsyncParsableCommand {
             [(config.platform == .ios ? config.iosBuildSystem : config.androidBuildSystem)].filter { $0 != .native }
         )
         var checks: [ToolCheck] = []
+        if config.platform == .android, config.androidCLI.enabled == true {
+            let androidCLI = AndroidCLI(
+                context: shell,
+                executablePath: config.androidCLI.executablePath ?? "android",
+                sdkPath: config.androidCLI.sdkPath
+            )
+            checks.append(ToolCheck(name: "AndroidCLI 1.0+ available", command: androidCLI.version().command()))
+            checks.append(ToolCheck(name: "AndroidCLI skills catalog available", command: androidCLI.skillsList(long: true).command()))
+        }
         for system in active.sorted(by: { $0.rawValue < $1.rawValue }) {
             switch system {
             case .native:

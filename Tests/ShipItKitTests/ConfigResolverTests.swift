@@ -689,4 +689,30 @@ struct ConfigResolverTests {
         // never silently collapsed to an empty string.
         #expect(config.appScheme == "${\(varName)}")
     }
+
+    @Test("AndroidCLI is disabled by default and resolves explicit Shipfile settings")
+    func androidCLIConfiguration() async throws {
+        let tempDirectory = try makeTempDirectory()
+        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+        let shipfileURL = tempDirectory.appendingPathComponent("Shipfile.yml")
+        try """
+        platform: android
+        android:
+          cli:
+            enabled: true
+            executable_path: tools/android
+            sdk_path: sdk
+        """.write(to: shipfileURL, atomically: true, encoding: .utf8)
+
+        let config = try await ConfigResolver(environment: Environment(env: [:]))
+            .resolve(shipfilePath: shipfileURL.path)
+        #expect(config.androidCLI.enabled == true)
+        #expect(config.androidCLI.executablePath == tempDirectory.appendingPathComponent("tools/android").path)
+        #expect(config.androidCLI.sdkPath == tempDirectory.appendingPathComponent("sdk").path)
+
+        let defaults = try await ConfigResolver(environment: Environment(env: [:]))
+            .resolve(shipfilePath: tempDirectory.appendingPathComponent("Missing.yml").path)
+        #expect(defaults.androidCLI.enabled == false)
+        #expect(defaults.androidCLI.executablePath == "android")
+    }
 }

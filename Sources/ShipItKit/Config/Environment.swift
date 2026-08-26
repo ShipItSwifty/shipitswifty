@@ -181,6 +181,19 @@ public struct Environment: Sendable {
     /// `SHIPIT_ANDROID__PACKAGE_NAME` — Android application package name (e.g. `com.example.app`)
     public var androidPackageName: String? { env["SHIPIT_ANDROID__PACKAGE_NAME"] }
 
+    /// `SHIPIT_ANDROID__CLI__ENABLED` — opt in to AndroidCLI-backed behavior.
+    public var androidCLIEnabled: Bool? {
+        env["SHIPIT_ANDROID__CLI__ENABLED"].flatMap {
+            switch $0.lowercased() { case "1", "true", "yes": true; case "0", "false", "no": false; default: nil }
+        }
+    }
+
+    /// `SHIPIT_ANDROID__CLI__EXECUTABLE_PATH` — AndroidCLI executable name or path.
+    public var androidCLIExecutablePath: String? { env["SHIPIT_ANDROID__CLI__EXECUTABLE_PATH"] }
+
+    /// `SHIPIT_ANDROID__CLI__SDK_PATH` — Android SDK override passed to AndroidCLI.
+    public var androidCLISDKPath: String? { env["SHIPIT_ANDROID__CLI__SDK_PATH"] }
+
     // MARK: - Google Play
 
     /// `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` — raw service account JSON contents (secret)

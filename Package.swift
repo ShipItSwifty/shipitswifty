@@ -14,6 +14,7 @@ let package = Package(
         .library(name: "ShipItKit", targets: ["ShipItKit"]),
         .library(name: "XcodeBuildKit", targets: ["XcodeBuildKit"]),
         .library(name: "GradleKit", targets: ["GradleKit"]),
+        .library(name: "AndroidCLIKit", targets: ["AndroidCLIKit"]),
         .library(name: "XcodeGenKit", targets: ["XcodeGenKit"]),
     ],
     dependencies: [
@@ -48,6 +49,12 @@ let package = Package(
             ]
         ),
         .target(
+            name: "AndroidCLIKit",
+            dependencies: [
+                .product(name: "SwiftyShell", package: "SwiftyShell"),
+            ]
+        ),
+        .target(
             name: "XcodeGenKit",
             dependencies: [
                 .product(name: "SwiftyShell", package: "SwiftyShell"),
@@ -61,6 +68,7 @@ let package = Package(
             dependencies: [
                 "XcodeBuildKit",
                 "GradleKit",
+                "AndroidCLIKit",
                 "XcodeGenKit",
                 .product(name: "SwiftyShell", package: "SwiftyShell"),
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
@@ -102,6 +110,13 @@ let package = Package(
             name: "GradleKitTests",
             dependencies: [
                 "GradleKit",
+                .product(name: "SwiftyShell", package: "SwiftyShell"),
+            ]
+        ),
+        .testTarget(
+            name: "AndroidCLIKitTests",
+            dependencies: [
+                "AndroidCLIKit",
                 .product(name: "SwiftyShell", package: "SwiftyShell"),
             ]
         ),

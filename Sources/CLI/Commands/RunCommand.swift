@@ -196,6 +196,22 @@ func builtInActionDescriptors() -> [ActionDescriptor] {
             for: VersionAction(),
             optionSchema: BuiltInSchemaCatalog.optionSchema(for: VersionAction.name),
             validationRules: VersionAction.validationRules),
+        AndroidCreateAction.descriptor(for: AndroidCreateAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: AndroidCreateAction.name), platforms: [.android]),
+        AndroidDescribeAction.descriptor(for: AndroidDescribeAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: AndroidDescribeAction.name), platforms: [.android]),
+        AndroidDocsAction.descriptor(for: AndroidDocsAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: AndroidDocsAction.name), platforms: [.android]),
+        AndroidEmulatorAction.descriptor(for: AndroidEmulatorAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: AndroidEmulatorAction.name), platforms: [.android]),
+        AndroidHelpAction.descriptor(for: AndroidHelpAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: AndroidHelpAction.name), platforms: [.android]),
+        AndroidInfoAction.descriptor(for: AndroidInfoAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: AndroidInfoAction.name), platforms: [.android]),
+        AndroidInitAction.descriptor(for: AndroidInitAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: AndroidInitAction.name), platforms: [.android]),
+        AndroidInstallAction.descriptor(for: AndroidInstallAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: AndroidInstallAction.name), platforms: [.android]),
+        AndroidLayoutAction.descriptor(for: AndroidLayoutAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: AndroidLayoutAction.name), platforms: [.android]),
+        AndroidRunAction.descriptor(for: AndroidRunAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: AndroidRunAction.name), platforms: [.android]),
+        AndroidScreenAction.descriptor(for: AndroidScreenAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: AndroidScreenAction.name), platforms: [.android]),
+        AndroidSDKAction.descriptor(for: AndroidSDKAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: AndroidSDKAction.name), platforms: [.android]),
+        AndroidSkillsAction.descriptor(for: AndroidSkillsAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: AndroidSkillsAction.name), platforms: [.android]),
+        AndroidStudioAction.descriptor(for: AndroidStudioAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: AndroidStudioAction.name), platforms: [.android]),
+        AndroidUpdateAction.descriptor(for: AndroidUpdateAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: AndroidUpdateAction.name), platforms: [.android]),
+        AndroidCLIVersionAction.descriptor(for: AndroidCLIVersionAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: AndroidCLIVersionAction.name), platforms: [.android]),
     ]
     #if os(macOS)
     descriptors.append(contentsOf: [

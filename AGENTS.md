@@ -126,6 +126,10 @@ swift run shipit test --rerun-failed-tests --max-rerun-attempts 2 --report-path 
 swift run shipit archive --platform android
 swift run shipit lint --platform android
 swift run shipit play-store --platform android
+swift run shipit android-cli info
+swift run shipit android-cli emulator list
+swift run shipit android-cli skills list --long
+swift run shipit android-cli layout --pretty
 
 # Validate subcommand family
 swift run shipit validate                          # default: validate yml
@@ -253,15 +257,16 @@ Set one of these environment variables:
 
 ## Architecture
 
-ShipItSwifty is a Swift 6 CLI toolkit for iOS and Android app release automation. There are five products:
+ShipItSwifty is a Swift 6 CLI toolkit for iOS and Android app release automation. There are six products:
 
 - **`XcodeBuildKit`** — standalone library; typed `xcodebuild` wrapper, options, destination discovery, `xcode-select`. Depends only on SwiftyShell.
 - **`GradleKit`** — standalone library; typed Gradle wrapper (tasks, flags, properties), plus `adb`, `bundletool`, and `emulator` wrappers. Depends only on SwiftyShell.
+- **`AndroidCLIKit`** — standalone typed wrapper for Google's preview AndroidCLI: project description, deployment, emulators, SDKs, UI inspection, Studio integration, docs, and skills. Depends only on SwiftyShell.
 - **`XcodeGenKit`** — standalone library; typed `xcodegen` wrapper and options. Depends only on SwiftyShell.
 - **`ShipItKit`** — reusable library; all domain logic lives here. Depends on the three tool libraries above.
 - **`shipit`** (CLI) — thin argument-parsing layer over `ShipItKit`
 
-`XcodeBuildKit`, `GradleKit`, and `XcodeGenKit` are independently consumable via SwiftPM — users who only need build tool wrappers can depend on them without pulling in ShipItKit or any of its heavier dependencies. `ShipItKit` re-exports all three via `@_exported import`, so existing consumers see no API change.
+`XcodeBuildKit`, `GradleKit`, `AndroidCLIKit`, and `XcodeGenKit` are independently consumable via SwiftPM — users who only need tool wrappers can depend on them without pulling in ShipItKit or any of its heavier dependencies. `ShipItKit` re-exports all four via `@_exported import`, so existing consumers see no API change.
 
 ### Core execution model
 
@@ -330,6 +335,8 @@ When recommending changes to an agent:
 - For transient test infrastructure failures, ask whether to add `infrastructure_retry` to test steps. Use `max_attempts: 3`, `initial_delay_seconds: 2`, and `max_delay_seconds: 30` as the safe default when the user wants retries.
 - For Android `kind: instrumented` test steps, **always** use `scope: root`. ShipIt now defaults to root scope when `kind: instrumented` and no explicit scope is set, but specifying it explicitly avoids confusion. With `scope: module` (the unit-test default), only the specified module's connected tests run — in a multi-module project the `app` module typically has zero androidTest sources, so the run finishes with 0 tests (or crashes if the test APK lacks `androidTestImplementation` for the runner). `scope: root` runs the root-level `connected*AndroidTest` task, which cascades across every module. Also ensure `app/build.gradle.kts` (or equivalent) has `androidTestImplementation(libs.junit.ext)` so the test APK can instantiate `AndroidJUnitRunner` even when the app module has no test sources.
 - For Android instrumented tests that should boot an emulator locally, prefer explicit `devices:` config with `strategy: named_emulators` and one or more AVD names. Reserve `strategy: connected` for workflows that intentionally depend on a device already being attached.
+- AndroidCLI is additive and opt-in under `android.cli.enabled: true`; it does not replace Gradle for build/archive/test/lint or ADB for unsupported device input/reset behavior. Use `shipit android-cli` for direct commands and `android-*` workflow actions. Mutating workflow operations require `allow_mutation: true`.
+- Never install Android skills automatically. Recommend `android-cli`, `testing-setup`, `play-policy-insights`, `r8-analyzer`, `android-profiler`, `android-intent-security`, `agp-9-upgrade`, or `play-billing-library-version-upgrade` only when relevant project evidence exists.
 - When the user has multiple workflows targeting different Android build variants (e.g. `qa` → `stagingRelease`, `release` → `prodRelease`), use per-workflow `build_variant` / `flavor` overrides instead of duplicating `--aab` paths on each step. Example:
   ```yaml
   workflows:
@@ -349,6 +356,7 @@ When recommending changes to an agent:
 Sources/
   XcodeBuildKit/      # Standalone: xcodebuild wrapper, options, xcode-select, destination discovery
   GradleKit/          # Standalone: gradlew wrapper, tasks, flags, properties, adb, bundletool, emulator
+  AndroidCLIKit/      # Standalone: Google's AndroidCLI command families and parsers
   XcodeGenKit/        # Standalone: xcodegen wrapper and options
   ShipItKit/
     Actions/          # One file per action (Build, Archive, TestFlight, …)
@@ -359,7 +367,7 @@ Sources/
                       # SchemaTypes, SchemaValidator, ShipfileValidator,
                       # AISessionTypes, AISessionBuilder
     Plugin/           # ShipItPlugin protocol, ActionRegistry, PluginRegistry
-    ReExports/        # @_exported import for XcodeBuildKit, GradleKit, XcodeGenKit
+    ReExports/        # @_exported import for XcodeBuildKit, GradleKit, AndroidCLIKit, XcodeGenKit
     Utilities/        # JSONValue, Logger, ShipItError, RetryPolicy, JSONReporter
     Versioning/       # VersionBumper, BuildNumberSource
     Notifications/    # Notifier

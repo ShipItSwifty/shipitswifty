@@ -211,6 +211,7 @@ Android support ships in v1 alongside iOS. Platform is auto-detected from projec
 
 | Action | CLI | Description |
 |---|---|---|
+| **AndroidCLI integration** | `shipit android-cli <command>` and `android-*` workflow actions | Opt-in typed support for all AndroidCLI 1.0 command families: create/describe, deploy/run, emulator and SDK management, layout/screen inspection, docs, skills, and Android Studio integration. Gradle remains the build/test/archive/lint engine; mutating workflow operations require `allow_mutation: true`. |
 | **Build** | `shipit build --platform android` | `./gradlew assembleRelease` (or configured variant). Gradle output streams live and a build summary is printed even without `--verbose`. |
 | **Archive** | `shipit archive --platform android` | `./gradlew bundleRelease` — produces an `.aab`. Gradle output streams live to the console during the (often multi-minute) build, and a build summary (`BUILD SUCCESSFUL …`, the `actionable tasks: … from cache …` cache-effectiveness line, and any build-scan URL) is always printed even without `--verbose`. `--output-path` copies the produced `.aab` to a deterministic path for build/upload job splits. |
 | **Test** | `shipit test --platform android` | `./gradlew test` (unit) or `./gradlew connectedAndroidTest` (instrumented). Instrumented runs support connected devices, named AVD boot, and Gradle Managed Devices. |
@@ -309,7 +310,7 @@ See [`docs/kmp-quickstart.md`](kmp-quickstart.md) for a worked KMP example.
 
 ## Standalone tool libraries
 
-`XcodeBuildKit`, `GradleKit`, and `XcodeGenKit` are independently consumable via SwiftPM — users who only need build tool wrappers can depend on them without pulling in `ShipItKit`.
+`XcodeBuildKit`, `GradleKit`, `AndroidCLIKit`, and `XcodeGenKit` are independently consumable via SwiftPM — users who only need tool wrappers can depend on them without pulling in `ShipItKit`.
 
 ### GradleKit tool wrappers
 
@@ -319,6 +320,10 @@ See [`docs/kmp-quickstart.md`](kmp-quickstart.md) for a worked KMP example.
 | **Adb** | Device targeting (`-s`), daemon lifecycle (`start-server`/`kill-server`), device discovery (`devices`), app install/uninstall, activity manager (`am start`, `am force-stop`, deep links), package manager (`pm list`, `pm grant`, `pm revoke`, resolve launchable activity), capture (`screencap`, `screenrecord`), input events (`keyevent`), display config (`uimode night`), port forwarding (`forward tcp`), file transfer (`push`/`pull`), shell escape hatch, emulator control (`emu kill`, `emu geo fix`), logcat |
 | **Bundletool** | AAB validation, APK set build, device-spec install |
 | **Emulator** | AVD launch, snapshot management |
+
+### AndroidCLIKit tool wrapper
+
+`AndroidCLI` provides immutable typed builders for every AndroidCLI 1.0 family, executable/SDK overrides, a raw-argument escape hatch for preview-version drift, and lossy decoding for stable layout JSON fields. All execution goes through SwiftyShell.
 
 ### XcodeBuildKit tool wrappers
 
