@@ -70,7 +70,7 @@ struct ShipItCLI: AsyncParsableCommand {
     /// For released binaries this is overwritten at build time by the release workflow, which
     /// stamps it from the git tag (see `.github/workflows/release.yml`). The literal below is the
     /// fallback for local/dev builds and should track the most recent release tag.
-    static let versionString = "0.3.0"
+    static let versionString = "0.5.1"
 
     static func main(_ arguments: [String]?) async {
         let arguments = arguments ?? Array(CommandLine.arguments.dropFirst())

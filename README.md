@@ -1,12 +1,12 @@
 # ShipItSwifty
 
-Swift-native CLI for iOS and Android app release automation — open-source, local-first, and fully offline-capable.
+Swift-native CLI for iOS and Android app release automation — open-source, local-first, and offline-capable for local build operations.
 
 [![CI](https://github.com/shipitswifty/shipitswifty/actions/workflows/ci.yml/badge.svg)](https://github.com/shipitswifty/shipitswifty/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Swift 6](https://img.shields.io/badge/Swift-6.0-orange.svg)](https://swift.org)
 
-**Your credentials, builds, and artifacts never leave your machine.** ShipItSwifty runs entirely on your device using native toolchains — no cloud build service, no telemetry, no external dependencies beyond the stores you choose to upload to.
+**Your credentials, builds, and artifacts remain under your control.** ShipItSwifty runs on your device using native toolchains and has no telemetry of its own. Upload actions contact the store or distribution service you select, and optional upstream tools such as Google's preview AndroidCLI may have their own telemetry policies.
 
 ---
 
@@ -35,7 +35,7 @@ ShipItSwifty automates the build → archive → distribute pipeline for iOS and
 
 ## Install
 
-After the first Homebrew tap release is published:
+Install the latest stable release from the Homebrew tap:
 
 ```bash
 brew tap shipitswifty/tap
