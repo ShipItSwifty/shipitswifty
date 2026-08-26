@@ -48,4 +48,8 @@ brew tap shipitswifty/tap
 brew install shipit
 brew test shipitswifty/tap/shipit
 shipit --version
+gh release download <version> --repo shipitswifty/shipitswifty --pattern 'shipit-*.tar.gz' --pattern 'shipit-*-checksums.txt'
+shasum -a 256 --check "shipit-<version>-checksums.txt"
+gh attestation verify "shipit-<version>-macos-universal.tar.gz" --repo shipitswifty/shipitswifty
+gh attestation verify "shipit-<version>-linux-static.tar.gz" --repo shipitswifty/shipitswifty
 ```
