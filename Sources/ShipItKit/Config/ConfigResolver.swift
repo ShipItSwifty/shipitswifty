@@ -329,6 +329,17 @@ public struct ConfigResolver: Sendable {
             kmpBuildTarget: shipfile?.ios?.kmpBuildTarget ?? environment.iosKMPBuildTarget ?? "IosSimulatorArm64",
             kmpArchiveTarget: shipfile?.ios?.kmpArchiveTarget ?? environment.iosKMPArchiveTarget ?? "IosArm64",
             kmpTestTask: shipfile?.ios?.kmpTestTask ?? environment.iosKMPTestTask ?? "iosSimulatorArm64Test",
+            androidCLI: AndroidCLIConfig(
+                enabled: androidConfig?.cli?.enabled ?? environment.androidCLIEnabled ?? false,
+                executablePath: resolveExecutablePath(
+                    androidConfig?.cli?.executablePath ?? environment.androidCLIExecutablePath ?? "android",
+                    relativeTo: projectRoot
+                ),
+                sdkPath: resolvePath(
+                    androidConfig?.cli?.sdkPath ?? environment.androidCLISDKPath,
+                    relativeTo: projectRoot
+                )
+            ),
             androidModule: androidConfig?.module ?? environment.androidModule ?? "app",
             androidScope: androidConfig?.scope ?? .module,
             androidTestKind: androidConfig?.testKind ?? .unit,
@@ -516,6 +527,12 @@ public struct ConfigResolver: Sendable {
         guard let path = nonEmpty(path) else { return nil }
         if path.hasPrefix("/") { return URL(fileURLWithPath: path).standardizedFileURL.path }
         return URL(fileURLWithPath: root).appendingPathComponent(path).standardizedFileURL.path
+    }
+
+    /// Resolves explicit executable paths while preserving bare command names for `PATH` lookup.
+    private func resolveExecutablePath(_ path: String, relativeTo root: String) -> String {
+        guard path.contains("/") else { return path }
+        return resolvePath(path, relativeTo: root) ?? path
     }
 
     private func loadShipfile(from path: String) async throws -> ShipfileLoadResult {

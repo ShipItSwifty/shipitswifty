@@ -14,6 +14,9 @@ import Foundation
 /// ```
 public struct AndroidConfig: Codable, Sendable {
 
+    /// Optional integration with Google's preview Android CLI.
+    public var cli: AndroidCLIConfig?
+
     /// Build system that produces the Android artifact. Defaults to ``BuildSystem/native``.
     /// Set to `.flutter`, `.reactNative`, or `.kmp` when the same source tree drives the
     /// Android target via a cross-platform tool.
@@ -69,6 +72,7 @@ public struct AndroidConfig: Codable, Sendable {
 
     enum CodingKeys: String, CodingKey {
         case buildSystem = "build_system"
+        case cli
         case module
         case scope
         case testKind = "test_kind"
@@ -88,6 +92,7 @@ public struct AndroidConfig: Codable, Sendable {
 
     /// Creates an `AndroidConfig`.
     public init(
+        cli: AndroidCLIConfig? = nil,
         buildSystem: BuildSystem? = nil,
         module: String? = nil,
         scope: GradleTaskScope? = nil,
@@ -105,6 +110,7 @@ public struct AndroidConfig: Codable, Sendable {
         flavor: String? = nil,
         gradleFlags: [String]? = nil
     ) {
+        self.cli = cli
         self.buildSystem = buildSystem
         self.module = module
         self.scope = scope
@@ -121,6 +127,28 @@ public struct AndroidConfig: Codable, Sendable {
         self.gradleProperties = gradleProperties
         self.flavor = flavor
         self.gradleFlags = gradleFlags
+    }
+}
+
+/// Configuration for the external Google Android CLI.
+public struct AndroidCLIConfig: Codable, Sendable, Equatable {
+    /// Enables AndroidCLI-backed behavior in actions and workflows. Defaults to `false`.
+    public var enabled: Bool?
+    /// Executable name or path. Defaults to `android` on `PATH`.
+    public var executablePath: String?
+    /// Optional Android SDK override forwarded as the global `--sdk` option.
+    public var sdkPath: String?
+
+    public init(enabled: Bool? = nil, executablePath: String? = nil, sdkPath: String? = nil) {
+        self.enabled = enabled
+        self.executablePath = executablePath
+        self.sdkPath = sdkPath
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case enabled
+        case executablePath = "executable_path"
+        case sdkPath = "sdk_path"
     }
 }
 

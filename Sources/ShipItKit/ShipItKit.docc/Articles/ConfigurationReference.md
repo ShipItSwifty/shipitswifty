@@ -210,6 +210,26 @@ Per-platform overrides merged on top of the shared config when the resolved plat
 | `test_devices` (Android) | object | `{strategy: none}` | Default device config for instrumented tests. See below. |
 | `gradlew_path` / `gradle_project_dir` (Android) | string | Shipfile directory | Controls local Gradle wrapper and working directory. |
 
+### AndroidCLI (preview, opt-in)
+
+AndroidCLI complements the Gradle/ADB pipeline and does not build release artifacts. Direct commands are available with `shipit android-cli`; `android-*` workflow actions require explicit opt-in:
+
+```yaml
+android:
+  cli:
+    enabled: true
+    executable_path: android
+    sdk_path: /opt/android-sdk
+```
+
+| Key | Type | Default | Environment variable | Description |
+|---|---|---|---|---|
+| `cli.enabled` | bool | `false` | `SHIPIT_ANDROID__CLI__ENABLED` | Enables AndroidCLI-backed workflow actions. |
+| `cli.executable_path` | string | `android` | `SHIPIT_ANDROID__CLI__EXECUTABLE_PATH` | Executable name or path. Bare names use `PATH`; relative paths resolve from the Shipfile directory. |
+| `cli.sdk_path` | string | — | `SHIPIT_ANDROID__CLI__SDK_PATH` | SDK path forwarded through AndroidCLI's global `--sdk` option. |
+
+ShipIt requires AndroidCLI 1.0 or newer when enabled. It never downloads, initializes, updates, or installs skills automatically. Mutating workflow operations require `allow_mutation: true`. AndroidCLI is preview software and may report basic command/option telemetry; it does not report command output or user-supplied identifiers. Emulator management is currently unavailable on Windows.
+
 ```yaml
 ios:
   build_system: kmp           # native (default) | flutter | react_native | kmp

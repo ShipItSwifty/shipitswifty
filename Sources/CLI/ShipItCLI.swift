@@ -45,6 +45,7 @@ struct ShipItCLI: AsyncParsableCommand {
             NotifyCommand.self,
             RunCommand.self,
             EnvCommand.self,
+            AndroidCLICommand.self,
         ]
         #if os(macOS)
         commands.append(contentsOf: [

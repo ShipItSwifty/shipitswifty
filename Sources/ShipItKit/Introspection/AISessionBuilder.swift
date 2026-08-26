@@ -674,6 +674,15 @@ public struct AISessionBuilder: Sendable {
 
         switch platform {
         case .android:
+            lines += [
+                "",
+                "AndroidCLI integration is optional and disabled by default. Gradle remains the build/archive/test/lint engine.",
+                "Enable supported AndroidCLI workflows with `android.cli.enabled: true`; use `shipit android-cli <command>` for the complete upstream command surface.",
+                "AndroidCLI-backed workflow actions are named `android-<family>` and mutating operations require `allow_mutation: true`.",
+                "Do not install skills automatically. Detect with `shipit android-cli skills list --long` and recommend only relevant official skills:",
+                "  android-cli generally; testing-setup for test work; play-policy-insights and r8-analyzer for Play releases;",
+                "  android-profiler for performance work; android-intent-security, agp-9-upgrade, or play-billing-library-version-upgrade only when project evidence matches.",
+            ]
             if goal == .beta {
                 lines += [
                     "",

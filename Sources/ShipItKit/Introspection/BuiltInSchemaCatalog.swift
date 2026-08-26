@@ -347,6 +347,22 @@ public enum BuiltInSchemaCatalog {
                     "Android-specific configuration merged on top of shared config when platform resolves to .android.",
                 notes: ["Set platform to android via --platform android or SHIPIT_PLATFORM=android."],
                 properties: [
+                    .object(
+                        "cli",
+                        description: "Opt-in integration with Google's preview AndroidCLI. Gradle remains the build engine.",
+                        properties: [
+                            SchemaField(
+                                name: "enabled", type: .boolean,
+                                description: "Enable AndroidCLI-backed actions and automatic integrations.",
+                                defaultValue: .bool(false), envVar: "SHIPIT_ANDROID__CLI__ENABLED"),
+                            .string(
+                                "executable_path", description: "AndroidCLI executable name or path.",
+                                defaultValue: .string("android"), example: .string("android"),
+                                envVar: "SHIPIT_ANDROID__CLI__EXECUTABLE_PATH"),
+                            .string(
+                                "sdk_path", description: "Android SDK path forwarded as AndroidCLI --sdk.",
+                                example: .string("/opt/android-sdk"), envVar: "SHIPIT_ANDROID__CLI__SDK_PATH"),
+                        ]),
                     .string(
                         "build_system",
                         description:
@@ -554,6 +570,7 @@ public enum BuiltInSchemaCatalog {
                 name: VersionAction.name, description: VersionAction.description, options: versionOptions(),
                 example: versionExample()),
         ]
+        schemas.append(contentsOf: androidCLIActionSchemas())
         #if os(macOS)
         schemas.append(contentsOf: [
             actionSchema(
@@ -616,7 +633,7 @@ public enum BuiltInSchemaCatalog {
     }
 
     private static func allValidationActionSchemas() -> [ActionSchema] {
-        [
+        var schemas = [
             actionSchema(name: "archive", description: ArchiveAction.description, options: archiveOptions(), example: archiveExample()),
             actionSchema(name: "build", description: BuildAction.description, options: buildOptions(), example: buildExample()),
             actionSchema(name: "coverage", description: CoverageAction.description, options: coverageOptions(), example: coverageExample()),
@@ -672,6 +689,48 @@ public enum BuiltInSchemaCatalog {
                 name: "version", description: "Bump iOS app version values.", options: versionOptions(),
                 example: versionExample()),
         ]
+        schemas.append(contentsOf: androidCLIActionSchemas())
+        return schemas
+    }
+
+    private static func androidCLIActionSchemas() -> [ActionSchema] {
+        let operations: [(String, String, [String])] = [
+            (AndroidCreateAction.name, AndroidCreateAction.description, ["create", "list"]),
+            (AndroidDescribeAction.name, AndroidDescribeAction.description, ["describe"]),
+            (AndroidDocsAction.name, AndroidDocsAction.description, ["search", "fetch"]),
+            (AndroidEmulatorAction.name, AndroidEmulatorAction.description, ["create", "start", "stop", "list", "remove"]),
+            (AndroidHelpAction.name, AndroidHelpAction.description, ["help"]),
+            (AndroidInfoAction.name, AndroidInfoAction.description, ["info"]),
+            (AndroidInitAction.name, AndroidInitAction.description, ["init"]),
+            (AndroidInstallAction.name, AndroidInstallAction.description, ["install"]),
+            (AndroidLayoutAction.name, AndroidLayoutAction.description, ["layout"]),
+            (AndroidRunAction.name, AndroidRunAction.description, ["run"]),
+            (AndroidScreenAction.name, AndroidScreenAction.description, ["capture", "resolve"]),
+            (AndroidSDKAction.name, AndroidSDKAction.description, ["install", "update", "remove", "list"]),
+            (AndroidSkillsAction.name, AndroidSkillsAction.description, ["add", "remove", "list", "find"]),
+            (
+                AndroidStudioAction.name, AndroidStudioAction.description,
+                ["check", "analyze-file", "find-declaration", "find-usages", "open-file", "render-compose-preview", "version-lookup"]
+            ),
+            (AndroidUpdateAction.name, AndroidUpdateAction.description, ["update"]),
+            (AndroidCLIVersionAction.name, AndroidCLIVersionAction.description, ["--version"]),
+        ]
+        return operations.map { name, description, allowed in
+            actionSchema(
+                name: name,
+                description: description,
+                options: [
+                    .string("operation", required: true, description: "AndroidCLI operation.", allowedValues: allowed),
+                    .array(
+                        "arguments", description: "Arguments following the operation.",
+                        items: .string("argument", description: "Raw AndroidCLI argument.")),
+                    .boolean(
+                        "allow_mutation", description: "Explicitly authorize environment- or device-changing operations.",
+                        defaultValue: .bool(false)),
+                ],
+                example: .object(["operation": .string(allowed[0]), "arguments": .array([])])
+            )
+        }
     }
 
     private static func actionSchema(

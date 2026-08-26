@@ -669,6 +669,28 @@ Platform-specific Android configuration. These values are merged on top of share
 | `gradle_project_dir` | string | Shipfile directory | `SHIPIT_ANDROID__GRADLE_PROJECT_DIR` | Directory containing the Gradle root project |
 | `gradle_flags` | array | `[]` | — | Extra Gradle flags such as `--configuration-cache` or `--stacktrace` |
 
+### AndroidCLI (preview, opt-in)
+
+AndroidCLI complements the existing Gradle/ADB pipeline; it does not build release artifacts. Direct commands are available through `shipit android-cli`, while workflow actions require explicit opt-in:
+
+```yaml
+android:
+  cli:
+    enabled: true
+    executable_path: android
+    sdk_path: /opt/android-sdk
+```
+
+| Key | Default | Env Var | Description |
+|---|---|---|---|
+| `cli.enabled` | `false` | `SHIPIT_ANDROID__CLI__ENABLED` | Enables `android-*` workflow actions. |
+| `cli.executable_path` | `android` | `SHIPIT_ANDROID__CLI__EXECUTABLE_PATH` | Executable name or path. Relative paths resolve from the Shipfile directory; bare names use `PATH`. |
+| `cli.sdk_path` | — | `SHIPIT_ANDROID__CLI__SDK_PATH` | SDK path forwarded as AndroidCLI's global `--sdk`. |
+
+ShipIt requires AndroidCLI 1.0 or newer when enabled. It never downloads, initializes, updates, or installs skills automatically. Environment- or device-changing workflow operations require `allow_mutation: true`.
+
+AndroidCLI is preview software and reports basic command/option telemetry as described in Google's documentation; it does not report command output or user-supplied identifiers. AndroidCLI emulator management is currently unavailable on Windows. ShipIt retains Gradle, Emulator, and ADB for build operations and capabilities AndroidCLI does not expose.
+
 ### Google Play credentials
 
 Set these environment variables for Google Play upload actions:
