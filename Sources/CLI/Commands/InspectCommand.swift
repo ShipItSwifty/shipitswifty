@@ -45,6 +45,7 @@ extension InspectCommand {
                     formatter.printKV("Preferred", "\(preferred.kind): \(preferred.path)")
                 }
                 formatter.printKV("Schemes", inspection.schemes.isEmpty ? "(none)" : inspection.schemes.map(\.name).joined(separator: ", "))
+                formatter.printKV("Test Plans", inspection.testPlans.isEmpty ? "(none)" : inspection.testPlans.joined(separator: ", "))
                 if let scheme = inspection.suggestedAppConfig.scheme {
                     formatter.printKV("Suggested Scheme", scheme)
                 }

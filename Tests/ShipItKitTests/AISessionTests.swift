@@ -213,6 +213,26 @@ struct AISessionTests {
         #expect(payload.agentPrompt.contains("transient test infrastructure failures"))
     }
 
+    @Test("Agent prompt preserves a detected iOS test plan")
+    func agentPromptMentionsDetectedTestPlan() {
+        var inspection = fullInspection()
+        inspection = ProjectInspection(
+            rootPath: inspection.rootPath, xcodeContainers: inspection.xcodeContainers,
+            preferredContainer: inspection.preferredContainer, schemes: inspection.schemes,
+            testPlans: ["App.xcodeproj/xcshareddata/xctestplans/Regression.xctestplan"],
+            suggestedAppConfig: inspection.suggestedAppConfig, existingShipfiles: inspection.existingShipfiles,
+            fastlaneFiles: inspection.fastlaneFiles, ciFiles: inspection.ciFiles, warnings: inspection.warnings,
+            suggestedAndroidPackageName: inspection.suggestedAndroidPackageName,
+            detectedPlatform: inspection.detectedPlatform, gradleFiles: inspection.gradleFiles,
+            detectedBuildSystem: inspection.detectedBuildSystem, buildSystemFiles: inspection.buildSystemFiles
+        )
+        let payload = AISessionBuilder().build(goal: .beta, inspection: inspection, hasExistingShipfile: false)
+
+        #expect(payload.suggestedShipfile.contains("test_plan: \"Regression\""))
+        #expect(payload.agentPrompt.contains("Detected test plan"))
+        #expect(payload.appConfig.contains { $0.keyPath.contains("test_plan") && $0.value == .string("Regression") })
+    }
+
     @Test("Distribution agent prompt documents Firebase keyless authentication")
     func distributionPromptMentionsFirebaseWIF() {
         let payload = AISessionBuilder().build(

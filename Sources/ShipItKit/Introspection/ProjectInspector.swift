@@ -13,6 +13,7 @@ public struct ProjectInspector: Sendable {
     public func inspect() async throws -> ProjectInspection {
         let fileManager = FileManager.default
         let containers = discoverXcodeContainers(fileManager: fileManager)
+        let testPlans = discoverTestPlans(fileManager: fileManager)
         let preferredContainer = preferredContainer(from: containers)
         #if os(macOS)
         let schemes = try await inspectSchemes(in: preferredContainer)
@@ -39,6 +40,9 @@ public struct ProjectInspector: Sendable {
         if containers.count > 1 {
             warnings.append("Multiple Xcode containers were found. Review the suggested workspace/project before using generated config.")
         }
+        if testPlans.count > 1 {
+            warnings.append("Multiple .xctestplan files were found. Confirm which plan the generated test workflow should use.")
+        }
         if let detectedBuildSystem {
             warnings.append(
                 "Detected \(detectedBuildSystem.rawValue) project. Set `ios.build_system: \(detectedBuildSystem.rawValue)` and `android.build_system: \(detectedBuildSystem.rawValue)` in Shipfile.yml to opt into framework-aware builds."
@@ -50,6 +54,7 @@ public struct ProjectInspector: Sendable {
             xcodeContainers: containers,
             preferredContainer: preferredContainer,
             schemes: schemes,
+            testPlans: testPlans,
             suggestedAppConfig: suggestedAppConfig,
             existingShipfiles: discoverFiles(
                 named: ["Shipfile.yml", "Shipfile.example.yml"], suffixes: ["yml", "yaml"],
@@ -117,6 +122,26 @@ public struct ProjectInspector: Sendable {
         }
     }
 
+    /// Finds test plans even when they live inside an `.xcodeproj` bundle.
+    /// `discoverXcodeContainers` deliberately skips those bundles after recording them,
+    /// so this is a separate pass.
+    private func discoverTestPlans(fileManager: FileManager) -> [String] {
+        let enumerator = fileManager.enumerator(
+            at: URL(fileURLWithPath: rootPath), includingPropertiesForKeys: [.isDirectoryKey], options: [.skipsHiddenFiles])
+        var plans: [String] = []
+
+        while let url = enumerator?.nextObject() as? URL {
+            if shouldSkip(url: url) {
+                enumerator?.skipDescendants()
+                continue
+            }
+            if url.pathExtension.lowercased() == "xctestplan" {
+                plans.append(relativePath(for: url.path))
+            }
+        }
+        return plans.sorted()
+    }
+
     private func preferredContainer(from containers: [ProjectInspection.XcodeContainer]) -> ProjectInspection.XcodeContainer? {
         containers.first(where: { $0.kind == "workspace" }) ?? containers.first
     }
@@ -125,9 +150,16 @@ public struct ProjectInspector: Sendable {
     private func inspectSchemes(in container: ProjectInspection.XcodeContainer?) async throws -> [ProjectInspection.SchemeSummary] {
         guard let container else { return [] }
 
-        let output = try await xcodebuild(for: container)
-            .option(.list)
-            .run()
+        let output: ShellOutput
+        do {
+            output = try await xcodebuild(for: container)
+                .option(.list)
+                .run()
+        } catch {
+            // Inspection is best-effort. A project can still have useful on-disk
+            // signals (including test plans) when xcodebuild cannot load it yet.
+            return []
+        }
 
         guard output.exitCode == 0 else { return [] }
         let schemes = parseSchemes(from: output.stdout)
@@ -135,7 +167,7 @@ public struct ProjectInspector: Sendable {
         return try await withThrowingTaskGroup(of: ProjectInspection.SchemeSummary.self) { group in
             for scheme in schemes {
                 group.addTask {
-                    let buildSettings = try await buildSettings(for: scheme, in: container)
+                    let buildSettings = await buildSettings(for: scheme, in: container)
                     return ProjectInspection.SchemeSummary(
                         name: scheme,
                         containerPath: container.path,
@@ -154,11 +186,16 @@ public struct ProjectInspector: Sendable {
         }
     }
 
-    private func buildSettings(for scheme: String, in container: ProjectInspection.XcodeContainer) async throws -> [String: String] {
-        let output = try await xcodebuild(for: container)
-            .option(.scheme(scheme))
-            .showBuildSettings()
-            .run()
+    private func buildSettings(for scheme: String, in container: ProjectInspection.XcodeContainer) async -> [String: String] {
+        let output: ShellOutput
+        do {
+            output = try await xcodebuild(for: container)
+                .option(.scheme(scheme))
+                .showBuildSettings()
+                .run()
+        } catch {
+            return [:]
+        }
 
         // Note: SubprocessExecutor already throws ShellError.exitFailure before returning a
         // non-zero exit code in production, so this guard is only reachable via mock executors
