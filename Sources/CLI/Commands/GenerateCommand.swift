@@ -278,7 +278,8 @@ struct GenerateCommand: AsyncParsableCommand {
         let enableRetries = confirm("Keep infrastructure retries enabled for generated test steps?", defaultAnswer: true)
         guard !enableRetries else { return yaml }
 
-        let withoutRetries = yaml
+        let withoutRetries =
+            yaml
             .split(separator: "\n", omittingEmptySubsequences: false)
             .filter { !$0.contains("infrastructure_retry") }
 

@@ -132,7 +132,8 @@ struct IntrospectionTests {
     func projectInspectorDiscoversTestPlans() async throws {
         let tempDirectory = try makeTempDirectory()
         defer { try? FileManager.default.removeItem(at: tempDirectory) }
-        let planDirectory = tempDirectory
+        let planDirectory =
+            tempDirectory
             .appendingPathComponent("App.xcodeproj/xcshareddata/xctestplans")
         try FileManager.default.createDirectory(at: planDirectory, withIntermediateDirectories: true)
         try "{}".write(to: planDirectory.appendingPathComponent("Regression.xctestplan"), atomically: true, encoding: .utf8)
