@@ -106,6 +106,41 @@ struct IntrospectionTests {
         #expect(suggestion.yaml.contains("beta:"))
         #expect(suggestion.yaml.contains("# - action: testflight"))
         #expect(suggestion.yaml.contains("archive_path: ./build/App.xcarchive"))
+        #expect(suggestion.yaml.contains("- action: test"))
+        #expect(suggestion.yaml.contains("infrastructure_retry: { max_attempts: 3, initial_delay_seconds: 2, max_delay_seconds: 30 }"))
+    }
+
+    @Test("Shipfile suggester uses a detected single iOS test plan")
+    func shipfileSuggesterUsesDetectedTestPlan() {
+        let inspection = ProjectInspection(
+            rootPath: "/tmp/project",
+            xcodeContainers: [.init(kind: "project", path: "App.xcodeproj")],
+            preferredContainer: .init(kind: "project", path: "App.xcodeproj"),
+            schemes: [],
+            testPlans: ["App.xcodeproj/xcshareddata/xctestplans/Regression.xctestplan"],
+            suggestedAppConfig: .init(project: "App.xcodeproj", scheme: "App"),
+            existingShipfiles: [], fastlaneFiles: [], ciFiles: [], warnings: []
+        )
+
+        let suggestion = ShipfileSuggester().suggest(goal: .beta, platform: .ios, from: inspection)
+
+        #expect(suggestion.yaml.contains("test_plan: \"Regression\""))
+        #expect(suggestion.yaml.contains("infrastructure_retry: { max_attempts: 3, initial_delay_seconds: 2, max_delay_seconds: 30 }"))
+    }
+
+    @Test("Project inspector discovers test plans inside Xcode project bundles")
+    func projectInspectorDiscoversTestPlans() async throws {
+        let tempDirectory = try makeTempDirectory()
+        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+        let planDirectory =
+            tempDirectory
+            .appendingPathComponent("App.xcodeproj/xcshareddata/xctestplans")
+        try FileManager.default.createDirectory(at: planDirectory, withIntermediateDirectories: true)
+        try "{}".write(to: planDirectory.appendingPathComponent("Regression.xctestplan"), atomically: true, encoding: .utf8)
+
+        let inspection = try await ProjectInspector(rootPath: tempDirectory.path).inspect()
+
+        #expect(inspection.testPlans == ["App.xcodeproj/xcshareddata/xctestplans/Regression.xctestplan"])
     }
 
     @Test("Shipfile suggester generates Android workflow")
@@ -289,6 +324,9 @@ struct IntrospectionTests {
                 ArchiveAction.descriptor(
                     for: ArchiveAction(),
                     optionSchema: BuiltInSchemaCatalog.optionSchema(for: ArchiveAction.name)),
+                TestAction.descriptor(
+                    for: TestAction(),
+                    optionSchema: BuiltInSchemaCatalog.optionSchema(for: TestAction.name)),
                 ExportAction.descriptor(
                     for: ExportAction(),
                     optionSchema: BuiltInSchemaCatalog.optionSchema(for: ExportAction.name)),

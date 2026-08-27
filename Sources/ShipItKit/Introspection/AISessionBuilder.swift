@@ -59,6 +59,7 @@ public struct AISessionBuilder: Sendable {
             readiness: readiness,
             platform: platform,
             detectedBuildSystem: inspection.detectedBuildSystem,
+            testPlans: inspection.testPlans,
             customActions: customActions
         )
         let nextQuestion = buildNextQuestion(
@@ -292,6 +293,18 @@ public struct AISessionBuilder: Sendable {
                 ))
         }
 
+        if inspection.testPlans.count == 1, let testPlanPath = inspection.testPlans.first {
+            let testPlan = URL(fileURLWithPath: testPlanPath).deletingPathExtension().lastPathComponent
+            entries.append(
+                .init(
+                    keyPath: "workflows.\(goal.rawValue)[test].options.test_plan",
+                    value: .string(testPlan),
+                    source: .detected,
+                    confidence: .high,
+                    why: "Found the single .xctestplan at \(testPlanPath)"
+                ))
+        }
+
         // Assumed defaults
         entries.append(
             .init(
@@ -363,6 +376,14 @@ public struct AISessionBuilder: Sendable {
                     field: "app.workspace",
                     options: workspaces.map { .string($0.path) },
                     message: "\(workspaces.count) workspaces found. Confirm which one is the primary app."
+                ))
+        }
+        if inspection.testPlans.count > 1 {
+            flags.append(
+                .init(
+                    field: "workflows.<name>[test].options.test_plan",
+                    options: inspection.testPlans.map { .string(URL(fileURLWithPath: $0).deletingPathExtension().lastPathComponent) },
+                    message: "\(inspection.testPlans.count) .xctestplan files found. Confirm which plan the test workflow should run."
                 ))
         }
         return flags
@@ -581,6 +602,7 @@ public struct AISessionBuilder: Sendable {
         readiness: AIReadiness,
         platform: Platform,
         detectedBuildSystem: BuildSystem? = nil,
+        testPlans: [String] = [],
         customActions: [String: CustomActionConfig] = [:]
     ) -> String {
         let platformFlag = platform == .android ? " --platform android" : ""
@@ -708,6 +730,19 @@ public struct AISessionBuilder: Sendable {
                 ]
             }
         case .ios:
+            if testPlans.count == 1, let path = testPlans.first {
+                let name = URL(fileURLWithPath: path).deletingPathExtension().lastPathComponent
+                lines += [
+                    "",
+                    "Detected test plan: \(path). The generated iOS test step uses `test_plan: \"\(name)\"`.",
+                    "Keep that test plan unless the user explicitly chooses another one; do not invent plan names.",
+                ]
+            } else if testPlans.count > 1 {
+                lines += [
+                    "",
+                    "Detected iOS test plans: \(testPlans.joined(separator: ", ")). Ask the user to choose one before setting `test_plan`; do not silently pick or invent a plan name.",
+                ]
+            }
             if goal == .local {
                 lines += [
                     "",
@@ -802,8 +837,8 @@ public struct AISessionBuilder: Sendable {
         lines += [
             "",
             "When config is incomplete, ask one focused question at a time, starting with the highest-impact missing value.",
-            "When generating or editing workflows with test steps, ask whether to enable `infrastructure_retry` for transient test infrastructure failures.",
-            "Use `infrastructure_retry: { max_attempts: 3, initial_delay_seconds: 2, max_delay_seconds: 30 }` as a safe default when the user wants retries.",
+            "Generated test steps enable `infrastructure_retry: { max_attempts: 3, initial_delay_seconds: 2, max_delay_seconds: 30 }` by default for transient test infrastructure failures.",
+            "Preserve that default unless the user explicitly opts out or supplies a different retry policy.",
             "Use `retry_on_failure` only for iOS test re-runs of failing test cases; use `infrastructure_retry` for whole-invocation simulator, emulator, Flutter tool, or JS worker failures.",
             "Use `rerun_failed_tests: { enabled: true, max_attempts: 2 }` when the user wants one selective rerun pass plus structured flaky-test reporting.",
             "Workflow test summaries may include named passed/failed tests when the underlying tool output or JUnit XML reports expose them; otherwise they fall back to aggregated counts.",

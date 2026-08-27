@@ -115,7 +115,7 @@ public struct ShipfileSuggester: Sendable {
             )
         }
 
-        let yaml = renderIOSYAML(goal: goal, app: app)
+        let yaml = renderIOSYAML(goal: goal, app: app, testPlan: suggestedTestPlan(from: inspection))
         return SuggestedShipfile(
             goal: goal, inspection: inspection, missingValues: missingValues, warnings: warnings,
             yaml: yaml)
@@ -267,14 +267,14 @@ public struct ShipfileSuggester: Sendable {
                 "    - action: lint",
                 "    - action: test",
                 "      # Optional: retry whole test runs for transient simulator/tool failures.",
-                "      # options: { infrastructure_retry: { max_attempts: 3, initial_delay_seconds: 2, max_delay_seconds: 30 } }",
+                "      options: { infrastructure_retry: { max_attempts: 3, initial_delay_seconds: 2, max_delay_seconds: 30 } }",
                 "    - action: build",
             ])
         case .beta:
             lines.append(contentsOf: [
                 "  beta-ios:",
                 "    - action: test",
-                "      # options: { infrastructure_retry: { max_attempts: 3, initial_delay_seconds: 2, max_delay_seconds: 30 } }",
+                "      options: { infrastructure_retry: { max_attempts: 3, initial_delay_seconds: 2, max_delay_seconds: 30 } }",
                 "    - action: archive",
                 "      options: { platform: ios }",
                 "    # Flutter iOS: archive produces build/ios/ipa/*.ipa directly (no export step needed).",
@@ -282,7 +282,7 @@ public struct ShipfileSuggester: Sendable {
                 "    # - action: testflight",
                 "  beta-android:",
                 "    - action: test",
-                "      # options: { infrastructure_retry: { max_attempts: 3, initial_delay_seconds: 2, max_delay_seconds: 30 } }",
+                "      options: { infrastructure_retry: { max_attempts: 3, initial_delay_seconds: 2, max_delay_seconds: 30 } }",
                 "    - action: archive",
                 "      options: { platform: android }",
                 "    # - action: play-store",
@@ -292,13 +292,13 @@ public struct ShipfileSuggester: Sendable {
             lines.append(contentsOf: [
                 "  release-ios:",
                 "    - action: test",
-                "      # options: { infrastructure_retry: { max_attempts: 3, initial_delay_seconds: 2, max_delay_seconds: 30 } }",
+                "      options: { infrastructure_retry: { max_attempts: 3, initial_delay_seconds: 2, max_delay_seconds: 30 } }",
                 "    - action: archive",
                 "      options: { platform: ios }",
                 "    - action: testflight",
                 "  release-android:",
                 "    - action: test",
-                "      # options: { infrastructure_retry: { max_attempts: 3, initial_delay_seconds: 2, max_delay_seconds: 30 } }",
+                "      options: { infrastructure_retry: { max_attempts: 3, initial_delay_seconds: 2, max_delay_seconds: 30 } }",
                 "    - action: archive",
                 "      options: { platform: android }",
                 "    - action: play-store",
@@ -336,13 +336,13 @@ public struct ShipfileSuggester: Sendable {
                 "  local-ios:",
                 "    - action: lint",
                 "    - action: test",
-                "      # options: { infrastructure_retry: { max_attempts: 3, initial_delay_seconds: 2, max_delay_seconds: 30 } }",
+                "      options: { infrastructure_retry: { max_attempts: 3, initial_delay_seconds: 2, max_delay_seconds: 30 } }",
                 "    - action: build",
                 "      options: { platform: ios }",
                 "  local-android:",
                 "    - action: lint",
                 "    - action: test",
-                "      # options: { infrastructure_retry: { max_attempts: 3, initial_delay_seconds: 2, max_delay_seconds: 30 } }",
+                "      options: { infrastructure_retry: { max_attempts: 3, initial_delay_seconds: 2, max_delay_seconds: 30 } }",
                 "    - action: build",
                 "      options: { platform: android }",
             ])
@@ -351,7 +351,7 @@ public struct ShipfileSuggester: Sendable {
                 "  beta-ios:",
                 "    - action: lint",
                 "    - action: test",
-                "      # options: { infrastructure_retry: { max_attempts: 3, initial_delay_seconds: 2, max_delay_seconds: 30 } }",
+                "      options: { infrastructure_retry: { max_attempts: 3, initial_delay_seconds: 2, max_delay_seconds: 30 } }",
                 "    # RN iOS: build validates the bundle; archive + export produces the IPA.",
                 "    - action: archive",
                 "      options: { platform: ios }",
@@ -360,7 +360,7 @@ public struct ShipfileSuggester: Sendable {
                 "  beta-android:",
                 "    - action: lint",
                 "    - action: test",
-                "      # options: { infrastructure_retry: { max_attempts: 3, initial_delay_seconds: 2, max_delay_seconds: 30 } }",
+                "      options: { infrastructure_retry: { max_attempts: 3, initial_delay_seconds: 2, max_delay_seconds: 30 } }",
                 "    - action: archive",
                 "      options: { platform: android }",
                 "    # - action: play-store",
@@ -371,7 +371,7 @@ public struct ShipfileSuggester: Sendable {
                 "  release-ios:",
                 "    - action: lint",
                 "    - action: test",
-                "      # options: { infrastructure_retry: { max_attempts: 3, initial_delay_seconds: 2, max_delay_seconds: 30 } }",
+                "      options: { infrastructure_retry: { max_attempts: 3, initial_delay_seconds: 2, max_delay_seconds: 30 } }",
                 "    - action: archive",
                 "      options: { platform: ios }",
                 "    - action: export",
@@ -379,7 +379,7 @@ public struct ShipfileSuggester: Sendable {
                 "  release-android:",
                 "    - action: lint",
                 "    - action: test",
-                "      # options: { infrastructure_retry: { max_attempts: 3, initial_delay_seconds: 2, max_delay_seconds: 30 } }",
+                "      options: { infrastructure_retry: { max_attempts: 3, initial_delay_seconds: 2, max_delay_seconds: 30 } }",
                 "    - action: archive",
                 "      options: { platform: android }",
                 "    - action: play-store",
@@ -390,8 +390,13 @@ public struct ShipfileSuggester: Sendable {
         return lines.joined(separator: "\n") + "\n"
     }
 
+    private func suggestedTestPlan(from inspection: ProjectInspection) -> String? {
+        guard inspection.testPlans.count == 1, let path = inspection.testPlans.first else { return nil }
+        return URL(fileURLWithPath: path).deletingPathExtension().lastPathComponent
+    }
+
     private func renderIOSYAML(
-        goal: SuggestionGoal, app: ProjectInspection.SuggestedAppConfig
+        goal: SuggestionGoal, app: ProjectInspection.SuggestedAppConfig, testPlan: String?
     )
         -> String
     {
@@ -494,60 +499,72 @@ public struct ShipfileSuggester: Sendable {
 
         switch goal {
         case .local:
-            lines.append(contentsOf: [
-                "  local:",
-                "    - action: build",
-                "    # Test step: set destinations to the simulators/devices you want to run on.",
-                "    # Run `xcodebuild -showdestinations -scheme <scheme>` to list valid values,",
-                "    # or use `shipit ai-session --goal local` which discovers them automatically.",
-                "    # Remove this step (or leave destinations empty) to skip tests.",
-                "    - action: test",
-                "      options:",
-                "        destinations:",
-                "          # - \"platform=iOS Simulator,name=<SimulatorName>,OS=<Version>\"",
-                "        # infrastructure_retry: { max_attempts: 3, initial_delay_seconds: 2, max_delay_seconds: 30 }",
-                "    - action: archive",
-                "    - action: export",
-            ])
+            lines.append(
+                contentsOf: [
+                    "  local:",
+                    "    - action: build",
+                    "    # Test step: set destinations to the simulators/devices you want to run on.",
+                    "    # Run `xcodebuild -showdestinations -scheme <scheme>` to list valid values,",
+                    "    # or use `shipit ai-session --goal local` which discovers them automatically.",
+                    "    # Remove this step (or leave destinations empty) to skip tests.",
+                    "    - action: test",
+                    "      options:",
+                    testPlan.map { "        test_plan: \"\($0)\"" },
+                    "        destinations:",
+                    "          # - \"platform=iOS Simulator,name=<SimulatorName>,OS=<Version>\"",
+                    "        infrastructure_retry: { max_attempts: 3, initial_delay_seconds: 2, max_delay_seconds: 30 }",
+                    "    - action: archive",
+                    "    - action: export",
+                ].compactMap { $0 })
         case .beta:
-            lines.append(contentsOf: [
-                "  beta:",
-                "    # 1. Bump CFBundleVersion (integer build number) only — marketing version unchanged.",
-                "    - action: version",
-                "      options: { bump: build }",
-                "    - action: archive",
-                "    # 2. Export .ipa locally. No App Store Connect credentials required.",
-                "    - action: export",
-                "    # To upload to TestFlight, uncomment the app_store_connect section above and add:",
-                "    # - action: testflight",
-                "    #   options:",
-                "    #     groups: [\"Internal QA\"]",
-            ])
+            lines.append(
+                contentsOf: [
+                    "  beta:",
+                    "    # 1. Bump CFBundleVersion (integer build number) only — marketing version unchanged.",
+                    "    - action: version",
+                    "      options: { bump: build }",
+                    "    - action: test",
+                    "      options:",
+                    testPlan.map { "        test_plan: \"\($0)\"" },
+                    "        infrastructure_retry: { max_attempts: 3, initial_delay_seconds: 2, max_delay_seconds: 30 }",
+                    "    - action: archive",
+                    "    # 2. Export .ipa locally. No App Store Connect credentials required.",
+                    "    - action: export",
+                    "    # To upload to TestFlight, uncomment the app_store_connect section above and add:",
+                    "    # - action: testflight",
+                    "    #   options:",
+                    "    #     groups: [\"Internal QA\"]",
+                ].compactMap { $0 })
         case .release:
-            lines.append(contentsOf: [
-                "  release:",
-                "    # Bump the marketing version (patch by default). Use ${RELEASE_BUMP} to",
-                "    # drive the component from CI (major|minor|patch|build).",
-                "    - action: version",
-                "      options: { bump: patch }   # or: { bump: ${RELEASE_BUMP} }",
-                "    - action: archive",
-                "    - action: export",
-                "    - action: precheck",
-                "      options: { directory: ./metadata }",
-                "    - action: metadata",
-                "      options: { push: true }",
-                "    - action: upload",
-                "      options: { submit_for_review: true, phased_release: true }",
-                "    # Commit the version bump, then tag the released marketing version and push.",
-                "    # The tag step is skipped on build-only bumps (when version_changed is false).",
-                "    - action: git",
-                "      options: { operation: commit, commit_message: \"chore: release v{{version}} (build {{build_number}})\" }",
-                "    - action: git",
-                "      when: \"{{version_changed}}\"",
-                "      options: { operation: tag, tag_name: \"v{{version}}\" }",
-                "    - action: git",
-                "      options: { operation: push, push_tags: true }",
-            ])
+            lines.append(
+                contentsOf: [
+                    "  release:",
+                    "    # Bump the marketing version (patch by default). Use ${RELEASE_BUMP} to",
+                    "    # drive the component from CI (major|minor|patch|build).",
+                    "    - action: version",
+                    "      options: { bump: patch }   # or: { bump: ${RELEASE_BUMP} }",
+                    "    - action: test",
+                    "      options:",
+                    testPlan.map { "        test_plan: \"\($0)\"" },
+                    "        infrastructure_retry: { max_attempts: 3, initial_delay_seconds: 2, max_delay_seconds: 30 }",
+                    "    - action: archive",
+                    "    - action: export",
+                    "    - action: precheck",
+                    "      options: { directory: ./metadata }",
+                    "    - action: metadata",
+                    "      options: { push: true }",
+                    "    - action: upload",
+                    "      options: { submit_for_review: true, phased_release: true }",
+                    "    # Commit the version bump, then tag the released marketing version and push.",
+                    "    # The tag step is skipped on build-only bumps (when version_changed is false).",
+                    "    - action: git",
+                    "      options: { operation: commit, commit_message: \"chore: release v{{version}} (build {{build_number}})\" }",
+                    "    - action: git",
+                    "      when: \"{{version_changed}}\"",
+                    "      options: { operation: tag, tag_name: \"v{{version}}\" }",
+                    "    - action: git",
+                    "      options: { operation: push, push_tags: true }",
+                ].compactMap { $0 })
         }
 
         return lines.joined(separator: "\n") + "\n"
@@ -588,7 +605,7 @@ public struct ShipfileSuggester: Sendable {
                 "  local:",
                 "    - action: lint",
                 "    - action: test",
-                "      # options: { infrastructure_retry: { max_attempts: 3, initial_delay_seconds: 2, max_delay_seconds: 30 } }",
+                "      options: { infrastructure_retry: { max_attempts: 3, initial_delay_seconds: 2, max_delay_seconds: 30 } }",
                 "    - action: build",
             ])
         case .beta:
@@ -599,7 +616,7 @@ public struct ShipfileSuggester: Sendable {
                 "      options: { bump: build }",
                 "    - action: lint",
                 "    - action: test",
-                "      # options: { infrastructure_retry: { max_attempts: 3, initial_delay_seconds: 2, max_delay_seconds: 30 } }",
+                "      options: { infrastructure_retry: { max_attempts: 3, initial_delay_seconds: 2, max_delay_seconds: 30 } }",
                 "    # For instrumented Android tests, prefer explicit devices so ShipIt can boot the right AVD locally.",
                 "    # - action: test",
                 "    #   options:",
@@ -623,7 +640,7 @@ public struct ShipfileSuggester: Sendable {
                 "      options: { bump: patch }   # or: { bump: ${RELEASE_BUMP} }",
                 "    - action: lint",
                 "    - action: test",
-                "      # options: { infrastructure_retry: { max_attempts: 3, initial_delay_seconds: 2, max_delay_seconds: 30 } }",
+                "      options: { infrastructure_retry: { max_attempts: 3, initial_delay_seconds: 2, max_delay_seconds: 30 } }",
                 "    # Add a second test step with `kind: instrumented` + explicit `devices` when this workflow should run emulator-backed Android tests.",
                 "    - action: archive",
                 "    - action: play-store",

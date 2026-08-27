@@ -14,6 +14,7 @@ struct InspectOutputTests {
             xcodeContainers: [],
             preferredContainer: nil,
             schemes: [],
+            testPlans: ["App.xcodeproj/xcshareddata/xctestplans/Regression.xctestplan"],
             suggestedAppConfig: .init(),
             existingShipfiles: [],
             fastlaneFiles: [],
@@ -31,5 +32,6 @@ struct InspectOutputTests {
 
         #expect(object["detectedBuildSystem"] == .string("kmp"))
         #expect(object["buildSystemFiles"] == .array([.string("build.gradle.kts"), .string("settings.gradle.kts")]))
+        #expect(object["testPlans"] == .array([.string("App.xcodeproj/xcshareddata/xctestplans/Regression.xctestplan")]))
     }
 }

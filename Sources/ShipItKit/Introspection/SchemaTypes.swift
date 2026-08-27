@@ -342,6 +342,8 @@ public struct ProjectInspection: Codable, Sendable, Hashable {
     public let xcodeContainers: [XcodeContainer]
     public let preferredContainer: XcodeContainer?
     public let schemes: [SchemeSummary]
+    /// Discovered `.xctestplan` files, relative to the project root.
+    public let testPlans: [String]
     public let suggestedAppConfig: SuggestedAppConfig
     public let existingShipfiles: [String]
     public let fastlaneFiles: [String]
@@ -366,6 +368,7 @@ public struct ProjectInspection: Codable, Sendable, Hashable {
         xcodeContainers: [XcodeContainer],
         preferredContainer: XcodeContainer?,
         schemes: [SchemeSummary],
+        testPlans: [String] = [],
         suggestedAppConfig: SuggestedAppConfig,
         existingShipfiles: [String],
         fastlaneFiles: [String],
@@ -381,6 +384,7 @@ public struct ProjectInspection: Codable, Sendable, Hashable {
         self.xcodeContainers = xcodeContainers
         self.preferredContainer = preferredContainer
         self.schemes = schemes
+        self.testPlans = testPlans
         self.suggestedAppConfig = suggestedAppConfig
         self.existingShipfiles = existingShipfiles
         self.fastlaneFiles = fastlaneFiles

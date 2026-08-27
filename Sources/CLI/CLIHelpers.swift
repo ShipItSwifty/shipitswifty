@@ -271,6 +271,7 @@ func projectInspectionJSON(_ inspection: ProjectInspection) -> JSONValue {
                     "likelyRunnable": .bool(scheme.likelyRunnable),
                 ])
             }),
+        "testPlans": .array(inspection.testPlans.map(JSONValue.string)),
         "suggestedAppConfig": .object([
             "workspace": inspection.suggestedAppConfig.workspace.map(JSONValue.string) ?? .null,
             "project": inspection.suggestedAppConfig.project.map(JSONValue.string) ?? .null,
