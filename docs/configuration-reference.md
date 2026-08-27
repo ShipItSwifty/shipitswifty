@@ -362,7 +362,7 @@ The `test` action is configured inline in a workflow step. It does **not** have 
 
 `retry_on_failure`, `rerun_failed_tests`, and `infrastructure_retry` solve different problems. Use `retry_on_failure` for xcodebuild's built-in one-pass iOS retry behavior. Use `rerun_failed_tests` when you want ShipIt to collect the initial failures, rerun those specific tests once, and emit flaky/persistent failure information in `TestRunReport`. Use `infrastructure_retry` for whole-run failures such as simulator launch crashes, Android emulator disconnects, Flutter tool crashes, or JS worker failures.
 
-`shipit generate` asks whether generated test steps should enable `infrastructure_retry`. `shipit ai-session` includes the same guidance in the agent prompt so AI-assisted workflow creation asks the same question.
+`shipit generate` enables this retry policy on generated test steps by default; interactive generation lets users opt out. `shipit ai-session` preserves that default in its prompt rather than asking agents to recreate it.
 
 ## `test-results` action options
 
