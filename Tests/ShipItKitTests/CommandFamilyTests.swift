@@ -92,24 +92,6 @@ struct CommandFamilyTests {
         #expect(command.arguments == ["xccov", "view", "--report", "--json", "build/tests.xcresult"])
     }
 
-    @Test func buildsAltoolCommand() {
-        let command = Altool()
-            .uploadApp(ipaPath: "App.ipa", platform: "ios", apiKey: "KEY", apiIssuer: "ISSUER")
-            .command()
-
-        #expect(command.executableName == "xcrun")
-        #expect(
-            command.arguments == [
-                "altool",
-                "--upload-app",
-                "-f", "App.ipa",
-                "-t", "ios",
-                "--apiKey", "KEY",
-                "--apiIssuer", "ISSUER",
-                "--output-format", "json",
-            ])
-    }
-
     @Test func buildsFrameitAndWhichCommands() {
         #expect(Which().tool("frameit").command().arguments == ["frameit"])
         #expect(

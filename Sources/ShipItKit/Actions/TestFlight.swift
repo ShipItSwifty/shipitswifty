@@ -1,4 +1,6 @@
 #if os(macOS)
+import AppStoreConnectKit
+import AppStoreConnectUploadKit
 import Foundation
 import Logging
 
@@ -111,13 +113,23 @@ public struct TestFlightAction: Action {
         let groups = options.groups ?? context.config.testFlightGroups
         let needsBuildID = !skipWaiting || !groups.isEmpty
 
+        guard let credentials = context.ascCredentials else {
+            throw ShipItError.invalidConfiguration(
+                reason:
+                    "TestFlight upload requires App Store Connect credentials. Set ASC_KEY_ID, ASC_ISSUER_ID, and ASC_PRIVATE_KEY (or ASC_PRIVATE_KEY_PATH)."
+            )
+        }
+
         logger.info("Uploading to TestFlight: \(ipaPath)")
-        let uploadResult = try await IPAUploadService(client: context.appStoreConnect).uploadIPA(
-            at: ipaURL,
-            bundleID: bundleID,
-            context: context,
-            resolveBuildID: needsBuildID
-        )
+        let uploadResult = try await mappingASCErrors {
+            try await IPAUploadService(client: context.appStoreConnect).uploadIPA(
+                at: ipaURL,
+                bundleID: bundleID,
+                credentials: credentials,
+                shell: context.shell,
+                resolveBuildID: needsBuildID
+            )
+        }
 
         let buildID = uploadResult.buildID
 
@@ -168,7 +180,9 @@ public struct TestFlightAction: Action {
         for attempt in 1...maxAttempts {
             logger.debug("Checking build processing status (attempt \(attempt)/\(maxAttempts))")
 
-            let build: ASCResponse<ASCBuild> = try await context.appStoreConnect.get("/v1/builds/\(buildID)")
+            let build: ASCResponse<ASCBuild> = try await mappingASCErrors {
+                try await context.appStoreConnect.get("/v1/builds/\(buildID)")
+            }
 
             if let state = build.data.attributes?.processingState {
                 switch state {
@@ -200,43 +214,46 @@ public struct TestFlightAction: Action {
         changelog: String?,
         context: ActionContext
     ) async throws -> [String] {
-        let apps: ASCListResponse<ASCApp> = try await context.appStoreConnect.get(
-            "/v1/apps",
-            query: ["filter[bundleId]": bundleID]
-        )
-        guard let app = apps.data.first else {
-            throw ShipItError.apiError(statusCode: 404, body: "App with bundle ID '\(bundleID)' not found in App Store Connect")
-        }
-
-        // Fetch all beta groups for the app, then attach this build to the requested ones.
-        let betaGroups: ASCListResponse<ASCBetaGroup> = try await context.appStoreConnect.get(
-            "/v1/betaGroups",
-            query: ["filter[app]": app.id]
-        )
-
-        var distributedTo: [String] = []
-
-        for groupName in groupNames {
-            guard let group = betaGroups.data.first(where: { $0.attributes?.name == groupName }) else {
-                logger.warning("Beta group '\(groupName)' not found")
-                continue
+        try await mappingASCErrors {
+            let apps: ASCListResponse<ASCApp> = try await context.appStoreConnect.get(
+                "/v1/apps",
+                query: ["filter[bundleId]": bundleID]
+            )
+            guard let app = apps.data.first else {
+                throw ShipItError.apiError(
+                    statusCode: 404, body: "App with bundle ID '\(bundleID)' not found in App Store Connect")
             }
 
-            logger.info("Distributing build \(buildID) to group '\(groupName)'")
-
-            let distributionBody = BetaGroupDistributionRequest(
-                data: [.init(type: "builds", id: buildID)]
+            // Fetch all beta groups for the app, then attach this build to the requested ones.
+            let betaGroups: ASCListResponse<ASCBetaGroup> = try await context.appStoreConnect.get(
+                "/v1/betaGroups",
+                query: ["filter[app]": app.id]
             )
 
-            let _: NoContentResponse = try await context.appStoreConnect.post(
-                "/v1/betaGroups/\(group.id)/relationships/builds",
-                body: distributionBody
-            )
+            var distributedTo: [String] = []
 
-            distributedTo.append(groupName)
+            for groupName in groupNames {
+                guard let group = betaGroups.data.first(where: { $0.attributes?.name == groupName }) else {
+                    logger.warning("Beta group '\(groupName)' not found")
+                    continue
+                }
+
+                logger.info("Distributing build \(buildID) to group '\(groupName)'")
+
+                let distributionBody = BetaGroupDistributionRequest(
+                    data: [.init(type: "builds", id: buildID)]
+                )
+
+                let _: NoContentResponse = try await context.appStoreConnect.post(
+                    "/v1/betaGroups/\(group.id)/relationships/builds",
+                    body: distributionBody
+                )
+
+                distributedTo.append(groupName)
+            }
+
+            return distributedTo
         }
-
-        return distributedTo
     }
 }
 

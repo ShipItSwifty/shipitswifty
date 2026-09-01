@@ -1,4 +1,5 @@
 #if os(macOS)
+import AppStoreConnectKit
 import Foundation
 import Logging
 
@@ -39,10 +40,9 @@ public struct ProfileManager: Sendable {
         logger.info("Creating provisioning profile for: \(bundleId) (type: \(type))")
 
         // Look up the bundle ID resource
-        let bundleIds: ASCListResponse<BundleIdResource> = try await context.appStoreConnect.get(
-            "/v1/bundleIds",
-            query: ["filter[identifier]": bundleId]
-        )
+        let bundleIds: ASCListResponse<BundleIdResource> = try await mappingASCErrors {
+            try await context.appStoreConnect.get("/v1/bundleIds", query: ["filter[identifier]": bundleId])
+        }
 
         guard let bundleIdResource = bundleIds.data.first else {
             throw ShipItError.signingResourceNotFound(description: "Bundle ID '\(bundleId)' not found in ASC")
@@ -69,10 +69,9 @@ public struct ProfileManager: Sendable {
             )
         )
 
-        let response: ASCResponse<ProfileResource> = try await context.appStoreConnect.post(
-            "/v1/profiles",
-            body: body
-        )
+        let response: ASCResponse<ProfileResource> = try await mappingASCErrors {
+            try await context.appStoreConnect.post("/v1/profiles", body: body)
+        }
 
         logger.info("Profile created: \(response.data.id)")
         return ProvisioningProfileInfo(

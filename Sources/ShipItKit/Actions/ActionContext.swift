@@ -1,3 +1,4 @@
+import AppStoreConnectKit
 import Foundation
 import Logging
 import SwiftyShell
@@ -178,6 +179,22 @@ public struct ActionContext: Sendable {
 
 extension ActionContext {
     public var configIsCI: Bool { config.ci }
+
+    #if os(macOS)
+    /// Typed App Store Connect credentials resolved from the merged configuration,
+    /// or `nil` when key id / issuer id / private key are not all present.
+    ///
+    /// This is the type-safe seam passed to `AppStoreConnectKit` services in place
+    /// of the whole `ActionContext`.
+    public var ascCredentials: ASCCredentials? {
+        guard
+            let keyID = config.ascKeyID,
+            let issuerID = config.ascIssuerID,
+            let keyData = config.ascPrivateKeyData
+        else { return nil }
+        return ASCCredentials(keyID: keyID, issuerID: issuerID, privateKeyData: keyData)
+    }
+    #endif
 
     /// Logs `stdout` and `stderr` from a shell command at `.debug` level when verbose is enabled.
     ///

@@ -1,4 +1,5 @@
 #if os(macOS)
+import AppStoreConnectKit
 import Foundation
 import SwiftyShell
 import Testing

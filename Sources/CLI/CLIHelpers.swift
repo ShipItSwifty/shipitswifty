@@ -1,3 +1,4 @@
+import AppStoreConnectKit
 import Foundation
 import Logging
 import ShipItKit

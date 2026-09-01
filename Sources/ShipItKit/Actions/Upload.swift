@@ -1,4 +1,6 @@
 #if os(macOS)
+import AppStoreConnectKit
+import AppStoreConnectUploadKit
 import Foundation
 import Logging
 
@@ -80,22 +82,34 @@ public struct UploadAction: Action {
                 reason: "Upload requires app.bundle_id. Set app.bundle_id in Shipfile.yml or export SHIPIT_APP__BUNDLE_ID.")
         }
 
+        guard let credentials = context.ascCredentials else {
+            throw ShipItError.invalidConfiguration(
+                reason:
+                    "Upload requires App Store Connect credentials. Set ASC_KEY_ID, ASC_ISSUER_ID, and ASC_PRIVATE_KEY (or ASC_PRIVATE_KEY_PATH)."
+            )
+        }
+
         logger.info("Uploading IPA: \(ipaPath)")
-        let uploadResult = try await IPAUploadService(client: context.appStoreConnect).uploadIPA(
-            at: URL(fileURLWithPath: ipaPath),
-            bundleID: bundleID,
-            context: context
-        )
+        let uploadResult = try await mappingASCErrors {
+            try await IPAUploadService(client: context.appStoreConnect).uploadIPA(
+                at: URL(fileURLWithPath: ipaPath),
+                bundleID: bundleID,
+                credentials: credentials,
+                shell: context.shell
+            )
+        }
 
         var reviewSubmissionID: String?
         let shouldSubmit = options.submitForReview ?? context.config.submitForReview
         if shouldSubmit {
-            let submission = try await AppStoreReleaseService(client: context.appStoreConnect).submitForReview(
-                bundleID: bundleID,
-                automaticRelease: context.config.automaticRelease,
-                phasedRelease: options.phasedRelease ?? context.config.phasedRelease,
-                context: context
-            )
+            let submission = try await mappingASCErrors {
+                try await AppStoreReleaseService(client: context.appStoreConnect).submitForReview(
+                    bundleID: bundleID,
+                    automaticRelease: context.config.automaticRelease,
+                    phasedRelease: options.phasedRelease ?? context.config.phasedRelease,
+                    resolveVersionString: { try await VersionBumper(context: context).readVersion() }
+                )
+            }
             reviewSubmissionID = submission.reviewSubmissionID
         }
 
