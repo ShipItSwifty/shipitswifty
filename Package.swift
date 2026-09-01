@@ -24,8 +24,8 @@ let package = Package(
         .package(url: "https://github.com/swiftlang/swift-docc-plugin", from: "1.5.0"),
         // CLI argument parsing
         .package(url: "https://github.com/apple/swift-argument-parser", from: "1.7.1"),
-        // JWT for App Store Connect auth
-        .package(url: "https://github.com/vapor/jwt-kit", from: "5.4.0"),
+        // App Store Connect API client + Xcode Cloud read API (extracted from this repo).
+        .package(url: "https://github.com/maniramezan/app-store-connect-mcp.git", from: "0.1.0"),
         // YAML config parsing
         .package(url: "https://github.com/jpsim/Yams", from: "6.2.1"),
         // Crypto for code signing operations
@@ -39,25 +39,25 @@ let package = Package(
         .target(
             name: "XcodeBuildKit",
             dependencies: [
-                .product(name: "SwiftyShell", package: "SwiftyShell"),
+                .product(name: "SwiftyShell", package: "SwiftyShell")
             ]
         ),
         .target(
             name: "GradleKit",
             dependencies: [
-                .product(name: "SwiftyShell", package: "SwiftyShell"),
+                .product(name: "SwiftyShell", package: "SwiftyShell")
             ]
         ),
         .target(
             name: "AndroidCLIKit",
             dependencies: [
-                .product(name: "SwiftyShell", package: "SwiftyShell"),
+                .product(name: "SwiftyShell", package: "SwiftyShell")
             ]
         ),
         .target(
             name: "XcodeGenKit",
             dependencies: [
-                .product(name: "SwiftyShell", package: "SwiftyShell"),
+                .product(name: "SwiftyShell", package: "SwiftyShell")
             ]
         ),
 
@@ -72,7 +72,8 @@ let package = Package(
                 "XcodeGenKit",
                 .product(name: "SwiftyShell", package: "SwiftyShell"),
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
-                .product(name: "JWTKit", package: "jwt-kit"),
+                .product(name: "AppStoreConnectKit", package: "app-store-connect-mcp"),
+                .product(name: "AppStoreConnectUploadKit", package: "app-store-connect-mcp"),
                 .product(name: "Yams", package: "Yams"),
                 .product(name: "Crypto", package: "swift-crypto"),
                 .product(name: "CryptoExtras", package: "swift-crypto"),
@@ -132,6 +133,7 @@ let package = Package(
             dependencies: [
                 "ShipItKit",
                 .product(name: "SwiftyShell", package: "SwiftyShell"),
+                .product(name: "AppStoreConnectKit", package: "app-store-connect-mcp"),
                 .product(name: "Crypto", package: "swift-crypto"),
                 .product(name: "CryptoExtras", package: "swift-crypto"),
                 .product(name: "Logging", package: "swift-log"),

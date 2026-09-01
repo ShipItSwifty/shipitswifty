@@ -118,7 +118,7 @@ See `docs/configuration-reference.md#build-systems` for the user-facing referenc
 dependencies: [
     .package(url: "https://github.com/maniramezan/SwiftyShell.git", from: "0.5.0"), // shell execution
     .package(url: "https://github.com/apple/swift-argument-parser", from: "1.7.1"),
-    .package(url: "https://github.com/vapor/jwt-kit", from: "5.4.0"),       // ES256 JWT
+    .package(url: "https://github.com/maniramezan/app-store-connect-mcp.git", from: "0.1.0"), // App Store Connect + Xcode Cloud client (ES256 JWT lives here)
     .package(url: "https://github.com/jpsim/Yams", from: "6.2.1"),          // YAML config
     .package(url: "https://github.com/apple/swift-crypto", from: "4.4.0"),  // code signing
     .package(url: "https://github.com/apple/swift-log", from: "1.12.0"),    // logging
@@ -523,6 +523,15 @@ Service account JSON from Google Cloud Console. ShipIt extracts the `private_key
 ---
 
 ## `AppStoreConnectClient`
+
+> Lives in the external **`AppStoreConnectKit`** package
+> (`github.com/maniramezan/app-store-connect-mcp`), extracted from this repo. It
+> also carries the Xcode Cloud read API (`ciProducts` / `ciWorkflows` /
+> `ciBuildRuns` / `ciBuildActions` / `ciIssues` / `ciTestResults` / `ciArtifacts`
+> + `ciFailureReport`) and an MCP server for CI-failure investigation. The package
+> throws `ASCError`; ShipItKit maps it to `ShipItError` via `mappingASCErrors { }`.
+> IPA upload lives in the macOS-only `AppStoreConnectUploadKit` product and takes a
+> typed `ASCCredentials` + `ShellContext`.
 
 ```swift
 public actor AppStoreConnectClient: Sendable {

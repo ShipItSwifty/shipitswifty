@@ -1,4 +1,5 @@
 #if os(macOS)
+import AppStoreConnectKit
 import Foundation
 import Logging
 
@@ -126,10 +127,9 @@ public struct ProvisionAction: Action {
             )
         )
 
-        let response: ASCResponse<BundleIdResource> = try await context.appStoreConnect.post(
-            "/v1/bundleIds",
-            body: body
-        )
+        let response: ASCResponse<BundleIdResource> = try await mappingASCErrors {
+            try await context.appStoreConnect.post("/v1/bundleIds", body: body)
+        }
 
         logger.info("Created App ID: \(response.data.id)")
         return Result(resourceIDs: [response.data.id], message: "Created App ID '\(bundleId)' with ID \(response.data.id)")
@@ -156,10 +156,9 @@ public struct ProvisionAction: Action {
                 )
             )
 
-            let response: ASCResponse<DeviceResource> = try await context.appStoreConnect.post(
-                "/v1/devices",
-                body: body
-            )
+            let response: ASCResponse<DeviceResource> = try await mappingASCErrors {
+                try await context.appStoreConnect.post("/v1/devices", body: body)
+            }
             registeredIDs.append(response.data.id)
         }
 
@@ -167,13 +166,17 @@ public struct ProvisionAction: Action {
     }
 
     private func listDevices(context: ActionContext) async throws -> Result {
-        let devices: ASCListResponse<DeviceResource> = try await context.appStoreConnect.get("/v1/devices")
+        let devices: ASCListResponse<DeviceResource> = try await mappingASCErrors {
+            try await context.appStoreConnect.get("/v1/devices")
+        }
         let ids = devices.data.map { $0.id }
         return Result(resourceIDs: ids, message: "Found \(ids.count) registered device(s)")
     }
 
     private func listBundleIds(context: ActionContext) async throws -> Result {
-        let bundleIds: ASCListResponse<BundleIdResource> = try await context.appStoreConnect.get("/v1/bundleIds")
+        let bundleIds: ASCListResponse<BundleIdResource> = try await mappingASCErrors {
+            try await context.appStoreConnect.get("/v1/bundleIds")
+        }
         let ids = bundleIds.data.map { $0.id }
         return Result(resourceIDs: ids, message: "Found \(ids.count) bundle ID(s)")
     }
