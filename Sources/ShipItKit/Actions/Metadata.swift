@@ -1,4 +1,5 @@
 #if os(macOS)
+import AppStoreConnectKit
 import Foundation
 import Logging
 
@@ -112,11 +113,12 @@ public struct MetadataAction: Action {
                 reason: "Metadata pull requires app.bundle_id. Set app.bundle_id in Shipfile.yml or export SHIPIT_APP__BUNDLE_ID.")
         }
 
-        let syncResult = try await AppStoreReleaseService(client: context.appStoreConnect).pullMetadata(
-            bundleID: bundleID,
-            directory: directory,
-            context: context
-        )
+        let syncResult = try await mappingASCErrors {
+            try await AppStoreReleaseService(client: context.appStoreConnect).pullMetadata(
+                bundleID: bundleID,
+                directory: directory
+            )
+        }
 
         logger.info("Pulled metadata for \(syncResult.localesProcessed) locale(s)")
         return Result(localesProcessed: syncResult.localesProcessed, operation: "pull", directory: directory)
@@ -135,20 +137,27 @@ public struct MetadataAction: Action {
         }
 
         let releaseService = AppStoreReleaseService(client: context.appStoreConnect)
-        let syncResult = try await releaseService.pushMetadata(
-            bundleID: bundleID,
-            directory: directory,
-            context: context
-        )
+        let resolveVersion: @Sendable () async throws -> String = {
+            try await VersionBumper(context: context).readVersion()
+        }
+        let syncResult = try await mappingASCErrors {
+            try await releaseService.pushMetadata(
+                bundleID: bundleID,
+                directory: directory,
+                resolveVersionString: resolveVersion
+            )
+        }
 
         let shouldSubmit = options.submitForReview ?? context.config.submitForReview
         if shouldSubmit {
-            _ = try await releaseService.submitForReview(
-                bundleID: bundleID,
-                automaticRelease: options.automaticRelease ?? context.config.automaticRelease,
-                phasedRelease: options.phasedRelease ?? context.config.phasedRelease,
-                context: context
-            )
+            _ = try await mappingASCErrors {
+                try await releaseService.submitForReview(
+                    bundleID: bundleID,
+                    automaticRelease: options.automaticRelease ?? context.config.automaticRelease,
+                    phasedRelease: options.phasedRelease ?? context.config.phasedRelease,
+                    resolveVersionString: resolveVersion
+                )
+            }
         }
 
         logger.info("Pushed metadata for \(syncResult.localesProcessed) locale(s)")

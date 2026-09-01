@@ -1,4 +1,5 @@
 #if os(macOS)
+import AppStoreConnectKit
 import Foundation
 import Logging
 
@@ -65,10 +66,9 @@ public struct CertificateManager: Sendable {
             )
         )
 
-        let response: ASCResponse<CertificateResource> = try await context.appStoreConnect.post(
-            "/v1/certificates",
-            body: body
-        )
+        let response: ASCResponse<CertificateResource> = try await mappingASCErrors {
+            try await context.appStoreConnect.post("/v1/certificates", body: body)
+        }
 
         logger.info("Certificate created: \(response.data.id)")
         return CertificateInfo(

@@ -1,4 +1,5 @@
 #if os(macOS)
+import AppStoreConnectKit
 import Foundation
 import Logging
 
@@ -121,10 +122,9 @@ public struct DsymAction: Action {
             queryParams["filter[app]"] = appID
         }
 
-        let builds: ASCListResponse<ASCBuild> = try await context.appStoreConnect.get(
-            "/v1/builds",
-            query: queryParams
-        )
+        let builds: ASCListResponse<ASCBuild> = try await mappingASCErrors {
+            try await context.appStoreConnect.get("/v1/builds", query: queryParams)
+        }
 
         guard let build = builds.data.first else {
             logger.warning("No builds found matching the specified criteria")

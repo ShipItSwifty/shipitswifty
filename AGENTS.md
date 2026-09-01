@@ -257,16 +257,18 @@ Set one of these environment variables:
 
 ## Architecture
 
-ShipItSwifty is a Swift 6 CLI toolkit for iOS and Android app release automation. There are six products:
+ShipItSwifty is a Swift 6 CLI toolkit for iOS and Android app release automation. Its own products are:
 
 - **`XcodeBuildKit`** — standalone library; typed `xcodebuild` wrapper, options, destination discovery, `xcode-select`. Depends only on SwiftyShell.
 - **`GradleKit`** — standalone library; typed Gradle wrapper (tasks, flags, properties), plus `adb`, `bundletool`, and `emulator` wrappers. Depends only on SwiftyShell.
 - **`AndroidCLIKit`** — standalone typed wrapper for Google's preview AndroidCLI: project description, deployment, emulators, SDKs, UI inspection, Studio integration, docs, and skills. Depends only on SwiftyShell.
 - **`XcodeGenKit`** — standalone library; typed `xcodegen` wrapper and options. Depends only on SwiftyShell.
-- **`ShipItKit`** — reusable library; all domain logic lives here. Depends on the three tool libraries above.
+- **`ShipItKit`** — reusable library; all domain logic lives here. Depends on the four tool libraries above plus the external `AppStoreConnectKit` / `AppStoreConnectUploadKit` (App Store Connect + Xcode Cloud client).
 - **`shipit`** (CLI) — thin argument-parsing layer over `ShipItKit`
 
 `XcodeBuildKit`, `GradleKit`, `AndroidCLIKit`, and `XcodeGenKit` are independently consumable via SwiftPM — users who only need tool wrappers can depend on them without pulling in ShipItKit or any of its heavier dependencies. `ShipItKit` re-exports all four via `@_exported import`, so existing consumers see no API change.
+
+App Store Connect support (the client, JWT auth, rate limiter, DTOs, IPA upload, and the Xcode Cloud `ci*` read API) lives in a **separate public package**, `github.com/maniramezan/app-store-connect-mcp` (products `AppStoreConnectKit` + macOS-only `AppStoreConnectUploadKit`, plus an MCP server for CI-failure investigation). ShipItKit depends on it directly (`import AppStoreConnectKit`, no re-export) and maps its `ASCError` to `ShipItError` at the action boundary via `mappingASCErrors { }` (`Sources/ShipItKit/AppStoreConnect/ASCErrorBridge.swift`). Actions pass `context.ascCredentials` (`ASCCredentials`) + `context.shell` to the package's services instead of the whole `ActionContext`.
 
 ### Core execution model
 
@@ -361,7 +363,9 @@ Sources/
   XcodeGenKit/        # Standalone: xcodegen wrapper and options
   ShipItKit/
     Actions/          # One file per action (Build, Archive, TestFlight, …)
-    AppStoreConnect/  # ASC client, JWT, upload service, models
+    AppStoreConnect/  # ASCError -> ShipItError bridge only; the client/JWT/upload
+                      # service/models live in the external AppStoreConnectKit
+                      # package (github.com/maniramezan/app-store-connect-mcp)
     CodeSigning/      # Keychain, cert/profile management, cert vault
     Config/           # Shipfile model, ConfigResolver, ResolvedConfig, Environment
     Introspection/    # ProjectInspector, ShipfileSuggester, BuiltInSchemaCatalog,
