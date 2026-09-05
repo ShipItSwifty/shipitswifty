@@ -27,7 +27,9 @@ let package = Package(
         // App Store Connect API client + Xcode Cloud read API (extracted from this repo).
         .package(url: "https://github.com/maniramezan/app-store-connect-mcp.git", from: "0.1.0"),
         // Google service-account auth + Google Play Developer API client (extracted from this repo).
-        .package(url: "https://github.com/ShipItSwifty/google-play-store-mcp.git", from: "0.1.0"),
+        // Floor is 0.1.3, not 0.1.0: listTracks in 0.1.0/0.1.1 cannot decode an app that has a
+        // draft release, and 0.1.2 predates the live-verified write encoding.
+        .package(url: "https://github.com/ShipItSwifty/google-play-store-mcp.git", from: "0.1.3"),
         // YAML config parsing
         .package(url: "https://github.com/jpsim/Yams", from: "6.2.1"),
         // Crypto for code signing operations
