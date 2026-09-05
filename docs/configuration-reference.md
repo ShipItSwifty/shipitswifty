@@ -663,7 +663,7 @@ Platform-specific Android configuration. These values are merged on top of share
 | `keystore_password` | string | — | `ANDROID_KEYSTORE_PASSWORD` | Keystore password |
 | `keystore_alias` | string | — | `ANDROID_KEY_ALIAS` | Key alias in the keystore |
 | `key_password` | string | — | `ANDROID_KEY_PASSWORD` | Key password |
-| `rollout_fraction` | float | — | — | Staged rollout fraction (0.0–1.0), for `production` track |
+| `rollout_fraction` | float | — | — | Staged rollout fraction, strictly between 0 and 1 (Play rejects 0 and 1; omit for a full rollout), for `production` track |
 | `gradle_properties` | map | `{}` | — | Extra `-P key=value` properties passed to Gradle |
 | `gradlew_path` | string | — | `SHIPIT_ANDROID__GRADLEW_PATH` | Explicit path to the `gradlew` script (auto-detected when omitted) |
 | `gradle_project_dir` | string | Shipfile directory | `SHIPIT_ANDROID__GRADLE_PROJECT_DIR` | Directory containing the Gradle root project |

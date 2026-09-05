@@ -54,7 +54,8 @@ public struct PlayStoreAction: Action {
         /// Per-language release notes. Keys are BCP-47 language tags (e.g. `"en-US"`).
         public var releaseNotes: [String: String]?
 
-        /// Staged rollout fraction (0.0–1.0). `nil` means full rollout.
+        /// Staged rollout fraction. Google Play requires `0 < fraction < 1` (exclusive);
+        /// `nil` means a full rollout, which is the correct way to reach every user.
         /// Overrides `config.androidRolloutFraction`.
         public var rolloutFraction: Double?
 
