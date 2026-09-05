@@ -1,4 +1,5 @@
 import Foundation
+import GoogleAuthKit
 import Logging
 
 #if canImport(FoundationNetworking)
@@ -37,7 +38,7 @@ public struct FirebaseAppDistributionClient: Sendable {
     /// Base URL for binary uploads.
     static let uploadBaseURL = "https://firebaseappdistribution.googleapis.com/upload/v1"
 
-    let jwtGenerator: GooglePlayJWTGenerator
+    let jwtGenerator: GoogleServiceAccountJWTGenerator
     let session: URLSession
     /// Optional override for token generation. When non-nil, this closure is called instead
     /// of `jwtGenerator.cachedOrNewToken()`. Intended for use in tests.
@@ -61,7 +62,7 @@ public struct FirebaseAppDistributionClient: Sendable {
                     "firebase-app-distribution: the service-account credential is not a valid Google service-account key JSON."
             )
         }
-        self.jwtGenerator = GooglePlayJWTGenerator(credentials: credentials, scope: .cloudPlatform)
+        self.jwtGenerator = GoogleServiceAccountJWTGenerator(credentials: credentials, scope: .cloudPlatform)
         self.session = URLSession.shared
         self.tokenProvider = nil
     }
@@ -110,7 +111,7 @@ public struct FirebaseAppDistributionClient: Sendable {
         let credentials =
             (try? JSONDecoder().decode(
                 GoogleServiceAccountCredentials.self, from: placeholderJSON))!
-        self.jwtGenerator = GooglePlayJWTGenerator(credentials: credentials, scope: .cloudPlatform)
+        self.jwtGenerator = GoogleServiceAccountJWTGenerator(credentials: credentials, scope: .cloudPlatform)
         self.session = session
         self.tokenProvider = tokenProvider
     }

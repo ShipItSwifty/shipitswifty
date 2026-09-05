@@ -272,12 +272,27 @@ ShipItSwifty is a Swift 6 CLI toolkit for iOS and Android app release automation
 - **`GradleKit`** — standalone library; typed Gradle wrapper (tasks, flags, properties), plus `adb`, `bundletool`, and `emulator` wrappers. Depends only on SwiftyShell.
 - **`AndroidCLIKit`** — standalone typed wrapper for Google's preview AndroidCLI: project description, deployment, emulators, SDKs, UI inspection, Studio integration, docs, and skills. Depends only on SwiftyShell.
 - **`XcodeGenKit`** — standalone library; typed `xcodegen` wrapper and options. Depends only on SwiftyShell.
-- **`ShipItKit`** — reusable library; all domain logic lives here. Depends on the four tool libraries above plus the external `AppStoreConnectKit` / `AppStoreConnectUploadKit` (App Store Connect + Xcode Cloud client).
+- **`ShipItKit`** — reusable library; all domain logic lives here. Depends on the four tool libraries above plus the external `AppStoreConnectKit` / `AppStoreConnectUploadKit` (App Store Connect + Xcode Cloud client) and `GoogleAuthKit` / `GooglePlayKit` (Google service-account auth + Google Play Developer API).
 - **`shipit`** (CLI) — thin argument-parsing layer over `ShipItKit`
 
 `XcodeBuildKit`, `GradleKit`, `AndroidCLIKit`, and `XcodeGenKit` are independently consumable via SwiftPM — users who only need tool wrappers can depend on them without pulling in ShipItKit or any of its heavier dependencies. `ShipItKit` re-exports all four via `@_exported import`, so existing consumers see no API change.
 
-App Store Connect support (the client, JWT auth, rate limiter, DTOs, IPA upload, and the Xcode Cloud `ci*` read API) lives in a **separate public package**, `github.com/maniramezan/app-store-connect-mcp` (products `AppStoreConnectKit` + macOS-only `AppStoreConnectUploadKit`, plus an MCP server for CI-failure investigation). ShipItKit depends on it directly (`import AppStoreConnectKit`, no re-export) and maps its `ASCError` to `ShipItError` at the action boundary via `mappingASCErrors { }` (`Sources/ShipItKit/AppStoreConnect/ASCErrorBridge.swift`). Actions pass `context.ascCredentials` (`ASCCredentials`) + `context.shell` to the package's services instead of the whole `ActionContext`.
+App Store Connect support (the client, JWT auth, rate limiter, DTOs, IPA upload, and the Xcode Cloud `ci*` read API) lives in a **separate public package**, `github.com/ShipItSwifty/app-store-connect-mcp` (products `AppStoreConnectKit` + macOS-only `AppStoreConnectUploadKit`, plus an MCP server for CI-failure investigation). ShipItKit depends on it directly (`import AppStoreConnectKit`, no re-export) and maps its `ASCError` to `ShipItError` at the action boundary via `mappingASCErrors { }` (`Sources/ShipItKit/AppStoreConnect/ASCErrorBridge.swift`). Actions pass `context.ascCredentials` (`ASCCredentials`) + `context.shell` to the package's services instead of the whole `ActionContext`.
+
+Google Play support (the `androidpublisher` v3 client, DTOs, and the edit→upload→track→commit
+release workflow) and Google service-account auth (RS256 JWT → OAuth2, and GitHub Actions
+Workload Identity Federation) likewise live in a **separate public package**,
+`github.com/ShipItSwifty/google-play-store-mcp` (products `GoogleAuthKit` + `GooglePlayKit`, plus
+an MCP server exposing Play release state to agents). ShipItKit depends on it directly
+(`import GooglePlayKit` / `import GoogleAuthKit`, no re-export) and maps its `GoogleAPIError` to
+`ShipItError` via `mappingGoogleErrors { }`
+(`Sources/ShipItKit/GooglePlay/GooglePlayErrorBridge.swift`).
+
+`FirebaseAppDistributionClient` stays in this repo but now builds on `GoogleAuthKit`'s
+`GoogleServiceAccountJWTGenerator` (renamed from `GooglePlayJWTGenerator`, since it is
+scope-agnostic and Firebase requests `.cloudPlatform`), as does the Workload Identity Federation
+path. Note that `applications.dataSafety` is write-only in the Play API — there is no way to read
+back a published Data safety declaration or distinguish it from a draft.
 
 ### Core execution model
 
@@ -374,7 +389,10 @@ Sources/
     Actions/          # One file per action (Build, Archive, TestFlight, …)
     AppStoreConnect/  # ASCError -> ShipItError bridge only; the client/JWT/upload
                       # service/models live in the external AppStoreConnectKit
-                      # package (github.com/maniramezan/app-store-connect-mcp)
+                      # package (github.com/ShipItSwifty/app-store-connect-mcp)
+    GooglePlay/       # GoogleAPIError -> ShipItError bridge only; the Play client,
+                      # DTOs, upload service, Google auth and the WIF client live in
+                      # the external google-play-store-mcp package
     CodeSigning/      # Keychain, cert/profile management, cert vault
     Config/           # Shipfile model, ConfigResolver, ResolvedConfig, Environment
     Introspection/    # ProjectInspector, ShipfileSuggester, BuiltInSchemaCatalog,

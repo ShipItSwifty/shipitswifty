@@ -1,5 +1,7 @@
 import AppStoreConnectKit
 import Foundation
+import GoogleAuthKit
+import GooglePlayKit
 import Logging
 import ShipItKit
 import SwiftyShell
@@ -86,10 +88,17 @@ func buildActionContext(
     let shell = ShellContext()
     let logger = Logger.forType(subsystem: "ShipItSwifty", ActionContext.self)
 
-    // Build Google Play client — only present when service account data is available
+    // Build Google Play client — only present when service account data is available.
+    // A malformed key is surfaced rather than swallowed into `nil`: silently dropping it makes a
+    // typo'd credential look identical to no credential, and the play-store action then reports
+    // "credentials are not configured" for a key that is merely wrong.
     let googlePlayClient: GooglePlayClient?
     if let gpData = config.googlePlayServiceAccountData {
-        googlePlayClient = try? GooglePlayClient(serviceAccountJSON: gpData)
+        do {
+            googlePlayClient = try GooglePlayClient(serviceAccountJSON: gpData)
+        } catch let error as GoogleAPIError {
+            throw ShipItError(google: error)
+        }
     } else {
         googlePlayClient = nil
     }

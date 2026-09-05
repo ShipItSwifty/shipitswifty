@@ -1,4 +1,6 @@
 import Foundation
+import GoogleAuthKit
+import GooglePlayKit
 import Logging
 
 /// Uploads a release artifact to Google Play and assigns it to a distribution track.
@@ -52,7 +54,8 @@ public struct PlayStoreAction: Action {
         /// Per-language release notes. Keys are BCP-47 language tags (e.g. `"en-US"`).
         public var releaseNotes: [String: String]?
 
-        /// Staged rollout fraction (0.0–1.0). `nil` means full rollout.
+        /// Staged rollout fraction. Google Play requires `0 < fraction < 1` (exclusive);
+        /// `nil` means a full rollout, which is the correct way to reach every user.
         /// Overrides `config.androidRolloutFraction`.
         public var rolloutFraction: Double?
 
@@ -206,15 +209,17 @@ public struct PlayStoreAction: Action {
         logger.info("Uploading to Google Play — package: '\(packageName)', track: '\(track)'")
 
         let uploader = GooglePlayUploadService(client: googlePlay, packageName: packageName)
-        let versionCode = try await uploader.uploadAndRelease(
-            aabPath: anchoredAABPath,
-            apkPath: anchoredAPKPath,
-            track: track,
-            releaseName: options.releaseName,
-            releaseNotes: notes,
-            status: releaseStatus,
-            userFraction: rolloutFraction
-        )
+        let versionCode = try await mappingGoogleErrors {
+            try await uploader.uploadAndRelease(
+                aabPath: anchoredAABPath,
+                apkPath: anchoredAPKPath,
+                track: track,
+                releaseName: options.releaseName,
+                releaseNotes: notes,
+                status: releaseStatus,
+                userFraction: rolloutFraction
+            )
+        }
 
         logger.info("Play Store upload succeeded — versionCode=\(versionCode) on track '\(track)'")
 
