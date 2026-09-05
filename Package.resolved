@@ -1,5 +1,5 @@
 {
-  "originHash" : "f537773086a99982fae11795c871a31609924ff70b9ef48cd8a5e561b67d5f1c",
+  "originHash" : "806a32b75338787f6d13dc2ef204e85265f85ad94b2c46f40dba86e64cd7d24f",
   "pins" : [
     {
       "identity" : "app-store-connect-mcp",
@@ -17,6 +17,15 @@
       "state" : {
         "revision" : "86b5096ac59ab46e66bd1f6377c604bc1dab0bc2",
         "version" : "1.5.1"
+      }
+    },
+    {
+      "identity" : "google-play-store-mcp",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/maniramezan/google-play-store-mcp.git",
+      "state" : {
+        "revision" : "65037ea75c5a30458222582eb09c4ff7a13fb1fb",
+        "version" : "0.1.0"
       }
     },
     {
