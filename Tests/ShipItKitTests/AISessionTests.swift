@@ -200,7 +200,7 @@ struct AISessionTests {
         let payload = AISessionBuilder().build(
             goal: .beta, inspection: fullInspection(), hasExistingShipfile: false)
         #expect(payload.agentPrompt.contains("beta"))
-        #expect(payload.agentPrompt.contains("ai-session"))
+        #expect(payload.agentPrompt.contains("ai session"))
         #expect(payload.agentPrompt.contains("validate"))
         #expect(payload.agentPrompt.contains("generate"))
     }
@@ -353,7 +353,7 @@ struct AISessionTests {
         )
         #expect(completePayload.nextAction.command == "shipit validate yml --output json")
 
-        #expect(completePayload.agentPrompt.contains("shipit ai-session --goal local --platform android"))
+        #expect(completePayload.agentPrompt.contains("shipit ai session --goal local --platform android"))
         #expect(completePayload.agentPrompt.contains("shipit generate --goal local --platform android"))
         #expect(completePayload.agentPrompt.contains("shipit run local --platform android --ci --output json"))
         #expect(completePayload.agentPrompt.contains("shipit validate bundle --aab <path> --output json"))

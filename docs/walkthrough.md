@@ -48,10 +48,10 @@ The generated result includes:
 
 If your project is ambiguous (e.g., multiple runnable schemes), resolve those first, then re-run to get the `create_shipfile` action.
 
-If you want to hand the project off to an agent after generation, `ai-session` is still available as a secondary, agent-focused command:
+If you want to hand the project off to an agent after generation, `ai session` is still available as a secondary, agent-focused command:
 
 ```bash
-shipit ai-session --goal beta --output json
+shipit ai session --goal beta --output json
 ```
 
 Manual setup is still available if you prefer to start from the example file:

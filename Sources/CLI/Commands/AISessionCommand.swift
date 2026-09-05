@@ -16,15 +16,20 @@ import ShipItKit
 ///
 /// ## Usage
 /// ```
-/// shipit ai-session
-/// shipit ai-session --goal release --path /path/to/project
-/// shipit ai-session --goal beta --platform android
+/// shipit ai session
+/// shipit ai session --goal release --path /path/to/project
+/// shipit ai session --goal beta --platform android
 /// ```
 ///
 /// Always exits with code `2` when the project is not ready to run the requested workflow.
+///
+/// > Renamed from the top-level `shipit ai-session` in 0.7.0 to live under the `shipit ai`
+/// > command group alongside `shipit ai prompt` and `shipit ai instructions`. There is no
+/// > backwards-compatible alias — scripts and CI invoking `shipit ai-session` must be updated
+/// > to `shipit ai session`.
 struct AISessionCommand: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
-        commandName: "ai-session",
+        commandName: "session",
         abstract: "Structured AI-agent session bootstrap — stable JSON contract (v\(AISessionBuilder.contractVersion))"
     )
 
@@ -37,38 +42,13 @@ struct AISessionCommand: AsyncParsableCommand {
     var path: String = FileManager.default.currentDirectoryPath
 
     func run() async throws {
-        let inspection = try await ProjectInspector(rootPath: path).inspect()
-        let resolvedShipfilePath = URL(fileURLWithPath: path)
-            .appendingPathComponent(options.shipfile).path
-        let hasExistingShipfile = FileManager.default.fileExists(atPath: resolvedShipfilePath)
-
-        let platform = options.platform ?? autoDetectPlatform(at: path)
-
         // Pass through any user-defined custom actions so the generated agent
         // prompt can enumerate them and steer agents toward reuse.
-        let customActions: [String: CustomActionConfig]
-        if hasExistingShipfile {
-            let resolver = ConfigResolver()
-            let resolved = try? await resolver.resolve(
-                cliOptions: CLIOptions(ci: false, platform: platform),
-                shipfilePath: resolvedShipfilePath
-            )
-            customActions = resolved?.customActions ?? [:]
-        } else {
-            customActions = [:]
-        }
-
-        let payload = AISessionBuilder().build(
-            goal: goal,
-            inspection: inspection,
-            hasExistingShipfile: hasExistingShipfile,
-            platform: platform,
-            customActions: customActions
-        )
+        let payload = try await buildAISessionPayload(goal: goal, path: path, options: options)
 
         let reporter = JSONReporter()
         let envelope = ActionResultEnvelope(
-            action: "ai-session",
+            action: "ai session",
             status: payload.readiness.isReady ? "success" : "failure",
             payload: aiSessionPayloadJSON(payload)
         )
@@ -77,23 +57,5 @@ struct AISessionCommand: AsyncParsableCommand {
         if !payload.readiness.isReady {
             throw ExitCode(2)
         }
-    }
-
-    /// Auto-detect platform from project files at `rootPath`.
-    ///
-    /// Rules (first match wins):
-    /// - `gradlew` or `build.gradle.kts` present → `.android`
-    /// - `*.xcworkspace` or `*.xcodeproj` present → `.ios`
-    /// - Default → `.ios`
-    private func autoDetectPlatform(at rootPath: String) -> Platform {
-        let fm = FileManager.default
-        guard let contents = try? fm.contentsOfDirectory(atPath: rootPath) else { return .ios }
-        if contents.contains("gradlew") || contents.contains("build.gradle.kts") {
-            return .android
-        }
-        if contents.contains(where: { $0.hasSuffix(".xcworkspace") || $0.hasSuffix(".xcodeproj") }) {
-            return .ios
-        }
-        return .ios
     }
 }

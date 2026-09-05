@@ -84,6 +84,7 @@ AndroidCLI support is opt-in for workflows and complements the existing Gradle/A
 | [Architecture](docs/architecture.md) | Layer diagram, core types, exit codes |
 | [CI integration](docs/ci-setup.md) | GitHub Actions, GitLab CI, Bitrise |
 | [Android quickstart](docs/android-quickstart.md) | Android-specific setup |
+| [React Native quickstart](docs/react-native-quickstart.md) | React Native / Expo setup |
 | [KMP quickstart](docs/kmp-quickstart.md) | Kotlin Multiplatform setup |
 | [Plugin development](docs/plugin-development.md) | Writing custom actions |
 | [Security](docs/security.md) | Secrets management, threat mitigations |

@@ -196,7 +196,7 @@ public struct CustomActionConfig: Codable, Sendable {
 /// A declared parameter on a ``CustomActionConfig``.
 ///
 /// Used for validation (required vs. defaulted), defaulting, and surfacing
-/// the shape of custom actions to AI agents via `shipit ai-session`.
+/// the shape of custom actions to AI agents via `shipit ai session`.
 public struct CustomActionParameter: Codable, Sendable {
     /// Value kind: `"string"` (default), `"bool"`, `"int"`, `"number"`, `"array"`, or `"any"`.
     public var type: String?

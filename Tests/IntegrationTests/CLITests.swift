@@ -93,11 +93,11 @@ struct CLIIntegrationTests {
 
     // MARK: - AI session
 
-    @Test("ai-session --goal beta produces valid JSON contract")
+    @Test("ai session --goal beta produces valid JSON contract")
     func aiSessionProducesValidJSON() async throws {
-        // ai-session always outputs JSON (no --output flag needed)
+        // ai session always outputs JSON (no --output flag needed)
         let result = try await CLI.run(
-            "ai-session", "--goal", "beta",
+            "ai", "session", "--goal", "beta",
             "--path", FixturePaths.iosSample.path
         )
         // May exit 2 if project isn't fully configured — that's OK, output is still valid JSON
@@ -106,10 +106,10 @@ struct CLIIntegrationTests {
         let data = Data(result.stdout.utf8)
         // The response is wrapped in an ActionResultEnvelope: {"action":..., "status":..., "payload":{...}}
         let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
-        #expect(json != nil, "Expected valid JSON output from ai-session")
+        #expect(json != nil, "Expected valid JSON output from ai session")
         #expect(
             json?["action"] != nil || json?["version"] != nil,
-            "Expected envelope or versioned JSON in ai-session response")
+            "Expected envelope or versioned JSON in ai session response")
     }
 
     // MARK: - Generate

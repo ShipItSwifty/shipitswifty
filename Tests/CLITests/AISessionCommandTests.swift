@@ -6,25 +6,25 @@ import Testing
 @Suite("AISessionCommand")
 struct AISessionCommandTests {
 
-    @Test("ai-session parses default goal as beta")
+    @Test("ai session parses default goal as beta")
     func parsesDefaultGoalAsBeta() throws {
         let command = try AISessionCommand.parseAsRoot([]) as! AISessionCommand
         #expect(command.goal == .beta)
     }
 
-    @Test("ai-session parses explicit goal")
+    @Test("ai session parses explicit goal")
     func parsesExplicitGoal() throws {
         let command = try AISessionCommand.parseAsRoot(["--goal", "release"]) as! AISessionCommand
         #expect(command.goal == .release)
     }
 
-    @Test("ai-session parses explicit path")
+    @Test("ai session parses explicit path")
     func parsesExplicitPath() throws {
         let command = try AISessionCommand.parseAsRoot(["--path", "/tmp/myapp"]) as! AISessionCommand
         #expect(command.path == "/tmp/myapp")
     }
 
-    @Test("ai-session uses bootstrap options for shipfile")
+    @Test("ai session uses bootstrap options for shipfile")
     func usesBootstrapOptionsForShipfile() throws {
         let command =
             try AISessionCommand.parseAsRoot([
@@ -35,7 +35,7 @@ struct AISessionCommandTests {
         #expect(command.options.verbose)
     }
 
-    @Test("ai-session parses local goal")
+    @Test("ai session parses local goal")
     func parsesLocalGoal() throws {
         let command = try AISessionCommand.parseAsRoot(["--goal", "local"]) as! AISessionCommand
         #expect(command.goal == .local)

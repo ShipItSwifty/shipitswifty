@@ -2,7 +2,7 @@ import Foundation
 
 /// Builds a structured `AISessionPayload` from a project inspection.
 ///
-/// This is the core logic behind `shipit ai-session`. It produces a stable,
+/// This is the core logic behind `shipit ai session`. It produces a stable,
 /// versioned JSON payload containing everything an AI agent needs to guide a
 /// user through configuring and running a ShipItSwifty workflow.
 ///
@@ -483,7 +483,7 @@ public struct AISessionBuilder: Sendable {
             if app.workspace == nil && app.project == nil {
                 blockers.append("No Xcode workspace or project detected")
                 unblockSteps.append(
-                    "Run shipit ai-session from the directory containing your .xcworkspace or .xcodeproj, or pass --path <dir>"
+                    "Run shipit ai session from the directory containing your .xcworkspace or .xcodeproj, or pass --path <dir>"
                 )
             }
             if app.scheme == nil {
@@ -619,7 +619,7 @@ public struct AISessionBuilder: Sendable {
                 "into reusable pipelines, not just the default workflows.",
                 "",
                 "Key commands:",
-                "  shipit ai-session --goal \(goal.rawValue) --platform android  # refresh session state",
+                "  shipit ai session --goal \(goal.rawValue) --platform android  # refresh session state",
                 "  shipit validate yml --output json                              # check Shipfile structure",
                 "  shipit validate bundle --aab <path> --output json              # validate AAB before upload",
                 "  shipit generate --goal \(goal.rawValue) --platform android        # generate Shipfile.yml",
@@ -641,7 +641,7 @@ public struct AISessionBuilder: Sendable {
                 "into reusable pipelines, not just the default workflows.",
                 "",
                 "Key commands:",
-                "  shipit ai-session --goal \(goal.rawValue)              # refresh this session state",
+                "  shipit ai session --goal \(goal.rawValue)              # refresh this session state",
                 "  shipit validate yml --output json                # check Shipfile structure and semantics",
                 "  shipit validate metadata --output json           # check App Store metadata (precheck)",
                 "  shipit validate archive --archive-path <path>   # check xcarchive / IPA before upload",

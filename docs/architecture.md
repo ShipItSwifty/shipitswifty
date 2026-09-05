@@ -297,9 +297,13 @@ COMMANDS:
                   --workflow <local|beta|release>  Emit only sections/actions relevant to that goal
   inspect       Inspect project facts for AI-assisted config generation
   suggest-config Generate a suggested Shipfile for local, beta, or release goals
-  ai-session    Stable, versioned JSON contract for AI agents (v1)
-                  Returns: inferred config with confidence + provenance, secret descriptors,
-                  ambiguity flags, readiness diagnosis, next action, agent prompt, next question
+  ai            AI-agent oriented command group
+    session       Stable, versioned JSON contract for AI agents (v1)
+                    Returns: inferred config with confidence + provenance, secret descriptors,
+                    ambiguity flags, readiness diagnosis, next action, agent prompt, next question
+                    (the default subcommand: `shipit ai` == `shipit ai session`)
+    prompt        Print just the `agentPrompt` field from the session payload
+    instructions  Print ShipItSwifty's own operating guidance for agents (no project inspection)
   validate      Validate Shipfile syntax, schema, and workflow semantics
   build         Compile the app (iOS: xcodebuild build, Android: gradlew assemble)
   test          Run tests (iOS: xcodebuild test, Android: gradlew test / connectedAndroidTest)
@@ -372,14 +376,14 @@ GLOBAL OPTIONS:
 
 ### AI-friendly config workflow
 
-`shipit ai-session` is the canonical machine-oriented entrypoint. It returns a single, stable JSON envelope with everything an agent needs.
+`shipit ai session` is the canonical machine-oriented entrypoint. It returns a single, stable JSON envelope with everything an agent needs.
 
 ```bash
 # Canonical AI entrypoint — versioned, stable JSON contract
-swift run shipit ai-session --goal beta
+swift run shipit ai session --goal beta
 
 # Refresh after the user provides missing values
-swift run shipit ai-session --goal beta --path /path/to/project
+swift run shipit ai session --goal beta --path /path/to/project
 
 # Inspect raw project facts
 swift run shipit inspect project --output json
@@ -409,11 +413,11 @@ swift run shipit generate --goal beta --non-interactive
 swift run shipit run beta --dry-run --output json
 ```
 
-#### `ai-session` JSON contract (v1)
+#### `ai session` JSON contract (v1)
 
 ```json
 {
-  "action": "ai-session",
+  "action": "ai session",
   "status": "success | failure",
   "payload": {
     "version": "1",
@@ -635,7 +639,7 @@ public actor RateLimiter: Sendable {
 
 ## Introspection types
 
-These types live in `Sources/ShipItKit/Introspection/` and power `ai-session`, `suggest-config`, `inspect`, and `schema`.
+These types live in `Sources/ShipItKit/Introspection/` and power `ai session`, `suggest-config`, `inspect`, and `schema`.
 
 | Type | Role |
 |---|---|
@@ -645,7 +649,7 @@ These types live in `Sources/ShipItKit/Introspection/` and power `ai-session`, `
 | `SchemaValidator` | Validates a `JSONValue` tree against `SchemaField` rules |
 | `ShipfileValidator` | Full YAML parse + schema + semantic workflow rule validation |
 | `AISessionBuilder` | Builds a versioned `AISessionPayload` from a `ProjectInspection` + goal + platform. Android gets a Play Store-oriented agent prompt, Google Play secret descriptors, and workflow guidance that reflects bundle auto-discovery and required Play track selection. |
-| `DestinationDiscovery` | Runs `xcodebuild -showdestinations` and parses the output into `[XcodebuildDestination]`; used by agents and `ai-session` to surface real simulator/device options instead of invented names |
+| `DestinationDiscovery` | Runs `xcodebuild -showdestinations` and parses the output into `[XcodebuildDestination]`; used by agents and `ai session` to surface real simulator/device options instead of invented names |
 
 ### AI session model types (`AISessionTypes.swift`)
 
@@ -658,7 +662,7 @@ These types live in `Sources/ShipItKit/Introspection/` and power `ai-session`, `
 | `AmbiguityFlag` | A field with multiple candidates that requires user confirmation |
 | `NextAction` | The single next step: `action` (stable key), `command` (exact CLI), `reason` |
 | `AIReadiness` | Readiness summary: `isReady`, `blockers`, `missingSecrets`, `signingRisk`, `unblockSteps` |
-| `AISessionPayload` | The full versioned contract returned by `shipit ai-session` |
+| `AISessionPayload` | The full versioned contract returned by `shipit ai session` |
 
 ---
 
