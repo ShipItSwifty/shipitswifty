@@ -304,6 +304,7 @@ COMMANDS:
                     (the default subcommand: `shipit ai` == `shipit ai session`)
     prompt        Print just the `agentPrompt` field from the session payload
     instructions  Print ShipItSwifty's own operating guidance for agents (no project inspection)
+    skills        Curated, built-in agent playbooks (list | show <id>) — no installation
   validate      Validate Shipfile syntax, schema, and workflow semantics
   build         Compile the app (iOS: xcodebuild build, Android: gradlew assemble)
   test          Run tests (iOS: xcodebuild test, Android: gradlew test / connectedAndroidTest)

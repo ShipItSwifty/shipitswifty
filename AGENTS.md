@@ -75,6 +75,11 @@ Do not over-read on first pass:
 
 ## Skills
 
+> **Not to be confused with:** `shipit ai skills` (see Commands below) is a *different* concept
+> — a small, built-in catalog of task playbooks (`react-native-setup`, `firebase-distribution`,
+> etc.) that ships in the `shipit` binary for a coding agent driving an *end user's* project.
+> This section is about Claude Code skills used while developing ShipItSwifty itself.
+
 When working on this project, invoke these skills as appropriate:
 
 - **`swift-concurrency`** — use whenever touching `async/await`, `actor`, `Sendable`, `Task`, or debugging data-race/concurrency warnings. This project is Swift 6 strict-concurrency throughout.
@@ -148,6 +153,8 @@ swift run shipit ai session --goal release --path /path/to/project
 swift run shipit ai session --goal beta --platform android   # Android-specific agent prompt
 swift run shipit ai prompt --goal beta               # just the recommended system prompt
 swift run shipit ai instructions                     # ShipItSwifty's own operating guidance for agents
+swift run shipit ai skills list                      # curated, built-in agent playbooks (no installation)
+swift run shipit ai skills show react-native-setup   # print one playbook
 
 # Guided Shipfile generation
 swift run shipit generate --goal beta
@@ -455,6 +462,7 @@ Every non-trivial code change (new feature, changed behaviour, new/renamed comma
 | Changed Shipfile schema | `BuiltInSchemaCatalog`, `Shipfile.swift`, `docs/configuration-reference.md` |
 | Changed generated workflow guidance or test workflow options | `AISessionBuilder`, `ShipfileSuggester`, `GenerateCommand`, `docs/features.md`, `docs/configuration-reference.md`, tests |
 | New backwards-compat alias | Document in `AGENTS.md` Commands section with `# backwards-compat alias:` comment |
+| New `shipit ai skills` playbook | `AISkillsCatalog.swift` (keep it short — link to the authoritative doc rather than duplicating it), `docs/features.md`, `AGENTS.md` Commands section |
 
 ## Common task reference
 
