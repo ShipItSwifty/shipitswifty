@@ -1,6 +1,6 @@
-import GoogleAuthKit
 import AppStoreConnectKit
 import Foundation
+import GoogleAuthKit
 import SwiftyShell
 import Synchronization
 import Testing

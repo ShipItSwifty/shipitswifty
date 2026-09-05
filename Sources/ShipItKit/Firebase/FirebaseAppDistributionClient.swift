@@ -1,5 +1,5 @@
-import GoogleAuthKit
 import Foundation
+import GoogleAuthKit
 import Logging
 
 #if canImport(FoundationNetworking)
