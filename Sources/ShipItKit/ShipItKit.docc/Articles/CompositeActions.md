@@ -125,9 +125,9 @@ When invoked at runtime, the descriptor:
 
 A composite returns a single ``ActionResultEnvelope`` whose payload is an array of the sub-step envelopes — making composites observable in JSON output exactly like workflows.
 
-## Composites in `ai-session`
+## Composites in `ai session`
 
-`shipit ai-session` enumerates the user's declared composites in the generated `agentPrompt`. This nudges AI agents to **prefer reusing an existing composite** over duplicating its step sequence in a new workflow.
+`shipit ai session` enumerates the user's declared composites in the generated `agentPrompt`. This nudges AI agents to **prefer reusing an existing composite** over duplicating its step sequence in a new workflow.
 
 ## When to use a composite vs. a workflow
 

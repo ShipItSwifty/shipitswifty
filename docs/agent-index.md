@@ -42,7 +42,7 @@ Use this when deciding what must change together.
 |---|---|
 | An action `Options` or `Result` type | `BuiltInSchemaCatalog.swift`, tests, `docs/features.md`, `AGENTS.md` if command guidance changed, `AISessionBuilder.swift` if agent-facing guidance changed |
 | Shipfile schema | `Shipfile.swift`, `BuiltInSchemaCatalog.swift`, `docs/configuration-reference.md`, validation tests |
-| `ai-session` payload shape or semantics | `AISessionTypes.swift`, `AISessionBuilder.swift`, `docs/architecture.md`, `AGENTS.md`, `AISessionTests.swift` |
+| `ai session` payload shape or semantics | `AISessionTypes.swift`, `AISessionBuilder.swift`, `docs/architecture.md`, `AGENTS.md`, `AISessionTests.swift` |
 | CLI command flags or subcommands | `Sources/CLI/Commands/`, `AGENTS.md`, `docs/features.md`, CLI tests |
 | Runtime config behavior | `ConfigResolver.swift`, `ResolvedConfig.swift`, `Environment.swift`, config tests |
 | Workflow/composite execution | `WorkflowTypes.swift`, `CompositeAction.swift`, workflow/composite tests |

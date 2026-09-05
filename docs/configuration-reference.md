@@ -328,7 +328,7 @@ workflows:
     - action: export       # exports IPA locally; no upload to App Store Connect
 ```
 
-Use `xcodebuild -showdestinations -scheme <Scheme>` (or `shipit ai-session --goal local`) to
+Use `xcodebuild -showdestinations -scheme <Scheme>` (or `shipit ai session --goal local`) to
 discover destination strings that are valid on your machine before filling in the `destinations` array.
 You can list multiple destinations to run tests on several simulators or devices in one step.
 
@@ -362,7 +362,7 @@ The `test` action is configured inline in a workflow step. It does **not** have 
 
 `retry_on_failure`, `rerun_failed_tests`, and `infrastructure_retry` solve different problems. Use `retry_on_failure` for xcodebuild's built-in one-pass iOS retry behavior. Use `rerun_failed_tests` when you want ShipIt to collect the initial failures, rerun those specific tests once, and emit flaky/persistent failure information in `TestRunReport`. Use `infrastructure_retry` for whole-run failures such as simulator launch crashes, Android emulator disconnects, Flutter tool crashes, or JS worker failures.
 
-`shipit generate` enables this retry policy on generated test steps by default; interactive generation lets users opt out. `shipit ai-session` preserves that default in its prompt rather than asking agents to recreate it.
+`shipit generate` enables this retry policy on generated test steps by default; interactive generation lets users opt out. `shipit ai session` preserves that default in its prompt rather than asking agents to recreate it.
 
 ## `test-results` action options
 
@@ -388,7 +388,7 @@ platform=macOS
 
 Run `xcodebuild -showdestinations -scheme <Scheme>` (with `-workspace` or `-project` as appropriate)
 to list all valid destination strings for your scheme on the current machine. Alternatively, run
-`shipit ai-session --goal local` which calls destination discovery automatically and includes the
+`shipit ai session --goal local` which calls destination discovery automatically and includes the
 results in `nextQuestion` so an AI agent can ask which destinations to use.
 
 ## `project_generation`
@@ -493,14 +493,14 @@ Each step:
 Use these AI-oriented commands to inspect the supported workflow surface:
 
 ```bash
-swift run shipit ai-session --goal beta
+swift run shipit ai session --goal beta
 swift run shipit schema --output json
 swift run shipit inspect project --output json
 swift run shipit generate --goal beta
 swift run shipit validate yml --shipfile ./Shipfile.yml --output json
 ```
 
-`ai-session` always emits JSON and is intended for AI/tooling integrations rather than direct human consumption.
+`ai session` always emits JSON and is intended for AI/tooling integrations rather than direct human consumption.
 
 Workflow notes:
 
@@ -588,7 +588,7 @@ Rules:
 
 ### AI-session integration
 
-`shipit ai-session` includes the user's custom actions in the generated agent prompt (name, description, and declared parameters). Agents are instructed to prefer invoking an existing composite over duplicating its step sequence in a new workflow.
+`shipit ai session` includes the user's custom actions in the generated agent prompt (name, description, and declared parameters). Agents are instructed to prefer invoking an existing composite over duplicating its step sequence in a new workflow.
 
 ## Workflow tokens & step conditions
 

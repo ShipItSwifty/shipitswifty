@@ -163,7 +163,7 @@ shipit validate yml                 # static checks
 shipit run beta --dry-run --output json   # see the planned step list
 
 # AI/CI-friendly
-shipit ai-session --goal beta
+shipit ai session --goal beta
 ```
 
 ## Migration advice
@@ -176,7 +176,7 @@ shipit ai-session --goal beta
 
 ## Things ShipItSwifty does that fastlane doesn't
 
-- **AI session**: `shipit ai-session --goal beta` returns a stable JSON contract designed for agents (see <doc:AISession>).
+- **AI session**: `shipit ai session --goal beta` returns a stable JSON contract designed for agents (see <doc:AISession>).
 - **Composite actions in YAML**: parameterised reusable step sequences without writing Swift (see <doc:CompositeActions>).
 - **Strict typed config**: invalid Shipfile keys fail at load time, not at runtime.
 - **One binary for both platforms**: same workflow, just toggle `platform: android`.

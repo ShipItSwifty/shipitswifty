@@ -4,7 +4,7 @@ A stable, versioned JSON contract that lets AI agents drive ShipItSwifty setup a
 
 ## Overview
 
-`shipit ai-session` is the canonical machine-oriented entrypoint to ShipItSwifty. It runs ``ProjectInspector`` against the current directory, infers as much config as possible, identifies what's missing, and returns a versioned JSON payload that an AI agent can act on without ever calling another sub-command first.
+`shipit ai session` is the canonical machine-oriented entrypoint to ShipItSwifty. It runs ``ProjectInspector`` against the current directory, infers as much config as possible, identifies what's missing, and returns a versioned JSON payload that an AI agent can act on without ever calling another sub-command first.
 
 The shape of that payload is defined by ``AISessionPayload`` and produced by ``AISessionBuilder``. The contract version is exposed at ``AISessionBuilder/contractVersion`` and changes only on breaking shape changes.
 
@@ -25,9 +25,9 @@ ShipItKit fixes both by giving agents:
 ## Quick start
 
 ```bash
-shipit ai-session --goal beta
-shipit ai-session --goal release --path /path/to/project
-shipit ai-session --goal beta --platform android
+shipit ai session --goal beta
+shipit ai session --goal release --path /path/to/project
+shipit ai session --goal beta --platform android
 ```
 
 Output is always JSON when invoked this way.
@@ -99,7 +99,7 @@ This lets agents distinguish "I read this from the Xcode project, trust it" from
 If your project has multiple runnable schemes, multiple bundle IDs across configurations, or several `*.xcworkspace` candidates, those land in the `ambiguities` array. An agent should:
 
 1. Ask the user a single targeted question (use the `nextQuestion` value).
-2. Re-run `ai-session --goal <goal>` after the user supplies the choice (typically by editing `Shipfile.yml` or exporting an env var).
+2. Re-run `ai session --goal <goal>` after the user supplies the choice (typically by editing `Shipfile.yml` or exporting an env var).
 3. Continue when `ambiguities` is empty.
 
 ## Non-interactive generation

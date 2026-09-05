@@ -143,9 +143,11 @@ swift run shipit validate all                      # yml + metadata + archive in
 swift run shipit precheck                          # backwards-compat alias: validate metadata
 
 # AI-first entrypoint (canonical machine-oriented command)
-swift run shipit ai-session --goal beta
-swift run shipit ai-session --goal release --path /path/to/project
-swift run shipit ai-session --goal beta --platform android   # Android-specific agent prompt
+swift run shipit ai session --goal beta
+swift run shipit ai session --goal release --path /path/to/project
+swift run shipit ai session --goal beta --platform android   # Android-specific agent prompt
+swift run shipit ai prompt --goal beta               # just the recommended system prompt
+swift run shipit ai instructions                     # ShipItSwifty's own operating guidance for agents
 
 # Guided Shipfile generation
 swift run shipit generate --goal beta
@@ -223,7 +225,7 @@ workflows:
 - Required parameters (no `default:`) must be supplied at the call site.
 - Composite-to-composite references must be acyclic.
 
-**Agent guidance:** `shipit ai-session` enumerates the user's declared custom actions in the generated `agentPrompt` so agents prefer reusing an existing composite over duplicating its step sequence in a new workflow.
+**Agent guidance:** `shipit ai session` enumerates the user's declared custom actions in the generated `agentPrompt` so agents prefer reusing an existing composite over duplicating its step sequence in a new workflow.
 
 Workflow auto-generation also inspects `custom_actions` recursively, so a composite that expands to `build`, `test`, or `archive` still triggers `project_generation.auto_generate` when needed.
 
@@ -438,7 +440,7 @@ Whenever you add, remove, or rename an `Options` or `Result` field on any existi
 - `AGENTS.md` — update Commands section and any agent workflow guidance that references the changed action
 - `Sources/ShipItKit/Introspection/AISessionBuilder.swift` — update any hardcoded command strings or agent prompt content that references the changed action
 
-Failure to keep these in sync will cause `shipit schema` and `shipit ai-session` to return stale information to agents and CI.
+Failure to keep these in sync will cause `shipit schema` and `shipit ai session` to return stale information to agents and CI.
 
 ## Mandatory change checklist
 
@@ -449,7 +451,7 @@ Every non-trivial code change (new feature, changed behaviour, new/renamed comma
 | New CLI command or subcommand | `AGENTS.md` Commands section, `docs/features.md`, `AISessionBuilder` agentPrompt if agents need to know |
 | New or modified `Action` | `BuiltInSchemaCatalog`, `docs/features.md`, tests, `AGENTS.md` if command surface changes, `AISessionBuilder` if agent workflow changes |
 | Changed exit code or error type | `ShipItError`, `CLIHelpers.errorSuggestions`, `docs/architecture.md` exit code table |
-| Changed `ai-session` JSON contract | `AISessionTypes.swift` version bump, `AISessionBuilder`, `docs/architecture.md`, `AGENTS.md` |
+| Changed `ai session` JSON contract | `AISessionTypes.swift` version bump, `AISessionBuilder`, `docs/architecture.md`, `AGENTS.md` |
 | Changed Shipfile schema | `BuiltInSchemaCatalog`, `Shipfile.swift`, `docs/configuration-reference.md` |
 | Changed generated workflow guidance or test workflow options | `AISessionBuilder`, `ShipfileSuggester`, `GenerateCommand`, `docs/features.md`, `docs/configuration-reference.md`, tests |
 | New backwards-compat alias | Document in `AGENTS.md` Commands section with `# backwards-compat alias:` comment |
@@ -478,3 +480,4 @@ Detailed reference material lives in `docs/`:
 - [`docs/plugin-development.md`](docs/plugin-development.md) — plugin authoring guide
 - [`docs/ci-setup.md`](docs/ci-setup.md) — GitHub Actions, GitLab CI, Bitrise
 - [`docs/walkthrough.md`](docs/walkthrough.md) — step-by-step getting started
+- [`docs/react-native-quickstart.md`](docs/react-native-quickstart.md) — React Native / Expo Shipfile placement, workflow naming, and Gradle memory caps

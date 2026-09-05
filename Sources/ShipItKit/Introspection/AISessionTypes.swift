@@ -165,7 +165,7 @@ public struct AIReadiness: Codable, Sendable, Hashable {
 
 // MARK: - Session payload
 
-/// The full structured payload returned by `shipit ai-session`.
+/// The full structured payload returned by `shipit ai session`.
 ///
 /// This is a stable, versioned JSON contract for AI agent consumption.
 /// Check `version` before parsing to detect breaking changes.

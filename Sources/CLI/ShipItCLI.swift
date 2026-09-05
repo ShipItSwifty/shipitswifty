@@ -12,29 +12,58 @@ import ShipItKit
 /// ## Usage
 /// ```
 /// shipit <command> [options]
+/// shipit ai session --goal beta       # start here: inspect the project, see what's missing
+/// shipit generate --goal beta         # write a Shipfile.yml from project inspection
+/// shipit doctor                       # diagnose setup issues before running anything
+/// shipit run beta --ci --output json  # execute a named workflow from Shipfile.yml
 /// shipit build --scheme MyApp
 /// shipit build --platform android
 /// shipit archive --scheme MyApp --export-method app-store
-/// shipit run beta --ci --output json
 /// shipit run beta --platform android --ci --output json
 /// ```
+///
+/// See `shipit help <subcommand>` for detailed help on any command, and `shipit ai instructions`
+/// for guidance aimed specifically at AI agents driving this CLI.
 @main
 struct ShipItCLI: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "shipit",
         abstract: "Swift-native CLI for iOS and Android app release automation.",
+        discussion: """
+            COMMON WORKFLOWS
+
+              First time on a project:
+                shipit ai session --goal beta       Inspect the project; see what's detected vs. missing
+                shipit generate --goal beta         Write a starting Shipfile.yml
+                shipit doctor                       Confirm the toolchain and config are ready
+
+              Day to day:
+                shipit validate yml                 Check Shipfile.yml against the schema
+                shipit run beta --dry-run --output json   Preview a workflow's resolved steps
+                shipit run beta --ci                Execute a named workflow
+
+              For AI agents:
+                shipit ai session                   Machine-readable project state + next step
+                shipit ai prompt                     Just the recommended system prompt
+                shipit ai instructions              How this CLI expects to be driven
+
+            See 'shipit help <subcommand>' for detailed help on any command.
+            """,
         subcommands: subcommandTypes,
         defaultSubcommand: nil
     )
 
     private static var subcommandTypes: [ParsableCommand.Type] {
+        // Ordered by when a new user or agent is likely to need them, grouped loosely as:
+        // get started -> inspect/validate -> build & test -> distribute -> workflow orchestration.
         var commands: [ParsableCommand.Type] = [
+            AICommand.self,
             GenerateCommand.self,
             SchemaCommand.self,
             InspectCommand.self,
             SuggestConfigCommand.self,
-            AISessionCommand.self,
             ValidateCommand.self,
+            EnvCommand.self,
             BuildCommand.self,
             TestCommand.self,
             TestResultsCommand.self,
@@ -44,13 +73,12 @@ struct ShipItCLI: AsyncParsableCommand {
             PlayStoreCommand.self,
             NotifyCommand.self,
             RunCommand.self,
-            EnvCommand.self,
             AndroidCLICommand.self,
         ]
         #if os(macOS)
         commands.append(contentsOf: [
-            VersionCommand.self,
             DoctorCommand.self,
+            VersionCommand.self,
             ExportCommand.self,
             UploadCommand.self,
             TestFlightCommand.self,
