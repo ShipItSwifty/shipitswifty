@@ -6,24 +6,29 @@ import ShipItKit
 ///
 /// `shipit ai` is the entrypoint an agent (or a human driving one) should discover first —
 /// `shipit ai session` bootstraps a machine-readable session against the current project,
-/// `shipit ai prompt` prints just the recommended system prompt for that project, and
-/// `shipit ai instructions` prints ShipItSwifty's own operating guidance for agents, with no
-/// project inspection required.
+/// `shipit ai prompt` prints just the recommended system prompt for that project,
+/// `shipit ai instructions` prints ShipItSwifty's own operating guidance for agents, and
+/// `shipit ai skills` prints curated, task-oriented playbooks for common jobs (React Native
+/// setup, Firebase distribution, fastlane migration, KMP, custom actions). None of these
+/// (except `session`) require a project to already exist.
 ///
 /// ## Usage
 /// ```
 /// shipit ai session --goal beta
 /// shipit ai prompt --goal beta
 /// shipit ai instructions
+/// shipit ai skills list
+/// shipit ai skills show react-native-setup
 /// ```
 struct AICommand: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "ai",
-        abstract: "AI-agent oriented commands: session bootstrap, system prompt, and usage instructions",
+        abstract: "AI-agent oriented commands: session bootstrap, system prompt, instructions, and skills",
         subcommands: [
             AISessionCommand.self,
             AIPromptCommand.self,
             AIInstructionsCommand.self,
+            AISkillsCommand.self,
         ],
         defaultSubcommand: AISessionCommand.self
     )
@@ -129,6 +134,10 @@ struct AIInstructionsCommand: ParsableCommand {
         list before executing anything that builds, signs, or uploads.
         5. If the project's own `AGENTS.md` exists, its guidance for that specific codebase takes \
         precedence over general assumptions about ShipItSwifty's defaults.
+        6. For a common job (React Native/Expo setup, Firebase distribution, migrating a \
+        Fastfile, KMP dual-platform, custom actions), check `shipit ai skills list` before \
+        working it out from the full reference docs — a matching playbook gives the exact \
+        steps and keys involved.
 
         Hard invariants (do not work around these):
         - Never invoke `xcodebuild`, `gradlew`, or other build tools directly when a `shipit` action \
@@ -189,4 +198,95 @@ func autoDetectAIPlatform(at rootPath: String) -> Platform {
         return .ios
     }
     return .ios
+}
+
+/// Parent command for curated, built-in agent playbooks.
+///
+/// This is a fixed, in-binary catalog (`AISkillsCatalog`) — not an installable package
+/// registry. There is no `install`/`add` subcommand because there is nothing to install:
+/// every playbook already ships in the `shipit` binary.
+///
+/// ## Usage
+/// ```
+/// shipit ai skills list
+/// shipit ai skills show react-native-setup
+/// ```
+struct AISkillsCommand: ParsableCommand {
+    static let configuration = CommandConfiguration(
+        commandName: "skills",
+        abstract: "Curated, task-oriented agent playbooks (built-in, no installation)",
+        subcommands: [
+            AISkillsListCommand.self,
+            AISkillsShowCommand.self,
+        ],
+        defaultSubcommand: AISkillsListCommand.self
+    )
+}
+
+/// Lists the built-in agent playbooks.
+struct AISkillsListCommand: ParsableCommand {
+    static let configuration = CommandConfiguration(
+        commandName: "list",
+        abstract: "List available agent playbooks"
+    )
+
+    @Option(name: .long, help: "Output format: human | json")
+    var output: OutputFormat = .human
+
+    func run() throws {
+        switch output {
+        case .human:
+            let idWidth = AISkillsCatalog.all.map(\.id.count).max() ?? 0
+            for skill in AISkillsCatalog.all {
+                print("\(skill.id.padding(toLength: idWidth, withPad: " ", startingAt: 0))  \(skill.summary)")
+            }
+            print("\nRun `shipit ai skills show <id>` for the full playbook.")
+        case .json:
+            let reporter = JSONReporter()
+            let skills: JSONValue = .array(
+                AISkillsCatalog.all.map {
+                    .object(["id": .string($0.id), "title": .string($0.title), "summary": .string($0.summary)])
+                })
+            let envelope = ActionResultEnvelope(
+                action: "ai skills list",
+                status: "success",
+                payload: .object(["skills": skills])
+            )
+            print(try reporter.encode(envelope))
+        }
+    }
+}
+
+/// Prints one built-in agent playbook by id.
+struct AISkillsShowCommand: ParsableCommand {
+    static let configuration = CommandConfiguration(
+        commandName: "show",
+        abstract: "Print one agent playbook"
+    )
+
+    @Argument(help: "Playbook id, from `shipit ai skills list`")
+    var id: String
+
+    @Option(name: .long, help: "Output format: human | json")
+    var output: OutputFormat = .human
+
+    func run() throws {
+        guard let skill = AISkillsCatalog.skill(id: id) else {
+            let available = AISkillsCatalog.all.map(\.id).joined(separator: ", ")
+            throw ValidationError("Unknown skill '\(id)'. Available skills: \(available)")
+        }
+
+        switch output {
+        case .human:
+            print(skill.content)
+        case .json:
+            let reporter = JSONReporter()
+            let envelope = ActionResultEnvelope(
+                action: "ai skills show",
+                status: "success",
+                payload: .object(["id": .string(skill.id), "title": .string(skill.title), "content": .string(skill.content)])
+            )
+            print(try reporter.encode(envelope))
+        }
+    }
 }

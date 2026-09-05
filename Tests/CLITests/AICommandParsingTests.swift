@@ -172,4 +172,61 @@ struct AICommandParsingTests {
         #expect(properties?.count == 1)
         #expect(properties?.first?.objectValue?["name"] == .string("channel"))
     }
+
+    // MARK: - AI command group
+
+    @Test("Root parser resolves ai session as the ai group's default subcommand")
+    func rootParserResolvesAIDefaultSubcommand() throws {
+        let bare = try ShipItCLI.parseAsRoot(["ai", "--goal", "release"]) as! AISessionCommand
+        #expect(bare.goal == .release)
+
+        let explicit = try ShipItCLI.parseAsRoot(["ai", "session", "--goal", "release"]) as! AISessionCommand
+        #expect(explicit.goal == .release)
+    }
+
+    @Test("shipit ai-session is no longer a top-level command")
+    func aiSessionIsNotATopLevelCommand() {
+        #expect(throws: (any Error).self) {
+            _ = try ShipItCLI.parseAsRoot(["ai-session"])
+        }
+    }
+
+    @Test("ai prompt and ai instructions parse")
+    func aiPromptAndInstructionsParse() throws {
+        let prompt = try ShipItCLI.parseAsRoot(["ai", "prompt", "--goal", "local"]) as! AIPromptCommand
+        #expect(prompt.goal == .local)
+
+        _ = try ShipItCLI.parseAsRoot(["ai", "instructions"]) as! AIInstructionsCommand
+    }
+
+    @Test("ai skills defaults to list and show requires an id")
+    func aiSkillsParsing() throws {
+        _ = try ShipItCLI.parseAsRoot(["ai", "skills"]) as! AISkillsListCommand
+        _ = try ShipItCLI.parseAsRoot(["ai", "skills", "list"]) as! AISkillsListCommand
+
+        let show = try ShipItCLI.parseAsRoot(["ai", "skills", "show", "react-native-setup"]) as! AISkillsShowCommand
+        #expect(show.id == "react-native-setup")
+
+        #expect(throws: (any Error).self) {
+            _ = try ShipItCLI.parseAsRoot(["ai", "skills", "show"])
+        }
+    }
+
+    @Test("AISkillsCatalog has no duplicate or empty ids, and every skill has non-empty content")
+    func aiSkillsCatalogIsWellFormed() {
+        let ids = AISkillsCatalog.all.map(\.id)
+        #expect(Set(ids).count == ids.count, "Duplicate skill id in catalog")
+        for skill in AISkillsCatalog.all {
+            #expect(!skill.id.isEmpty)
+            #expect(!skill.title.isEmpty)
+            #expect(!skill.summary.isEmpty)
+            #expect(!skill.content.isEmpty)
+        }
+    }
+
+    @Test("AISkillsCatalog.skill(id:) resolves known ids and returns nil for unknown ones")
+    func aiSkillsCatalogLookup() {
+        #expect(AISkillsCatalog.skill(id: "react-native-setup")?.id == "react-native-setup")
+        #expect(AISkillsCatalog.skill(id: "does-not-exist") == nil)
+    }
 }
