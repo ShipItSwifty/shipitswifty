@@ -119,6 +119,7 @@ dependencies: [
     .package(url: "https://github.com/maniramezan/SwiftyShell.git", from: "0.5.0"), // shell execution
     .package(url: "https://github.com/apple/swift-argument-parser", from: "1.7.1"),
     .package(url: "https://github.com/maniramezan/app-store-connect-mcp.git", from: "0.1.0"), // App Store Connect + Xcode Cloud client (ES256 JWT lives here)
+    .package(url: "https://github.com/maniramezan/google-play-store-mcp.git", from: "0.1.0"), // Google service-account auth + Google Play Developer API
     .package(url: "https://github.com/jpsim/Yams", from: "6.2.1"),          // YAML config
     .package(url: "https://github.com/apple/swift-crypto", from: "4.4.0"),  // code signing
     .package(url: "https://github.com/apple/swift-log", from: "1.12.0"),    // logging
@@ -497,18 +498,47 @@ Exit code `2` when `isReady: false`. Check this to gate further steps.
 
 ## `GooglePlayClient`
 
-Native Google Play Developer API client, mirroring `AppStoreConnectClient`. Uses RS256 (RSA-SHA256) JWT auth from a service account JSON key.
+> Lives in the external **`GooglePlayKit`** package
+> (`github.com/maniramezan/google-play-store-mcp`), extracted from this repo, alongside
+> `GoogleAuthKit` (service-account credentials, the RS256 JWT → OAuth2 exchange, and
+> `WorkloadIdentityFederationClient`) and an MCP server exposing Play release state to agents.
+> The package throws `GoogleAPIError`; ShipItKit maps it to `ShipItError` via
+> `mappingGoogleErrors { }`.
 
 ```swift
-public actor GooglePlayClient: Sendable {
-    public init(serviceAccountJSON: Data) throws
-    public func uploadBundle(at fileURL: URL, packageName: String, track: String, rolloutFraction: Double?) async throws -> String
+public struct GooglePlayClient: Sendable {
+    public init(credentials: GoogleServiceAccountCredentials, session: URLSession = .shared)
+    public init(serviceAccountJSON: Data, session: URLSession = .shared) throws
+    public init(serviceAccountJSONPath: String, session: URLSession = .shared) throws
+    /// Test seam: a canned token skips RSA signing and the OAuth2 round trip.
+    public init(tokenProvider: @escaping @Sendable () async throws -> String, session: URLSession)
+
+    // Reads (each wraps itself in a throwaway edit that is always deleted, never committed)
+    public func listTracks(packageName: String) async throws -> [GooglePlayTrack]
+    public func getTrack(packageName: String, track: String) async throws -> GooglePlayTrack
+    public func listBundles(packageName: String) async throws -> [GooglePlayBundle]
+    public func listApks(packageName: String) async throws -> [GooglePlayApk]
+    public func listReviews(packageName: String, maxResults: Int, translationLanguage: String?) async throws -> [GooglePlayReview]
+
+    // Rollout control (each opens an edit and commits it)
+    public func updateRollout(packageName: String, track: String, userFraction: Double) async throws -> GooglePlayTrack
+    public func haltRollout(packageName: String, track: String) async throws -> GooglePlayTrack
 }
 ```
 
+`GooglePlayUploadService` wraps the transactional release workflow: create edit → upload
+AAB/APK → assign to track → commit, deleting the edit if any step fails so an abandoned edit
+never blocks a human in the Play Console.
+
+> **API limitation:** `applications.dataSafety` is write-only. Nothing in the Play API reads back
+> a published Data safety declaration or distinguishes it from an unpublished draft, so verifying
+> one is a manual Play Console step.
+
 ### JWT authentication (RS256)
 
-Service account JSON from Google Cloud Console. ShipIt extracts the `private_key` and signs with RS256 using the Security framework (no third-party JWT library).
+Service account JSON from Google Cloud Console. `GoogleAuthKit` extracts the `private_key` and
+signs with RS256 via swift-crypto (`_RSA.Signing`), then exchanges the assertion for a
+scope-limited OAuth2 access token.
 
 | JWT field | Value |
 |---|---|

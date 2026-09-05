@@ -1,3 +1,5 @@
+import GoogleAuthKit
+import GooglePlayKit
 import AppStoreConnectKit
 import Foundation
 import Logging

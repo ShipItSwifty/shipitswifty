@@ -1,3 +1,4 @@
+import GoogleAuthKit
 import AppStoreConnectKit
 import Foundation
 import SwiftyShell

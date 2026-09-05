@@ -1,3 +1,5 @@
+import GoogleAuthKit
+import GooglePlayKit
 import Foundation
 import Logging
 
@@ -206,15 +208,17 @@ public struct PlayStoreAction: Action {
         logger.info("Uploading to Google Play — package: '\(packageName)', track: '\(track)'")
 
         let uploader = GooglePlayUploadService(client: googlePlay, packageName: packageName)
-        let versionCode = try await uploader.uploadAndRelease(
-            aabPath: anchoredAABPath,
-            apkPath: anchoredAPKPath,
-            track: track,
-            releaseName: options.releaseName,
-            releaseNotes: notes,
-            status: releaseStatus,
-            userFraction: rolloutFraction
-        )
+        let versionCode = try await mappingGoogleErrors {
+            try await uploader.uploadAndRelease(
+                aabPath: anchoredAABPath,
+                apkPath: anchoredAPKPath,
+                track: track,
+                releaseName: options.releaseName,
+                releaseNotes: notes,
+                status: releaseStatus,
+                userFraction: rolloutFraction
+            )
+        }
 
         logger.info("Play Store upload succeeded — versionCode=\(versionCode) on track '\(track)'")
 
