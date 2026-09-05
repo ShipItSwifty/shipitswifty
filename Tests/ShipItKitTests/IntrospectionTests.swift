@@ -205,8 +205,8 @@ struct IntrospectionTests {
         #expect(suggestion.yaml.contains("operation: push"))
     }
 
-    @Test("Shipfile suggester generates combined React Native beta workflows")
-    func shipfileSuggesterGeneratesCombinedReactNativeBetaWorkflows() {
+    @Test("Shipfile suggester generates single-platform React Native beta workflows")
+    func shipfileSuggesterGeneratesSinglePlatformReactNativeBetaWorkflows() {
         let inspection = ProjectInspection(
             rootPath: "/tmp/project",
             xcodeContainers: [.init(kind: "workspace", path: "App.xcworkspace")],
@@ -228,20 +228,28 @@ struct IntrospectionTests {
             buildSystemFiles: ["package.json"]
         )
 
-        let suggestion = ShipfileSuggester().suggest(goal: .beta, from: inspection)
+        // Neither generated file may name a `platform` option on a step — it is not a valid
+        // action option (platform is resolved once for the whole Shipfile), and doing so used
+        // to produce a Shipfile that failed the tool's own `validate yml`.
+        let iosSuggestion = ShipfileSuggester().suggest(goal: .beta, platform: .ios, from: inspection)
+        #expect(iosSuggestion.yaml.contains("platform: ios"))
+        #expect(iosSuggestion.yaml.contains("ios:\n  build_system: react_native"))
+        #expect(iosSuggestion.yaml.contains("  beta:"))
+        #expect(!iosSuggestion.yaml.contains("beta-ios"))
+        #expect(!iosSuggestion.yaml.contains("options: { platform:"))
+        #expect(iosSuggestion.yaml.contains("    # RN iOS: build validates the bundle; archive + export produces the IPA."))
+        #expect(iosSuggestion.yaml.contains("    # - action: testflight"))
+        #expect(iosSuggestion.missingValues.contains { $0.keyPath == "app.scheme" })
 
-        #expect(suggestion.yaml.contains("ios:\n  build_system: react_native"))
-        #expect(suggestion.yaml.contains("android:\n  build_system: react_native"))
-        #expect(suggestion.yaml.contains("  package_name: com.example.app"))
-        #expect(suggestion.yaml.contains("  beta-ios:"))
-        #expect(suggestion.yaml.contains("  beta-android:"))
-        #expect(suggestion.yaml.contains("    # RN iOS: build validates the bundle; archive + export produces the IPA."))
-        #expect(suggestion.yaml.contains("    - action: archive\n      options: { platform: ios }"))
-        #expect(suggestion.yaml.contains("    - action: archive\n      options: { platform: android }"))
-        #expect(suggestion.yaml.contains("    # - action: testflight"))
-        #expect(suggestion.yaml.contains("    # - action: play-store"))
-        #expect(suggestion.missingValues.contains { $0.keyPath == "app.scheme" })
-        #expect(suggestion.missingValues.contains { $0.keyPath == "android.keystore_path" })
+        let androidSuggestion = ShipfileSuggester().suggest(goal: .beta, platform: .android, from: inspection)
+        #expect(androidSuggestion.yaml.contains("platform: android"))
+        #expect(androidSuggestion.yaml.contains("android:\n  build_system: react_native"))
+        #expect(androidSuggestion.yaml.contains("  package_name: com.example.app"))
+        #expect(androidSuggestion.yaml.contains("  beta:"))
+        #expect(!androidSuggestion.yaml.contains("beta-android"))
+        #expect(!androidSuggestion.yaml.contains("options: { platform:"))
+        #expect(androidSuggestion.yaml.contains("    # - action: play-store"))
+        #expect(androidSuggestion.missingValues.contains { $0.keyPath == "android.keystore_path" })
     }
 
     @Test("Schema validator catches unknown fields")
