@@ -303,6 +303,10 @@ public struct ArchiveAction: Action {
             }
         )
 
+        // `aabPath` is already RN-root-relative (it's prefixed with "android/" by
+        // `CrossPlatformArtifactPaths.reactNativeAAB`), so it anchors against the shell's
+        // working directory (the RN project root), not the Gradle project directory the
+        // build actually ran in.
         let aabPath = CrossPlatformArtifactPaths.reactNativeAAB(variant: variant)
         let baseDir = context.shell.workingDirectory ?? FileManager.default.currentDirectoryPath
         let anchoredPath: String
@@ -360,6 +364,21 @@ public struct ArchiveAction: Action {
     private func reactNativeAndroidModule(context: ActionContext) -> String {
         let module = context.config.androidModule
         return module.isEmpty ? "app" : module
+    }
+
+    /// Resolves a Gradle-reported artifact path (relative to wherever Gradle actually ran —
+    /// `projectDir`) into an absolute, checkable path. `projectDir` itself may be relative
+    /// (e.g. the React Native default `"./android"`), so it is first anchored against the
+    /// shell's working directory before the artifact path is appended.
+    private func anchoredGradleArtifactPath(_ path: String, projectDir: String, context: ActionContext) -> String {
+        if (path as NSString).isAbsolutePath { return path }
+
+        let shellDir = context.shell.workingDirectory ?? FileManager.default.currentDirectoryPath
+        let anchoredProjectDir =
+            (projectDir as NSString).isAbsolutePath
+            ? projectDir
+            : (shellDir as NSString).appendingPathComponent(projectDir)
+        return (anchoredProjectDir as NSString).appendingPathComponent(path)
     }
 
     private func reactNativeGradleProjectDir(context: ActionContext) -> String {
@@ -562,12 +581,8 @@ public struct ArchiveAction: Action {
             // Verify the AAB file actually exists on disk — Gradle may report success
             // even when no artifact is produced (e.g. UP-TO-DATE with stale cache).
             let baseDir = context.shell.workingDirectory ?? FileManager.default.currentDirectoryPath
-            let anchoredPath: String
-            if (resolvedAabPath as NSString).isAbsolutePath {
-                anchoredPath = resolvedAabPath
-            } else {
-                anchoredPath = (baseDir as NSString).appendingPathComponent(resolvedAabPath)
-            }
+            let anchoredPath = anchoredGradleArtifactPath(
+                resolvedAabPath, projectDir: context.config.gradleProjectDir, context: context)
             if !FileManager.default.fileExists(atPath: anchoredPath) {
                 logger.error("AAB file not found at expected path: \(anchoredPath)")
                 throw ShipItError.archiveFailed(

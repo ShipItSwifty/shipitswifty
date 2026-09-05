@@ -197,10 +197,20 @@ public struct Gradle: RunnableCommandFamily {
         // Task names
         args += tasks.map(\.name)
 
-        let base = Command(executable)
+        var base = Command(executable)
             .args(args)
             .stdout(stdoutDestination)
             .stderr(stderrDestination)
+
+        // Gradle resolves its project root (settings.gradle) from the process's working
+        // directory, not from the wrapper script's location. When projectDir points somewhere
+        // other than the process cwd (e.g. a React Native project's `./android` subdirectory,
+        // with the Shipfile at the RN root), the invocation must run with that directory as its
+        // cwd or Gradle reports "does not contain a Gradle build" even though the wrapper was
+        // found correctly.
+        if let projectDir {
+            base = base.workingDirectory(projectDir)
+        }
 
         return config.apply(to: base)
     }
@@ -215,7 +225,11 @@ public struct Gradle: RunnableCommandFamily {
         let dir = projectDir ?? "."
         let candidate = "\(dir)/gradlew"
         if FileManager.default.fileExists(atPath: candidate) {
-            return candidate
+            // Resolve to an absolute path now, against the process's current cwd: `command()`
+            // may set `projectDir` as the child process's working directory, which would
+            // otherwise make this path (still relative, and still joined with `dir`) resolve
+            // against the wrong base once the process actually starts.
+            return URL(fileURLWithPath: candidate).path
         }
 
         // 3. Fall back to `gradle` on PATH

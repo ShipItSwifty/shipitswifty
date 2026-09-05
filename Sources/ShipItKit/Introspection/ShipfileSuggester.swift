@@ -16,18 +16,18 @@ public struct ShipfileSuggester: Sendable {
         case .ios:
             switch inspection.detectedBuildSystem {
             case .flutter:
-                return suggestFlutter(goal: goal, from: inspection)
+                return suggestFlutter(goal: goal, platform: .ios, from: inspection)
             case .reactNative:
-                return suggestReactNative(goal: goal, from: inspection)
+                return suggestReactNative(goal: goal, platform: .ios, from: inspection)
             default:
                 return suggestIOS(goal: goal, from: inspection)
             }
         case .android:
             switch inspection.detectedBuildSystem {
             case .flutter:
-                return suggestFlutter(goal: goal, from: inspection)
+                return suggestFlutter(goal: goal, platform: .android, from: inspection)
             case .reactNative:
-                return suggestReactNative(goal: goal, from: inspection)
+                return suggestReactNative(goal: goal, platform: .android, from: inspection)
             default:
                 return suggestAndroid(goal: goal, from: inspection)
             }
@@ -99,7 +99,7 @@ public struct ShipfileSuggester: Sendable {
                 .init(
                     keyPath: "workflows.local[test].options.destinations",
                     reason:
-                        "Test destinations must be set to the simulators or devices available on your machine. Run `xcodebuild -showdestinations -scheme <scheme>` or `shipit ai-session --goal local` to discover valid values. Remove the test step to skip testing.",
+                        "Test destinations must be set to the simulators or devices available on your machine. Run `xcodebuild -showdestinations -scheme <scheme>` or `shipit ai session --goal local` to discover valid values. Remove the test step to skip testing.",
                     envVar: nil
                 ))
         }
@@ -196,60 +196,71 @@ public struct ShipfileSuggester: Sendable {
     }
 
     private func suggestFlutter(
-        goal: SuggestionGoal, from inspection: ProjectInspection
+        goal: SuggestionGoal, platform: Platform, from inspection: ProjectInspection
     ) -> SuggestedShipfile {
         let missingValues: [SuggestedShipfile.MissingValue] = []
         var warnings = inspection.warnings
 
-        if goal == .beta || goal == .release {
+        if platform == .ios, goal == .beta || goal == .release {
             warnings.append(
                 "Flutter iOS distribution requires a valid Apple Developer account and code signing configuration."
             )
         }
 
-        let yaml = renderFlutterYAML(goal: goal)
+        let yaml = renderFlutterYAML(goal: goal, platform: platform)
         return SuggestedShipfile(
             goal: goal, inspection: inspection, missingValues: missingValues, warnings: warnings,
             yaml: yaml)
     }
 
     private func suggestReactNative(
-        goal: SuggestionGoal, from inspection: ProjectInspection
+        goal: SuggestionGoal, platform: Platform, from inspection: ProjectInspection
     ) -> SuggestedShipfile {
         var missingValues: [SuggestedShipfile.MissingValue] = []
         let warnings = inspection.warnings
 
         if goal == .beta || goal == .release {
-            missingValues.append(
-                .init(
-                    keyPath: "app.scheme",
-                    reason: "React Native iOS archive requires an Xcode scheme for the generated project.",
-                    envVar: "SHIPIT_APP__SCHEME"
-                ))
-            missingValues.append(
-                .init(
-                    keyPath: "android.keystore_path",
-                    reason: "Signed release artifacts need a keystore path.",
-                    envVar: "SHIPIT_ANDROID__KEYSTORE_PATH"
-                ))
+            switch platform {
+            case .ios:
+                missingValues.append(
+                    .init(
+                        keyPath: "app.scheme",
+                        reason: "React Native iOS archive requires an Xcode scheme for the generated project.",
+                        envVar: "SHIPIT_APP__SCHEME"
+                    ))
+            case .android:
+                missingValues.append(
+                    .init(
+                        keyPath: "android.keystore_path",
+                        reason: "Signed release artifacts need a keystore path.",
+                        envVar: "SHIPIT_ANDROID__KEYSTORE_PATH"
+                    ))
+            }
         }
 
-        let yaml = renderReactNativeYAML(goal: goal, packageName: inspection.suggestedAndroidPackageName)
+        let yaml = renderReactNativeYAML(
+            goal: goal, platform: platform, packageName: inspection.suggestedAndroidPackageName)
         return SuggestedShipfile(
             goal: goal, inspection: inspection, missingValues: missingValues, warnings: warnings,
             yaml: yaml)
     }
 
-    private func renderFlutterYAML(goal: SuggestionGoal) -> String {
+    private func renderFlutterYAML(goal: SuggestionGoal, platform: Platform) -> String {
         var lines: [String] = [
             "# Shipfile.yml — generated by `shipit generate`",
             "# Flutter project detected. Review before committing.",
+            "# Generated for a single platform (`--platform \(platform.rawValue)`); run `shipit generate",
+            "# --platform \(platform == .ios ? "android" : "ios")` from the same directory into a differently-named",
+            "# Shipfile (e.g. `Shipfile.\(platform == .ios ? "android" : "ios").yml`) to cover the other platform.",
+            "platform: \(platform.rawValue)",
             "",
-            "ios:",
+            "\(platform.rawValue):",
             "  build_system: flutter",
-            "android:",
-            "  build_system: flutter",
-            "  # cli: { enabled: true, executable_path: android }",
+        ]
+        if platform == .android {
+            lines.append("  # cli: { enabled: true, executable_path: android }")
+        }
+        lines.append(contentsOf: [
             "",
             "versioning:",
             "  strategy: sequential",
@@ -258,10 +269,10 @@ public struct ShipfileSuggester: Sendable {
             "  source: pubspec",
             "",
             "workflows:",
-        ]
+        ])
 
-        switch goal {
-        case .local:
+        switch (goal, platform) {
+        case (.local, _):
             lines.append(contentsOf: [
                 "  local:",
                 "    - action: lint",
@@ -270,37 +281,39 @@ public struct ShipfileSuggester: Sendable {
                 "      options: { infrastructure_retry: { max_attempts: 3, initial_delay_seconds: 2, max_delay_seconds: 30 } }",
                 "    - action: build",
             ])
-        case .beta:
+        case (.beta, .ios):
             lines.append(contentsOf: [
-                "  beta-ios:",
+                "  beta:",
                 "    - action: test",
                 "      options: { infrastructure_retry: { max_attempts: 3, initial_delay_seconds: 2, max_delay_seconds: 30 } }",
                 "    - action: archive",
-                "      options: { platform: ios }",
                 "    # Flutter iOS: archive produces build/ios/ipa/*.ipa directly (no export step needed).",
                 "    # Uncomment testflight when App Store Connect credentials are configured:",
                 "    # - action: testflight",
-                "  beta-android:",
+            ])
+        case (.beta, .android):
+            lines.append(contentsOf: [
+                "  beta:",
                 "    - action: test",
                 "      options: { infrastructure_retry: { max_attempts: 3, initial_delay_seconds: 2, max_delay_seconds: 30 } }",
                 "    - action: archive",
-                "      options: { platform: android }",
                 "    # - action: play-store",
                 "    #   options: { track: internal }",
             ])
-        case .release:
+        case (.release, .ios):
             lines.append(contentsOf: [
-                "  release-ios:",
+                "  release:",
                 "    - action: test",
                 "      options: { infrastructure_retry: { max_attempts: 3, initial_delay_seconds: 2, max_delay_seconds: 30 } }",
                 "    - action: archive",
-                "      options: { platform: ios }",
                 "    - action: testflight",
-                "  release-android:",
+            ])
+        case (.release, .android):
+            lines.append(contentsOf: [
+                "  release:",
                 "    - action: test",
                 "      options: { infrastructure_retry: { max_attempts: 3, initial_delay_seconds: 2, max_delay_seconds: 30 } }",
                 "    - action: archive",
-                "      options: { platform: android }",
                 "    - action: play-store",
                 "      options: { track: production }",
             ])
@@ -309,79 +322,114 @@ public struct ShipfileSuggester: Sendable {
         return lines.joined(separator: "\n") + "\n"
     }
 
-    private func renderReactNativeYAML(goal: SuggestionGoal, packageName: String?) -> String {
+    private func renderReactNativeYAML(goal: SuggestionGoal, platform: Platform, packageName: String?) -> String {
         var lines: [String] = [
             "# Shipfile.yml — generated by `shipit generate`",
-            "# React Native project detected. Review before committing.",
-            "",
-            "app:",
-            "  scheme: ${SHIPIT_APP__SCHEME}",
-            "  bundle_id: ${SHIPIT_APP__BUNDLE_ID}",
-            "  team_id: ${SHIPIT_APP__TEAM_ID}",
-            "",
-            "ios:",
-            "  build_system: react_native",
-            "android:",
-            "  build_system: react_native",
-            "  # cli: { enabled: true, executable_path: android }",
-            "  package_name: \(packageName ?? "${SHIPIT_ANDROID__PACKAGE_NAME}")",
+            "# React Native project detected. Place this file at the React Native project root",
+            "# (the directory holding package.json) — not inside android/ or ios/.",
+            "# Generated for a single platform (`--platform \(platform.rawValue)`); run `shipit generate",
+            "# --platform \(platform == .ios ? "android" : "ios")` into a differently-named Shipfile",
+            "# (e.g. `Shipfile.\(platform == .ios ? "android" : "ios").yml`) to cover the other platform.",
+            "platform: \(platform.rawValue)",
             "",
         ]
+
+        switch platform {
+        case .ios:
+            lines.append(contentsOf: [
+                "app:",
+                "  scheme: ${SHIPIT_APP__SCHEME}",
+                "  bundle_id: ${SHIPIT_APP__BUNDLE_ID}",
+                "  team_id: ${SHIPIT_APP__TEAM_ID}",
+                "",
+                "ios:",
+                "  build_system: react_native",
+                "",
+                "code_signing:",
+                "  type: automatic",
+                "",
+                "archive:",
+                "  export_method: app-store",
+                "  output_path: ./build/App.xcarchive",
+                "",
+                "export:",
+                "  archive_path: ./build/App.xcarchive",
+                "  output_directory: ./build/export",
+                "",
+                "versioning:",
+                "  strategy: sequential",
+                "  source: xcodeproj",
+                "",
+            ])
+        case .android:
+            lines.append(contentsOf: [
+                "android:",
+                "  build_system: react_native",
+                "  # cli: { enabled: true, executable_path: android }",
+                "  package_name: \(packageName ?? "${SHIPIT_ANDROID__PACKAGE_NAME}")",
+                "  # gradlew_path / gradle_project_dir are left at their RN-aware defaults, which",
+                "  # resolve to ./android from this Shipfile's directory. Do not set gradle_project_dir",
+                "  # here — it only selects which gradlew script runs, not where Gradle looks for",
+                "  # settings.gradle, so pointing it elsewhere will not relocate the build.",
+                "  keystore_path: ${SHIPIT_ANDROID__KEYSTORE_PATH}",
+                "  keystore_alias: ${SHIPIT_ANDROID__KEY_ALIAS}",
+                "",
+                "versioning:",
+                "  strategy: sequential",
+                "  source: gradle",
+                "",
+            ])
+        }
 
         lines.append("workflows:")
 
         switch goal {
         case .local:
             lines.append(contentsOf: [
-                "  local-ios:",
+                "  local:",
                 "    - action: lint",
                 "    - action: test",
                 "      options: { infrastructure_retry: { max_attempts: 3, initial_delay_seconds: 2, max_delay_seconds: 30 } }",
                 "    - action: build",
-                "      options: { platform: ios }",
-                "  local-android:",
-                "    - action: lint",
-                "    - action: test",
-                "      options: { infrastructure_retry: { max_attempts: 3, initial_delay_seconds: 2, max_delay_seconds: 30 } }",
-                "    - action: build",
-                "      options: { platform: android }",
             ])
-        case .beta:
+        case .beta where platform == .ios:
             lines.append(contentsOf: [
-                "  beta-ios:",
+                "  beta:",
                 "    - action: lint",
                 "    - action: test",
                 "      options: { infrastructure_retry: { max_attempts: 3, initial_delay_seconds: 2, max_delay_seconds: 30 } }",
                 "    # RN iOS: build validates the bundle; archive + export produces the IPA.",
                 "    - action: archive",
-                "      options: { platform: ios }",
                 "    - action: export",
                 "    # - action: testflight",
-                "  beta-android:",
+            ])
+        case .beta:
+            lines.append(contentsOf: [
+                "  beta:",
                 "    - action: lint",
                 "    - action: test",
                 "      options: { infrastructure_retry: { max_attempts: 3, initial_delay_seconds: 2, max_delay_seconds: 30 } }",
                 "    - action: archive",
-                "      options: { platform: android }",
                 "    # - action: play-store",
                 "    #   options: { track: internal }",
             ])
-        case .release:
+        case .release where platform == .ios:
             lines.append(contentsOf: [
-                "  release-ios:",
+                "  release:",
                 "    - action: lint",
                 "    - action: test",
                 "      options: { infrastructure_retry: { max_attempts: 3, initial_delay_seconds: 2, max_delay_seconds: 30 } }",
                 "    - action: archive",
-                "      options: { platform: ios }",
                 "    - action: export",
                 "    - action: testflight",
-                "  release-android:",
+            ])
+        case .release:
+            lines.append(contentsOf: [
+                "  release:",
                 "    - action: lint",
                 "    - action: test",
                 "      options: { infrastructure_retry: { max_attempts: 3, initial_delay_seconds: 2, max_delay_seconds: 30 } }",
                 "    - action: archive",
-                "      options: { platform: android }",
                 "    - action: play-store",
                 "      options: { track: production }",
             ])
@@ -505,7 +553,7 @@ public struct ShipfileSuggester: Sendable {
                     "    - action: build",
                     "    # Test step: set destinations to the simulators/devices you want to run on.",
                     "    # Run `xcodebuild -showdestinations -scheme <scheme>` to list valid values,",
-                    "    # or use `shipit ai-session --goal local` which discovers them automatically.",
+                    "    # or use `shipit ai session --goal local` which discovers them automatically.",
                     "    # Remove this step (or leave destinations empty) to skip tests.",
                     "    - action: test",
                     "      options:",

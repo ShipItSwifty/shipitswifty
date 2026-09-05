@@ -443,6 +443,13 @@ public enum BuiltInSchemaCatalog {
                         description: "Additional Gradle flags passed to every gradlew invocation.",
                         example: .array([.string("--no-daemon")]),
                         items: .string("flag", description: "Gradle flag.")),
+                    .object(
+                        "gradle_properties",
+                        description: "Extra -P key=value properties passed to every gradlew invocation.",
+                        example: .object(["reactNativeArchitectures": .string("arm64-v8a")]),
+                        allowsAdditionalProperties: true,
+                        additionalProperties: .string("property", description: "Gradle property value.")
+                    ),
                 ]
             ),
             .object(
