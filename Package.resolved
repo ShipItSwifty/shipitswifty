@@ -1,5 +1,5 @@
 {
-  "originHash" : "806a32b75338787f6d13dc2ef204e85265f85ad94b2c46f40dba86e64cd7d24f",
+  "originHash" : "cf2a771b74bb2f6137b78925e29ab7775ff3e3e3e32fa3c64edb3d28f9721f28",
   "pins" : [
     {
       "identity" : "app-store-connect-mcp",
@@ -22,7 +22,7 @@
     {
       "identity" : "google-play-store-mcp",
       "kind" : "remoteSourceControl",
-      "location" : "https://github.com/maniramezan/google-play-store-mcp.git",
+      "location" : "https://github.com/ShipItSwifty/google-play-store-mcp.git",
       "state" : {
         "revision" : "65037ea75c5a30458222582eb09c4ff7a13fb1fb",
         "version" : "0.1.0"

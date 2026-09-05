@@ -282,7 +282,7 @@ App Store Connect support (the client, JWT auth, rate limiter, DTOs, IPA upload,
 Google Play support (the `androidpublisher` v3 client, DTOs, and the edit→upload→track→commit
 release workflow) and Google service-account auth (RS256 JWT → OAuth2, and GitHub Actions
 Workload Identity Federation) likewise live in a **separate public package**,
-`github.com/maniramezan/google-play-store-mcp` (products `GoogleAuthKit` + `GooglePlayKit`, plus
+`github.com/ShipItSwifty/google-play-store-mcp` (products `GoogleAuthKit` + `GooglePlayKit`, plus
 an MCP server exposing Play release state to agents). ShipItKit depends on it directly
 (`import GooglePlayKit` / `import GoogleAuthKit`, no re-export) and maps its `GoogleAPIError` to
 `ShipItError` via `mappingGoogleErrors { }`

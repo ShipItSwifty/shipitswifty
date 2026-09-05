@@ -27,7 +27,7 @@ let package = Package(
         // App Store Connect API client + Xcode Cloud read API (extracted from this repo).
         .package(url: "https://github.com/maniramezan/app-store-connect-mcp.git", from: "0.1.0"),
         // Google service-account auth + Google Play Developer API client (extracted from this repo).
-        .package(url: "https://github.com/maniramezan/google-play-store-mcp.git", from: "0.1.0"),
+        .package(url: "https://github.com/ShipItSwifty/google-play-store-mcp.git", from: "0.1.0"),
         // YAML config parsing
         .package(url: "https://github.com/jpsim/Yams", from: "6.2.1"),
         // Crypto for code signing operations
