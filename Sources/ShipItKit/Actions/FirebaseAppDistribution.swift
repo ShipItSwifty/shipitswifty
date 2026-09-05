@@ -1,4 +1,5 @@
 import Foundation
+import GoogleAuthKit
 import Logging
 
 /// Uploads a signed IPA, APK, or AAB to Firebase App Distribution and releases it to testers.

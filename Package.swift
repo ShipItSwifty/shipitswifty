@@ -25,7 +25,13 @@ let package = Package(
         // CLI argument parsing
         .package(url: "https://github.com/apple/swift-argument-parser", from: "1.7.1"),
         // App Store Connect API client + Xcode Cloud read API (extracted from this repo).
-        .package(url: "https://github.com/maniramezan/app-store-connect-mcp.git", from: "0.1.0"),
+        // Floor is 0.1.6: earlier versions encoded POST/PATCH bodies as snake_case, so every
+        // write through AppStoreReleaseService sent keys ASC ignores and silently did nothing.
+        .package(url: "https://github.com/ShipItSwifty/app-store-connect-mcp.git", from: "0.1.6"),
+        // Google service-account auth + Google Play Developer API client (extracted from this repo).
+        // Floor is 0.1.3, not 0.1.0: listTracks in 0.1.0/0.1.1 cannot decode an app that has a
+        // draft release, and 0.1.2 predates the live-verified write encoding.
+        .package(url: "https://github.com/ShipItSwifty/google-play-store-mcp.git", from: "0.1.3"),
         // YAML config parsing
         .package(url: "https://github.com/jpsim/Yams", from: "6.2.1"),
         // Crypto for code signing operations
@@ -74,6 +80,8 @@ let package = Package(
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
                 .product(name: "AppStoreConnectKit", package: "app-store-connect-mcp"),
                 .product(name: "AppStoreConnectUploadKit", package: "app-store-connect-mcp"),
+                .product(name: "GoogleAuthKit", package: "google-play-store-mcp"),
+                .product(name: "GooglePlayKit", package: "google-play-store-mcp"),
                 .product(name: "Yams", package: "Yams"),
                 .product(name: "Crypto", package: "swift-crypto"),
                 .product(name: "CryptoExtras", package: "swift-crypto"),
@@ -134,8 +142,8 @@ let package = Package(
                 "ShipItKit",
                 .product(name: "SwiftyShell", package: "SwiftyShell"),
                 .product(name: "AppStoreConnectKit", package: "app-store-connect-mcp"),
-                .product(name: "Crypto", package: "swift-crypto"),
-                .product(name: "CryptoExtras", package: "swift-crypto"),
+                .product(name: "GoogleAuthKit", package: "google-play-store-mcp"),
+                .product(name: "GooglePlayKit", package: "google-play-store-mcp"),
                 .product(name: "Logging", package: "swift-log"),
             ]
         ),

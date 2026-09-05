@@ -431,7 +431,8 @@ public enum BuiltInSchemaCatalog {
                         example: .string("upload"), envVar: "SHIPIT_ANDROID__KEY_ALIAS"),
                     .number(
                         "rollout_fraction",
-                        description: "Staged rollout fraction (0.0–1.0). Omit for full rollout.",
+                        description:
+                            "Staged rollout fraction, strictly between 0 and 1 (Play rejects 0 and 1). Omit for full rollout.",
                         example: .double(0.1)),
                     .string(
                         "flavor",

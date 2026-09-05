@@ -1,5 +1,7 @@
 import AppStoreConnectKit
 import Foundation
+import GoogleAuthKit
+import GooglePlayKit
 import SwiftyShell
 import Testing
 
