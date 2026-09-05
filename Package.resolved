@@ -24,8 +24,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/ShipItSwifty/google-play-store-mcp.git",
       "state" : {
-        "revision" : "cba718399726b86a8a1e5cf803470765ec577990",
-        "version" : "0.1.1"
+        "revision" : "21ed5010f453c26ae070f878ee3f8b00d9511ce2",
+        "version" : "0.1.3"
       }
     },
     {
