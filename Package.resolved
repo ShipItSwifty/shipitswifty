@@ -1,13 +1,13 @@
 {
-  "originHash" : "cf2a771b74bb2f6137b78925e29ab7775ff3e3e3e32fa3c64edb3d28f9721f28",
+  "originHash" : "a4b3825a610b7415fc377511d6b4e88734160c67cfffe82182655070ec9432a9",
   "pins" : [
     {
       "identity" : "app-store-connect-mcp",
       "kind" : "remoteSourceControl",
-      "location" : "https://github.com/maniramezan/app-store-connect-mcp.git",
+      "location" : "https://github.com/ShipItSwifty/app-store-connect-mcp.git",
       "state" : {
-        "revision" : "9e3b8fdf683863ba02ce247b27727b42c355582a",
-        "version" : "0.1.2"
+        "revision" : "30f260faa22af3edc667cf67b844862a6649ddba",
+        "version" : "0.1.6"
       }
     },
     {

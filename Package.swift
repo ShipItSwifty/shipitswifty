@@ -25,7 +25,9 @@ let package = Package(
         // CLI argument parsing
         .package(url: "https://github.com/apple/swift-argument-parser", from: "1.7.1"),
         // App Store Connect API client + Xcode Cloud read API (extracted from this repo).
-        .package(url: "https://github.com/maniramezan/app-store-connect-mcp.git", from: "0.1.0"),
+        // Floor is 0.1.6: earlier versions encoded POST/PATCH bodies as snake_case, so every
+        // write through AppStoreReleaseService sent keys ASC ignores and silently did nothing.
+        .package(url: "https://github.com/ShipItSwifty/app-store-connect-mcp.git", from: "0.1.6"),
         // Google service-account auth + Google Play Developer API client (extracted from this repo).
         // Floor is 0.1.3, not 0.1.0: listTracks in 0.1.0/0.1.1 cannot decode an app that has a
         // draft release, and 0.1.2 predates the live-verified write encoding.
