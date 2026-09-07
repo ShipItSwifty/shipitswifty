@@ -1,5 +1,5 @@
 {
-  "originHash" : "a4b3825a610b7415fc377511d6b4e88734160c67cfffe82182655070ec9432a9",
+  "originHash" : "b1a5ee8b79480d1a1fc10b4a91b2dbf477e1cfecc5927d0285eb1a96a687e60b",
   "pins" : [
     {
       "identity" : "app-store-connect-mcp",
@@ -87,8 +87,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-crypto",
       "state" : {
-        "revision" : "47d3869a7291f085c1fb9fb1e6d3b97a793f45c6",
-        "version" : "4.5.1"
+        "revision" : "da9d28d69ebe3894b18376c8f2395c2f37b8448f",
+        "version" : "4.5.2"
       }
     },
     {
