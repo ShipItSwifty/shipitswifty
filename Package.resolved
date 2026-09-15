@@ -1,5 +1,5 @@
 {
-  "originHash" : "b1a5ee8b79480d1a1fc10b4a91b2dbf477e1cfecc5927d0285eb1a96a687e60b",
+  "originHash" : "7563b24e910c896bcf7f3481587ca9bed51aaad4caaec21ee24677c218eee588",
   "pins" : [
     {
       "identity" : "app-store-connect-mcp",
@@ -114,8 +114,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-log",
       "state" : {
-        "revision" : "3ffafb9722d5d918c614feb496c8789a3b59d222",
-        "version" : "1.15.0"
+        "revision" : "9c6fb14227f55d8f711ce3847dc2f419fb0ecacb",
+        "version" : "1.15.1"
       }
     },
     {
