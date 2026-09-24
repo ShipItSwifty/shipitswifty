@@ -1,5 +1,6 @@
 import Foundation
 import SwiftyShell
+import Synchronization
 import Testing
 
 @testable import ShipItKit
@@ -240,6 +241,71 @@ struct TestActionAndroidRerunTests {
         #expect(result.report?.initialFailedTests.count == (scope == .root ? 2 : 1))
         #expect(result.failCount == 0)
         if scope == .root { #expect(rerun.contains("--continue")) }
+    }
+
+    @Test("Gradle summaries parse totals, optional fields, and multiple modules")
+    func parsesGradleSummaries() {
+        let action = TestAction()
+        let counts = action.parseGradleCounts(from: "12 tests completed, 2 failed, 1 skipped\n3 tests completed, 1 failed\n")
+        #expect(counts.pass == 11)
+        #expect(counts.fail == 3)
+        #expect(counts.skip == 1)
+        let passed = action.parseGradleCounts(from: "1 test completed\n")
+        #expect(passed.pass == 1)
+        #expect(passed.fail == 0)
+        let skipped = action.parseGradleCounts(from: "2 tests completed, 1 skipped\n")
+        #expect(skipped.pass == 1)
+        #expect(skipped.skip == 1)
+        #expect(action.parseGradleCounts(from: "BUILD SUCCESSFUL").pass == 0)
+    }
+
+    @Test("Android honors the attempt limit and stops after recovery", arguments: [1, 2, 3, 4])
+    func respectsAttemptLimit(maxAttempts: Int) async throws {
+        let directory = try makeTempDirectory(prefix: "AndroidAttemptLimit")
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let attempt = Mutex(0)
+        let (executor, commands) = makeCaptureExecutor { _, _ in
+            let current = attempt.withLock {
+                $0 += 1
+                return $0
+            }
+            if current >= 3 {
+                return ShellOutput(stdout: "1 tests completed, 0 failed, 0 skipped\n", stderr: "", exitCode: 0)
+            }
+            return ShellOutput(stdout: Self.failingOutput, stderr: "", exitCode: 1)
+        }
+        var options = rerunOptions()
+        options.rerunFailedTests = .init(enabled: true, maxAttempts: maxAttempts)
+        let context = makeContext(executor: executor, projectDir: directory.path)
+        if maxAttempts < 3 {
+            await #expect(throws: ShipItError.self) { try await TestAction().run(with: options, context: context) }
+        } else {
+            let result = try await TestAction().run(with: options, context: context)
+            #expect(result.passCount == 2)
+            #expect(result.failCount == 0)
+            #expect(result.report?.attempts.map(\.attemptNumber) == [1, 2, 3])
+            #expect(result.report?.flakyTests.count == 1)
+        }
+        #expect(commands().filter { $0.contains("testDebugUnitTest") }.count == min(maxAttempts, 3))
+    }
+
+    @Test("Android persistent failures exhaust all configured attempts")
+    func persistentFailureExhaustsAttempts() async throws {
+        let directory = try makeTempDirectory(prefix: "AndroidExhaustAttempts")
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let reportPath = directory.appendingPathComponent("report.json").path
+        let (executor, commands) = makeCaptureExecutor { _, _ in
+            ShellOutput(stdout: Self.failingOutput, stderr: "", exitCode: 1)
+        }
+        var options = rerunOptions(reportPath: reportPath)
+        options.rerunFailedTests = .init(enabled: true, maxAttempts: 4)
+        await #expect(throws: ShipItError.self) {
+            try await TestAction().run(with: options, context: makeContext(executor: executor, projectDir: directory.path))
+        }
+        let report = try JSONDecoder().decode(TestRunReport.self, from: Data(contentsOf: URL(fileURLWithPath: reportPath)))
+        #expect(report.attempts.map(\.attemptNumber) == [1, 2, 3, 4])
+        #expect(report.flakyTests.isEmpty)
+        #expect(commands().filter { $0.contains("testDebugUnitTest") }.count == 4)
     }
 
 }

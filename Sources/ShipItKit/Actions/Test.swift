@@ -979,18 +979,13 @@ public struct TestAction: Action {
         var flakyTests: [ParsedTestCase] = []
         var persistentFailedTests = initialSnapshot.failedParsedTests
 
-        if rerunOptions.enabled,
-            maxAttempts > 1,
-            let initialParsedRun = initialSnapshot.parsedRun,
-            !initialSnapshot.failedParsedTests.isEmpty
-        {
-            let selectors = initialParsedRun.testCases.compactMap { test -> String? in
-                guard test.status == .failed || test.status == .errored else { return nil }
-                guard case .xcodeOnlyTesting(let selector) = test.rerunSelector else { return nil }
-                return selector
-            }
-
-            if !selectors.isEmpty {
+        if canRerunFailedTests {
+            for attemptNumber in 2...maxAttempts {
+                let selectors = persistentFailedTests.compactMap { test -> String? in
+                    guard case .xcodeOnlyTesting(let selector) = test.rerunSelector else { return nil }
+                    return selector
+                }
+                guard !selectors.isEmpty else { break }
                 let rerunSnapshot: TestExecutionSnapshot
                 (rerunSnapshot, lastFailure) = try await runCapturingTestFailure(enabled: canRerunFailedTests) {
                     try await self.runIOSAttempt(
@@ -1007,7 +1002,7 @@ public struct TestAction: Action {
                 }
                 attempts.append(
                     TestAttempt(
-                        attemptNumber: 2,
+                        attemptNumber: attemptNumber,
                         summary: rerunSnapshot.summary,
                         failedTests: rerunSnapshot.failedParsedTests,
                         source: effectiveResultBundlePath
@@ -1015,8 +1010,8 @@ public struct TestAction: Action {
                 )
 
                 let reconciled = Self.reconcileRerun(
-                    previousFailures: initialSnapshot.failedParsedTests, snapshot: rerunSnapshot, failure: lastFailure)
-                flakyTests = reconciled.passed
+                    previousFailures: persistentFailedTests, snapshot: rerunSnapshot, failure: lastFailure)
+                flakyTests += reconciled.passed
                 persistentFailedTests = reconciled.failed
             }
         }
@@ -1425,35 +1420,38 @@ public struct TestAction: Action {
             var persistentFailedTests = initialSnapshot.failedParsedTests
             var finalSnapshot = initialSnapshot
 
-            let rerunFilters = Self.gradleRerunFilters(for: initialSnapshot)
-            if canRerunFailedTests, !rerunFilters.isEmpty {
-                logger.info("Re-running \(rerunFilters.count) failed Android test(s)")
-                let rerunSnapshot: TestExecutionSnapshot
-                (rerunSnapshot, lastFailure) = try await runCapturingTestFailure(enabled: true) {
-                    try await self.runAndroidAttempt(
-                        scopedTask: scopedTask,
-                        baseTask: scopedTask,
-                        kind: kind,
-                        context: context,
-                        testFilters: rerunFilters
+            if canRerunFailedTests {
+                for attemptNumber in 2...maxAttempts {
+                    let rerunFilters = Self.gradleRerunFilters(for: persistentFailedTests)
+                    guard !rerunFilters.isEmpty else { break }
+                    logger.info("Re-running \(rerunFilters.count) failed Android test(s)")
+                    let rerunSnapshot: TestExecutionSnapshot
+                    (rerunSnapshot, lastFailure) = try await runCapturingTestFailure(enabled: true) {
+                        try await self.runAndroidAttempt(
+                            scopedTask: scopedTask,
+                            baseTask: scopedTask,
+                            kind: kind,
+                            context: context,
+                            testFilters: rerunFilters
+                        )
+                    } snapshot: { error in
+                        await self.androidFailureSnapshot(from: error, context: context, task: scopedTask)
+                    }
+                    finalSnapshot = rerunSnapshot
+                    attempts.append(
+                        TestAttempt(
+                            attemptNumber: attemptNumber,
+                            summary: rerunSnapshot.summary,
+                            failedTests: rerunSnapshot.failedParsedTests,
+                            source: task.name
+                        )
                     )
-                } snapshot: { error in
-                    await self.androidFailureSnapshot(from: error, context: context, task: scopedTask)
-                }
-                finalSnapshot = rerunSnapshot
-                attempts.append(
-                    TestAttempt(
-                        attemptNumber: 2,
-                        summary: rerunSnapshot.summary,
-                        failedTests: rerunSnapshot.failedParsedTests,
-                        source: task.name
-                    )
-                )
 
-                let reconciled = Self.reconcileRerun(
-                    previousFailures: initialSnapshot.failedParsedTests, snapshot: rerunSnapshot, failure: lastFailure)
-                flakyTests = reconciled.passed
-                persistentFailedTests = reconciled.failed
+                    let reconciled = Self.reconcileRerun(
+                        previousFailures: persistentFailedTests, snapshot: rerunSnapshot, failure: lastFailure)
+                    flakyTests += reconciled.passed
+                    persistentFailedTests = reconciled.failed
+                }
             }
 
             let finalPassedTests =
@@ -1597,6 +1595,7 @@ public struct TestAction: Action {
         let successfulUnskippedRun =
             failure == nil && snapshot.parsedRun == nil
             && snapshot.summary.failed == 0 && snapshot.summary.skipped == 0
+            && snapshot.summary.passed >= previousFailures.count
         let passed = previousFailures.filter {
             !failedIDs.contains($0.stableID) && (passedIDs.contains($0.stableID) || successfulUnskippedRun)
         }
@@ -1661,17 +1660,13 @@ public struct TestAction: Action {
     /// JUnit-derived selectors are already `package.Class.method`; console-derived names use
     /// Gradle's `Class > method FAILED` shape, which is normalized to `Class.method`. JUnit 5's
     /// trailing `()` is dropped because Gradle filters match on the bare method name.
-    private static func gradleRerunFilters(for snapshot: TestExecutionSnapshot) -> [String] {
-        let raw: [String]
-        if let parsedRun = snapshot.parsedRun {
-            raw = parsedRun.testCases.compactMap { test in
-                guard test.status == .failed || test.status == .errored,
-                    case .gradleTestFilter(let selector) = test.rerunSelector
-                else { return nil }
-                return selector
+    private static func gradleRerunFilters(for failures: [ParsedTestCase]) -> [String] {
+        let raw = failures.compactMap { test -> String? in
+            switch test.rerunSelector {
+            case .gradleTestFilter(let selector): return selector
+            case .unsupported(let identifier): return identifier
+            default: return nil
             }
-        } else {
-            raw = snapshot.failedTests
         }
 
         var seen = Set<String>()
@@ -1855,50 +1850,34 @@ public struct TestAction: Action {
     /// ```
     /// 12 tests completed, 2 failed, 1 skipped
     /// ```
-    private func parseGradleCounts(from output: String) -> (pass: Int, fail: Int, skip: Int, passedTests: [String], failedTests: [String]) {
-        for line in output.components(separatedBy: "\n") {
-            guard line.contains("tests completed") else { continue }
-
-            let words = line.components(separatedBy: " ")
-            var total = 0
-            var failed = 0
-            var skipped = 0
-
-            for (i, word) in words.enumerated() {
-                if word == "completed," && i > 0, let n = Int(words[i - 1]) { total = n }
-                if word == "failed," && i > 0, let n = Int(words[i - 1]) { failed = n }
-                if (word == "skipped" || word == "skipped,") && i > 0, let n = Int(words[i - 1]) { skipped = n }
-            }
-
-            let namedResults = parseGradleNamedTests(from: output)
-            return (
-                pass: total - failed - skipped,
-                fail: failed,
-                skip: skipped,
-                passedTests: namedResults.passedTests,
-                failedTests: namedResults.failedTests
-            )
+    func parseGradleCounts(from output: String) -> (pass: Int, fail: Int, skip: Int, passedTests: [String], failedTests: [String]) {
+        // Gradle may print one summary per module and omit zero-valued failure/skip fields.
+        let pattern = #"(\d+)\s+tests?\s+completed(?:,\s*(\d+)\s+failed)?(?:,\s*(\d+)\s+skipped)?"#
+        guard let regex = try? NSRegularExpression(pattern: pattern) else {
+            return (0, 0, 0, [], [])
         }
-        let namedResults = parseGradleNamedTests(from: output)
-        return (
-            pass: 0,
-            fail: 0,
-            skip: 0,
-            passedTests: namedResults.passedTests,
-            failedTests: namedResults.failedTests
-        )
+        var passed = 0
+        var failed = 0
+        var skipped = 0
+        for match in regex.matches(in: output, range: NSRange(output.startIndex..., in: output)) {
+            func number(_ index: Int) -> Int {
+                guard let range = Range(match.range(at: index), in: output) else { return 0 }
+                return Int(output[range]) ?? 0
+            }
+            let total = number(1)
+            let failures = number(2)
+            let skips = number(3)
+            passed += max(0, total - failures - skips)
+            failed += failures
+            skipped += skips
+        }
+        let named = parseGradleNamedTests(from: output)
+        return (passed, failed, skipped, named.passedTests, named.failedTests)
     }
 
-    /// Parses failure count from Gradle test failure output.
+    /// Uses the same summary grammar as the report, including a terminal `failed` field.
     private func parseGradleFailureCount(from output: String) -> Int {
-        for line in output.components(separatedBy: "\n") {
-            guard line.contains("tests completed") else { continue }
-            let words = line.components(separatedBy: " ")
-            for (i, word) in words.enumerated() {
-                if word == "failed," && i > 0, let n = Int(words[i - 1]) { return n }
-            }
-        }
-        return 0
+        parseGradleCounts(from: output).fail
     }
 
     // MARK: - JUnit XML Report Parsing
