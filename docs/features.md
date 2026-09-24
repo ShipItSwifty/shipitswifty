@@ -82,7 +82,7 @@ This document covers the planned feature surface, current v1 scope, the long-ter
 | **Structured test artifact parsing** | Implemented | `shipit test-results` and `TestResultsAction` parse native `.xcresult` and Gradle JUnit XML artifacts into `ParsedTestRun` and `TestRunReport`, with optional JSON report export for CI artifacts. |
 | **Test Plans** | Implemented | `--test-plan` selects a named `.xctestplan` |
 | **Retry on Failure** | Implemented | `retry_on_failure: true` passes `-retry-tests-on-failure` to xcodebuild |
-| **Selective failed-test reruns** | Implemented | `rerun_failed_tests: { enabled: true, max_attempts: 2 }` reruns only the failing iOS tests and Android JVM tests once, then reports flaky vs persistent failures in `TestRunReport`. |
+| **Selective failed-test reruns** | Implemented | `rerun_failed_tests: { enabled: true, max_attempts: 2 }` reruns only the failing iOS tests (single destination with a result bundle) and Android JVM tests once, then reports flaky vs persistent failures in `TestRunReport`. Failed tests are read back from the xcresult / JUnit XML (console log fallback) after the runner exits non-zero; the step still fails if any test fails again, and passes (with `flakyTests` populated) if every failure passes on rerun. |
 
 ### Coverage Reporting
 
@@ -317,20 +317,20 @@ See [`docs/kmp-quickstart.md`](kmp-quickstart.md) for a worked KMP example.
 
 | Wrapper | Capabilities |
 |---|---|
-| **Gradle** | Task execution, project/system properties, Gradle flags, init scripts |
-| **Adb** | Device targeting (`-s`), daemon lifecycle (`start-server`/`kill-server`), device discovery (`devices`), app install/uninstall, activity manager (`am start`, `am force-stop`, deep links), package manager (`pm list`, `pm grant`, `pm revoke`, resolve launchable activity), capture (`screencap`, `screenrecord`), input events (`keyevent`), display config (`uimode night`), port forwarding (`forward tcp`), file transfer (`push`/`pull`), shell escape hatch, emulator control (`emu kill`, `emu geo fix`), logcat |
-| **Bundletool** | AAB validation, APK set build, device-spec install |
-| **Emulator** | AVD launch, snapshot management |
+| **Gradle** | Task execution (with module qualification and task-level options such as `--tests` via `GradleTask.filteringTests(_:)`), variant task names (`GradleTask.variantTask(prefix:flavor:variant:suffix:)`, `assemble/bundle/lint/unitTest/connectedAndroidTest(variant:)`, managed-device tasks), `-P` properties, JVM args, global flags (daemon, build/configuration cache, `--parallel`, `--max-workers`, `--continue`, `--rerun-tasks`, `--refresh-dependencies`, `-x <task>`, logging levels) |
+| **Adb** | Device targeting (`-s`), daemon lifecycle (`start-server`/`kill-server`), device discovery (`devices`), app install/uninstall (with `-t` / `-g`), system properties (`getprop`), activity manager (`am start`, `am force-stop`, deep links), package manager (`pm list`, `pm grant`, `pm revoke`, resolve launchable activity), capture (`screencap`, `screenrecord`), input events (`keyevent`), display config (`uimode night`), port forwarding (`forward tcp`), file transfer (`push`/`pull`), shell escape hatch, emulator control (`emu kill`, `emu geo fix`), logcat |
+| **Bundletool** | AAB validation, APK set build (`--mode=universal` etc., `--overwrite`, signing with `pass:` or `file:` password sources via `BundletoolSigning`), APK set install (optionally `--device-id`), device spec, size estimation |
+| **Emulator** | AVD listing and launch (headless, GPU mode, `-no-snapshot`, `-wipe-data`, `-read-only`, `-port`); resolves the SDK binary from `ANDROID_HOME` / `ANDROID_SDK_ROOT` before falling back to `PATH` |
 
 ### AndroidCLIKit tool wrapper
 
-`AndroidCLI` provides immutable typed builders for every AndroidCLI 1.0 family, executable/SDK overrides, a raw-argument escape hatch for preview-version drift, and lossy decoding for stable layout JSON fields. All execution goes through SwiftyShell.
+`AndroidCLI` provides immutable, documented typed builders for every AndroidCLI 1.0 family (one source file per family: project, deployment/UI, emulator, SDK, skills, Studio), executable/SDK overrides, a raw-argument escape hatch for preview-version drift, and lossy decoding for stable layout JSON fields. All execution goes through SwiftyShell.
 
 ### XcodeBuildKit tool wrappers
 
 | Wrapper | Capabilities |
 |---|---|
-| **XcodeBuild** | Build, test, archive, export — typed options and destination discovery |
+| **XcodeBuild** | Build, test, `build-for-testing` / `test-without-building`, archive, export, XCFramework creation — typed options and destination discovery |
 | **XcodeSelect** | Print/switch active Xcode |
 
 ### XcodeGenKit tool wrappers
