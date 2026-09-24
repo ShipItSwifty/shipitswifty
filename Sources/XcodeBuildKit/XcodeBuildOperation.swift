@@ -53,6 +53,8 @@ public enum XcodeBuildXCFrameworkInput: Sendable, Equatable, Hashable {
 enum XcodeBuildOperation: Sendable, Equatable {
     case build(clean: Bool)
     case test
+    case buildForTesting
+    case testWithoutBuilding
     case archive(path: String?)
     case exportArchive(archivePath: String, exportPath: String?, exportOptionsPlist: String)
     case showBuildSettings(json: Bool)
@@ -100,6 +102,10 @@ enum XcodeBuildOperation: Sendable, Equatable {
             clean ? ["clean", "build"] : ["build"]
         case .test:
             ["test"]
+        case .buildForTesting:
+            ["build-for-testing"]
+        case .testWithoutBuilding:
+            ["test-without-building"]
         case .archive:
             ["archive"]
         default:

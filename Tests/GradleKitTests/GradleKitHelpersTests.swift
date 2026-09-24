@@ -2,8 +2,8 @@ import Testing
 
 @testable import GradleKit
 
-@Suite("GradleTask — variant helpers and task options")
-struct GradleTaskVariantTests {
+@Suite("GradleKit — task helpers, flags, bundletool, emulator")
+struct GradleKitHelpersTests {
 
     // MARK: - Variant task names
 
@@ -89,5 +89,70 @@ struct GradleTaskVariantTests {
         #expect(GradleFlag.quiet.arguments == ["--quiet"])
         #expect(GradleFlag.maxWorkers(2).arguments == ["--max-workers=2"])
         #expect(GradleFlag.excludeTask(.lint).arguments == ["-x", "lint"])
+    }
+
+    // MARK: - Bundletool
+
+    @Test("Bundletool signing overload uses file password sources, mode, and overwrite")
+    func bundletoolSigning() {
+        let args = Bundletool(jarPath: "/opt/bundletool.jar")
+            .buildApks(
+                bundle: "app.aab",
+                output: "app.apks",
+                signing: .init(keystorePath: "release.jks", keystorePassword: .file("/secrets/ks"), keyAlias: "upload"),
+                mode: .universal,
+                overwrite: true
+            )
+            .command()
+            .arguments
+        #expect(
+            args == [
+                "-jar", "/opt/bundletool.jar", "build-apks", "--bundle=app.aab", "--output=app.apks", "--ks=release.jks",
+                "--ks-pass=file:/secrets/ks", "--ks-key-alias=upload", "--mode=universal", "--overwrite",
+            ])
+    }
+
+    @Test("Bundletool string passwords keep the pass: prefix and install-apks can target a device")
+    func bundletoolLegacyPasswordsAndDeviceID() {
+        let build = Bundletool(jarPath: "b.jar")
+            .buildApks(bundle: "a.aab", output: "a.apks", keystorePath: "k.jks", keystorePassword: "pw", keyAlias: "k", keyPassword: "kp")
+            .command()
+            .arguments
+        #expect(build.contains("--ks-pass=pass:pw"))
+        #expect(build.contains("--key-pass=pass:kp"))
+
+        let install = Bundletool(jarPath: "b.jar").installApks(apks: "a.apks", deviceID: "emulator-5554").command().arguments
+        #expect(install.suffix(3) == ["install-apks", "--apks=a.apks", "--device-id=emulator-5554"])
+    }
+
+    // MARK: - Emulator
+
+    @Test("Emulator start emits boot options in order")
+    func emulatorStartOptions() {
+        let args = Emulator(executablePath: "emulator")
+            .start(
+                avd: "Pixel_7", headless: true, gpu: "swiftshader_indirect", noSnapshot: true, wipeData: true, readOnly: true, port: 5560
+            )
+            .command()
+            .arguments
+        #expect(
+            args == [
+                "-avd", "Pixel_7", "-no-window", "-no-audio", "-no-boot-anim", "-gpu", "swiftshader_indirect",
+                "-no-snapshot", "-wipe-data", "-read-only", "-port", "5560",
+            ])
+    }
+
+    @Test("Emulator resolves the SDK binary from ANDROID_HOME, then ANDROID_SDK_ROOT, then PATH")
+    func emulatorExecutableResolution() {
+        let existing: Set<String> = ["/sdk-root/emulator/emulator"]
+        let exists: (String) -> Bool = { existing.contains($0) }
+
+        #expect(
+            Emulator.resolveExecutable(environment: ["ANDROID_SDK_ROOT": "/sdk-root"], fileExists: exists) == "/sdk-root/emulator/emulator")
+        #expect(
+            Emulator.resolveExecutable(environment: ["ANDROID_HOME": "/missing", "ANDROID_SDK_ROOT": "/sdk-root"], fileExists: exists)
+                == "/sdk-root/emulator/emulator")
+        #expect(Emulator.resolveExecutable(environment: [:], fileExists: exists) == "emulator")
+        #expect(Emulator(executablePath: "/custom/emulator").list().command().executableName == "/custom/emulator")
     }
 }

@@ -106,9 +106,10 @@ struct AndroidDeviceProvisioner: Sendable {
                 }
 
                 let serialsBeforeBoot = try await connectedDeviceSerials(emulatorOnly: true)
-                logger.info("Booting emulator '\(emulator)'")
+                logger.info("Booting emulator '\(emulator)'\(context.configIsCI ? " (headless)" : "")")
+                // CI runners have no display: a windowed emulator exits immediately there.
                 let process = try await Emulator(context: shell)
-                    .start(avd: emulator, headless: false)
+                    .start(avd: emulator, headless: context.configIsCI)
                     .spawn(teardown: .graceful)
 
                 spawned.append(process)
