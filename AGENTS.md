@@ -79,13 +79,15 @@ Do not over-read on first pass:
 > **Not to be confused with:** `shipit ai skills` (see Commands below) is a *different* concept
 > — a small, built-in catalog of task playbooks (`react-native-setup`, `firebase-distribution`,
 > etc.) that ships in the `shipit` binary for a coding agent driving an *end user's* project.
-> This section is about Claude Code skills used while developing ShipItSwifty itself.
+> This section is about repository skills used by agents developing ShipItSwifty itself.
 
-Repository-local skills live in `.claude/skills/` and encode this file's checklists as runnable procedures:
+Repository-local skills live in `agent-skills/` for every agent. Read the matching `SKILL.md`
+when the task applies. Claude Code also discovers copies in `.claude/skills/`; keep those
+copies in sync with `agent-skills/` when editing a skill.
 
-- **`add-action`** — adding or changing a ShipItKit `Action` (walks the full sync checklist: schema catalog, docs, AI session, tests).
-- **`tool-wrapper`** — adding or extending a command in `GradleKit` / `XcodeBuildKit` / `AndroidCLIKit` / `XcodeGenKit`.
-- **`verify-linux`** — building, formatting, and testing from a Linux session with Docker, and what that can and cannot verify.
+- **[`add-action`](agent-skills/add-action/SKILL.md)** — adding or changing a ShipItKit `Action` (walks the full sync checklist: schema catalog, docs, AI session, tests).
+- **[`tool-wrapper`](agent-skills/tool-wrapper/SKILL.md)** — adding or extending a command in `GradleKit` / `XcodeBuildKit` / `AndroidCLIKit` / `XcodeGenKit`.
+- **[`verify-linux`](agent-skills/verify-linux/SKILL.md)** — building, formatting, and testing from a Linux session with Docker, and what that can and cannot verify.
 
 When working on this project, also invoke these skills as appropriate:
 
