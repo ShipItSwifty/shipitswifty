@@ -122,7 +122,7 @@ Retries the entire test invocation for transient infrastructure failures. Each p
 
 ```yaml
 test:
-  test_plan: Novalingo
+  test_plan: SampleApp
   retry_on_failure: true
   infrastructure_retry:
     max_attempts: 3

@@ -207,8 +207,8 @@ The `versioning` section controls how `CFBundleVersion` is incremented. `CFBundl
 | `strategy` | string | `sequential` | `sequential` — adds 1 each run (guarantees a plain integer). `timestamp` — uses `YYYYMMDDHHmm` format. |
 | `source` | string | `xcodeproj` | `xcodeproj` — reads `MARKETING_VERSION`/`CURRENT_PROJECT_VERSION` from `xcodebuild -showBuildSettings`; falls back to `agvtool`, then `plutil` on Info.plist. `asc` — reads current build number from App Store Connect; same fallback chain for the read phase. `project_spec` — reads/writes version values directly in a YAML spec file (XcodeGen/Tuist). `xcconfig` — reads/writes named keys directly in an `.xcconfig` file (set `spec_path` to the file and `marketing_key`/`build_key` to the variable names); use when the version lives in an `.xcconfig` referenced via `$(VAR)` from the project so the `$(VAR)` indirection is preserved. `kmp` — reads/writes `versionName`/`versionCode` in `gradle.properties`. `gradle` — reads/writes `versionName`/`versionCode` directly in `build.gradle.kts` or `build.gradle`; default for Android projects. `pubspec` — reads/writes the `version: X.Y.Z+B` key in `pubspec.yaml`; default for Flutter projects (`flutter build` stamps the native projects from it, so writing `xcodeproj`/`gradle` directly would be overwritten). |
 | `spec_path` | string | — | Path to the version source file. Required when `source: project_spec` (e.g. `project.yml`) or `source: xcconfig` (e.g. `Config/Version.xcconfig`). For `source: pubspec`, defaults to `pubspec.yaml` at the project root. |
-| `build_key` | string | — | Key for the build number in the spec file (YAML, e.g. `settings.CURRENT_PROJECT_VERSION`) or `.xcconfig` (e.g. `JOT_BUILD_NUMBER`). |
-| `marketing_key` | string | — | Key for the marketing version in the spec file (YAML, e.g. `settings.MARKETING_VERSION`) or `.xcconfig` (e.g. `JOT_MARKETING_VERSION`). |
+| `build_key` | string | — | Key for the build number in the spec file (YAML, e.g. `settings.CURRENT_PROJECT_VERSION`) or `.xcconfig` (e.g. `APP_BUILD_NUMBER`). |
+| `marketing_key` | string | — | Key for the marketing version in the spec file (YAML, e.g. `settings.MARKETING_VERSION`) or `.xcconfig` (e.g. `APP_MARKETING_VERSION`). |
 
 #### `source: xcconfig` example
 
@@ -217,24 +217,24 @@ from the `.xcodeproj` via build-setting indirection:
 
 ```
 // Config/Version.xcconfig
-JOT_MARKETING_VERSION = 1.0.0
-JOT_BUILD_NUMBER = 1
+APP_MARKETING_VERSION = 1.0.0
+APP_BUILD_NUMBER = 1
 ```
 ```
 // project.pbxproj
-MARKETING_VERSION = "$(JOT_MARKETING_VERSION)"
-CURRENT_PROJECT_VERSION = "$(JOT_BUILD_NUMBER)"
+MARKETING_VERSION = "$(APP_MARKETING_VERSION)"
+CURRENT_PROJECT_VERSION = "$(APP_BUILD_NUMBER)"
 ```
 ```yaml
 # Shipfile.yml
 versioning:
   source: xcconfig
   spec_path: Config/Version.xcconfig
-  marketing_key: JOT_MARKETING_VERSION
-  build_key: JOT_BUILD_NUMBER
+  marketing_key: APP_MARKETING_VERSION
+  build_key: APP_BUILD_NUMBER
 ```
 
-ShipIt rewrites only those two lines, leaving the `$(JOT_MARKETING_VERSION)` references in the
+ShipIt rewrites only those two lines, leaving the `$(APP_MARKETING_VERSION)` references in the
 `.xcodeproj` intact. (The `xcodeproj` source would instead stamp literal values into the project's
 build configurations, breaking the indirection — so prefer `xcconfig` for this layout.)
 
@@ -322,8 +322,8 @@ workflows:
         destinations:
           - "platform=iOS Simulator,name=iPhone 16 Pro,OS=18.2"
         retry_on_failure: true   # retry each failing test once before surfacing a failure
-        # only_testing:           # narrow to specific targets, e.g. [NovalingoTests/CoreTests]
-        # skip_testing:           # skip slow targets, e.g. [NovalingoUITests]
+        # only_testing:           # narrow to specific targets, e.g. [SampleAppTests/CoreTests]
+        # skip_testing:           # skip slow targets, e.g. [SampleAppUITests]
     - action: archive
     - action: export       # exports IPA locally; no upload to App Store Connect
 ```

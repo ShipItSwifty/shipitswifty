@@ -11,13 +11,13 @@ import Logging
 ///
 /// ```
 /// // Config/Version.xcconfig
-/// JOT_MARKETING_VERSION = 1.0.0
-/// JOT_BUILD_NUMBER = 1
+/// APP_MARKETING_VERSION = 1.0.0
+/// APP_BUILD_NUMBER = 1
 /// ```
 /// ```
 /// // project.pbxproj
-/// MARKETING_VERSION = "$(JOT_MARKETING_VERSION)"
-/// CURRENT_PROJECT_VERSION = "$(JOT_BUILD_NUMBER)"
+/// MARKETING_VERSION = "$(APP_MARKETING_VERSION)"
+/// CURRENT_PROJECT_VERSION = "$(APP_BUILD_NUMBER)"
 /// ```
 ///
 /// Unlike the `xcodeproj` source — which writes literal values into the project's build
@@ -120,7 +120,7 @@ struct XcconfigVersionSource: Sendable {
     /// Parses the value from a single trimmed line if it assigns `key`.
     ///
     /// Requires the character following `key` to be whitespace or `=` so that a key like
-    /// `JOT_BUILD_NUMBER` does not match `JOT_BUILD_NUMBER_SUFFIX`. xcconfig also supports
+    /// `APP_BUILD_NUMBER` does not match `APP_BUILD_NUMBER_SUFFIX`. xcconfig also supports
     /// conditional suffixes (e.g. `KEY[sdk=*] = ...`) — those are intentionally not matched here.
     private func assignedValue(key: String, in line: String) -> String? {
         guard line.hasPrefix(key) else { return nil }

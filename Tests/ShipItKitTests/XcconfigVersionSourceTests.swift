@@ -8,11 +8,11 @@ import Testing
 struct XcconfigVersionSourceTests {
 
     /// Builds a context configured to use the `xcconfig` source pointing at `path`,
-    /// with the Lagos-style custom key names.
+    /// with the custom custom key names.
     private func makeContext(
         path: String,
-        marketingKey: String = "JOT_MARKETING_VERSION",
-        buildKey: String = "JOT_BUILD_NUMBER"
+        marketingKey: String = "APP_MARKETING_VERSION",
+        buildKey: String = "APP_BUILD_NUMBER"
     ) -> ActionContext {
         let executor = MockExecutor { _, _ in
             ShellOutput(stdout: "", stderr: "", exitCode: 0)
@@ -39,8 +39,8 @@ struct XcconfigVersionSourceTests {
     func readsCustomKeys() async throws {
         let file = try writeTempXcconfig(
             """
-            JOT_MARKETING_VERSION = 1.0.0
-            JOT_BUILD_NUMBER = 1
+            APP_MARKETING_VERSION = 1.0.0
+            APP_BUILD_NUMBER = 1
             """)
         defer { try? FileManager.default.removeItem(at: file.deletingLastPathComponent()) }
 
@@ -54,8 +54,8 @@ struct XcconfigVersionSourceTests {
         let file = try writeTempXcconfig(
             """
             // Single source of truth for app version.
-            JOT_MARKETING_VERSION = 2.3.1
-            JOT_BUILD_NUMBER = 7
+            APP_MARKETING_VERSION = 2.3.1
+            APP_BUILD_NUMBER = 7
             """)
         defer { try? FileManager.default.removeItem(at: file.deletingLastPathComponent()) }
 
@@ -66,8 +66,8 @@ struct XcconfigVersionSourceTests {
         #expect(result.version == "2.3.1")
 
         let written = try String(contentsOf: file, encoding: .utf8)
-        #expect(written.contains("JOT_BUILD_NUMBER = 8"))
-        #expect(written.contains("JOT_MARKETING_VERSION = 2.3.1"))
+        #expect(written.contains("APP_BUILD_NUMBER = 8"))
+        #expect(written.contains("APP_MARKETING_VERSION = 2.3.1"))
         // Comment line preserved.
         #expect(written.contains("// Single source of truth for app version."))
     }
@@ -76,8 +76,8 @@ struct XcconfigVersionSourceTests {
     func bumpsMarketingVersion() async throws {
         let file = try writeTempXcconfig(
             """
-            JOT_MARKETING_VERSION = 1.4.9
-            JOT_BUILD_NUMBER = 12
+            APP_MARKETING_VERSION = 1.4.9
+            APP_BUILD_NUMBER = 12
             """)
         defer { try? FileManager.default.removeItem(at: file.deletingLastPathComponent()) }
 
@@ -88,16 +88,16 @@ struct XcconfigVersionSourceTests {
         #expect(result.buildNumber == "12")
 
         let written = try String(contentsOf: file, encoding: .utf8)
-        #expect(written.contains("JOT_MARKETING_VERSION = 1.5.0"))
-        #expect(written.contains("JOT_BUILD_NUMBER = 12"))
+        #expect(written.contains("APP_MARKETING_VERSION = 1.5.0"))
+        #expect(written.contains("APP_BUILD_NUMBER = 12"))
     }
 
     @Test("Setting explicit values writes both keys")
     func setsExplicitValues() async throws {
         let file = try writeTempXcconfig(
             """
-            JOT_MARKETING_VERSION = 1.0.0
-            JOT_BUILD_NUMBER = 1
+            APP_MARKETING_VERSION = 1.0.0
+            APP_BUILD_NUMBER = 1
             """)
         defer { try? FileManager.default.removeItem(at: file.deletingLastPathComponent()) }
 
@@ -105,8 +105,8 @@ struct XcconfigVersionSourceTests {
             options: VersionAction.Options(bump: .set, version: "9.8.7", buildNumber: "42"))
 
         let written = try String(contentsOf: file, encoding: .utf8)
-        #expect(written.contains("JOT_MARKETING_VERSION = 9.8.7"))
-        #expect(written.contains("JOT_BUILD_NUMBER = 42"))
+        #expect(written.contains("APP_MARKETING_VERSION = 9.8.7"))
+        #expect(written.contains("APP_BUILD_NUMBER = 42"))
     }
 
     @Test("Indentation and inline comments are preserved/handled")
@@ -114,8 +114,8 @@ struct XcconfigVersionSourceTests {
         let file = try writeTempXcconfig(
             """
             #include "Shared.xcconfig"
-                JOT_MARKETING_VERSION = 3.0.0 // marketing
-                JOT_BUILD_NUMBER = 5
+                APP_MARKETING_VERSION = 3.0.0 // marketing
+                APP_BUILD_NUMBER = 5
             """)
         defer { try? FileManager.default.removeItem(at: file.deletingLastPathComponent()) }
 
@@ -126,7 +126,7 @@ struct XcconfigVersionSourceTests {
         _ = try await bumper.bump(options: VersionAction.Options(bump: .patch))
         let written = try String(contentsOf: file, encoding: .utf8)
         // Leading indentation preserved.
-        #expect(written.contains("    JOT_MARKETING_VERSION = 3.0.1"))
+        #expect(written.contains("    APP_MARKETING_VERSION = 3.0.1"))
         // #include directive untouched.
         #expect(written.contains("#include \"Shared.xcconfig\""))
     }
@@ -135,9 +135,9 @@ struct XcconfigVersionSourceTests {
     func prefixCollisionGuard() async throws {
         let file = try writeTempXcconfig(
             """
-            JOT_MARKETING_VERSION = 1.0.0
-            JOT_BUILD_NUMBER_SUFFIX = beta
-            JOT_BUILD_NUMBER = 3
+            APP_MARKETING_VERSION = 1.0.0
+            APP_BUILD_NUMBER_SUFFIX = beta
+            APP_BUILD_NUMBER = 3
             """)
         defer { try? FileManager.default.removeItem(at: file.deletingLastPathComponent()) }
 
@@ -146,14 +146,14 @@ struct XcconfigVersionSourceTests {
 
         _ = try await bumper.bump(options: VersionAction.Options(bump: .build))
         let written = try String(contentsOf: file, encoding: .utf8)
-        #expect(written.contains("JOT_BUILD_NUMBER = 4"))
+        #expect(written.contains("APP_BUILD_NUMBER = 4"))
         // Decoy key untouched.
-        #expect(written.contains("JOT_BUILD_NUMBER_SUFFIX = beta"))
+        #expect(written.contains("APP_BUILD_NUMBER_SUFFIX = beta"))
     }
 
     @Test("Missing key throws invalidConfiguration")
     func missingKeyThrows() async throws {
-        let file = try writeTempXcconfig("JOT_BUILD_NUMBER = 1")
+        let file = try writeTempXcconfig("APP_BUILD_NUMBER = 1")
         defer { try? FileManager.default.removeItem(at: file.deletingLastPathComponent()) }
 
         let bumper = VersionBumper(context: makeContext(path: file.path))

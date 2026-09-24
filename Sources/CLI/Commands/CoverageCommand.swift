@@ -17,7 +17,7 @@ import ShipItKit
 /// shipit coverage --targets
 /// shipit coverage --files
 /// shipit coverage --first-party-only
-/// shipit coverage --include-target NovalingoFeatureRoot
+/// shipit coverage --include-target SampleAppFeatureRoot
 /// shipit coverage --exclude-target GoogleSignIn
 /// shipit coverage --xcresult ./build/MyApp-tests.xcresult
 /// shipit coverage --platform android --report ./app/build/reports/jacoco/test/jacocoTestReport.xml

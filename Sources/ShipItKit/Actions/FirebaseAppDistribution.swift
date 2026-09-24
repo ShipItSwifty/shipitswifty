@@ -33,7 +33,7 @@ import Logging
 ///       - qa-testers
 ///     release_notes: Staging candidate
 ///     workload_identity_provider: projects/123456789/locations/global/workloadIdentityPools/github-actions/providers/github
-///     service_account_email: firebase-app-distribution-ci@novalingo-staging.iam.gserviceaccount.com
+///     service_account_email: firebase-app-distribution-ci@example-project-staging.iam.gserviceaccount.com
 /// ```
 ///
 /// ## Topics
