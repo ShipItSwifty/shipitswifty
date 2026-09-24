@@ -912,7 +912,7 @@ public enum BuiltInSchemaCatalog {
                     ),
                     .integer(
                         "max_attempts",
-                        description: "Maximum attempts including the initial run.",
+                        description: "Maximum attempts including the initial run; 1 disables reruns. Stops early after recovery.",
                         defaultValue: .int(2),
                         example: .int(2)
                     ),
