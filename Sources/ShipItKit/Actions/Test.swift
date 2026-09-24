@@ -1014,9 +1014,10 @@ public struct TestAction: Action {
                     )
                 )
 
-                let rerunFailures = Set(rerunSnapshot.failedParsedTests.map(\.stableID))
-                flakyTests = initialSnapshot.failedParsedTests.filter { !rerunFailures.contains($0.stableID) }
-                persistentFailedTests = initialSnapshot.failedParsedTests.filter { rerunFailures.contains($0.stableID) }
+                let reconciled = Self.reconcileRerun(
+                    previousFailures: initialSnapshot.failedParsedTests, snapshot: rerunSnapshot, failure: lastFailure)
+                flakyTests = reconciled.passed
+                persistentFailedTests = reconciled.failed
             }
         }
 
@@ -1049,7 +1050,8 @@ public struct TestAction: Action {
         )
 
         try writeTestReportIfNeeded(report, to: options.reportPath)
-        try Self.rethrowPersistentFailure(lastFailure, persistentFailureCount: finalFailCount)
+        try Self.rethrowPersistentFailure(
+            lastFailure ?? (finalFailCount > 0 ? initialFailure : nil), persistentFailureCount: finalFailCount)
 
         logger.info("Tests complete — pass: \(finalPassCount), fail: \(finalFailCount), skip: \(initialSnapshot.summary.skipped)")
 
@@ -1393,7 +1395,7 @@ public struct TestAction: Action {
                 ) {
                     try await self.runAndroidAttempt(
                         scopedTask: scopedTask,
-                        baseTask: task,
+                        baseTask: scopedTask,
                         kind: kind,
                         context: context,
                         testFilters: nil
@@ -1407,7 +1409,7 @@ public struct TestAction: Action {
                     return nil
                 }
             } snapshot: { error in
-                await self.androidFailureSnapshot(from: error, context: context, task: task)
+                await self.androidFailureSnapshot(from: error, context: context, task: scopedTask)
             }
             var lastFailure = initialFailure
             var attempts = [
@@ -1430,13 +1432,13 @@ public struct TestAction: Action {
                 (rerunSnapshot, lastFailure) = try await runCapturingTestFailure(enabled: true) {
                     try await self.runAndroidAttempt(
                         scopedTask: scopedTask,
-                        baseTask: task,
+                        baseTask: scopedTask,
                         kind: kind,
                         context: context,
                         testFilters: rerunFilters
                     )
                 } snapshot: { error in
-                    await self.androidFailureSnapshot(from: error, context: context, task: task)
+                    await self.androidFailureSnapshot(from: error, context: context, task: scopedTask)
                 }
                 finalSnapshot = rerunSnapshot
                 attempts.append(
@@ -1448,9 +1450,10 @@ public struct TestAction: Action {
                     )
                 )
 
-                let rerunFailures = Set(rerunSnapshot.failedParsedTests.map(\.stableID))
-                flakyTests = initialSnapshot.failedParsedTests.filter { !rerunFailures.contains($0.stableID) }
-                persistentFailedTests = initialSnapshot.failedParsedTests.filter { rerunFailures.contains($0.stableID) }
+                let reconciled = Self.reconcileRerun(
+                    previousFailures: initialSnapshot.failedParsedTests, snapshot: rerunSnapshot, failure: lastFailure)
+                flakyTests = reconciled.passed
+                persistentFailedTests = reconciled.failed
             }
 
             let finalPassedTests =
@@ -1482,7 +1485,8 @@ public struct TestAction: Action {
 
             try writeTestReportIfNeeded(report, to: options.reportPath)
 
-            try Self.rethrowPersistentFailure(lastFailure, persistentFailureCount: finalFailCount)
+            try Self.rethrowPersistentFailure(
+                lastFailure ?? (finalFailCount > 0 ? initialFailure : nil), persistentFailureCount: finalFailCount)
 
             await provisioner.teardown(spawnedEmulators)
             return Result(
@@ -1508,7 +1512,9 @@ public struct TestAction: Action {
     ) async throws -> TestExecutionSnapshot {
         // `--tests` is a task option: it must follow the task name, not precede it as a global flag.
         let filteredTask = kind == .unit ? scopedTask.filteringTests(testFilters ?? []) : scopedTask
-        let gradle = context.streamingGradle().task(filteredTask)
+        var gradle = context.streamingGradle().task(filteredTask)
+        // Complete independent modules before collecting failures for a root-scoped rerun.
+        if kind == .unit && !scopedTask.name.contains(":") { gradle = gradle.flag(.continueAfterFailure) }
 
         let output: ShellOutput
         do {
@@ -1540,16 +1546,12 @@ public struct TestAction: Action {
         // Output already streamed live via streamingGradle()'s .tee destination — no debug re-dump.
 
         if parsed.pass == 0 && parsed.fail == 0 && parsed.skip == 0 {
-            let xmlCounts = try await self.aggregateJUnitXMLResults(
-                projectDir: context.config.gradleProjectDir,
-                task: baseTask.name
-            )
-            return TestExecutionSnapshot(
-                summary: TestSummary(passed: xmlCounts.pass, failed: xmlCounts.fail, skipped: xmlCounts.skip),
-                passedTests: xmlCounts.passedTests,
-                failedTests: xmlCounts.failedTests,
-                parsedRun: nil
-            )
+            if let run = try await parseJUnitReports(projectDir: context.config.gradleProjectDir, task: baseTask.name) {
+                let named = legacyNamedResults(from: run)
+                return TestExecutionSnapshot(
+                    summary: run.summary, passedTests: named.passedTests,
+                    failedTests: named.failedTests, parsedRun: run)
+            }
         }
 
         return TestExecutionSnapshot(
@@ -1584,13 +1586,32 @@ public struct TestAction: Action {
         }
     }
 
+    /// A missing failure is not proof of a pass when the rerun failed or skipped tests.
+    /// Keep unresolved original failures and all newly reported failures.
+    private static func reconcileRerun(
+        previousFailures: [ParsedTestCase], snapshot: TestExecutionSnapshot, failure: ShipItError?
+    ) -> (passed: [ParsedTestCase], failed: [ParsedTestCase]) {
+        let latestFailures = snapshot.failedParsedTests
+        let failedIDs = Set(latestFailures.map(\.stableID))
+        let passedIDs = Set(snapshot.parsedRun?.testCases.filter { $0.status == .passed }.map(\.stableID) ?? [])
+        let successfulUnskippedRun =
+            failure == nil && snapshot.parsedRun == nil
+            && snapshot.summary.failed == 0 && snapshot.summary.skipped == 0
+        let passed = previousFailures.filter {
+            !failedIDs.contains($0.stableID) && (passedIDs.contains($0.stableID) || successfulUnskippedRun)
+        }
+        let resolvedIDs = Set(passed.map(\.stableID))
+        let unresolved = previousFailures.filter { !resolvedIDs.contains($0.stableID) && !failedIDs.contains($0.stableID) }
+        return (passed, unresolved + latestFailures)
+    }
+
     /// Re-throws a captured test failure when tests still fail after the rerun, preserving the
     /// runner's original non-zero exit semantics so workflows stop exactly as they would without
     /// reruns. `failureCount` is updated to the persistent failures.
     private static func rethrowPersistentFailure(_ failure: ShipItError?, persistentFailureCount: Int) throws {
-        guard let failure, persistentFailureCount > 0 else { return }
+        guard let failure else { return }
         if case .testFailed(let exitCode, _, let log) = failure {
-            throw ShipItError.testFailed(exitCode: exitCode, failureCount: persistentFailureCount, log: log)
+            throw ShipItError.testFailed(exitCode: exitCode, failureCount: max(persistentFailureCount, 1), log: log)
         }
         throw failure
     }
@@ -1606,8 +1627,7 @@ public struct TestAction: Action {
     ) async -> TestExecutionSnapshot? {
         guard case .testFailed(_, _, let log) = error else { return nil }
 
-        if let reportDirectory = firstJUnitReportDirectory(projectDir: context.config.gradleProjectDir, task: task.name),
-            let parsed = try? await AndroidJUnitTestParser(logger: logger).parse(reportDirectory: reportDirectory),
+        if let parsed = try? await parseJUnitReports(projectDir: context.config.gradleProjectDir, task: task.name),
             parsed.summary.failed + parsed.summary.errored > 0
         {
             let named = legacyNamedResults(from: parsed)
@@ -1898,43 +1918,55 @@ public struct TestAction: Action {
     func aggregateJUnitXMLResults(
         projectDir: String, task: String
     ) async throws -> (pass: Int, fail: Int, skip: Int, passedTests: [String], failedTests: [String]) {
-        guard let reportDirectory = firstJUnitReportDirectory(projectDir: projectDir, task: task) else {
+        guard let parsed = try await parseJUnitReports(projectDir: projectDir, task: task) else {
             return (pass: 0, fail: 0, skip: 0, passedTests: [], failedTests: [])
         }
-
-        let parsed = try await AndroidJUnitTestParser(logger: logger).parse(reportDirectory: reportDirectory)
         let named = legacyNamedResults(from: parsed)
         return (
-            pass: parsed.summary.passed,
-            fail: parsed.summary.failed + parsed.summary.errored,
-            skip: parsed.summary.skipped,
-            passedTests: named.passedTests,
-            failedTests: named.failedTests
+            parsed.summary.passed, parsed.summary.failed + parsed.summary.errored, parsed.summary.skipped,
+            named.passedTests, named.failedTests
         )
     }
 
-    private func firstJUnitReportDirectory(projectDir: String, task: String) -> String? {
-        let fileManager = FileManager.default
-        guard
-            let enumerator = fileManager.enumerator(
-                at: URL(fileURLWithPath: projectDir),
-                includingPropertiesForKeys: [.isDirectoryKey],
-                options: [.skipsHiddenFiles]
-            )
-        else {
-            return nil
+    /// Qualified tasks read only their module; root tasks collect every exact task directory.
+    private func parseJUnitReports(projectDir: String, task: String) async throws -> ParsedTestRun? {
+        let parts = task.split(separator: ":").map(String.init)
+        guard let taskName = parts.last else { return nil }
+        let root = URL(fileURLWithPath: projectDir)
+        let directories: [URL]
+        if parts.count > 1 {
+            let module = parts.dropLast().joined(separator: "/")
+            directories = [root.appendingPathComponent("\(module)/build/test-results/\(taskName)")]
+        } else {
+            let enumerator = FileManager.default.enumerator(
+                at: root, includingPropertiesForKeys: [.isDirectoryKey], options: [.skipsHiddenFiles])
+            directories = (enumerator?.allObjects as? [URL] ?? []).filter {
+                $0.lastPathComponent == taskName && $0.deletingLastPathComponent().lastPathComponent == "test-results"
+                    && $0.deletingLastPathComponent().deletingLastPathComponent().lastPathComponent == "build"
+            }.sorted { $0.path < $1.path }
         }
-
-        for case let fileURL as URL in enumerator {
-            let path = fileURL.path
-            guard path.contains("/build/test-results/\(task)") else { continue }
-            var isDirectory: ObjCBool = false
-            if fileManager.fileExists(atPath: path, isDirectory: &isDirectory), isDirectory.boolValue {
-                return path
+        var cases: [ParsedTestCase] = []
+        var passed = 0
+        var failed = 0
+        var skipped = 0
+        var found = false
+        for directory in directories where FileManager.default.fileExists(atPath: directory.path) {
+            let run = try await AndroidJUnitTestParser(logger: logger).parse(reportDirectory: directory.path)
+            found = true
+            passed += run.summary.passed
+            failed += run.summary.failed + run.summary.errored
+            skipped += run.summary.skipped
+            cases += run.testCases.map {
+                ParsedTestCase(
+                    stableID: directory.path + ":" + $0.stableID, suite: $0.suite, name: $0.name,
+                    status: $0.status, durationSeconds: $0.durationSeconds, message: $0.message,
+                    file: $0.file, line: $0.line, rerunSelector: $0.rerunSelector)
             }
         }
-
-        return nil
+        guard found else { return nil }
+        return ParsedTestRun(
+            platform: "android", runner: "gradle", source: projectDir,
+            summary: TestSummary(passed: passed, failed: failed, skipped: skipped), testCases: cases)
     }
 
     private func parseGradleNamedTests(from output: String) -> (passedTests: [String], failedTests: [String]) {

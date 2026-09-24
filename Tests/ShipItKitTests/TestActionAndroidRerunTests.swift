@@ -151,6 +151,11 @@ struct TestActionAndroidRerunTests {
 
         let (executor, commands) = makeCaptureExecutor { command, _ in
             if command.description.contains("--tests") {
+                try """
+                <testsuite tests="1" failures="0" errors="0" skipped="0"><testcase name="testOfflineMode()" classname="com.example.FeatureTests"/></testsuite>
+                """.write(
+                    to: reportDirectory.appendingPathComponent("TEST-com.example.FeatureTests.xml"), atomically: true, encoding: .utf8)
+
                 return ShellOutput(stdout: "1 tests completed, 0 failed, 0 skipped\n", stderr: "", exitCode: 0)
             }
             // Console output without per-test lines: only the XML names the failed test.
@@ -165,4 +170,76 @@ struct TestActionAndroidRerunTests {
         #expect(result.failCount == 0)
         #expect(commands().contains { $0.contains("--tests com.example.FeatureTests.testOfflineMode") && !$0.contains("()") })
     }
+    @Test("A new failure on rerun cannot turn two nonzero exits into success")
+    func changedFailureStillThrows() async throws {
+        let directory = try makeTempDirectory(prefix: "AndroidChangedFailure")
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let reportPath = directory.appendingPathComponent("report.json").path
+        let (executor, _) = makeCaptureExecutor { command, _ in
+            let name = command.description.contains("--tests") ? "initializationError" : "testOfflineMode"
+            return ShellOutput(
+                stdout: "com.example.FeatureTests > \(name) FAILED\n1 tests completed, 1 failed, 0 skipped\n", stderr: "", exitCode: 1)
+        }
+        await #expect(throws: ShipItError.self) {
+            try await TestAction().run(
+                with: rerunOptions(reportPath: reportPath), context: makeContext(executor: executor, projectDir: directory.path))
+        }
+        let report = try JSONDecoder().decode(TestRunReport.self, from: Data(contentsOf: URL(fileURLWithPath: reportPath)))
+        #expect(report.flakyTests.isEmpty)
+        #expect(report.persistentFailedTests.contains { $0.name.contains("initializationError") })
+    }
+
+    @Test("A skipped rerun does not resolve an initial failure")
+    func skippedRerunStillThrows() async throws {
+        let directory = try makeTempDirectory(prefix: "AndroidSkippedRerun")
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let (executor, _) = makeCaptureExecutor { command, _ in
+            if command.description.contains("--tests") {
+                return ShellOutput(stdout: "1 tests completed, 0 failed, 1 skipped\n", stderr: "", exitCode: 0)
+            }
+            return ShellOutput(stdout: Self.failingOutput, stderr: "", exitCode: 1)
+        }
+        await #expect(throws: ShipItError.self) {
+            try await TestAction().run(with: rerunOptions(), context: makeContext(executor: executor, projectDir: directory.path))
+        }
+    }
+
+    @Test(
+        "Root reruns include failures from every module; module reruns exclude unrelated reports",
+        arguments: [GradleTaskScope.root, .module])
+    func reportDiscoveryRespectsScope(scope: GradleTaskScope) async throws {
+        let directory = try makeTempDirectory(prefix: "AndroidReportScope")
+        defer { try? FileManager.default.removeItem(at: directory) }
+        for module in ["app", "feature"] {
+            let reports = directory.appendingPathComponent("\(module)/build/test-results/testDebugUnitTest")
+            try FileManager.default.createDirectory(at: reports, withIntermediateDirectories: true)
+            try """
+            <testsuite name="\(module).Tests" tests="1" failures="1" errors="0" skipped="0"><testcase classname="\(module).Tests" name="testFailure"><failure message="failure"/></testcase></testsuite>
+            """.write(to: reports.appendingPathComponent("TEST-example.xml"), atomically: true, encoding: .utf8)
+        }
+        let (executor, commands) = makeCaptureExecutor { command, _ in
+            if command.description.contains("--tests") {
+                for module in ["app", "feature"] {
+                    try """
+                    <testsuite tests="1" failures="0" errors="0" skipped="0"><testcase classname="\(module).Tests" name="testFailure"/></testsuite>
+                    """.write(
+                        to: directory.appendingPathComponent("\(module)/build/test-results/testDebugUnitTest/TEST-example.xml"),
+                        atomically: true, encoding: .utf8)
+                }
+
+                return ShellOutput(stdout: "2 tests completed, 0 failed, 0 skipped\n", stderr: "", exitCode: 0)
+            }
+            return ShellOutput(stdout: "2 tests completed, 2 failed, 0 skipped\n", stderr: "", exitCode: 1)
+        }
+        var options = rerunOptions()
+        options.scope = scope
+        let result = try await TestAction().run(with: options, context: makeContext(executor: executor, projectDir: directory.path))
+        let rerun = try #require(commands().first { $0.contains("--tests") })
+        #expect(rerun.contains("--tests app.Tests.testFailure"))
+        #expect(rerun.contains("--tests feature.Tests.testFailure") == (scope == .root))
+        #expect(result.report?.initialFailedTests.count == (scope == .root ? 2 : 1))
+        #expect(result.failCount == 0)
+        if scope == .root { #expect(rerun.contains("--continue")) }
+    }
+
 }

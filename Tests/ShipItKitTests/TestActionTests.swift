@@ -71,8 +71,8 @@ struct TestActionTests {
         #expect(result.failCount == 0)
     }
 
-    @Test("Selective iOS rerun reports flaky tests and writes report")
-    func selectiveIOSRerunReportsFlakyTests() async throws {
+    @Test("Selective iOS rerun preserves exit-65 failures and writes report", arguments: [false, true])
+    func selectiveIOSRerunReportsFlakyTests(changedFailure: Bool) async throws {
         let tempDirectory = try makeTempDirectory(prefix: "IOSRerunReport")
         defer { try? FileManager.default.removeItem(at: tempDirectory) }
 
@@ -98,7 +98,7 @@ struct TestActionTests {
                 {
                   "name": "MyAppTests/LoginTests",
                   "subtests": [
-                    { "identifier": "MyAppTests/LoginTests/testFlaky()", "name": "testFlaky()", "testStatus": "Success" }
+                    { "identifier": "MyAppTests/LoginTests/\(changedFailure ? "initializationError()" : "testFlaky()")", "name": "rerun", "testStatus": "\(changedFailure ? "Failure" : "Success")" }
                   ]
                 }
               ]
@@ -111,7 +111,9 @@ struct TestActionTests {
             if description.contains("xcresulttool get test-results summary") {
                 if rerunTriggered.withLock({ $0 }) {
                     return ShellOutput(
-                        stdout: "{ \"metrics\": { \"testsCount\": 1, \"testsFailedCount\": 0, \"testsSkippedCount\": 0 } }", stderr: "",
+                        stdout:
+                            "{ \"metrics\": { \"testsCount\": 1, \"testsFailedCount\": \(changedFailure ? 1 : 0), \"testsSkippedCount\": 0 } }",
+                        stderr: "",
                         exitCode: 0)
                 }
                 return ShellOutput(
@@ -128,29 +130,30 @@ struct TestActionTests {
                 if description.contains("-only-testing MyAppTests/LoginTests/testFlaky()") {
                     rerunTriggered.withLock { $0 = true }
                     return ShellOutput(
-                        stdout: "Executed 1 test, with 0 failures (0 unexpected) in 0.500 seconds\n", stderr: "", exitCode: 0)
+                        stdout: "Executed 1 test\n", stderr: "", exitCode: changedFailure ? 65 : 0)
                 }
-                return ShellOutput(stdout: "Executed 2 tests, with 1 failure (0 unexpected) in 1.000 seconds\n", stderr: "", exitCode: 0)
+                return ShellOutput(stdout: "Executed 2 tests, with 1 failure (0 unexpected) in 1.000 seconds\n", stderr: "", exitCode: 65)
             }
             return ShellOutput(stdout: "", stderr: "", exitCode: 0)
         }
 
         let context = ActionContext.mock(executor: executor)
-        let result = try await TestAction().run(
-            with: .init(
-                scheme: "MockApp",
-                destination: "platform=iOS Simulator,name=iPhone 16",
-                resultBundlePath: resultBundlePath,
-                rerunFailedTests: .init(enabled: true, maxAttempts: 2),
-                reportPath: reportPath
-            ),
-            context: context
-        )
-
-        #expect(result.failCount == 0)
-        #expect(result.report?.flakyTests.count == 1)
-        #expect(result.report?.persistentFailedTests.isEmpty == true)
-        #expect(FileManager.default.fileExists(atPath: reportPath))
+        let options = TestAction.Options(
+            scheme: "MockApp", destination: "platform=iOS Simulator,name=iPhone 16",
+            resultBundlePath: resultBundlePath, rerunFailedTests: .init(enabled: true, maxAttempts: 2), reportPath: reportPath)
+        if changedFailure {
+            await #expect(throws: ShipItError.self) { try await TestAction().run(with: options, context: context) }
+        } else {
+            let result = try await TestAction().run(with: options, context: context)
+            #expect(result.failCount == 0)
+            #expect(result.report?.flakyTests.count == 1)
+            #expect(result.report?.persistentFailedTests.isEmpty == true)
+        }
+        let report = try JSONDecoder().decode(TestRunReport.self, from: Data(contentsOf: URL(fileURLWithPath: reportPath)))
+        if changedFailure {
+            #expect(report.flakyTests.isEmpty)
+            #expect(report.persistentFailedTests.contains { $0.stableID.contains("initializationError") })
+        }
         #expect(commands().contains { $0.contains("-only-testing MyAppTests/LoginTests/testFlaky()") })
     }
 
