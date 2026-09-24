@@ -16,6 +16,16 @@ public struct GradleTask: Sendable, Equatable, Hashable {
     /// The task name argument (e.g. `"assembleRelease"`).
     public let name: String
 
+    /// Task-level options emitted immediately after ``name`` (e.g. `["--tests", "com.example.FooTest"]`).
+    ///
+    /// Gradle binds task options such as `--tests` to the task that *precedes* them on the command
+    /// line, so they cannot be passed as global ``GradleFlag``s (which are emitted before every task
+    /// and rejected with "Unknown command-line option").
+    public let options: [String]
+
+    /// The command-line arguments for this task: its ``name`` followed by its ``options``.
+    public var arguments: [String] { [name] + options }
+
     // MARK: - Build Tasks
 
     /// `assembleDebug` — Build a debug APK.
@@ -83,9 +93,7 @@ public struct GradleTask: Sendable, Equatable, Hashable {
     ///   - flavor: Product flavor (e.g. `"free"`, `"paid"`).
     ///   - variant: Build variant (e.g. `"release"`, `"debug"`).
     public static func assemble(flavor: String, variant: String) -> GradleTask {
-        let f = String(flavor.prefix(1)).uppercased() + String(flavor.dropFirst())
-        let v = String(variant.prefix(1)).uppercased() + String(variant.dropFirst())
-        return GradleTask(name: "assemble\(f)\(v)")
+        variantTask(prefix: "assemble", flavor: flavor, variant: variant)
     }
 
     /// Builds a flavor+variant bundle task such as `bundleFreeRelease`.
@@ -94,9 +102,72 @@ public struct GradleTask: Sendable, Equatable, Hashable {
     ///   - flavor: Product flavor (e.g. `"free"`, `"paid"`).
     ///   - variant: Build variant (e.g. `"release"`, `"debug"`).
     public static func bundle(flavor: String, variant: String) -> GradleTask {
-        let f = String(flavor.prefix(1)).uppercased() + String(flavor.dropFirst())
-        let v = String(variant.prefix(1)).uppercased() + String(variant.dropFirst())
-        return GradleTask(name: "bundle\(f)\(v)")
+        variantTask(prefix: "bundle", flavor: flavor, variant: variant)
+    }
+
+    // MARK: - Variant Task Helpers
+
+    /// `assemble<Variant>` — e.g. `assemble(variant: "stagingRelease")` → `assembleStagingRelease`.
+    public static func assemble(variant: String) -> GradleTask {
+        variantTask(prefix: "assemble", variant: variant)
+    }
+
+    /// `bundle<Variant>` — e.g. `bundle(variant: "prodRelease")` → `bundleProdRelease`.
+    public static func bundle(variant: String) -> GradleTask {
+        variantTask(prefix: "bundle", variant: variant)
+    }
+
+    /// `lint<Variant>` — e.g. `lint(variant: "debug")` → `lintDebug`.
+    public static func lint(variant: String) -> GradleTask {
+        variantTask(prefix: "lint", variant: variant)
+    }
+
+    /// `test<Variant>UnitTest` — e.g. `unitTest(variant: "debug")` → `testDebugUnitTest`.
+    public static func unitTest(variant: String) -> GradleTask {
+        variantTask(prefix: "test", variant: variant, suffix: "UnitTest")
+    }
+
+    /// `connected<Variant>AndroidTest` — e.g. `connectedAndroidTest(variant: "debug")` →
+    /// `connectedDebugAndroidTest`.
+    public static func connectedAndroidTest(variant: String) -> GradleTask {
+        variantTask(prefix: "connected", variant: variant, suffix: "AndroidTest")
+    }
+
+    /// `<device><Variant>AndroidTest` — a Gradle Managed Device task such as
+    /// `pixel6Api34DebugAndroidTest` (or a device-group task such as `ciGroupDebugAndroidTest`).
+    ///
+    /// - Parameters:
+    ///   - device: The managed device or device-group name declared in `testOptions.managedDevices`.
+    ///   - variant: Build variant (e.g. `"debug"`).
+    public static func managedDeviceAndroidTest(device: String, variant: String) -> GradleTask {
+        variantTask(prefix: device, variant: variant, suffix: "AndroidTest")
+    }
+
+    /// Builds a variant-aware task name following the Android Gradle Plugin convention
+    /// `<prefix><Flavor><Variant><suffix>`.
+    ///
+    /// Only the first character of each segment is upper-cased; the rest is preserved, so
+    /// camelCase variants such as `"stagingRelease"` stay intact (unlike `String.capitalized`,
+    /// which would produce `"Stagingrelease"`).
+    ///
+    /// ```swift
+    /// GradleTask.variantTask(prefix: "bundle", flavor: "free", variant: "release")  // bundleFreeRelease
+    /// GradleTask.variantTask(prefix: "test", variant: "debug", suffix: "UnitTest")  // testDebugUnitTest
+    /// ```
+    ///
+    /// - Parameters:
+    ///   - prefix: Task verb (e.g. `"assemble"`, `"bundle"`, `"lint"`, `"test"`).
+    ///   - flavor: Optional product flavor. `nil` or empty means no flavor segment.
+    ///   - variant: Build type or full variant name (e.g. `"release"`, `"prodRelease"`).
+    ///   - suffix: Optional trailing segment (e.g. `"UnitTest"`, `"AndroidTest"`).
+    public static func variantTask(
+        prefix: String,
+        flavor: String? = nil,
+        variant: String,
+        suffix: String = ""
+    ) -> GradleTask {
+        let flavorSegment = flavor.map(uppercasingFirst) ?? ""
+        return GradleTask(name: prefix + flavorSegment + uppercasingFirst(variant) + suffix)
     }
 
     // MARK: - Kotlin Multiplatform Tasks
@@ -148,9 +219,7 @@ public struct GradleTask: Sendable, Equatable, Hashable {
     ///   - configuration: Kotlin build configuration (e.g. `"Debug"`, `"Release"`).
     ///   - target: KMP iOS target name (e.g. `"IosArm64"`, `"IosSimulatorArm64"`, `"IosX64"`).
     public static func linkFramework(configuration: String, target: String) -> GradleTask {
-        let cfg = String(configuration.prefix(1)).uppercased() + String(configuration.dropFirst())
-        let tgt = String(target.prefix(1)).uppercased() + String(target.dropFirst())
-        return GradleTask(name: "link\(cfg)Framework\(tgt)")
+        GradleTask(name: "link\(uppercasingFirst(configuration))Framework\(uppercasingFirst(target))")
     }
 
     /// Returns this task qualified with a Gradle module path.
@@ -167,7 +236,28 @@ public struct GradleTask: Sendable, Equatable, Hashable {
 
         let normalizedModule = trimmedModule.hasPrefix(":") ? trimmedModule : ":\(trimmedModule)"
         let separator = normalizedModule.hasSuffix(":") ? "" : ":"
-        return GradleTask(name: "\(normalizedModule)\(separator)\(name)")
+        return GradleTask(name: "\(normalizedModule)\(separator)\(name)", options: options)
+    }
+
+    /// Returns this task with `--tests <pattern>` appended for each pattern, restricting a JVM
+    /// test task (e.g. `testDebugUnitTest`) to matching test classes or methods.
+    ///
+    /// ```swift
+    /// GradleTask.unitTest(variant: "debug")
+    ///     .qualified(module: "app")
+    ///     .filteringTests(["com.example.FooTest.testBar"])
+    /// // → :app:testDebugUnitTest --tests com.example.FooTest.testBar
+    /// ```
+    ///
+    /// - Parameter patterns: Gradle test filter patterns. An empty array returns the task unchanged.
+    public func filteringTests(_ patterns: [String]) -> GradleTask {
+        guard !patterns.isEmpty else { return self }
+        return appendingOptions(patterns.flatMap { ["--tests", $0] })
+    }
+
+    /// Returns this task with additional task-level options appended after its name.
+    public func appendingOptions(_ values: [String]) -> GradleTask {
+        GradleTask(name: name, options: options + values)
     }
 
     // MARK: - Custom
@@ -179,8 +269,15 @@ public struct GradleTask: Sendable, Equatable, Hashable {
 
     // MARK: - Init
 
-    /// Creates a `GradleTask` with the given task name.
-    public init(name: String) {
+    /// Creates a `GradleTask` with the given task name and optional task-level options.
+    public init(name: String, options: [String] = []) {
         self.name = name
+        self.options = options
+    }
+
+    // MARK: - Private
+
+    private static func uppercasingFirst(_ value: String) -> String {
+        value.prefix(1).uppercased() + value.dropFirst()
     }
 }
