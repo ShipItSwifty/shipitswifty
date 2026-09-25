@@ -194,8 +194,8 @@ public struct Gradle: RunnableCommandFamily {
         // -P properties
         args += properties.map(\.argument)
 
-        // Task names
-        args += tasks.map(\.name)
+        // Task names, each followed by its task-level options (e.g. `--tests`)
+        args += tasks.flatMap(\.arguments)
 
         var base = Command(executable)
             .args(args)

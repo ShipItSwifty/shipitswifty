@@ -126,6 +126,44 @@ public struct XcodeBuild: RunnableCommandFamily {
         copy(operation: .test, replaceOperation: true)
     }
 
+    /// Configures the command to run the `build-for-testing` action.
+    ///
+    /// Builds the app and test bundles once and writes an `.xctestrun` file to the build
+    /// products directory, so tests can then run on one or more destinations with
+    /// ``testWithoutBuilding()`` without recompiling. Combine with
+    /// ``XcodeBuildOption/derivedDataPath(_:)`` for a predictable products location, or
+    /// ``XcodeBuildOption/testProductsPath(_:)`` to bundle everything into one `.xctestproducts`.
+    ///
+    /// ```swift
+    /// try await XcodeBuild(context: shell)
+    ///     .workspace("App.xcworkspace")
+    ///     .option(.scheme("App"))
+    ///     .option(.destination("generic/platform=iOS Simulator"))
+    ///     .option(.derivedDataPath("./build/DerivedData"))
+    ///     .buildForTesting()
+    ///     .run()
+    /// ```
+    public func buildForTesting() -> Self {
+        copy(operation: .buildForTesting, replaceOperation: true)
+    }
+
+    /// Configures the command to run the `test-without-building` action.
+    ///
+    /// Runs tests from products produced by ``buildForTesting()``. Pass either the scheme and
+    /// container used for the build, or ``XcodeBuildOption/xctestrun(_:)`` /
+    /// ``XcodeBuildOption/testProductsPath(_:)`` to run without the project.
+    ///
+    /// ```swift
+    /// try await XcodeBuild(context: shell)
+    ///     .option(.xctestrun("./build/DerivedData/Build/Products/App_iphonesimulator.xctestrun"))
+    ///     .option(.destination("platform=iOS Simulator,name=iPhone 16"))
+    ///     .testWithoutBuilding()
+    ///     .run()
+    /// ```
+    public func testWithoutBuilding() -> Self {
+        copy(operation: .testWithoutBuilding, replaceOperation: true)
+    }
+
     /// Configures the command to archive build products.
     /// - Parameter path: Optional destination path for the created `.xcarchive`.
     public func archive(path: String? = nil) -> Self {

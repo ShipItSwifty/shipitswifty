@@ -51,16 +51,6 @@ enum CrossPlatformArtifactPaths {
         return "android/app/build/outputs/apk/\(normalizedVariant)/app-\(normalizedVariant).apk"
     }
 
-    static func gradleTaskName(prefix: String, flavor: String? = nil, variant: String = "release") -> String {
-        let variantName: String
-        if let flavor, !flavor.isEmpty {
-            variantName = flavor + variant.capitalized
-        } else {
-            variantName = variant
-        }
-        return prefix + String(variantName.prefix(1)).uppercased() + String(variantName.dropFirst())
-    }
-
     static func locateExportedIPA(context: ActionContext, fileManager: FileManager = .default) -> String? {
         let workingDirectory = context.shell.workingDirectory ?? fileManager.currentDirectoryPath
         let outputDirectory = context.config.exportOutputDirectory ?? "./build/export"

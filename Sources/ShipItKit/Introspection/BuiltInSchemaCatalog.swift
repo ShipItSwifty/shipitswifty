@@ -902,7 +902,7 @@ public enum BuiltInSchemaCatalog {
             .object(
                 "rerun_failed_tests",
                 description:
-                    "Selectively rerun only the failed tests when the runner supports it. Separate from whole-invocation infrastructure_retry and from iOS retry_on_failure.",
+                    "Selectively rerun only the failed tests when the runner supports it (Android unit tests; iOS with a single destination and result_bundle_path). Separate from whole-invocation infrastructure_retry and from iOS retry_on_failure.",
                 properties: [
                     .boolean(
                         "enabled",
@@ -912,7 +912,7 @@ public enum BuiltInSchemaCatalog {
                     ),
                     .integer(
                         "max_attempts",
-                        description: "Maximum attempts including the initial run.",
+                        description: "Maximum attempts including the initial run; 1 disables reruns. Stops early after recovery.",
                         defaultValue: .int(2),
                         example: .int(2)
                     ),

@@ -111,6 +111,11 @@ public struct Bundletool: RunnableCommandFamily {
 
     /// `bundletool build-apks` — Build an APK set from an AAB.
     ///
+    /// Passwords given as `String` are passed on the command line (`pass:<value>`), where other
+    /// local users can read them from the process list. On shared machines prefer
+    /// ``buildApks(bundle:output:signing:connectedDevice:mode:overwrite:)`` with
+    /// ``BundletoolPassword/file(_:)``.
+    ///
     /// - Parameters:
     ///   - bundle: Path to the `.aab` file.
     ///   - output: Path for the output `.apks` archive.
@@ -119,6 +124,8 @@ public struct Bundletool: RunnableCommandFamily {
     ///   - keyAlias: Key alias in the keystore.
     ///   - keyPassword: Key password.
     ///   - connectedDevice: Generate APKs optimized for the currently connected device.
+    ///   - mode: APK generation mode (`--mode=`). `nil` uses bundletool's default (split APKs).
+    ///   - overwrite: Pass `--overwrite` to replace an existing output file.
     public func buildApks(
         bundle: String,
         output: String,
@@ -126,7 +133,9 @@ public struct Bundletool: RunnableCommandFamily {
         keystorePassword: String? = nil,
         keyAlias: String? = nil,
         keyPassword: String? = nil,
-        connectedDevice: Bool = false
+        connectedDevice: Bool = false,
+        mode: BundletoolBuildMode? = nil,
+        overwrite: Bool = false
     ) -> Self {
         var args = [
             "build-apks",
@@ -134,16 +143,66 @@ public struct Bundletool: RunnableCommandFamily {
             "--output=\(output)",
         ]
         if let ks = keystorePath { args.append("--ks=\(ks)") }
-        if let ksPw = keystorePassword { args.append("--ks-pass=pass:\(ksPw)") }
+        if let ksPw = keystorePassword { args.append("--ks-pass=\(BundletoolPassword.plain(ksPw).argumentValue)") }
         if let alias = keyAlias { args.append("--ks-key-alias=\(alias)") }
-        if let keyPw = keyPassword { args.append("--key-pass=pass:\(keyPw)") }
+        if let keyPw = keyPassword { args.append("--key-pass=\(BundletoolPassword.plain(keyPw).argumentValue)") }
         if connectedDevice { args.append("--connected-device") }
+        if let mode { args.append("--mode=\(mode.rawValue)") }
+        if overwrite { args.append("--overwrite") }
         return copy(arguments: args)
     }
 
-    /// `bundletool install-apks` — Install APK set on connected device.
-    public func installApks(apks: String) -> Self {
-        copy(arguments: ["install-apks", "--apks=\(apks)"])
+    /// `bundletool build-apks` — Build a signed APK set from an AAB using typed password sources.
+    ///
+    /// ```swift
+    /// // Universal APK for QA sideloading; passwords read from files, not visible in `ps`.
+    /// let output = try await Bundletool(context: shell)
+    ///     .buildApks(
+    ///         bundle: "app-release.aab",
+    ///         output: "app.apks",
+    ///         signing: .init(
+    ///             keystorePath: "release.jks",
+    ///             keystorePassword: .file("/run/secrets/ks-pass"),
+    ///             keyAlias: "upload"
+    ///         ),
+    ///         mode: .universal,
+    ///         overwrite: true
+    ///     )
+    ///     .run()
+    /// ```
+    public func buildApks(
+        bundle: String,
+        output: String,
+        signing: BundletoolSigning,
+        connectedDevice: Bool = false,
+        mode: BundletoolBuildMode? = nil,
+        overwrite: Bool = false
+    ) -> Self {
+        var args = [
+            "build-apks",
+            "--bundle=\(bundle)",
+            "--output=\(output)",
+            "--ks=\(signing.keystorePath)",
+            "--ks-pass=\(signing.keystorePassword.argumentValue)",
+            "--ks-key-alias=\(signing.keyAlias)",
+        ]
+        if let keyPassword = signing.keyPassword { args.append("--key-pass=\(keyPassword.argumentValue)") }
+        if connectedDevice { args.append("--connected-device") }
+        if let mode { args.append("--mode=\(mode.rawValue)") }
+        if overwrite { args.append("--overwrite") }
+        return copy(arguments: args)
+    }
+
+    /// `bundletool install-apks --apks=<path> [--device-id=<serial>]` — Install an APK set on a
+    /// connected device.
+    ///
+    /// - Parameters:
+    ///   - apks: Path to the `.apks` archive.
+    ///   - deviceID: Target device serial when several devices are connected.
+    public func installApks(apks: String, deviceID: String? = nil) -> Self {
+        var args = ["install-apks", "--apks=\(apks)"]
+        if let deviceID { args.append("--device-id=\(deviceID)") }
+        return copy(arguments: args)
     }
 
     /// `bundletool validate --bundle=<path>` — Validate an AAB file.
@@ -178,4 +237,53 @@ public struct Bundletool: RunnableCommandFamily {
             jarPath: jarPath != .none ? jarPath! : self.jarPath
         )
     }
+}
+
+/// A keystore or key password source for ``Bundletool``.
+public enum BundletoolPassword: Sendable, Equatable, Hashable {
+    /// The password itself, passed as `pass:<value>`. Visible to other users via the process list.
+    case plain(String)
+    /// A file whose first line is the password, passed as `file:<path>`.
+    case file(String)
+
+    /// The value bundletool expects after `--ks-pass=` / `--key-pass=`.
+    public var argumentValue: String {
+        switch self {
+        case .plain(let value): "pass:\(value)"
+        case .file(let path): "file:\(path)"
+        }
+    }
+}
+
+/// Keystore signing configuration for ``Bundletool/buildApks(bundle:output:signing:connectedDevice:mode:overwrite:)``.
+public struct BundletoolSigning: Sendable, Equatable, Hashable {
+    /// Path to the keystore (`--ks`).
+    public var keystorePath: String
+    /// Keystore password source (`--ks-pass`).
+    public var keystorePassword: BundletoolPassword
+    /// Key alias in the keystore (`--ks-key-alias`).
+    public var keyAlias: String
+    /// Key password source (`--key-pass`). `nil` means the key shares the keystore password.
+    public var keyPassword: BundletoolPassword?
+
+    public init(keystorePath: String, keystorePassword: BundletoolPassword, keyAlias: String, keyPassword: BundletoolPassword? = nil) {
+        self.keystorePath = keystorePath
+        self.keystorePassword = keystorePassword
+        self.keyAlias = keyAlias
+        self.keyPassword = keyPassword
+    }
+}
+
+/// The APK generation mode for `bundletool build-apks --mode=<mode>`.
+public enum BundletoolBuildMode: String, Sendable, Equatable, Hashable, CaseIterable {
+    /// Split APKs per device configuration (bundletool's default).
+    case `default`
+    /// A single universal APK containing every configuration — handy for QA sideloading.
+    case universal
+    /// Standalone APKs for pre-Lollipop devices without split support.
+    case system
+    /// APKs for instant-app delivery.
+    case instant
+    /// APKs for archived (Play-archived) apps.
+    case archive
 }

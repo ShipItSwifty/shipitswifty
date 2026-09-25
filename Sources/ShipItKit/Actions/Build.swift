@@ -551,12 +551,7 @@ public struct BuildAction: Action {
         let scope = options.scope ?? context.config.androidScope
 
         // Determine task: assembleFreeRelease or assembleRelease
-        let task: GradleTask
-        if let flavor {
-            task = GradleTask.assemble(flavor: flavor, variant: variant)
-        } else {
-            task = GradleTask(name: CrossPlatformArtifactPaths.gradleTaskName(prefix: "assemble", variant: variant))
-        }
+        let task = GradleTask.variantTask(prefix: "assemble", flavor: flavor, variant: variant)
 
         // Qualify based on scope
         let scopedTask: GradleTask

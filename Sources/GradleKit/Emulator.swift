@@ -30,29 +30,56 @@ public struct Emulator: RunnableCommandFamily {
     /// Arguments for the `emulator` command.
     public let arguments: [String]
 
+    /// The `emulator` executable to invoke. See ``init(context:executablePath:)`` for resolution.
+    public let executablePath: String
+
     /// The shell context used when running this command family.
     public var context: ShellContext { config.context }
 
     // MARK: - Init
 
     /// Creates an `Emulator` command family bound to a shell context.
-    public init(context: ShellContext = .init()) {
+    ///
+    /// - Parameters:
+    ///   - context: Shell execution context.
+    ///   - executablePath: Explicit `emulator` path. When `nil`, uses
+    ///     `$ANDROID_HOME/emulator/emulator` (or `$ANDROID_SDK_ROOT/…`) from the shell context's
+    ///     environment if it exists — the SDK does not put `emulator/` on `PATH` — and otherwise
+    ///     falls back to `emulator` on `PATH`.
+    public init(context: ShellContext = .init(), executablePath: String? = nil) {
         self.config = ToolConfiguration(context: context)
         self.stdoutDestination = .capture
         self.stderrDestination = .capture
         self.arguments = []
+        self.executablePath = executablePath ?? Self.resolveExecutable(environment: context.environment)
     }
 
     private init(
         config: ToolConfiguration,
         stdoutDestination: OutputDestination,
         stderrDestination: OutputDestination,
-        arguments: [String]
+        arguments: [String],
+        executablePath: String
     ) {
         self.config = config
         self.stdoutDestination = stdoutDestination
         self.stderrDestination = stderrDestination
         self.arguments = arguments
+        self.executablePath = executablePath
+    }
+
+    /// Resolves the SDK's `emulator` binary from `ANDROID_HOME` / `ANDROID_SDK_ROOT`, falling back
+    /// to `emulator` on `PATH`.
+    static func resolveExecutable(
+        environment: [String: String],
+        fileExists: (String) -> Bool = { FileManager.default.isExecutableFile(atPath: $0) }
+    ) -> String {
+        for key in ["ANDROID_HOME", "ANDROID_SDK_ROOT"] {
+            guard let root = environment[key], !root.isEmpty else { continue }
+            let candidate = URL(fileURLWithPath: root).appendingPathComponent("emulator/emulator").path
+            if fileExists(candidate) { return candidate }
+        }
+        return "emulator"
     }
 
     // MARK: - RunnableCommandFamily
@@ -76,7 +103,7 @@ public struct Emulator: RunnableCommandFamily {
 
     /// Builds the raw `emulator` command.
     public func command() -> Command {
-        let base = Command("emulator")
+        let base = Command(executablePath)
             .args(arguments)
             .stdout(stdoutDestination)
             .stderr(stderrDestination)
@@ -88,10 +115,25 @@ public struct Emulator: RunnableCommandFamily {
     /// `emulator -avd <name> [options]` — Start an AVD.
     ///
     /// - Parameters:
-    ///   - avd: AVD name (as returned by `avdmanager list avd`).
-    ///   - headless: Pass `-no-window -no-audio -no-boot-anim` for headless CI operation.
+    ///   - avd: AVD name (as returned by ``list()`` or `avdmanager list avd`).
+    ///   - headless: Pass `-no-window -no-audio -no-boot-anim` for headless CI operation. Required
+    ///     on machines without a display, where a windowed emulator exits immediately.
     ///   - gpu: GPU acceleration mode (e.g. `"swiftshader_indirect"` for CI without GPU).
-    public func start(avd: String, headless: Bool = false, gpu: String? = nil) -> Self {
+    ///   - noSnapshot: Pass `-no-snapshot` to cold boot and not save state on exit, so every run
+    ///     starts from the same device state.
+    ///   - wipeData: Pass `-wipe-data` to reset user data to factory state.
+    ///   - readOnly: Pass `-read-only` so several emulators can run from the same AVD concurrently.
+    ///   - port: Pass `-port <n>` to pin the console port, which fixes the serial to
+    ///     `emulator-<n>` (must be an even number between 5554 and 5682).
+    public func start(
+        avd: String,
+        headless: Bool = false,
+        gpu: String? = nil,
+        noSnapshot: Bool = false,
+        wipeData: Bool = false,
+        readOnly: Bool = false,
+        port: Int? = nil
+    ) -> Self {
         var args = ["-avd", avd]
         if headless {
             args += ["-no-window", "-no-audio", "-no-boot-anim"]
@@ -99,6 +141,10 @@ public struct Emulator: RunnableCommandFamily {
         if let gpu {
             args += ["-gpu", gpu]
         }
+        if noSnapshot { args.append("-no-snapshot") }
+        if wipeData { args.append("-wipe-data") }
+        if readOnly { args.append("-read-only") }
+        if let port { args += ["-port", String(port)] }
         return copy(arguments: args)
     }
 
@@ -119,7 +165,8 @@ public struct Emulator: RunnableCommandFamily {
             config: config ?? self.config,
             stdoutDestination: stdoutDestination ?? self.stdoutDestination,
             stderrDestination: stderrDestination ?? self.stderrDestination,
-            arguments: arguments
+            arguments: arguments,
+            executablePath: executablePath
         )
     }
 }

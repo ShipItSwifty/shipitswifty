@@ -255,7 +255,7 @@ public struct ArchiveAction: Action {
         options: Options, context: ActionContext
     ) async throws -> Result {
         let variant = options.buildVariant ?? context.config.androidBuildVariant
-        let task = CrossPlatformArtifactPaths.gradleTaskName(prefix: "bundle", variant: variant)
+        let task = GradleTask.bundle(variant: variant).name
         logger.info("Archiving React Native Android app (npx react-native build-android --mode=\(variant) --tasks \(task))")
 
         let rn = ReactNativeCLI(context: context.shell).buildAndroid(mode: variant, task: task)
@@ -523,12 +523,7 @@ public struct ArchiveAction: Action {
         let scope = options.scope ?? context.config.androidScope
 
         // Determine task: bundleFreeRelease or bundleRelease
-        let task: GradleTask
-        if let flavor {
-            task = GradleTask.bundle(flavor: flavor, variant: variant)
-        } else {
-            task = GradleTask(name: CrossPlatformArtifactPaths.gradleTaskName(prefix: "bundle", variant: variant))
-        }
+        let task = GradleTask.variantTask(prefix: "bundle", flavor: flavor, variant: variant)
 
         // Qualify based on scope
         let scopedTask: GradleTask

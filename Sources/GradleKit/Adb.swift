@@ -180,8 +180,23 @@ public struct Adb: RunnableCommandFamily {
     ///   - apk: Path to the APK file.
     ///   - replace: Pass `-r` to replace an existing installation.
     public func install(apk: String, replace: Bool = false) -> Self {
+        install(apk: apk, replace: replace, allowTestPackages: false, grantAllPermissions: false)
+    }
+
+    /// `adb install [-r] [-t] [-g] <apk>` — Install an APK with explicit install options.
+    ///
+    /// - Parameters:
+    ///   - apk: Path to the APK file.
+    ///   - replace: Pass `-r` to replace an existing installation.
+    ///   - allowTestPackages: Pass `-t` to allow `android:testOnly` APKs (e.g. debug or
+    ///     instrumentation test APKs built by Android Studio).
+    ///   - grantAllPermissions: Pass `-g` to grant every runtime permission listed in the manifest,
+    ///     so UI tests do not stall on permission dialogs.
+    public func install(apk: String, replace: Bool, allowTestPackages: Bool, grantAllPermissions: Bool) -> Self {
         var args = ["install"]
         if replace { args.append("-r") }
+        if allowTestPackages { args.append("-t") }
+        if grantAllPermissions { args.append("-g") }
         args.append(apk)
         return copy(arguments: args)
     }
@@ -243,6 +258,12 @@ public struct Adb: RunnableCommandFamily {
     }
 
     // MARK: - Package manager
+
+    /// `adb shell getprop <property>` — Read a system property, e.g. `sys.boot_completed`
+    /// (`"1"` once an emulator has finished booting) or `ro.build.version.sdk`.
+    public func getprop(_ property: String) -> Self {
+        copy(arguments: ["shell", "getprop", property])
+    }
 
     /// `adb shell pm list packages` — List installed packages on the device.
     public func pmListPackages() -> Self {

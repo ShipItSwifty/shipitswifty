@@ -36,10 +36,36 @@ public struct GradleFlag: Sendable, Equatable, Hashable {
     /// `--configuration-cache` — Enable the configuration cache (AGP 8+).
     public static let configurationCache = GradleFlag(arguments: ["--configuration-cache"])
 
+    /// `--no-configuration-cache` — Disable the configuration cache for this invocation.
+    public static let noConfigurationCache = GradleFlag(arguments: ["--no-configuration-cache"])
+
+    /// `--rerun-tasks` — Ignore up-to-date checks and re-execute every task in the graph.
+    public static let rerunTasks = GradleFlag(arguments: ["--rerun-tasks"])
+
+    /// `--refresh-dependencies` — Ignore cached dependency resolution state.
+    public static let refreshDependencies = GradleFlag(arguments: ["--refresh-dependencies"])
+
     // MARK: - Parallelism
 
     /// `--parallel` — Build projects in parallel.
     public static let parallel = GradleFlag(arguments: ["--parallel"])
+
+    /// `--max-workers=<count>` — Cap the number of concurrent Gradle workers (useful on
+    /// memory-constrained CI runners).
+    public static func maxWorkers(_ count: Int) -> GradleFlag {
+        GradleFlag(arguments: ["--max-workers=\(count)"])
+    }
+
+    // MARK: - Execution
+
+    /// `--continue` — Keep executing independent tasks after a failure, so every module's
+    /// test report is produced in one invocation.
+    public static let continueAfterFailure = GradleFlag(arguments: ["--continue"])
+
+    /// `-x <task>` — Exclude a task (and its exclusive dependencies) from execution.
+    public static func excludeTask(_ task: GradleTask) -> GradleFlag {
+        GradleFlag(arguments: ["-x", task.name])
+    }
 
     // MARK: - Offline
 
@@ -47,6 +73,9 @@ public struct GradleFlag: Sendable, Equatable, Hashable {
     public static let offline = GradleFlag(arguments: ["--offline"])
 
     // MARK: - Output / Diagnostics
+
+    /// `--quiet` — Log errors only.
+    public static let quiet = GradleFlag(arguments: ["--quiet"])
 
     /// `--info` — Enable info-level Gradle logging.
     public static let info = GradleFlag(arguments: ["--info"])
@@ -65,7 +94,10 @@ public struct GradleFlag: Sendable, Equatable, Hashable {
 
     // MARK: - Custom
 
-    /// Arbitrary flag(s), e.g. `GradleFlag.custom("--rerun-tasks")`.
+    /// An arbitrary global flag, e.g. `GradleFlag.custom("--dry-run")`.
+    ///
+    /// Global flags are emitted *before* task names. For task-level options such as `--tests`,
+    /// use ``GradleTask/filteringTests(_:)`` or ``GradleTask/appendingOptions(_:)`` instead.
     public static func custom(_ flag: String) -> GradleFlag {
         GradleFlag(arguments: [flag])
     }
