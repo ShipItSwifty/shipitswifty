@@ -272,15 +272,9 @@ public struct LintAction: Action {
         let scope = options.scope ?? context.config.androidScope
 
         // Determine task: lintRelease, lintDebug, or just lint
-        let taskName: String
-        if let variant = options.buildVariant {
-            taskName = "lint\(String(variant.prefix(1)).uppercased() + String(variant.dropFirst()))"
-        } else {
-            taskName = "lint"
-        }
+        let task = options.buildVariant.map { GradleTask.lint(variant: $0) } ?? .lint
 
         // Qualify based on scope
-        let task = GradleTask(name: taskName)
         let scopedTask: GradleTask
         switch scope {
         case .root:

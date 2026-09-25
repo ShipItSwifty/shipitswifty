@@ -70,6 +70,29 @@ struct XcodeBuildTests {
             ])
     }
 
+    @Test func buildForTestingAndTestWithoutBuildingEmitTheirActions() {
+        let buildForTesting = XcodeBuild()
+            .workspace("App.xcworkspace")
+            .option(.scheme("App"))
+            .option(.derivedDataPath("./build/DerivedData"))
+            .buildForTesting()
+            .command()
+        let testWithoutBuilding = XcodeBuild()
+            .option(.xctestrun("App.xctestrun"))
+            .option(.destination("platform=iOS Simulator,name=iPhone 16"))
+            .testWithoutBuilding()
+            .command()
+
+        #expect(
+            buildForTesting.arguments == [
+                "-workspace", "App.xcworkspace", "-scheme", "App", "-derivedDataPath", "./build/DerivedData", "build-for-testing",
+            ])
+        #expect(
+            testWithoutBuilding.arguments == [
+                "-xctestrun", "App.xctestrun", "-destination", "platform=iOS Simulator,name=iPhone 16", "test-without-building",
+            ])
+    }
+
     @Test func typedContainerSelectionIsExclusive() {
         let command = XcodeBuild()
             .project("Old.xcodeproj")

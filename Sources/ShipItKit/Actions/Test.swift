@@ -2,47 +2,6 @@ import Foundation
 import Logging
 import SwiftyShell
 
-#if canImport(Darwin)
-import Darwin
-#elseif canImport(Glibc)
-import Glibc
-#endif
-
-/// Runs unit and UI tests.
-///
-/// - **iOS**: Uses `xcodebuild test`. Supports running against one or more destinations
-///   in a single invocation, aggregating pass/fail/skip counts.
-/// - **Android**: Uses `./gradlew test` (JVM unit tests) or `connectedAndroidTest`
-///   (instrumented on-device tests).
-///
-/// When multiple destinations are provided (iOS), ShipIt runs a separate `xcodebuild test`
-/// pass for each destination, aggregating pass/fail/skip counts across all runs.
-///
-/// If `destinations` is empty or `nil` and no `destination` fallback is provided (iOS),
-/// the action throws `ShipItError.invalidConfiguration` rather than inventing a
-/// simulator name that may not exist on the current machine. Use
-/// `DestinationDiscovery` to enumerate valid destinations before configuring this action.
-///
-/// ## Usage
-/// ```swift
-/// // iOS
-/// let result = try await TestAction().run(
-///     with: .init(
-///         scheme: "MyApp",
-///         destinations: ["platform=iOS Simulator,name=iPhone 16 Pro,OS=18.2"],
-///         enableCodeCoverage: true
-///     ),
-///     context: context
-/// )
-/// print("Passed: \(result.passCount), Failed: \(result.failCount), Skipped: \(result.skipCount)")
-///
-/// // Android
-/// let result = try await TestAction().run(
-///     with: .init(kind: .unit, scope: .module, module: "app"),
-///     context: androidContext
-/// )
-/// print("Passed: \(result.passCount), Failed: \(result.failCount)")
-/// ```
 /// What category of test is being run.
 ///
 /// This drives whether ShipIt needs to orchestrate devices before executing.
@@ -205,6 +164,41 @@ public struct TestDeviceConfig: Codable, Sendable {
     }
 }
 
+/// Runs unit and UI tests.
+///
+/// - **iOS**: Uses `xcodebuild test`. Supports running against one or more destinations
+///   in a single invocation, aggregating pass/fail/skip counts.
+/// - **Android**: Uses `./gradlew test` (JVM unit tests) or `connectedAndroidTest`
+///   (instrumented on-device tests).
+///
+/// When multiple destinations are provided (iOS), ShipIt runs a separate `xcodebuild test`
+/// pass for each destination, aggregating pass/fail/skip counts across all runs.
+///
+/// If `destinations` is empty or `nil` and no `destination` fallback is provided (iOS),
+/// the action throws `ShipItError.invalidConfiguration` rather than inventing a
+/// simulator name that may not exist on the current machine. Use
+/// `DestinationDiscovery` to enumerate valid destinations before configuring this action.
+///
+/// ## Usage
+/// ```swift
+/// // iOS
+/// let result = try await TestAction().run(
+///     with: .init(
+///         scheme: "MyApp",
+///         destinations: ["platform=iOS Simulator,name=iPhone 16 Pro,OS=18.2"],
+///         enableCodeCoverage: true
+///     ),
+///     context: context
+/// )
+/// print("Passed: \(result.passCount), Failed: \(result.failCount), Skipped: \(result.skipCount)")
+///
+/// // Android
+/// let result = try await TestAction().run(
+///     with: .init(kind: .unit, scope: .module, module: "app"),
+///     context: androidContext
+/// )
+/// print("Passed: \(result.passCount), Failed: \(result.failCount)")
+/// ```
 public struct TestAction: Action {
     public static let name = "test"
     public static let description = "Run unit and UI tests (iOS: xcodebuild test, Android: gradlew test)"
@@ -235,8 +229,8 @@ public struct TestAction: Action {
 
     /// Creates a `TestAction`.
     public init() {
-        self.promptForAndroidEmulatorsHandler = Self.defaultPromptForAndroidEmulators
-        self.isInteractiveTerminalHandler = Self.defaultIsInteractiveTerminal
+        self.promptForAndroidEmulatorsHandler = AndroidDeviceProvisioner.defaultPromptForEmulators
+        self.isInteractiveTerminalHandler = AndroidDeviceProvisioner.defaultIsInteractiveTerminal
     }
 
     init(
@@ -949,15 +943,29 @@ public struct TestAction: Action {
             effectiveResultBundlePath = options.resultBundlePath
         }
 
-        let initialSnapshot = try await runIOSAttempt(
-            scheme: scheme,
-            destinations: effectiveDestinations,
-            configuration: configuration,
-            resultBundlePath: effectiveResultBundlePath,
-            options: options,
-            context: context,
-            overrideOnlyTesting: nil
-        )
+        let rerunOptions = options.rerunFailedTests ?? .init()
+        let maxAttempts = max(rerunOptions.maxAttempts, 1)
+        // xcodebuild exits non-zero (65) when a test fails. Capture that failure from the result
+        // bundle so the failed tests can be re-run. Limited to a single destination: with several,
+        // the first failing destination stops the loop, so later ones never ran and a passing
+        // rerun of just the failed tests would overstate what was verified.
+        let canRerunFailedTests =
+            rerunOptions.enabled && maxAttempts > 1 && effectiveResultBundlePath != nil && effectiveDestinations.count == 1
+
+        let (initialSnapshot, initialFailure) = try await runCapturingTestFailure(enabled: canRerunFailedTests) {
+            try await self.runIOSAttempt(
+                scheme: scheme,
+                destinations: effectiveDestinations,
+                configuration: configuration,
+                resultBundlePath: effectiveResultBundlePath,
+                options: options,
+                context: context,
+                overrideOnlyTesting: nil
+            )
+        } snapshot: { _ in
+            await self.iosFailureSnapshot(resultBundlePath: effectiveResultBundlePath, context: context)
+        }
+        var lastFailure = initialFailure
 
         var attempts = [
             TestAttempt(
@@ -968,44 +976,43 @@ public struct TestAction: Action {
             )
         ]
 
-        let rerunOptions = options.rerunFailedTests ?? .init()
-        let maxAttempts = max(rerunOptions.maxAttempts, 1)
         var flakyTests: [ParsedTestCase] = []
         var persistentFailedTests = initialSnapshot.failedParsedTests
 
-        if rerunOptions.enabled,
-            maxAttempts > 1,
-            let initialParsedRun = initialSnapshot.parsedRun,
-            !initialSnapshot.failedParsedTests.isEmpty
-        {
-            let selectors = initialParsedRun.testCases.compactMap { test -> String? in
-                guard test.status == .failed || test.status == .errored else { return nil }
-                guard case .xcodeOnlyTesting(let selector) = test.rerunSelector else { return nil }
-                return selector
-            }
-
-            if !selectors.isEmpty {
-                let rerunSnapshot = try await runIOSAttempt(
-                    scheme: scheme,
-                    destinations: effectiveDestinations,
-                    configuration: configuration,
-                    resultBundlePath: effectiveResultBundlePath,
-                    options: options,
-                    context: context,
-                    overrideOnlyTesting: selectors
-                )
+        if canRerunFailedTests {
+            for attemptNumber in 2...maxAttempts {
+                let selectors = persistentFailedTests.compactMap { test -> String? in
+                    guard case .xcodeOnlyTesting(let selector) = test.rerunSelector else { return nil }
+                    return selector
+                }
+                guard !selectors.isEmpty else { break }
+                let rerunSnapshot: TestExecutionSnapshot
+                (rerunSnapshot, lastFailure) = try await runCapturingTestFailure(enabled: canRerunFailedTests) {
+                    try await self.runIOSAttempt(
+                        scheme: scheme,
+                        destinations: effectiveDestinations,
+                        configuration: configuration,
+                        resultBundlePath: effectiveResultBundlePath,
+                        options: options,
+                        context: context,
+                        overrideOnlyTesting: selectors
+                    )
+                } snapshot: { _ in
+                    await self.iosFailureSnapshot(resultBundlePath: effectiveResultBundlePath, context: context)
+                }
                 attempts.append(
                     TestAttempt(
-                        attemptNumber: 2,
+                        attemptNumber: attemptNumber,
                         summary: rerunSnapshot.summary,
                         failedTests: rerunSnapshot.failedParsedTests,
                         source: effectiveResultBundlePath
                     )
                 )
 
-                let rerunFailures = Set(rerunSnapshot.failedParsedTests.map(\.stableID))
-                flakyTests = initialSnapshot.failedParsedTests.filter { !rerunFailures.contains($0.stableID) }
-                persistentFailedTests = initialSnapshot.failedParsedTests.filter { rerunFailures.contains($0.stableID) }
+                let reconciled = Self.reconcileRerun(
+                    previousFailures: persistentFailedTests, snapshot: rerunSnapshot, failure: lastFailure)
+                flakyTests += reconciled.passed
+                persistentFailedTests = reconciled.failed
             }
         }
 
@@ -1038,6 +1045,8 @@ public struct TestAction: Action {
         )
 
         try writeTestReportIfNeeded(report, to: options.reportPath)
+        try Self.rethrowPersistentFailure(
+            lastFailure ?? (finalFailCount > 0 ? initialFailure : nil), persistentFailureCount: finalFailCount)
 
         logger.info("Tests complete — pass: \(finalPassCount), fail: \(finalFailCount), skip: \(initialSnapshot.summary.skipped)")
 
@@ -1128,6 +1137,29 @@ public struct TestAction: Action {
             passedTests: passedTests,
             failedTests: failedTests,
             parsedRun: nil
+        )
+    }
+
+    /// Reads the failed tests of a failed `xcodebuild test` run back from its result bundle.
+    /// Returns `nil` when there is no bundle or it records no failed tests (e.g. a build error).
+    private func iosFailureSnapshot(resultBundlePath: String?, context: ActionContext) async -> TestExecutionSnapshot? {
+        guard let resultBundlePath,
+            let parsedRun = try? await IOSXCResultTestParser(shell: context.shell, logger: logger).parse(xcresultPath: resultBundlePath),
+            parsedRun.summary.failed + parsedRun.summary.errored > 0
+        else { return nil }
+
+        let named = legacyNamedResults(from: parsedRun)
+        return TestExecutionSnapshot(
+            summary: TestSummary(
+                passed: parsedRun.summary.passed,
+                failed: parsedRun.summary.failed + parsedRun.summary.errored,
+                skipped: parsedRun.summary.skipped,
+                flaky: parsedRun.summary.flaky,
+                errored: parsedRun.summary.errored
+            ),
+            passedTests: named.passedTests,
+            failedTests: named.failedTests,
+            parsedRun: parsedRun
         )
     }
 
@@ -1307,15 +1339,14 @@ public struct TestAction: Action {
             switch kind {
             case .instrumented:
                 if devices.strategy == .managed, let group = devices.group, !group.isEmpty {
-                    task = GradleTask(name: CrossPlatformArtifactPaths.gradleTaskName(prefix: group, variant: variant) + "AndroidTest")
+                    task = .managedDeviceAndroidTest(device: group, variant: variant)
                 } else if variant.lowercased() == "release" {
                     task = .connectedAndroidTest
                 } else {
-                    task = GradleTask(
-                        name: CrossPlatformArtifactPaths.gradleTaskName(prefix: "connected", variant: variant) + "AndroidTest")
+                    task = .connectedAndroidTest(variant: variant)
                 }
             case .unit, .e2e:
-                task = GradleTask(name: CrossPlatformArtifactPaths.gradleTaskName(prefix: "test", variant: variant) + "UnitTest")
+                task = .unitTest(variant: variant)
             }
         }
 
@@ -1329,38 +1360,53 @@ public struct TestAction: Action {
         }
 
         // Orchestrate devices if needed
+        let provisioner = AndroidDeviceProvisioner(
+            context: context,
+            logger: logger,
+            promptForEmulators: promptForAndroidEmulatorsHandler,
+            isInteractiveTerminal: isInteractiveTerminalHandler
+        )
         var spawnedEmulators: [any SpawnedProcess] = []
         if kind == .instrumented {
-            spawnedEmulators = try await prepareAndroidDevices(
-                devices: devices,
-                context: context
-            )
-            try await resetAndroidAppInstallationsIfNeeded(context: context)
+            spawnedEmulators = try await provisioner.prepare(devices: devices)
+            try await provisioner.resetAppInstallations(packageName: context.config.androidPackageName)
         }
 
         logger.info("Running Android test task '\(scopedTask.name)'")
 
+        let rerunOptions = options.rerunFailedTests ?? .init()
+        let maxAttempts = max(rerunOptions.maxAttempts, 1)
+        let canRerunFailedTests = kind == .unit && rerunOptions.enabled && maxAttempts > 1
+
         do {
-            let initialSnapshot = try await InfrastructureRetryScheduler.executeIfConfigured(
-                options: options.infrastructureRetry,
-                classifier: AndroidInfrastructureClassifier(),
-                label: scopedTask.name
-            ) {
-                try await self.runAndroidAttempt(
-                    scopedTask: scopedTask,
-                    baseTask: task,
-                    kind: kind,
-                    context: context,
-                    testFilters: nil
-                )
-            } extractContext: { error in
-                if let shipItError = error as? ShipItError,
-                    case .testFailed(_, _, let log) = shipItError
-                {
-                    return .init(log: log)
+            // Gradle exits non-zero when any test fails. When reruns are enabled, that failure is
+            // captured as a snapshot so its failed tests can be retried; infrastructure retries
+            // still see the raw error first.
+            let (initialSnapshot, initialFailure) = try await runCapturingTestFailure(enabled: canRerunFailedTests) {
+                try await InfrastructureRetryScheduler.executeIfConfigured(
+                    options: options.infrastructureRetry,
+                    classifier: AndroidInfrastructureClassifier(),
+                    label: scopedTask.name
+                ) {
+                    try await self.runAndroidAttempt(
+                        scopedTask: scopedTask,
+                        baseTask: scopedTask,
+                        kind: kind,
+                        context: context,
+                        testFilters: nil
+                    )
+                } extractContext: { error in
+                    if let shipItError = error as? ShipItError,
+                        case .testFailed(_, _, let log) = shipItError
+                    {
+                        return .init(log: log)
+                    }
+                    return nil
                 }
-                return nil
+            } snapshot: { error in
+                await self.androidFailureSnapshot(from: error, context: context, task: scopedTask)
             }
+            var lastFailure = initialFailure
             var attempts = [
                 TestAttempt(
                     attemptNumber: 1,
@@ -1370,37 +1416,42 @@ public struct TestAction: Action {
                 )
             ]
 
-            let rerunOptions = options.rerunFailedTests ?? .init()
-            let maxAttempts = max(rerunOptions.maxAttempts, 1)
             var flakyTests: [ParsedTestCase] = []
             var persistentFailedTests = initialSnapshot.failedParsedTests
             var finalSnapshot = initialSnapshot
 
-            if kind == .unit,
-                rerunOptions.enabled,
-                maxAttempts > 1,
-                !initialSnapshot.failedTests.isEmpty
-            {
-                let rerunSnapshot = try await runAndroidAttempt(
-                    scopedTask: scopedTask,
-                    baseTask: task,
-                    kind: kind,
-                    context: context,
-                    testFilters: initialSnapshot.failedTests
-                )
-                finalSnapshot = rerunSnapshot
-                attempts.append(
-                    TestAttempt(
-                        attemptNumber: 2,
-                        summary: rerunSnapshot.summary,
-                        failedTests: rerunSnapshot.failedParsedTests,
-                        source: task.name
+            if canRerunFailedTests {
+                for attemptNumber in 2...maxAttempts {
+                    let rerunFilters = Self.gradleRerunFilters(for: persistentFailedTests)
+                    guard !rerunFilters.isEmpty else { break }
+                    logger.info("Re-running \(rerunFilters.count) failed Android test(s)")
+                    let rerunSnapshot: TestExecutionSnapshot
+                    (rerunSnapshot, lastFailure) = try await runCapturingTestFailure(enabled: true) {
+                        try await self.runAndroidAttempt(
+                            scopedTask: scopedTask,
+                            baseTask: scopedTask,
+                            kind: kind,
+                            context: context,
+                            testFilters: rerunFilters
+                        )
+                    } snapshot: { error in
+                        await self.androidFailureSnapshot(from: error, context: context, task: scopedTask)
+                    }
+                    finalSnapshot = rerunSnapshot
+                    attempts.append(
+                        TestAttempt(
+                            attemptNumber: attemptNumber,
+                            summary: rerunSnapshot.summary,
+                            failedTests: rerunSnapshot.failedParsedTests,
+                            source: task.name
+                        )
                     )
-                )
 
-                let rerunFailures = Set(rerunSnapshot.failedParsedTests.map(\.stableID))
-                flakyTests = initialSnapshot.failedParsedTests.filter { !rerunFailures.contains($0.stableID) }
-                persistentFailedTests = initialSnapshot.failedParsedTests.filter { rerunFailures.contains($0.stableID) }
+                    let reconciled = Self.reconcileRerun(
+                        previousFailures: persistentFailedTests, snapshot: rerunSnapshot, failure: lastFailure)
+                    flakyTests += reconciled.passed
+                    persistentFailedTests = reconciled.failed
+                }
             }
 
             let finalPassedTests =
@@ -1431,7 +1482,11 @@ public struct TestAction: Action {
             )
 
             try writeTestReportIfNeeded(report, to: options.reportPath)
-            await teardown(spawnedEmulators)
+
+            try Self.rethrowPersistentFailure(
+                lastFailure ?? (finalFailCount > 0 ? initialFailure : nil), persistentFailureCount: finalFailCount)
+
+            await provisioner.teardown(spawnedEmulators)
             return Result(
                 passCount: finalPassCount,
                 failCount: finalFailCount,
@@ -1441,7 +1496,7 @@ public struct TestAction: Action {
                 report: report
             )
         } catch {
-            await teardown(spawnedEmulators)
+            await provisioner.teardown(spawnedEmulators)
             throw error
         }
     }
@@ -1453,12 +1508,11 @@ public struct TestAction: Action {
         context: ActionContext,
         testFilters: [String]?
     ) async throws -> TestExecutionSnapshot {
-        var gradle = context.streamingGradle().task(scopedTask)
-        if kind == .unit {
-            for filter in testFilters ?? [] {
-                gradle = gradle.flag(.custom("--tests")).flag(.custom(filter))
-            }
-        }
+        // `--tests` is a task option: it must follow the task name, not precede it as a global flag.
+        let filteredTask = kind == .unit ? scopedTask.filteringTests(testFilters ?? []) : scopedTask
+        var gradle = context.streamingGradle().task(filteredTask)
+        // Complete independent modules before collecting failures for a root-scoped rerun.
+        if kind == .unit && !scopedTask.name.contains(":") { gradle = gradle.flag(.continueAfterFailure) }
 
         let output: ShellOutput
         do {
@@ -1490,16 +1544,12 @@ public struct TestAction: Action {
         // Output already streamed live via streamingGradle()'s .tee destination — no debug re-dump.
 
         if parsed.pass == 0 && parsed.fail == 0 && parsed.skip == 0 {
-            let xmlCounts = try await self.aggregateJUnitXMLResults(
-                projectDir: context.config.gradleProjectDir,
-                task: baseTask.name
-            )
-            return TestExecutionSnapshot(
-                summary: TestSummary(passed: xmlCounts.pass, failed: xmlCounts.fail, skipped: xmlCounts.skip),
-                passedTests: xmlCounts.passedTests,
-                failedTests: xmlCounts.failedTests,
-                parsedRun: nil
-            )
+            if let run = try await parseJUnitReports(projectDir: context.config.gradleProjectDir, task: baseTask.name) {
+                let named = legacyNamedResults(from: run)
+                return TestExecutionSnapshot(
+                    summary: run.summary, passedTests: named.passedTests,
+                    failedTests: named.failedTests, parsedRun: run)
+            }
         }
 
         return TestExecutionSnapshot(
@@ -1510,287 +1560,122 @@ public struct TestAction: Action {
         )
     }
 
-    private func teardown(_ emulators: [any SpawnedProcess]) async {
-        for emulator in emulators {
-            _ = await emulator.teardownAndWait()
+    // MARK: - Failed-test rerun support
+
+    /// Runs one test attempt, capturing a test failure as a snapshot instead of throwing it.
+    ///
+    /// Test runners (`gradlew`, `xcodebuild`) exit non-zero whenever a test fails, which surfaces as
+    /// `ShipItError.testFailed`. To re-run only the failed tests, that failure has to be turned back
+    /// into a snapshot naming them. When `enabled` is false, or `snapshot` cannot name any failed
+    /// test (e.g. a compilation error), the original error is re-thrown unchanged.
+    ///
+    /// - Returns: The attempt's snapshot and, when a failure was captured, the error to re-throw
+    ///   if the failures persist (see ``rethrowPersistentFailure(_:persistentFailureCount:)``).
+    private func runCapturingTestFailure(
+        enabled: Bool,
+        attempt: () async throws -> TestExecutionSnapshot,
+        snapshot: (ShipItError) async -> TestExecutionSnapshot?
+    ) async throws -> (TestExecutionSnapshot, ShipItError?) {
+        do {
+            return (try await attempt(), nil)
+        } catch let error as ShipItError where enabled {
+            guard let captured = await snapshot(error), !captured.failedParsedTests.isEmpty else { throw error }
+            return (captured, error)
         }
     }
 
-    private func prepareAndroidDevices(
-        devices: TestDeviceConfig,
-        context: ActionContext
-    ) async throws -> [any SpawnedProcess] {
-        switch devices.strategy {
-        case .none:
-            return []
-        case .connected:
-            if try await hasConnectedAndroidDevice(shell: context.shell) {
-                return []
-            }
+    /// A missing failure is not proof of a pass when the rerun failed or skipped tests.
+    /// Keep unresolved original failures and all newly reported failures.
+    private static func reconcileRerun(
+        previousFailures: [ParsedTestCase], snapshot: TestExecutionSnapshot, failure: ShipItError?
+    ) -> (passed: [ParsedTestCase], failed: [ParsedTestCase]) {
+        let latestFailures = snapshot.failedParsedTests
+        let failedIDs = Set(latestFailures.map(\.stableID))
+        let passedIDs = Set(snapshot.parsedRun?.testCases.filter { $0.status == .passed }.map(\.stableID) ?? [])
+        let successfulUnskippedRun =
+            failure == nil && snapshot.parsedRun == nil
+            && snapshot.summary.failed == 0 && snapshot.summary.skipped == 0
+            && snapshot.summary.passed >= previousFailures.count
+        let passed = previousFailures.filter {
+            !failedIDs.contains($0.stableID) && (passedIDs.contains($0.stableID) || successfulUnskippedRun)
+        }
+        let resolvedIDs = Set(passed.map(\.stableID))
+        let unresolved = previousFailures.filter { !resolvedIDs.contains($0.stableID) && !failedIDs.contains($0.stableID) }
+        return (passed, unresolved + latestFailures)
+    }
 
-            guard !context.configIsCI else {
-                throw ShipItError.invalidConfiguration(
-                    reason:
-                        "Android instrumented tests require a connected device or emulator in CI. Configure `devices.strategy: named_emulators` or `managed`, or start a device before running the workflow."
-                )
-            }
+    /// Re-throws a captured test failure when tests still fail after the rerun, preserving the
+    /// runner's original non-zero exit semantics so workflows stop exactly as they would without
+    /// reruns. `failureCount` is updated to the persistent failures.
+    private static func rethrowPersistentFailure(_ failure: ShipItError?, persistentFailureCount: Int) throws {
+        guard let failure else { return }
+        if case .testFailed(let exitCode, _, let log) = failure {
+            throw ShipItError.testFailed(exitCode: exitCode, failureCount: max(persistentFailureCount, 1), log: log)
+        }
+        throw failure
+    }
 
-            let available = try await listAvailableEmulators(context: context)
-            guard !available.isEmpty else {
-                throw ShipItError.invalidConfiguration(
-                    reason:
-                        "Android instrumented tests require a connected device or available AVD. No connected devices were found and `emulator -list-avds` returned none."
-                )
-            }
+    /// Converts a failed Gradle test invocation into a snapshot of its failed tests so they can be
+    /// re-run. Prefers the JUnit XML reports (fully-qualified names) and falls back to parsing the
+    /// console log. Returns `nil` when the failure is not a test failure or names no failed tests
+    /// (e.g. a compilation error), in which case the caller re-throws the original error.
+    private func androidFailureSnapshot(
+        from error: ShipItError,
+        context: ActionContext,
+        task: GradleTask
+    ) async -> TestExecutionSnapshot? {
+        guard case .testFailed(_, _, let log) = error else { return nil }
 
-            logger.info("No connected Android devices found; falling back to a local emulator selection")
-            return try await prepareAndroidDevices(
-                devices: TestDeviceConfig(
-                    strategy: .namedEmulators,
-                    emulators: devices.emulators,
-                    promptLocally: devices.promptLocally ?? true
+        if let parsed = try? await parseJUnitReports(projectDir: context.config.gradleProjectDir, task: task.name),
+            parsed.summary.failed + parsed.summary.errored > 0
+        {
+            let named = legacyNamedResults(from: parsed)
+            return TestExecutionSnapshot(
+                summary: TestSummary(
+                    passed: parsed.summary.passed,
+                    failed: parsed.summary.failed + parsed.summary.errored,
+                    skipped: parsed.summary.skipped
                 ),
-                context: context
+                passedTests: named.passedTests,
+                failedTests: named.failedTests,
+                parsedRun: parsed
             )
-        case .managed:
-            // Gradle Managed Devices handle their own lifecycle — nothing to orchestrate.
-            // The task name itself targets the managed device.
-            return []
-        case .namedEmulators:
-            let shouldPrompt = devices.promptLocally ?? true
-            let availableEmulators = try await listAvailableEmulators(context: context)
-            let desiredEmulators = try await resolvedAndroidEmulators(
-                configured: devices.emulators,
-                available: availableEmulators,
-                shouldPrompt: shouldPrompt,
-                allowInteractiveSelection: !context.configIsCI
-            )
-
-            guard !desiredEmulators.isEmpty else { return [] }
-
-            var spawned: [any SpawnedProcess] = []
-            for emulator in desiredEmulators {
-                if let existingSerial = try await findBootedEmulatorSerial(avdName: emulator, shell: context.shell) {
-                    logger.info("Using already booted emulator '\(emulator)' (\(existingSerial))")
-                    continue
-                }
-
-                let connectedSerialsBeforeBoot = try await listConnectedAndroidDeviceSerials(
-                    shell: context.shell,
-                    emulatorOnly: true
-                )
-                logger.info("Booting emulator '\(emulator)'")
-                let process = try await Emulator(context: context.shell)
-                    .start(avd: emulator, headless: false)
-                    .spawn(teardown: .graceful)
-
-                spawned.append(process)
-                let serial = try await waitForEmulatorBoot(
-                    avdName: emulator,
-                    shell: context.shell,
-                    excluding: Set(connectedSerialsBeforeBoot)
-                )
-                logger.info("Emulator '\(emulator)' booted as \(serial)")
-            }
-
-            return spawned
-        }
-    }
-
-    private func resolvedAndroidEmulators(
-        configured: [String]?,
-        available: [String],
-        shouldPrompt: Bool,
-        allowInteractiveSelection: Bool
-    ) async throws -> [String] {
-        let availableSet = Set(available)
-
-        if let configured, !configured.isEmpty {
-            let validConfigured = configured.filter { availableSet.contains($0) }
-            if !validConfigured.isEmpty {
-                return validConfigured
-            }
-
-            let configuredList = configured.joined(separator: ", ")
-            guard !available.isEmpty else {
-                throw ShipItError.invalidConfiguration(
-                    reason: "Configured Android emulator(s) not found locally: \(configuredList). `emulator -list-avds` returned none."
-                )
-            }
-
-            guard allowInteractiveSelection, shouldPrompt, isInteractiveTerminalHandler() else {
-                throw ShipItError.invalidConfiguration(
-                    reason:
-                        "Configured Android emulator(s) not found locally: \(configuredList). Available AVDs: \(available.joined(separator: ", "))."
-                )
-            }
-
-            logger.info("Configured Android emulators not found locally; prompting for local selection")
-            return promptForAndroidEmulatorsHandler(available)
         }
 
-        guard allowInteractiveSelection, shouldPrompt, isInteractiveTerminalHandler() else {
-            return []
-        }
-
-        guard !available.isEmpty else { return [] }
-
-        logger.info("No emulators configured for instrumented tests; prompting for local selection")
-        return promptForAndroidEmulatorsHandler(available)
-    }
-
-    private func listAvailableEmulators(context: ActionContext) async throws -> [String] {
-        let output: ShellOutput
-        if context.config.androidCLI.enabled == true {
-            let executable = context.config.androidCLI.executablePath ?? "android"
-            let cli = AndroidCLI(
-                context: context.shell,
-                executablePath: executable,
-                sdkPath: context.config.androidCLI.sdkPath
-            )
-            do {
-                try await AndroidCLIVersionGate.ensureSupported(cli)
-                output = try await cli.emulatorList().run()
-            } catch let error as ShipItError {
-                throw error
-            } catch {
-                throw ShipItError.invalidConfiguration(
-                    reason: "AndroidCLI command failed using '\(executable)': \(error.localizedDescription)"
-                )
-            }
-        } else {
-            output = try await Emulator(context: context.shell).list().run()
-        }
-        return output.stdout
-            .components(separatedBy: .newlines)
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .filter { !$0.isEmpty }
-            .compactMap { line -> String? in
-                // Tolerates either a bare AVD name per line (native `emulator -list-avds`) or a
-                // tabular "name  status" format, and drops an obvious header row.
-                let name = line.split(separator: " ", maxSplits: 1).first.map(String.init) ?? line
-                guard !["name", "avd", "avd name", "device"].contains(name.lowercased()) else { return nil }
-                return name
-            }
-    }
-
-    private static func defaultPromptForAndroidEmulators(available: [String]) -> [String] {
-        print("\nAvailable Android emulators:")
-        for (index, name) in available.enumerated() {
-            print("  \(index + 1). \(name)")
-        }
-        print("Select emulator numbers separated by commas (blank skips): ", terminator: "")
-
-        let answer = readLine()?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        guard !answer.isEmpty else { return [] }
-
-        let indexes =
-            answer
-            .split(separator: ",")
-            .compactMap { Int($0.trimmingCharacters(in: .whitespaces)) }
-            .filter { $0 >= 1 && $0 <= available.count }
-
-        return indexes.map { available[$0 - 1] }
-    }
-
-    private static func defaultIsInteractiveTerminal() -> Bool {
-        isatty(STDIN_FILENO) != 0 && isatty(STDOUT_FILENO) != 0
-    }
-
-    private func findBootedEmulatorSerial(avdName: String, shell: ShellContext) async throws -> String? {
-        let output = try await Adb(context: shell).devices(long: true).run()
-        for line in output.stdout.components(separatedBy: .newlines) {
-            let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard trimmed.hasPrefix("emulator-") else { continue }
-            if trimmed.contains("avd:\(avdName)") {
-                return trimmed.components(separatedBy: .whitespaces).first
-            }
-        }
-        return nil
-    }
-
-    private func hasConnectedAndroidDevice(shell: ShellContext) async throws -> Bool {
-        try await !listConnectedAndroidDeviceSerials(shell: shell).isEmpty
-    }
-
-    private func waitForEmulatorBoot(
-        avdName: String,
-        shell: ShellContext,
-        excluding knownSerials: Set<String> = []
-    ) async throws -> String {
-        let deadline = Date().addingTimeInterval(180)
-
-        while Date() < deadline {
-            if let serial = try await findBootedEmulatorSerial(avdName: avdName, shell: shell) {
-                if try await isAndroidDeviceBooted(serial: serial, shell: shell) {
-                    return serial
-                }
-            }
-
-            let emulatorSerials = try await listConnectedAndroidDeviceSerials(shell: shell, emulatorOnly: true)
-            let newSerials = emulatorSerials.filter { !knownSerials.contains($0) }
-            for serial in newSerials {
-                if try await isAndroidDeviceBooted(serial: serial, shell: shell) {
-                    return serial
-                }
-            }
-
-            try await Task.sleep(for: .seconds(2))
-        }
-
-        throw ShipItError.invalidConfiguration(
-            reason: "Timed out waiting for Android emulator '\(avdName)' to boot."
+        let parsed = parseGradleCounts(from: log)
+        guard !parsed.failedTests.isEmpty else { return nil }
+        return TestExecutionSnapshot(
+            summary: TestSummary(
+                passed: parsed.pass,
+                failed: max(parsed.fail, parsed.failedTests.count),
+                skipped: parsed.skip
+            ),
+            passedTests: parsed.passedTests,
+            failedTests: parsed.failedTests
         )
     }
 
-    private func listConnectedAndroidDeviceSerials(
-        shell: ShellContext,
-        emulatorOnly: Bool = false
-    ) async throws -> [String] {
-        let output = try await Adb(context: shell).devices().run()
-        var serials: [String] = []
-
-        for line in output.stdout.components(separatedBy: .newlines) {
-            let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !trimmed.isEmpty, trimmed != "List of devices attached" else { continue }
-            let columns = trimmed.components(separatedBy: .whitespaces).filter { !$0.isEmpty }
-            guard columns.count >= 2, columns[1] == "device" else { continue }
-
-            let serial = columns[0]
-            guard !emulatorOnly || serial.hasPrefix("emulator-") else { continue }
-            serials.append(serial)
+    /// Gradle `--tests` filters for the failed tests in `snapshot`.
+    ///
+    /// JUnit-derived selectors are already `package.Class.method`; console-derived names use
+    /// Gradle's `Class > method FAILED` shape, which is normalized to `Class.method`. JUnit 5's
+    /// trailing `()` is dropped because Gradle filters match on the bare method name.
+    private static func gradleRerunFilters(for failures: [ParsedTestCase]) -> [String] {
+        let raw = failures.compactMap { test -> String? in
+            switch test.rerunSelector {
+            case .gradleTestFilter(let selector): return selector
+            case .unsupported(let identifier): return identifier
+            default: return nil
+            }
         }
 
-        return serials
-    }
-
-    private func isAndroidDeviceBooted(serial: String, shell: ShellContext) async throws -> Bool {
-        let boot = try? await Adb(context: shell)
-            .serial(serial)
-            .shell("getprop sys.boot_completed")
-            .run()
-        return boot?.stdout.trimmingCharacters(in: .whitespacesAndNewlines) == "1"
-    }
-
-    private func resetAndroidAppInstallationsIfNeeded(context: ActionContext) async throws {
-        guard let packageName = context.config.androidPackageName, !packageName.isEmpty else { return }
-
-        let serials = try await listConnectedAndroidDeviceSerials(shell: context.shell)
-        for serial in serials {
-            logger.info("Uninstalling existing Android app '\(packageName)' from '\(serial)' before test run")
-            do {
-                _ = try await Adb(context: context.shell)
-                    .serial(serial)
-                    .uninstall(package: packageName)
-                    .run()
-            } catch let ShellError.exitFailure(_, shellOutput) {
-                let combinedLog = [shellOutput.stdout, shellOutput.stderr]
-                    .filter { !$0.isEmpty }
-                    .joined(separator: "\n")
-                logger.debug("Android uninstall skipped for '\(serial)': \(combinedLog)")
-            } catch {
-                logger.debug("Android uninstall skipped for '\(serial)': \(error.localizedDescription)")
-            }
+        var seen = Set<String>()
+        return raw.compactMap { name in
+            var filter = name.replacingOccurrences(of: " > ", with: ".")
+                .trimmingCharacters(in: .whitespaces)
+            if filter.hasSuffix("()") { filter = String(filter.dropLast(2)) }
+            guard !filter.isEmpty, seen.insert(filter).inserted else { return nil }
+            return filter
         }
     }
 
@@ -1965,50 +1850,34 @@ public struct TestAction: Action {
     /// ```
     /// 12 tests completed, 2 failed, 1 skipped
     /// ```
-    private func parseGradleCounts(from output: String) -> (pass: Int, fail: Int, skip: Int, passedTests: [String], failedTests: [String]) {
-        for line in output.components(separatedBy: "\n") {
-            guard line.contains("tests completed") else { continue }
-
-            let words = line.components(separatedBy: " ")
-            var total = 0
-            var failed = 0
-            var skipped = 0
-
-            for (i, word) in words.enumerated() {
-                if word == "completed," && i > 0, let n = Int(words[i - 1]) { total = n }
-                if word == "failed," && i > 0, let n = Int(words[i - 1]) { failed = n }
-                if (word == "skipped" || word == "skipped,") && i > 0, let n = Int(words[i - 1]) { skipped = n }
-            }
-
-            let namedResults = parseGradleNamedTests(from: output)
-            return (
-                pass: total - failed - skipped,
-                fail: failed,
-                skip: skipped,
-                passedTests: namedResults.passedTests,
-                failedTests: namedResults.failedTests
-            )
+    func parseGradleCounts(from output: String) -> (pass: Int, fail: Int, skip: Int, passedTests: [String], failedTests: [String]) {
+        // Gradle may print one summary per module and omit zero-valued failure/skip fields.
+        let pattern = #"(\d+)\s+tests?\s+completed(?:,\s*(\d+)\s+failed)?(?:,\s*(\d+)\s+skipped)?"#
+        guard let regex = try? NSRegularExpression(pattern: pattern) else {
+            return (0, 0, 0, [], [])
         }
-        let namedResults = parseGradleNamedTests(from: output)
-        return (
-            pass: 0,
-            fail: 0,
-            skip: 0,
-            passedTests: namedResults.passedTests,
-            failedTests: namedResults.failedTests
-        )
+        var passed = 0
+        var failed = 0
+        var skipped = 0
+        for match in regex.matches(in: output, range: NSRange(output.startIndex..., in: output)) {
+            func number(_ index: Int) -> Int {
+                guard let range = Range(match.range(at: index), in: output) else { return 0 }
+                return Int(output[range]) ?? 0
+            }
+            let total = number(1)
+            let failures = number(2)
+            let skips = number(3)
+            passed += max(0, total - failures - skips)
+            failed += failures
+            skipped += skips
+        }
+        let named = parseGradleNamedTests(from: output)
+        return (passed, failed, skipped, named.passedTests, named.failedTests)
     }
 
-    /// Parses failure count from Gradle test failure output.
+    /// Uses the same summary grammar as the report, including a terminal `failed` field.
     private func parseGradleFailureCount(from output: String) -> Int {
-        for line in output.components(separatedBy: "\n") {
-            guard line.contains("tests completed") else { continue }
-            let words = line.components(separatedBy: " ")
-            for (i, word) in words.enumerated() {
-                if word == "failed," && i > 0, let n = Int(words[i - 1]) { return n }
-            }
-        }
-        return 0
+        parseGradleCounts(from: output).fail
     }
 
     // MARK: - JUnit XML Report Parsing
@@ -2028,43 +1897,55 @@ public struct TestAction: Action {
     func aggregateJUnitXMLResults(
         projectDir: String, task: String
     ) async throws -> (pass: Int, fail: Int, skip: Int, passedTests: [String], failedTests: [String]) {
-        guard let reportDirectory = firstJUnitReportDirectory(projectDir: projectDir, task: task) else {
+        guard let parsed = try await parseJUnitReports(projectDir: projectDir, task: task) else {
             return (pass: 0, fail: 0, skip: 0, passedTests: [], failedTests: [])
         }
-
-        let parsed = try await AndroidJUnitTestParser(logger: logger).parse(reportDirectory: reportDirectory)
         let named = legacyNamedResults(from: parsed)
         return (
-            pass: parsed.summary.passed,
-            fail: parsed.summary.failed + parsed.summary.errored,
-            skip: parsed.summary.skipped,
-            passedTests: named.passedTests,
-            failedTests: named.failedTests
+            parsed.summary.passed, parsed.summary.failed + parsed.summary.errored, parsed.summary.skipped,
+            named.passedTests, named.failedTests
         )
     }
 
-    private func firstJUnitReportDirectory(projectDir: String, task: String) -> String? {
-        let fileManager = FileManager.default
-        guard
-            let enumerator = fileManager.enumerator(
-                at: URL(fileURLWithPath: projectDir),
-                includingPropertiesForKeys: [.isDirectoryKey],
-                options: [.skipsHiddenFiles]
-            )
-        else {
-            return nil
+    /// Qualified tasks read only their module; root tasks collect every exact task directory.
+    private func parseJUnitReports(projectDir: String, task: String) async throws -> ParsedTestRun? {
+        let parts = task.split(separator: ":").map(String.init)
+        guard let taskName = parts.last else { return nil }
+        let root = URL(fileURLWithPath: projectDir)
+        let directories: [URL]
+        if parts.count > 1 {
+            let module = parts.dropLast().joined(separator: "/")
+            directories = [root.appendingPathComponent("\(module)/build/test-results/\(taskName)")]
+        } else {
+            let enumerator = FileManager.default.enumerator(
+                at: root, includingPropertiesForKeys: [.isDirectoryKey], options: [.skipsHiddenFiles])
+            directories = (enumerator?.allObjects as? [URL] ?? []).filter {
+                $0.lastPathComponent == taskName && $0.deletingLastPathComponent().lastPathComponent == "test-results"
+                    && $0.deletingLastPathComponent().deletingLastPathComponent().lastPathComponent == "build"
+            }.sorted { $0.path < $1.path }
         }
-
-        for case let fileURL as URL in enumerator {
-            let path = fileURL.path
-            guard path.contains("/build/test-results/\(task)") else { continue }
-            var isDirectory: ObjCBool = false
-            if fileManager.fileExists(atPath: path, isDirectory: &isDirectory), isDirectory.boolValue {
-                return path
+        var cases: [ParsedTestCase] = []
+        var passed = 0
+        var failed = 0
+        var skipped = 0
+        var found = false
+        for directory in directories where FileManager.default.fileExists(atPath: directory.path) {
+            let run = try await AndroidJUnitTestParser(logger: logger).parse(reportDirectory: directory.path)
+            found = true
+            passed += run.summary.passed
+            failed += run.summary.failed + run.summary.errored
+            skipped += run.summary.skipped
+            cases += run.testCases.map {
+                ParsedTestCase(
+                    stableID: directory.path + ":" + $0.stableID, suite: $0.suite, name: $0.name,
+                    status: $0.status, durationSeconds: $0.durationSeconds, message: $0.message,
+                    file: $0.file, line: $0.line, rerunSelector: $0.rerunSelector)
             }
         }
-
-        return nil
+        guard found else { return nil }
+        return ParsedTestRun(
+            platform: "android", runner: "gradle", source: projectDir,
+            summary: TestSummary(passed: passed, failed: failed, skipped: skipped), testCases: cases)
     }
 
     private func parseGradleNamedTests(from output: String) -> (passedTests: [String], failedTests: [String]) {

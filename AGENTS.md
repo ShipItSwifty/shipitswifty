@@ -48,6 +48,7 @@ Start here by task:
 - Action behavior: `Sources/ShipItKit/Actions/`
 - Schema and AI contract: `Sources/ShipItKit/Introspection/`
 - CLI surface: `Sources/CLI/Commands/`
+- Reusable tool wrappers (`xcodebuild`, `gradlew`, `adb`, `bundletool`, `emulator`, `android`, `xcodegen`): `Sources/XcodeBuildKit/`, `Sources/GradleKit/`, `Sources/AndroidCLIKit/`, `Sources/XcodeGenKit/` — see "Adding or extending a tool wrapper"
 - Regressions and executable specs: `Tests/ShipItKitTests/`, `Tests/CLITests/`
 
 Hard invariants to keep in mind immediately:
@@ -78,9 +79,17 @@ Do not over-read on first pass:
 > **Not to be confused with:** `shipit ai skills` (see Commands below) is a *different* concept
 > — a small, built-in catalog of task playbooks (`react-native-setup`, `firebase-distribution`,
 > etc.) that ships in the `shipit` binary for a coding agent driving an *end user's* project.
-> This section is about Claude Code skills used while developing ShipItSwifty itself.
+> This section is about repository skills used by agents developing ShipItSwifty itself.
 
-When working on this project, invoke these skills as appropriate:
+Repository-local skills live in `agent-skills/` for every agent. Read the matching `SKILL.md`
+when the task applies. Claude Code also discovers copies in `.claude/skills/`; keep those
+copies in sync with `agent-skills/` when editing a skill.
+
+- **[`add-action`](agent-skills/add-action/SKILL.md)** — adding or changing a ShipItKit `Action` (walks the full sync checklist: schema catalog, docs, AI session, tests).
+- **[`tool-wrapper`](agent-skills/tool-wrapper/SKILL.md)** — adding or extending a command in `GradleKit` / `XcodeBuildKit` / `AndroidCLIKit` / `XcodeGenKit`.
+- **[`verify-linux`](agent-skills/verify-linux/SKILL.md)** — building, formatting, and testing from a Linux session with Docker, and what that can and cannot verify.
+
+When working on this project, also invoke these skills as appropriate:
 
 - **`swift-concurrency`** — use whenever touching `async/await`, `actor`, `Sendable`, `Task`, or debugging data-race/concurrency warnings. This project is Swift 6 strict-concurrency throughout.
 - **`swift-concurrency-pro`** — use when *reviewing* existing concurrency code for correctness, reentrancy safety, structured vs unstructured task choices, or cancellation handling. Complements `swift-concurrency` for review-oriented work.
@@ -357,6 +366,7 @@ When recommending changes to an agent:
 - Suggest `versioning.source: pubspec` (or leave as default) for Flutter projects. Do **not** suggest `xcodeproj` or `gradle` there: `flutter build` re-stamps the native projects from `pubspec.yaml`, so direct native writes are overwritten on the next build.
 - Suggest `versioning.source: gradle` (or leave as default) when the user has a standard Android project with version info in `build.gradle.kts` / `build.gradle`.
 - Suggest `versioning.source: xcconfig` when the user keeps `MARKETING_VERSION` / build number in an `.xcconfig` file — especially custom-named keys (e.g. `JOT_MARKETING_VERSION` / `JOT_BUILD_NUMBER`) referenced via `$(...)` from the `.xcodeproj`, or an Xcode Cloud setup gated on a version file. Do **not** suggest `xcodeproj` for that layout: it stamps literal values into the pbxproj and breaks the `$(...)` indirection.
+- `rerun_failed_tests.max_attempts` counts the initial run (default `2`); `1` disables extra attempts. Native iOS and Android JVM runs honor larger limits and stop after recovery.
 - When adding or changing test workflow behavior, update both `AISessionBuilder` agent guidance and the guided `generate` questionnaire/templates so agents and humans see the same choices.
 - Generated test steps enable `infrastructure_retry: { max_attempts: 3, initial_delay_seconds: 2, max_delay_seconds: 30 }` by default. Preserve it unless the user explicitly opts out or supplies a different retry policy.
 - When an iOS `.xctestplan` is detected, preserve its plan name in `test_plan`; if multiple plans exist, ask the user to choose rather than inventing or silently selecting one.
@@ -383,7 +393,7 @@ When recommending changes to an agent:
 Sources/
   XcodeBuildKit/      # Standalone: xcodebuild wrapper, options, xcode-select, destination discovery
   GradleKit/          # Standalone: gradlew wrapper, tasks, flags, properties, adb, bundletool, emulator
-  AndroidCLIKit/      # Standalone: Google's AndroidCLI command families and parsers
+  AndroidCLIKit/      # Standalone: Google's AndroidCLI — one AndroidCLI+<Family>.swift per command family
   XcodeGenKit/        # Standalone: xcodegen wrapper and options
   ShipItKit/
     Actions/          # One file per action (Build, Archive, TestFlight, …)
@@ -400,7 +410,8 @@ Sources/
                       # AISessionTypes, AISessionBuilder
     Plugin/           # ShipItPlugin protocol, ActionRegistry, PluginRegistry
     ReExports/        # @_exported import for XcodeBuildKit, GradleKit, AndroidCLIKit, XcodeGenKit
-    Utilities/        # JSONValue, Logger, ShipItError, RetryPolicy, JSONReporter
+    Utilities/        # JSONValue, Logger, ShipItError, RetryPolicy, JSONReporter,
+                      # AndroidDeviceProvisioner (emulator/device orchestration)
     Versioning/       # VersionBumper, BuildNumberSource
     Notifications/    # Notifier
     Xcrun/            # xcrun / simctl wrappers
@@ -416,6 +427,8 @@ Every subcommand inherits `GlobalOptions`: `--shipfile`, `--output (human|json)`
 
 ## Testing patterns
 
+- **Realistic exit codes:** Test runners exit non-zero when a test fails (`gradlew` 1, `xcodebuild` 65). Mock that, not exit 0 with failure text — the latter hides bugs where a failure throws before later logic (e.g. reruns) runs.
+- **Linux first:** Keep Android, config, and parser tests outside `#if os(macOS)` so both CI jobs run them.
 - **Shell mocking:** Inject a `MockExecutor` from SwiftyShell. Use `ActionContext.mock(executor:)` — it wires a `MockExecutor` into a fully-formed `ActionContext` without spawning real processes.
 - **HTTP mocking:** Use `makeClient(responses:)` + `MockURLProtocol` from `Tests/ShipItKitTests/TestSupport.swift` to queue canned HTTP responses for ASC API tests.
 - All tests use Swift Testing (`@Test`) where possible per project conventions.
@@ -446,7 +459,7 @@ These are hard constraints — never violate them:
 2. Add `Options: Codable & Sendable` with all configurable parameters
 3. Add `Result: Codable & Sendable` for typed output
 4. Write DocC doc comment with `## Usage` section
-5. Create `Sources/CLI/Commands/NewActionCommand.swift`
+5. Create `Sources/CLI/Commands/NewActionCommand.swift`, and register the action in `builtInActionDescriptors()` (`Sources/CLI/Commands/RunCommand.swift`) with its `optionSchema` and any `validationRules` — otherwise workflows and `shipit validate yml` cannot see it
 6. Add to Shipfile schema in `Sources/ShipItKit/Config/Shipfile.swift`
 7. Write tests in `Tests/ShipItKitTests/NewActionTests.swift`
 8. **Update `Sources/ShipItKit/Introspection/BuiltInSchemaCatalog.swift`** — add or update the `actionSchemas()` entry and its `*Options()` helper to reflect all new/changed `Options` fields
@@ -454,6 +467,24 @@ These are hard constraints — never violate them:
 10. **Update `AGENTS.md`** — if the action changes or adds CLI commands, update the Commands section; if it changes agent workflows, update the relevant sections
 11. **Update `Sources/ShipItKit/Introspection/AISessionBuilder.swift`** — if the action affects what agents should do (e.g. a new validation or workflow step agents need to know about), update `buildAgentPrompt`, `buildNextAction`, or `buildNextQuestion` accordingly
 12. **Run `swift build` and `swift test --filter ShipItKitTests`** to confirm no regressions
+
+## Adding or extending a tool wrapper
+
+`XcodeBuildKit`, `GradleKit`, `AndroidCLIKit`, and `XcodeGenKit` are the shared, independently consumable components. When ShipItKit needs a flag, subcommand, or task name, add it to the wrapper first and call it from ShipItKit — do not hand-build the argument strings in an action.
+
+Conventions every wrapper follows:
+
+1. Conform to SwiftyShell's `RunnableCommandFamily`; values are immutable and every builder returns a copy (use the private `copy(...)` helper; optional stored properties use a `String?? = .none` parameter so callers can reset them to `nil`).
+2. `command()` must be pure argument construction — no I/O beyond locating an executable — so tests can assert the exact argv without spawning processes.
+3. Depend only on SwiftyShell and Foundation. Never import ShipItKit, Yams, or the ASC / Google packages.
+4. Every public API gets a DocC comment naming the exact command line it produces (e.g. ``/// `adb shell getprop <property>` — …``) plus a `## Usage` block on the type. Mark commands that change a device or machine as **Mutating**.
+5. Keep argument placement faithful to the tool: Gradle task options such as `--tests` belong to the task (`GradleTask.filteringTests(_:)` / `appendingOptions(_:)`), not to global `GradleFlag`s, which are emitted before every task.
+6. Never force secrets onto the command line when the tool offers a file or environment source (e.g. `BundletoolPassword.file(_:)`); document the exposure when a `String` password API exists.
+7. Resolve executables from the `ShellContext` environment (e.g. `ANDROID_HOME`) before falling back to `PATH`, and keep an explicit `executablePath` override.
+8. Wrap a file in `#if os(macOS)` only when it genuinely needs Apple frameworks (OSLog, Security); Linux can then build and test it.
+9. Add a Swift Testing test asserting the full argv, plus any parser edge cases, in `Tests/<Library>Tests/`, and update the wrapper table in `docs/features.md` ("Standalone tool libraries").
+
+Split a wrapper by command family into `Type+Family.swift` extensions once a single file covers several unrelated families (see `Sources/AndroidCLIKit/`).
 
 ## Modifying an existing action
 
@@ -480,6 +511,7 @@ Every non-trivial code change (new feature, changed behaviour, new/renamed comma
 | Changed Shipfile schema | `BuiltInSchemaCatalog`, `Shipfile.swift`, `docs/configuration-reference.md` |
 | Changed generated workflow guidance or test workflow options | `AISessionBuilder`, `ShipfileSuggester`, `GenerateCommand`, `docs/features.md`, `docs/configuration-reference.md`, tests |
 | New backwards-compat alias | Document in `AGENTS.md` Commands section with `# backwards-compat alias:` comment |
+| New or changed tool-wrapper API (`GradleKit`, `XcodeBuildKit`, `AndroidCLIKit`, `XcodeGenKit`) | Wrapper tests asserting the argv, DocC comment, `docs/features.md` wrapper table, and replace any ShipItKit call site that hand-builds the same arguments |
 | New `shipit ai skills` playbook | `AISkillsCatalog.swift` (keep it short — link to the authoritative doc rather than duplicating it), `docs/features.md`, `AGENTS.md` Commands section |
 
 ## Common task reference
@@ -490,6 +522,10 @@ Every non-trivial code change (new feature, changed behaviour, new/renamed comma
 | Run git operations | `Git(context:).workingDirectory(path).status().run()` |
 | Call ASC API | `context.appStoreConnect.get("/v1/apps")` |
 | Upload asset | `context.appStoreConnect.uploadAsset(at:reservation:)` |
+| Run a Gradle variant task with a test filter | `context.gradle().task(GradleTask.unitTest(variant: "debug").qualified(module: "app").filteringTests(["com.example.FooTest"])).run()` |
+| Build a variant task name | `GradleTask.variantTask(prefix: "bundle", flavor: flavor, variant: variant)` — never `String.capitalized` (it lower-cases camelCase variants) |
+| Boot / find Android devices for a run | `AndroidDeviceProvisioner(context:logger:).prepare(devices:)`, then `teardown(_:)` |
+| Build once, test on many simulators | `XcodeBuild(...).buildForTesting()` then `.option(.xctestrun(path)).testWithoutBuilding()` per destination |
 | Read Info.plist | `Plutil(context: context.shell).extractRaw(key, expectedType: .string, from: plistPath).run()` |
 | Generate JWT | `context.appStoreConnect.jwtGenerator.cachedOrNewToken()` |
 
