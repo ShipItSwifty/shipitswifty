@@ -73,7 +73,7 @@ struct ActionTimingTests {
         #expect(abs(Duration.milliseconds(1500).totalSeconds - 1.5) < 1e-9)
     }
 
-    @Test("streamingGradle streams (.tee) in human mode but captures in JSON-output mode")
+    @Test("streamingGradle streams to the matching stream in human mode and stderr in JSON mode")
     func streamingGradleRespectsJSONOutput() {
         let executor = MockExecutor { _, _ in ShellOutput(stdout: "", stderr: "", exitCode: 0) }
 
@@ -83,12 +83,12 @@ struct ActionTimingTests {
 
         let jsonContext = ActionContext.mock(executor: executor, platform: .android, jsonOutput: true)
         // In JSON mode it must not stream to stdout — fall back to capture so the JSON result is clean.
-        #expect(jsonContext.streamingGradle().stdoutDestination == .capture)
-        #expect(jsonContext.streamingGradle().stderrDestination == .capture)
+        #expect(jsonContext.streamingGradle().stdoutDestination == .teeTo(.stderr))
+        #expect(jsonContext.streamingGradle().stderrDestination == .teeTo(.stderr))
     }
 
     #if os(macOS)
-    @Test("streamingXcodeBuild streams (.tee) in human mode but captures in JSON-output mode")
+    @Test("streamingXcodeBuild streams to the matching stream in human mode and stderr in JSON mode")
     func streamingXcodeBuildRespectsJSONOutput() {
         let executor = MockExecutor { _, _ in ShellOutput(stdout: "", stderr: "", exitCode: 0) }
 
@@ -97,8 +97,8 @@ struct ActionTimingTests {
         #expect(humanContext.streamingXcodeBuild().stderrDestination == .tee)
 
         let jsonContext = ActionContext.mock(executor: executor, jsonOutput: true)
-        #expect(jsonContext.streamingXcodeBuild().stdoutDestination == .capture)
-        #expect(jsonContext.streamingXcodeBuild().stderrDestination == .capture)
+        #expect(jsonContext.streamingXcodeBuild().stdoutDestination == .teeTo(.stderr))
+        #expect(jsonContext.streamingXcodeBuild().stderrDestination == .teeTo(.stderr))
     }
     #endif
 }

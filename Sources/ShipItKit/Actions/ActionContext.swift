@@ -259,14 +259,13 @@ extension ActionContext {
     /// Use this for the long-running Android Gradle invocations (archive/build/test) where live
     /// progress matters in CI; prefer ``gradle()`` for short, purely-parsed invocations.
     ///
-    /// In `--output json` mode (``jsonOutput``) this falls back to plain ``gradle()`` capture so
-    /// streamed build progress does not interleave with the JSON result on stdout.
+    /// In `--output json` mode (``jsonOutput``) both child streams are echoed to stderr while
+    /// full captured output remains available for parsing and stdout stays available for JSON.
     public func streamingGradle() -> Gradle {
-        guard !jsonOutput else { return gradle() }
         return
             gradle()
-            .settingStdoutDestination(.tee)
-            .settingStderrDestination(.tee)
+            .settingStdoutDestination(jsonOutput ? .teeTo(.stderr) : .tee)
+            .settingStderrDestination(jsonOutput ? .teeTo(.stderr) : .tee)
             .outputLimit(0)
     }
 
@@ -283,15 +282,13 @@ extension ActionContext {
     /// `XcodeBuild(context:)` for short, purely-parsed invocations (e.g. `-showBuildSettings`,
     /// destination discovery).
     ///
-    /// In `--output json` mode (``jsonOutput``) this falls back to a plain capturing
-    /// `XcodeBuild(context:)` so streamed build progress does not interleave with — and corrupt —
-    /// the JSON result on stdout.
+    /// In `--output json` mode (``jsonOutput``) both child streams are echoed to stderr while
+    /// full captured output remains available for parsing and stdout stays available for JSON.
     public func streamingXcodeBuild() -> XcodeBuild {
-        guard !jsonOutput else { return XcodeBuild(context: shell) }
         return
             XcodeBuild(context: shell)
-            .settingStdoutDestination(.tee)
-            .settingStderrDestination(.tee)
+            .settingStdoutDestination(jsonOutput ? .teeTo(.stderr) : .tee)
+            .settingStderrDestination(jsonOutput ? .teeTo(.stderr) : .tee)
             .outputLimit(0)
     }
     #endif

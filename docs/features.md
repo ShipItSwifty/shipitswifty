@@ -364,3 +364,5 @@ Migrating from `fastlane`? See the dedicated migration guide in [Walkthrough](wa
 | Version bump | `shipit version --bump minor` | SemVer support |
 | Workflow file | `Shipfile.yml` workflows | YAML-based, Swift-native |
 | App config | `Shipfile.yml` app section | Unified config |
+
+Build progress remains live on stderr in JSON output mode; stdout contains the JSON result. Full child output remains captured for build and test parsing.
