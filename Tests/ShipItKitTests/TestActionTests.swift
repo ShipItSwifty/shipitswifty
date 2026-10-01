@@ -106,9 +106,9 @@ struct TestActionTests {
             """
 
         let rerunTriggered = Mutex(false)
-        let (executor, commands) = makeCaptureExecutor { command, _ in
-            let description = command.description
-            if description.contains("xcresulttool get test-results summary") {
+        let executor = MockExecutor { command, _ in
+            let arguments = command.arguments
+            if Array(arguments.prefix(4)) == ["xcresulttool", "get", "test-results", "summary"] {
                 if rerunTriggered.withLock({ $0 }) {
                     return ShellOutput(
                         stdout:
@@ -120,14 +120,14 @@ struct TestActionTests {
                     stdout: "{ \"metrics\": { \"testsCount\": 2, \"testsFailedCount\": 1, \"testsSkippedCount\": 0 } }", stderr: "",
                     exitCode: 0)
             }
-            if description.contains("xcresulttool get test-results tests") {
+            if Array(arguments.prefix(4)) == ["xcresulttool", "get", "test-results", "tests"] {
                 if rerunTriggered.withLock({ $0 }) {
                     return ShellOutput(stdout: rerunTestsJSON, stderr: "", exitCode: 0)
                 }
                 return ShellOutput(stdout: initialTestsJSON, stderr: "", exitCode: 0)
             }
-            if description.contains("xcodebuild") && description.contains(" test") {
-                if description.contains("-only-testing MyAppTests/LoginTests/testFlaky()") {
+            if command.executableName == "xcodebuild" && arguments.contains("test") {
+                if arguments.contains("MyAppTests/LoginTests/testFlaky()") {
                     rerunTriggered.withLock { $0 = true }
                     return ShellOutput(
                         stdout: "Executed 1 test\n", stderr: "", exitCode: changedFailure ? 65 : 0)
@@ -154,7 +154,12 @@ struct TestActionTests {
             #expect(report.flakyTests.isEmpty)
             #expect(report.persistentFailedTests.contains { $0.stableID.contains("initializationError") })
         }
-        #expect(commands().contains { $0.contains("-only-testing MyAppTests/LoginTests/testFlaky()") })
+        #expect(
+            executor.recordedCommands.contains { command in
+                zip(command.arguments, command.arguments.dropFirst()).contains {
+                    $0 == "-only-testing" && $1 == "MyAppTests/LoginTests/testFlaky()"
+                }
+            })
     }
 
     @Test("iOS honors the attempt limit and stops after recovery", arguments: [1, 2, 3, 4])
