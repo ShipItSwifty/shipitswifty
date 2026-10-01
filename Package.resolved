@@ -1,5 +1,5 @@
 {
-  "originHash" : "7563b24e910c896bcf7f3481587ca9bed51aaad4caaec21ee24677c218eee588",
+  "originHash" : "cbde79ec4fe78f18c9ec8c97e99481bae4d57d1f63bedf2ad212f1185325f79d",
   "pins" : [
     {
       "identity" : "app-store-connect-mcp",
@@ -141,8 +141,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/swiftlang/swift-subprocess.git",
       "state" : {
-        "revision" : "13d087685b95d64d6aac9b94500d347bbe84c39b",
-        "version" : "0.4.0"
+        "revision" : "b3937ab85dd32f6e9435914599c1519074769c1a",
+        "version" : "1.0.0"
       }
     },
     {
@@ -159,8 +159,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/maniramezan/SwiftyShell.git",
       "state" : {
-        "revision" : "f376c8a08aa300fa7ee1eecef72cc028b5381c92",
-        "version" : "0.5.0"
+        "revision" : "0d3a46717bdd0fdd71da20e44ea8b8dfc703cb68",
+        "version" : "0.7.0"
       }
     },
     {
