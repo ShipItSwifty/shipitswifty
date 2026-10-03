@@ -31,7 +31,7 @@ struct UploadActionTests {
             return ShellOutput(stdout: "", stderr: "", exitCode: 0)
         }
 
-        let session = makeMockSession { request in
+        let stub = try StubbedURLSession { request in
             let path = request.url?.path ?? ""
             let queryItems = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)?.queryItems ?? []
             let query = Dictionary(uniqueKeysWithValues: queryItems.map { ($0.name, $0.value ?? "") })
@@ -54,6 +54,8 @@ struct UploadActionTests {
             }
             return .error(statusCode: 404, body: "not found")
         }
+        defer { stub.invalidate() }
+        let session = stub.session
 
         let context = makeContext(executor: executor, session: session, bundleID: "com.example.app")
         let result = try await UploadAction().run(
@@ -83,7 +85,7 @@ struct UploadActionTests {
             return ShellOutput(stdout: "", stderr: "", exitCode: 0)
         }
 
-        let session = makeMockSession { request in
+        let stub = try StubbedURLSession { request in
             let path = request.url?.path ?? ""
             let queryItems = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)?.queryItems ?? []
             let query = Dictionary(uniqueKeysWithValues: queryItems.map { ($0.name, $0.value ?? "") })
@@ -123,6 +125,8 @@ struct UploadActionTests {
             }
             return .error(statusCode: 404, body: "not found")
         }
+        defer { stub.invalidate() }
+        let session = stub.session
 
         let context = makeContext(
             executor: executor,
@@ -158,7 +162,7 @@ struct UploadActionTests {
             }
             return ShellOutput(stdout: "", stderr: "", exitCode: 0)
         }
-        let session = makeMockSession { request in
+        let stub = try StubbedURLSession { request in
             let path = request.url?.path ?? ""
             let queryItems = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)?.queryItems ?? []
             let query = Dictionary(uniqueKeysWithValues: queryItems.map { ($0.name, $0.value ?? "") })
@@ -170,6 +174,8 @@ struct UploadActionTests {
             }
             return .error(statusCode: 404, body: "not found")
         }
+        defer { stub.invalidate() }
+        let session = stub.session
 
         let context = makeContext(
             executor: executor,

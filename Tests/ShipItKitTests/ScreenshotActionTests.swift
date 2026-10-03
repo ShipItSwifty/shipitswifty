@@ -69,7 +69,7 @@ struct SnapshotActionTests {
 
     @Test("runs xcodebuild test for each device/locale with destination and locale build setting")
     func capturesAcrossDeviceLocaleMatrix() async throws {
-        let scratch = try TemporaryDirectory()
+        let scratch = try TemporaryDirectory(prefix: "Snapshots")
         defer { try? scratch.remove() }
         let outputDir = scratch.url
 
@@ -105,7 +105,7 @@ struct SnapshotActionTests {
 
     @Test("falls back to app.scheme when no explicit or screenshot scheme is set")
     func fallsBackToAppScheme() async throws {
-        let scratch = try TemporaryDirectory()
+        let scratch = try TemporaryDirectory(prefix: "Snapshots")
         defer { try? scratch.remove() }
         let outputDir = scratch.url
 
@@ -128,7 +128,7 @@ struct SnapshotActionTests {
 
     @Test("records device/locale in failures when xcodebuild exits non-zero")
     func tracksFailures() async throws {
-        let scratch = try TemporaryDirectory()
+        let scratch = try TemporaryDirectory(prefix: "Snapshots")
         defer { try? scratch.remove() }
         let outputDir = scratch.url
 

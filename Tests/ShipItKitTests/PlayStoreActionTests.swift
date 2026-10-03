@@ -75,7 +75,7 @@ struct PlayStoreActionTests {
     @Test("PlayStoreAction resolves relative AAB path against shell workingDirectory")
     func relativeAABPathAnchoredToWorkingDirectory() async throws {
         // Arrange: create a temp project directory with an AAB at the conventional location
-        let scratch = try TemporaryDirectory()
+        let scratch = try TemporaryDirectory(prefix: "PlayStoreTests")
         defer { try? scratch.remove() }
         let projectDir = scratch.url
 
@@ -86,7 +86,7 @@ struct PlayStoreActionTests {
         try Data("fake-aab".utf8).write(to: aabURL)
 
         // Mock the Play API: OAuth token → create edit → upload bundle → assign track → commit
-        let session = makeMockSession { request in
+        let stub = try StubbedURLSession { request in
             let path = request.url?.path ?? ""
             if path.contains("oauth2.googleapis.com") || path.hasSuffix("/token") {
                 return .json([
@@ -112,6 +112,8 @@ struct PlayStoreActionTests {
             }
             return .error(statusCode: 404, body: "unexpected: \(path)")
         }
+        defer { stub.invalidate() }
+        let session = stub.session
 
         let googlePlay = makeGooglePlayClient(session: session)
         let context = makeAndroidContext(
@@ -128,13 +130,15 @@ struct PlayStoreActionTests {
 
     @Test("PlayStoreAction throws invalidConfiguration when AAB not found at anchored path")
     func throwsWhenAABMissingAtAnchoredPath() async throws {
-        let scratch = try TemporaryDirectory()
+        let scratch = try TemporaryDirectory(prefix: "PlayStoreTests")
         defer { try? scratch.remove() }
         let projectDir = scratch.url
 
         // Do NOT create the AAB — the action should throw before hitting the API
 
-        let session = makeMockSession { _ in .empty() }
+        let stub = try StubbedURLSession { _ in .empty() }
+        defer { stub.invalidate() }
+        let session = stub.session
         let googlePlay = makeGooglePlayClient(session: session)
         let context = makeAndroidContext(
             workingDirectory: projectDir.path, googlePlay: googlePlay)
@@ -147,7 +151,7 @@ struct PlayStoreActionTests {
     @Test("PlayStoreAction uses per-step buildVariant for artifact path discovery")
     func perStepBuildVariantOverridesConfig() async throws {
         // Arrange: config says "release" but step options say "prodRelease"
-        let scratch = try TemporaryDirectory()
+        let scratch = try TemporaryDirectory(prefix: "PlayStoreTests")
         defer { try? scratch.remove() }
         let projectDir = scratch.url
 
@@ -157,7 +161,7 @@ struct PlayStoreActionTests {
             at: aabURL.deletingLastPathComponent(), withIntermediateDirectories: true)
         try Data("fake-aab".utf8).write(to: aabURL)
 
-        let session = makeMockSession { request in
+        let stub = try StubbedURLSession { request in
             let path = request.url?.path ?? ""
             if path.contains("oauth2.googleapis.com") || path.hasSuffix("/token") {
                 return .json([
@@ -183,6 +187,8 @@ struct PlayStoreActionTests {
             }
             return .error(statusCode: 404, body: "unexpected: \(path)")
         }
+        defer { stub.invalidate() }
+        let session = stub.session
 
         let googlePlay = makeGooglePlayClient(session: session)
         // Config has androidBuildVariant: "release" (default), but step overrides to "prodRelease"

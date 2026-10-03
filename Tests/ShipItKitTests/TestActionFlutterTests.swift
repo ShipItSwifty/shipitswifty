@@ -76,7 +76,7 @@ struct TestActionFlutterTests {
     @Test("React Native test runs package manager test script")
     func rnTestRunsPackageManagerScript() async throws {
         // Create a temporary package.json with a test script
-        let scratch = try TemporaryDirectory()
+        let scratch = try TemporaryDirectory(prefix: "RNTestAction")
         defer { try? scratch.remove() }
         let tempDir = scratch.url
         let packageJSON = """
@@ -139,7 +139,7 @@ struct TestActionFlutterTests {
 
     @Test("React Native test throws invalidConfiguration when test script is missing")
     func rnTestThrowsWhenScriptMissing() async throws {
-        let scratch = try TemporaryDirectory()
+        let scratch = try TemporaryDirectory(prefix: "RNTestNoScript")
         defer { try? scratch.remove() }
         let tempDir = scratch.url
         let packageJSON = """

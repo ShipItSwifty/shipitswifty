@@ -74,7 +74,7 @@ struct TestActionTests {
 
     @Test("Selective iOS rerun preserves exit-65 failures and writes report", arguments: [false, true])
     func selectiveIOSRerunReportsFlakyTests(changedFailure: Bool) async throws {
-        let scratch = try TemporaryDirectory()
+        let scratch = try TemporaryDirectory(prefix: "IOSRerunReport")
         defer { try? scratch.remove() }
         let tempDirectory = scratch.url
 
@@ -166,7 +166,7 @@ struct TestActionTests {
 
     @Test("iOS honors the attempt limit and stops after recovery", arguments: [1, 2, 3, 4])
     func iosAttemptLimit(maxAttempts: Int) async throws {
-        let scratch = try TemporaryDirectory()
+        let scratch = try TemporaryDirectory(prefix: "IOSAttemptLimit")
         defer { try? scratch.remove() }
         let directory = scratch.url
         let attempt = Mutex(0)
@@ -241,7 +241,7 @@ struct TestActionTests {
 
     @Test("Merges result bundles across multiple destinations before parsing")
     func mergesResultBundlesAcrossDestinations() async throws {
-        let scratch = try TemporaryDirectory()
+        let scratch = try TemporaryDirectory(prefix: "MultiDestinationResults")
         defer { try? scratch.remove() }
         let tempDirectory = scratch.url
         let resultBundlePath = tempDirectory.appendingPathComponent("Tests.xcresult").path
@@ -1359,7 +1359,7 @@ struct TestActionTests {
 
     @Test("Android JUnit XML fallback includes named passed and failed tests")
     func androidJUnitXMLFallbackIncludesNamedTests() async throws {
-        let scratch = try TemporaryDirectory()
+        let scratch = try TemporaryDirectory(prefix: "ShipItJUnitNamed")
         defer { try? scratch.remove() }
         let tempDirectory = scratch.url
 
@@ -1418,7 +1418,7 @@ struct TestActionTests {
 
     @Test("Android unit rerun uses --tests filters and writes report")
     func androidUnitRerunUsesGradleTestFilters() async throws {
-        let scratch = try TemporaryDirectory()
+        let scratch = try TemporaryDirectory(prefix: "AndroidRerun")
         defer { try? scratch.remove() }
         let tempDirectory = scratch.url
 

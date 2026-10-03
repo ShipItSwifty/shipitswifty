@@ -33,7 +33,7 @@ struct TestFlightActionTests {
             return ShellOutput(stdout: "", stderr: "", exitCode: 0)
         }
 
-        let session = makeMockSession { request in
+        let stub = try StubbedURLSession { request in
             let path = request.url?.path ?? ""
             let queryItems = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)?.queryItems ?? []
             let query = Dictionary(uniqueKeysWithValues: queryItems.map { ($0.name, $0.value ?? "") })
@@ -87,6 +87,8 @@ struct TestFlightActionTests {
 
             return .error(statusCode: 404, body: "not found")
         }
+        defer { stub.invalidate() }
+        let session = stub.session
 
         let base = ActionContext.mock(executor: executor)
         let shell = isolatedShell(from: base.shell, executor: executor)
@@ -142,10 +144,12 @@ struct TestFlightActionTests {
         let executor = MockExecutor { _, _ in
             ShellOutput(stdout: "", stderr: "", exitCode: 0)
         }
-        let session = makeMockSession { _ in
+        let stub = try StubbedURLSession { _ in
             ascWasCalled = true
             return .error(statusCode: 500, body: "unexpected request")
         }
+        defer { stub.invalidate() }
+        let session = stub.session
 
         let base = ActionContext.mock(executor: executor)
         let shell = isolatedShell(from: base.shell, executor: executor)
@@ -202,7 +206,7 @@ struct TestFlightActionTests {
             }
             return ShellOutput(stdout: "", stderr: "", exitCode: 0)
         }
-        let session = makeMockSession { request in
+        let stub = try StubbedURLSession { request in
             let path = request.url?.path ?? ""
             let queryItems = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)?.queryItems ?? []
             let query = Dictionary(uniqueKeysWithValues: queryItems.map { ($0.name, $0.value ?? "") })
@@ -214,6 +218,8 @@ struct TestFlightActionTests {
             }
             return .error(statusCode: 404, body: "not found")
         }
+        defer { stub.invalidate() }
+        let session = stub.session
 
         let base = ActionContext.mock(executor: executor)
         let shell = ShellContext(

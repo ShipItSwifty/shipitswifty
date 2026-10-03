@@ -9,7 +9,7 @@ struct AndroidJUnitTestParserTests {
 
     @Test("Parses Gradle JUnit XML files into normalized suites and test cases")
     func parsesJUnitDirectory() async throws {
-        let scratch = try TemporaryDirectory()
+        let scratch = try TemporaryDirectory(prefix: "AndroidJUnitTestParser")
         defer { try? scratch.remove() }
         let root = scratch.url
 
@@ -52,7 +52,7 @@ struct AndroidJUnitTestParserTests {
 
     @Test("Throws when the report directory has no JUnit XML files")
     func throwsWhenNoXMLFilesExist() async throws {
-        let scratch = try TemporaryDirectory()
+        let scratch = try TemporaryDirectory(prefix: "AndroidJUnitMissing")
         defer { try? scratch.remove() }
         let root = scratch.url
 

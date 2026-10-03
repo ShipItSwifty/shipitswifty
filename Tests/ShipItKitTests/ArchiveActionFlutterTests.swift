@@ -102,7 +102,7 @@ struct ArchiveActionFlutterTests {
 
     @Test("React Native Android archive falls back to gradlew when RN build-android is unavailable")
     func rnAndroidArchiveFallsBackToGradle() async throws {
-        let scratch = try TemporaryDirectory()
+        let scratch = try TemporaryDirectory(prefix: "RNArchiveFallback")
         defer { try? scratch.remove() }
         let tmpDir = scratch.url
         let aabPath = tmpDir.appendingPathComponent("android/app/build/outputs/bundle/release/app-release.aab")

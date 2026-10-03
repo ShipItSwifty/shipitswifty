@@ -14,7 +14,7 @@ struct MetadataActionTests {
         defer { try? scratch.remove() }
         let tempDirectory = scratch.url
 
-        let client = makeClient(responses: [
+        let (client, stub) = try makeClient(responses: [
             .json([
                 "data": [
                     [
@@ -57,6 +57,7 @@ struct MetadataActionTests {
                 ]
             ]),
         ])
+        defer { stub.invalidate() }
 
         let context = ActionContext(
             shell: .init(),
@@ -94,7 +95,7 @@ struct MetadataActionTests {
         try "swift,release".write(to: localeDirectory.appendingPathComponent("keywords.txt"), atomically: true, encoding: .utf8)
         try "Bug fixes".write(to: localeDirectory.appendingPathComponent("release_notes.txt"), atomically: true, encoding: .utf8)
 
-        let client = makeClient(responses: [
+        let (client, stub) = try makeClient(responses: [
             .json([
                 "data": [
                     [
@@ -145,6 +146,7 @@ struct MetadataActionTests {
                 ]
             ]),
         ])
+        defer { stub.invalidate() }
 
         let context = ActionContext(
             shell: .init(),
@@ -171,7 +173,7 @@ struct MetadataActionTests {
         try "Nom".write(to: localeDirectory.appendingPathComponent("name.txt"), atomically: true, encoding: .utf8)
         try "Sous-titre".write(to: localeDirectory.appendingPathComponent("subtitle.txt"), atomically: true, encoding: .utf8)
 
-        let client = makeClient(responses: [
+        let (client, stub) = try makeClient(responses: [
             .json([
                 "data": [
                     [
@@ -203,6 +205,7 @@ struct MetadataActionTests {
                 ]
             ]),
         ])
+        defer { stub.invalidate() }
 
         let context = ActionContext(
             shell: .init(),
@@ -229,7 +232,7 @@ struct MetadataActionTests {
         try "Release Name".write(to: localeDirectory.appendingPathComponent("name.txt"), atomically: true, encoding: .utf8)
         try "Ready to ship".write(to: localeDirectory.appendingPathComponent("description.txt"), atomically: true, encoding: .utf8)
 
-        let client = makeClient(responses: [
+        let (client, stub) = try makeClient(responses: [
             .json([
                 "data": [
                     [
@@ -308,6 +311,7 @@ struct MetadataActionTests {
                 ]
             ]),
         ])
+        defer { stub.invalidate() }
 
         let context = ActionContext(
             shell: .init(),

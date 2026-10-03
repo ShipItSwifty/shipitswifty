@@ -13,7 +13,7 @@ struct TestActionRNNativeTests {
     #if os(macOS)
     @Test("RN iOS: explicit scheme bypasses Jest and dispatches to xcodebuild")
     func rnIOSWithSchemeDispatchesToXcodebuild() async throws {
-        let scratch = try TemporaryDirectory()
+        let scratch = try TemporaryDirectory(prefix: "RNNativeIOSTest")
         defer { try? scratch.remove() }
         let tempDir = scratch.url
 
@@ -41,7 +41,7 @@ struct TestActionRNNativeTests {
 
     @Test("RN iOS: explicit destinations bypasses Jest and dispatches to xcodebuild")
     func rnIOSWithDestinationsBypassesJest() async throws {
-        let scratch = try TemporaryDirectory()
+        let scratch = try TemporaryDirectory(prefix: "RNNativeIOSDestTest")
         defer { try? scratch.remove() }
         let tempDir = scratch.url
 
@@ -67,7 +67,7 @@ struct TestActionRNNativeTests {
 
     @Test("RN iOS: no native options runs Jest")
     func rnIOSWithoutNativeOptionsRunsJest() async throws {
-        let scratch = try TemporaryDirectory()
+        let scratch = try TemporaryDirectory(prefix: "RNJestFallback")
         defer { try? scratch.remove() }
         let tempDir = scratch.url
         let packageJSON = """
@@ -107,7 +107,7 @@ struct TestActionRNNativeTests {
 
     @Test("RN Android: explicit kind bypasses Jest and dispatches to Gradle")
     func rnAndroidWithKindDispatchesToGradle() async throws {
-        let scratch = try TemporaryDirectory()
+        let scratch = try TemporaryDirectory(prefix: "RNNativeAndroidTest")
         defer { try? scratch.remove() }
         let tempDir = scratch.url
         // Create android/gradlew so reactNativeAndroidContext patches the dir
@@ -139,7 +139,7 @@ struct TestActionRNNativeTests {
 
     @Test("RN Android: no kind runs Jest")
     func rnAndroidWithoutKindRunsJest() async throws {
-        let scratch = try TemporaryDirectory()
+        let scratch = try TemporaryDirectory(prefix: "RNAndroidJestFallback")
         defer { try? scratch.remove() }
         let tempDir = scratch.url
         let packageJSON = """
@@ -176,7 +176,7 @@ struct TestActionRNNativeTests {
 
     @Test("RN custom test script runs once without Jest-only flags")
     func rnCustomTestScriptOmitsJestFlags() async throws {
-        let scratch = try TemporaryDirectory()
+        let scratch = try TemporaryDirectory(prefix: "RNCustomTest")
         defer { try? scratch.remove() }
         let tempDir = scratch.url
         let packageJSON = """

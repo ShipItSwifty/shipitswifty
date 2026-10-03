@@ -9,7 +9,7 @@ struct JestJSONTestParserTests {
 
     @Test("Parses Jest JSON output into normalized test cases")
     func parsesJestJSON() async throws {
-        let scratch = try TemporaryDirectory()
+        let scratch = try TemporaryDirectory(prefix: "JestJSON")
         defer { try? scratch.remove() }
         let temp = scratch.url
 

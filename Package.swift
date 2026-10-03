@@ -39,7 +39,7 @@ let package = Package(
         // Structured logging
         .package(url: "https://github.com/apple/swift-log", from: "1.12.0"),
         // Shared test helpers (test targets only)
-        .package(url: "https://github.com/maniramezan/SwiftTestCommons.git", from: "0.1.0"),
+        .package(url: "https://github.com/maniramezan/SwiftTestCommons.git", from: "0.3.0"),
     ],
     targets: [
         // MARK: - Reusable tool libraries

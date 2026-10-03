@@ -50,7 +50,7 @@ struct LintActionFlutterTests {
 
     @Test("React Native lint runs package manager lint script")
     func rnLintRunsPackageManagerScript() async throws {
-        let scratch = try TemporaryDirectory()
+        let scratch = try TemporaryDirectory(prefix: "RNLintAction")
         defer { try? scratch.remove() }
         let tempDir = scratch.url
         let packageJSON = """
@@ -85,7 +85,7 @@ struct LintActionFlutterTests {
 
     @Test("React Native lint auto-installs when node_modules is absent")
     func rnLintAutoInstallsWhenNodeModulesMissing() async throws {
-        let scratch = try TemporaryDirectory()
+        let scratch = try TemporaryDirectory(prefix: "RNLintAutoInstall")
         defer { try? scratch.remove() }
         let tempDir = scratch.url
         let packageJSON = """
@@ -121,7 +121,7 @@ struct LintActionFlutterTests {
 
     @Test("React Native lint skips install when node_modules already present")
     func rnLintSkipsInstallWhenNodeModulesPresent() async throws {
-        let scratch = try TemporaryDirectory()
+        let scratch = try TemporaryDirectory(prefix: "RNLintSkipInstall")
         defer { try? scratch.remove() }
         let tempDir = scratch.url
         let packageJSON = """
@@ -156,7 +156,7 @@ struct LintActionFlutterTests {
 
     @Test("React Native lint throws when lint script missing and failOnError is true")
     func rnLintThrowsWhenScriptMissing() async throws {
-        let scratch = try TemporaryDirectory()
+        let scratch = try TemporaryDirectory(prefix: "RNLintNoScript")
         defer { try? scratch.remove() }
         let tempDir = scratch.url
         let packageJSON = """
@@ -187,7 +187,7 @@ struct LintActionFlutterTests {
 
     @Test("React Native lint still throws unexpected errors when failOnError is false")
     func rnLintDoesNotSwallowUnexpectedErrors() async throws {
-        let scratch = try TemporaryDirectory()
+        let scratch = try TemporaryDirectory(prefix: "RNLintUnexpectedError")
         defer { try? scratch.remove() }
         let tempDir = scratch.url
         let packageJSON = """

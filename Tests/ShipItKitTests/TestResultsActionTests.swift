@@ -10,7 +10,7 @@ struct TestResultsActionTests {
 
     @Test("Parses iOS xcresult artifacts through the action and writes a report")
     func parsesIOSArtifactsAndWritesReport() async throws {
-        let scratch = try TemporaryDirectory()
+        let scratch = try TemporaryDirectory(prefix: "TestResultsAction")
         defer { try? scratch.remove() }
         let temp = scratch.url
 
@@ -85,7 +85,7 @@ struct TestResultsActionTests {
 
     @Test("Filters down to failed tests only")
     func filtersFailedOnly() async throws {
-        let scratch = try TemporaryDirectory()
+        let scratch = try TemporaryDirectory(prefix: "TestResultsActionAndroid")
         defer { try? scratch.remove() }
         let root = scratch.url
 

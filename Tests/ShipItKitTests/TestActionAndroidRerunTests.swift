@@ -39,7 +39,7 @@ struct TestActionAndroidRerunTests {
 
     @Test("A failed Gradle run is re-run with --tests after the task, and flaky tests pass the action")
     func flakyFailureIsRerunAndPasses() async throws {
-        let scratch = try TemporaryDirectory()
+        let scratch = try TemporaryDirectory(prefix: "AndroidRerunFlaky")
         defer { try? scratch.remove() }
         let tempDirectory = scratch.url
         let reportPath = tempDirectory.appendingPathComponent("report.json").path
@@ -68,7 +68,7 @@ struct TestActionAndroidRerunTests {
 
     @Test("Failures that persist after the rerun still fail the action and write the report")
     func persistentFailureThrows() async throws {
-        let scratch = try TemporaryDirectory()
+        let scratch = try TemporaryDirectory(prefix: "AndroidRerunPersistent")
         defer { try? scratch.remove() }
         let tempDirectory = scratch.url
         let reportPath = tempDirectory.appendingPathComponent("report.json").path
@@ -102,7 +102,7 @@ struct TestActionAndroidRerunTests {
 
     @Test("Without reruns a failed Gradle run throws immediately")
     func rerunDisabledThrows() async throws {
-        let scratch = try TemporaryDirectory()
+        let scratch = try TemporaryDirectory(prefix: "AndroidRerunDisabled")
         defer { try? scratch.remove() }
         let tempDirectory = scratch.url
 
@@ -121,7 +121,7 @@ struct TestActionAndroidRerunTests {
 
     @Test("A failure that names no tests (e.g. compilation) is not re-run")
     func nonTestFailureIsNotRerun() async throws {
-        let scratch = try TemporaryDirectory()
+        let scratch = try TemporaryDirectory(prefix: "AndroidRerunCompile")
         defer { try? scratch.remove() }
         let tempDirectory = scratch.url
 
@@ -140,7 +140,7 @@ struct TestActionAndroidRerunTests {
 
     @Test("JUnit XML reports supply fully-qualified rerun filters")
     func junitReportsDriveRerunFilters() async throws {
-        let scratch = try TemporaryDirectory()
+        let scratch = try TemporaryDirectory(prefix: "AndroidRerunJUnit")
         defer { try? scratch.remove() }
         let tempDirectory = scratch.url
 
@@ -179,7 +179,7 @@ struct TestActionAndroidRerunTests {
     }
     @Test("A new failure on rerun cannot turn two nonzero exits into success")
     func changedFailureStillThrows() async throws {
-        let scratch = try TemporaryDirectory()
+        let scratch = try TemporaryDirectory(prefix: "AndroidChangedFailure")
         defer { try? scratch.remove() }
         let directory = scratch.url
         let reportPath = directory.appendingPathComponent("report.json").path
@@ -199,7 +199,7 @@ struct TestActionAndroidRerunTests {
 
     @Test("A skipped rerun does not resolve an initial failure")
     func skippedRerunStillThrows() async throws {
-        let scratch = try TemporaryDirectory()
+        let scratch = try TemporaryDirectory(prefix: "AndroidSkippedRerun")
         defer { try? scratch.remove() }
         let directory = scratch.url
         let (executor, _) = makeCaptureExecutor { command, _ in
@@ -217,7 +217,7 @@ struct TestActionAndroidRerunTests {
         "Root reruns include failures from every module; module reruns exclude unrelated reports",
         arguments: [GradleTaskScope.root, .module])
     func reportDiscoveryRespectsScope(scope: GradleTaskScope) async throws {
-        let scratch = try TemporaryDirectory()
+        let scratch = try TemporaryDirectory(prefix: "AndroidReportScope")
         defer { try? scratch.remove() }
         let directory = scratch.url
         for module in ["app", "feature"] {
@@ -270,7 +270,7 @@ struct TestActionAndroidRerunTests {
 
     @Test("Android honors the attempt limit and stops after recovery", arguments: [1, 2, 3, 4])
     func respectsAttemptLimit(maxAttempts: Int) async throws {
-        let scratch = try TemporaryDirectory()
+        let scratch = try TemporaryDirectory(prefix: "AndroidAttemptLimit")
         defer { try? scratch.remove() }
         let directory = scratch.url
         let attempt = Mutex(0)
@@ -301,7 +301,7 @@ struct TestActionAndroidRerunTests {
 
     @Test("Android persistent failures exhaust all configured attempts")
     func persistentFailureExhaustsAttempts() async throws {
-        let scratch = try TemporaryDirectory()
+        let scratch = try TemporaryDirectory(prefix: "AndroidExhaustAttempts")
         defer { try? scratch.remove() }
         let directory = scratch.url
         let reportPath = directory.appendingPathComponent("report.json").path
