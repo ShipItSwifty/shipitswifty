@@ -3,6 +3,7 @@ import AppStoreConnectKit
 import Foundation
 import SwiftyShell
 import Testing
+import TestCommons
 
 @testable import ShipItKit
 
@@ -11,8 +12,9 @@ struct TestFlightActionTests {
 
     @Test("distributes uploaded build using app beta groups and 204 relationship response")
     func distributesBuildToRequestedGroups() async throws {
-        let tempDirectory = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let tempDirectory = scratch.url
 
         let ipaURL = tempDirectory.appendingPathComponent("Example.ipa")
         try Data("ipa-data".utf8).write(to: ipaURL)
@@ -31,7 +33,7 @@ struct TestFlightActionTests {
             return ShellOutput(stdout: "", stderr: "", exitCode: 0)
         }
 
-        let session = makeMockSession { request in
+        let stub = try StubbedURLSession { request in
             let path = request.url?.path ?? ""
             let queryItems = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)?.queryItems ?? []
             let query = Dictionary(uniqueKeysWithValues: queryItems.map { ($0.name, $0.value ?? "") })
@@ -85,6 +87,8 @@ struct TestFlightActionTests {
 
             return .error(statusCode: 404, body: "not found")
         }
+        defer { stub.invalidate() }
+        let session = stub.session
 
         let base = ActionContext.mock(executor: executor)
         let shell = isolatedShell(from: base.shell, executor: executor)
@@ -128,8 +132,9 @@ struct TestFlightActionTests {
 
     @Test("skip waiting with no groups does not resolve build ID")
     func skipsBuildLookupWhenWaitingAndDistributionAreDisabled() async throws {
-        let tempDirectory = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let tempDirectory = scratch.url
 
         let ipaURL = tempDirectory.appendingPathComponent("Example.ipa")
         try Data("ipa-data".utf8).write(to: ipaURL)
@@ -139,10 +144,12 @@ struct TestFlightActionTests {
         let executor = MockExecutor { _, _ in
             ShellOutput(stdout: "", stderr: "", exitCode: 0)
         }
-        let session = makeMockSession { _ in
+        let stub = try StubbedURLSession { _ in
             ascWasCalled = true
             return .error(statusCode: 500, body: "unexpected request")
         }
+        defer { stub.invalidate() }
+        let session = stub.session
 
         let base = ActionContext.mock(executor: executor)
         let shell = isolatedShell(from: base.shell, executor: executor)
@@ -182,8 +189,9 @@ struct TestFlightActionTests {
 
     @Test("Flutter iOS TestFlight discovers IPA from flutter archive output")
     func discoversFlutterIPAOutput() async throws {
-        let tempDirectory = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let tempDirectory = scratch.url
 
         let ipaDirectory = tempDirectory.appendingPathComponent("build/ios/ipa", isDirectory: true)
         try FileManager.default.createDirectory(at: ipaDirectory, withIntermediateDirectories: true)
@@ -198,7 +206,7 @@ struct TestFlightActionTests {
             }
             return ShellOutput(stdout: "", stderr: "", exitCode: 0)
         }
-        let session = makeMockSession { request in
+        let stub = try StubbedURLSession { request in
             let path = request.url?.path ?? ""
             let queryItems = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)?.queryItems ?? []
             let query = Dictionary(uniqueKeysWithValues: queryItems.map { ($0.name, $0.value ?? "") })
@@ -210,6 +218,8 @@ struct TestFlightActionTests {
             }
             return .error(statusCode: 404, body: "not found")
         }
+        defer { stub.invalidate() }
+        let session = stub.session
 
         let base = ActionContext.mock(executor: executor)
         let shell = ShellContext(
@@ -251,12 +261,6 @@ struct TestFlightActionTests {
     }
 
     // MARK: - Helpers
-
-    private func makeTempDirectory() throws -> URL {
-        let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
-        try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
-        return url
-    }
 
     private func isolatedShell(from shell: ShellContext, executor: MockExecutor) -> ShellContext {
         let homeURL = FileManager.default.temporaryDirectory

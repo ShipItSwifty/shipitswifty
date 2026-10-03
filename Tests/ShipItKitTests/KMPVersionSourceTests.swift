@@ -1,5 +1,6 @@
 import Foundation
 import SwiftyShell
+import TestCommons
 import Testing
 
 @testable import ShipItKit
@@ -10,8 +11,9 @@ struct KMPVersionSourceTests {
 
     @Test("Reads versionName and versionCode from gradle.properties")
     func readsVersionAndBuild() async throws {
-        let dir = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: dir) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let dir = scratch.url
 
         let propertiesURL = dir.appendingPathComponent("gradle.properties")
         try """
@@ -41,8 +43,9 @@ struct KMPVersionSourceTests {
 
     @Test("Bumping the build number rewrites only the versionCode line")
     func bumpsBuildNumber() async throws {
-        let dir = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: dir) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let dir = scratch.url
 
         let propertiesURL = dir.appendingPathComponent("gradle.properties")
         try """
@@ -79,8 +82,9 @@ struct KMPVersionSourceTests {
 
     @Test("Setting an explicit version writes both keys")
     func setsExplicitVersion() async throws {
-        let dir = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: dir) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let dir = scratch.url
 
         let propertiesURL = dir.appendingPathComponent("gradle.properties")
         try """
@@ -110,8 +114,9 @@ struct KMPVersionSourceTests {
 
     @Test("Missing key throws an actionable invalidConfiguration error")
     func missingKeyThrows() async throws {
-        let dir = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: dir) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let dir = scratch.url
 
         let propertiesURL = dir.appendingPathComponent("gradle.properties")
         try """

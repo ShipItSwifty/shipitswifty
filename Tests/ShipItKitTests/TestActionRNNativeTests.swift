@@ -1,5 +1,6 @@
 import Foundation
 import SwiftyShell
+import TestCommons
 import Testing
 
 @testable import ShipItKit
@@ -12,7 +13,9 @@ struct TestActionRNNativeTests {
     #if os(macOS)
     @Test("RN iOS: explicit scheme bypasses Jest and dispatches to xcodebuild")
     func rnIOSWithSchemeDispatchesToXcodebuild() async throws {
-        let tempDir = try makeTempDirectory(prefix: "RNNativeIOSTest")
+        let scratch = try TemporaryDirectory(prefix: "RNNativeIOSTest")
+        defer { try? scratch.remove() }
+        let tempDir = scratch.url
 
         let (executor, commands) = makeCaptureExecutor { _, _ in
             ShellOutput(stdout: "", stderr: "", exitCode: 0)
@@ -38,7 +41,9 @@ struct TestActionRNNativeTests {
 
     @Test("RN iOS: explicit destinations bypasses Jest and dispatches to xcodebuild")
     func rnIOSWithDestinationsBypassesJest() async throws {
-        let tempDir = try makeTempDirectory(prefix: "RNNativeIOSDestTest")
+        let scratch = try TemporaryDirectory(prefix: "RNNativeIOSDestTest")
+        defer { try? scratch.remove() }
+        let tempDir = scratch.url
 
         let (executor, commands) = makeCaptureExecutor { _, _ in
             ShellOutput(stdout: "", stderr: "", exitCode: 0)
@@ -62,7 +67,9 @@ struct TestActionRNNativeTests {
 
     @Test("RN iOS: no native options runs Jest")
     func rnIOSWithoutNativeOptionsRunsJest() async throws {
-        let tempDir = try makeTempDirectory(prefix: "RNJestFallback")
+        let scratch = try TemporaryDirectory(prefix: "RNJestFallback")
+        defer { try? scratch.remove() }
+        let tempDir = scratch.url
         let packageJSON = """
             {"name": "my-app", "scripts": {"test": "jest"}}
             """
@@ -100,7 +107,9 @@ struct TestActionRNNativeTests {
 
     @Test("RN Android: explicit kind bypasses Jest and dispatches to Gradle")
     func rnAndroidWithKindDispatchesToGradle() async throws {
-        let tempDir = try makeTempDirectory(prefix: "RNNativeAndroidTest")
+        let scratch = try TemporaryDirectory(prefix: "RNNativeAndroidTest")
+        defer { try? scratch.remove() }
+        let tempDir = scratch.url
         // Create android/gradlew so reactNativeAndroidContext patches the dir
         let androidDir = tempDir.appendingPathComponent("android")
         try FileManager.default.createDirectory(at: androidDir, withIntermediateDirectories: true)
@@ -130,7 +139,9 @@ struct TestActionRNNativeTests {
 
     @Test("RN Android: no kind runs Jest")
     func rnAndroidWithoutKindRunsJest() async throws {
-        let tempDir = try makeTempDirectory(prefix: "RNAndroidJestFallback")
+        let scratch = try TemporaryDirectory(prefix: "RNAndroidJestFallback")
+        defer { try? scratch.remove() }
+        let tempDir = scratch.url
         let packageJSON = """
             {"name": "my-app", "scripts": {"test": "jest"}}
             """
@@ -165,7 +176,9 @@ struct TestActionRNNativeTests {
 
     @Test("RN custom test script runs once without Jest-only flags")
     func rnCustomTestScriptOmitsJestFlags() async throws {
-        let tempDir = try makeTempDirectory(prefix: "RNCustomTest")
+        let scratch = try TemporaryDirectory(prefix: "RNCustomTest")
+        defer { try? scratch.remove() }
+        let tempDir = scratch.url
         let packageJSON = """
             {"name": "my-app", "scripts": {"test": "node -e \"console.log('Tests: 5 passed, 5 total')\""}}
             """

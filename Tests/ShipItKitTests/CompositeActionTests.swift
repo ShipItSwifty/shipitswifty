@@ -1,6 +1,7 @@
 import Foundation
 import SwiftyShell
 import Synchronization
+import TestCommons
 import Testing
 
 @testable import ShipItKit
@@ -194,8 +195,9 @@ struct CompositeActionTests {
 
     @Test("custom_actions decode from YAML through ConfigResolver")
     func yamlRoundTrip() async throws {
-        let tempDirectory = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let tempDirectory = scratch.url
 
         let shipfileURL = tempDirectory.appendingPathComponent("Shipfile.yml")
         try """

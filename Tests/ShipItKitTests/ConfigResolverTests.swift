@@ -1,5 +1,6 @@
 import Foundation
 import SwiftyShell
+import TestCommons
 import Testing
 
 @testable import ShipItKit
@@ -9,8 +10,9 @@ struct ConfigResolverTests {
 
     @Test("Shipfile overrides environment values")
     func shipfileOverridesEnvironment() async throws {
-        let tempDirectory = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let tempDirectory = scratch.url
 
         let shipfileURL = tempDirectory.appendingPathComponent("Shipfile.yml")
         try """
@@ -53,8 +55,9 @@ struct ConfigResolverTests {
 
     @Test("Relative paths resolve from the Shipfile directory")
     func relativePathsResolveFromShipfileDirectory() async throws {
-        let tempDirectory = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let tempDirectory = scratch.url
         let shipfileURL = tempDirectory.appendingPathComponent("Shipfile.yml")
         try """
         platform: android
@@ -96,8 +99,9 @@ struct ConfigResolverTests {
 
     @Test("CLI overrides environment and shipfile values")
     func cliOverridesEnvironment() async throws {
-        let tempDirectory = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let tempDirectory = scratch.url
 
         let shipfileURL = tempDirectory.appendingPathComponent("Shipfile.yml")
         try """
@@ -124,8 +128,9 @@ struct ConfigResolverTests {
 
     @Test("Platform resolves from Shipfile when no higher-priority override exists")
     func platformResolvesFromShipfile() async throws {
-        let tempDirectory = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let tempDirectory = scratch.url
 
         let shipfileURL = tempDirectory.appendingPathComponent("Shipfile.yml")
         try """
@@ -142,8 +147,9 @@ struct ConfigResolverTests {
 
     @Test("CLI platform overrides Shipfile platform")
     func cliPlatformOverridesShipfilePlatform() async throws {
-        let tempDirectory = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let tempDirectory = scratch.url
 
         let shipfileURL = tempDirectory.appendingPathComponent("Shipfile.yml")
         try """
@@ -163,8 +169,9 @@ struct ConfigResolverTests {
 
     @Test("Android task scope and test emulators resolve from Shipfile")
     func androidTaskScopeAndTestEmulatorsResolveFromShipfile() async throws {
-        let tempDirectory = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let tempDirectory = scratch.url
 
         let shipfileURL = tempDirectory.appendingPathComponent("Shipfile.yml")
         try """
@@ -194,8 +201,9 @@ struct ConfigResolverTests {
 
     @Test("Android flavor resolves into Gradle properties")
     func androidFlavorResolvesIntoGradleProperties() async throws {
-        let tempDirectory = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let tempDirectory = scratch.url
 
         let shipfileURL = tempDirectory.appendingPathComponent("Shipfile.yml")
         try """
@@ -225,8 +233,9 @@ struct ConfigResolverTests {
 
     @Test("CLI scheme override preserves workspace resolution")
     func cliSchemePreservesWorkspace() async throws {
-        let tempDirectory = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let tempDirectory = scratch.url
 
         let shipfileURL = tempDirectory.appendingPathComponent("Shipfile.yml")
         try """
@@ -260,8 +269,9 @@ struct ConfigResolverTests {
 
     @Test("Shipfile raw ASC private key is loaded")
     func privateKeyFromShipfile() async throws {
-        let tempDirectory = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let tempDirectory = scratch.url
 
         let shipfileURL = tempDirectory.appendingPathComponent("Shipfile.yml")
         try """
@@ -282,8 +292,9 @@ struct ConfigResolverTests {
 
     @Test("Processed files include Shipfile and ASC key file")
     func processedFilesIncludeLoadedConfigFiles() async throws {
-        let tempDirectory = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let tempDirectory = scratch.url
 
         let privateKeyURL = tempDirectory.appendingPathComponent("AuthKey_TEST.p8")
         try "PRIVATE-KEY-DATA".write(to: privateKeyURL, atomically: true, encoding: .utf8)
@@ -339,8 +350,9 @@ struct ConfigResolverTests {
             shell: ShellContext(executor: executor)
         )
 
-        let tempDirectory = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let tempDirectory = scratch.url
 
         let shipfileURL = tempDirectory.appendingPathComponent("Shipfile.yml")
         try """
@@ -360,8 +372,9 @@ struct ConfigResolverTests {
 
     @Test("Automatic code signing flag resolves from Shipfile")
     func automaticCodeSigningFromShipfile() async throws {
-        let tempDirectory = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let tempDirectory = scratch.url
 
         let shipfileURL = tempDirectory.appendingPathComponent("Shipfile.yml")
         try """
@@ -381,8 +394,9 @@ struct ConfigResolverTests {
 
     @Test("Manual signing paths are preferred over base64 fallbacks")
     func manualSigningPathsPreferredOverBase64() async throws {
-        let tempDirectory = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let tempDirectory = scratch.url
 
         let p12URL = tempDirectory.appendingPathComponent("distribution.p12")
         let profileURL = tempDirectory.appendingPathComponent("AppStore.mobileprovision")
@@ -416,8 +430,9 @@ struct ConfigResolverTests {
 
     @Test("Manual signing falls back to base64 when paths are missing")
     func manualSigningFallsBackToBase64() async throws {
-        let tempDirectory = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let tempDirectory = scratch.url
 
         let shipfileURL = tempDirectory.appendingPathComponent("Shipfile.yml")
         try """
@@ -460,18 +475,13 @@ struct ConfigResolverTests {
         }
     }
 
-    private func makeTempDirectory() throws -> URL {
-        let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
-        try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
-        return url
-    }
-
     // MARK: - Project generation config
 
     @Test("Resolves project generation config from Shipfile")
     func resolvesProjectGenerationConfig() async throws {
-        let tempDirectory = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let tempDirectory = scratch.url
 
         let shipfileURL = tempDirectory.appendingPathComponent("Shipfile.yml")
         try """
@@ -498,8 +508,9 @@ struct ConfigResolverTests {
 
     @Test("Project generation defaults auto_generate to true when not specified")
     func projectGenerationDefaultsAutoGenerate() async throws {
-        let tempDirectory = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let tempDirectory = scratch.url
 
         let shipfileURL = tempDirectory.appendingPathComponent("Shipfile.yml")
         try """
@@ -518,8 +529,9 @@ struct ConfigResolverTests {
 
     @Test("Default project generation command is derived from tool name")
     func defaultProjectGenerationCommandFromTool() async throws {
-        let tempDirectory = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let tempDirectory = scratch.url
 
         let shipfileURL = tempDirectory.appendingPathComponent("Shipfile.yml")
         try """
@@ -538,8 +550,9 @@ struct ConfigResolverTests {
 
     @Test("versioning.spec_path falls back to project_generation.spec_path")
     func versioningSpecPathFallsBack() async throws {
-        let tempDirectory = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let tempDirectory = scratch.url
 
         let shipfileURL = tempDirectory.appendingPathComponent("Shipfile.yml")
         try """
@@ -561,8 +574,9 @@ struct ConfigResolverTests {
 
     @Test("Explicit versioning.spec_path overrides project_generation.spec_path")
     func explicitVersioningSpecPathOverrides() async throws {
-        let tempDirectory = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let tempDirectory = scratch.url
 
         let shipfileURL = tempDirectory.appendingPathComponent("Shipfile.yml")
         try """
@@ -585,8 +599,9 @@ struct ConfigResolverTests {
 
     @Test("Versioning custom build_key and marketing_key are resolved")
     func versioningCustomKeysResolved() async throws {
-        let tempDirectory = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let tempDirectory = scratch.url
 
         let shipfileURL = tempDirectory.appendingPathComponent("Shipfile.yml")
         try """
@@ -607,8 +622,9 @@ struct ConfigResolverTests {
 
     @Test("Versioning keys default to standard Xcode names")
     func versioningKeysDefaults() async throws {
-        let tempDirectory = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let tempDirectory = scratch.url
 
         let shipfileURL = tempDirectory.appendingPathComponent("Shipfile.yml")
         try """
@@ -625,8 +641,9 @@ struct ConfigResolverTests {
 
     @Test("No project generation config when block is absent")
     func noProjectGenerationWhenAbsent() async throws {
-        let tempDirectory = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let tempDirectory = scratch.url
 
         let shipfileURL = tempDirectory.appendingPathComponent("Shipfile.yml")
         try """
@@ -653,8 +670,9 @@ struct ConfigResolverTests {
         setenv(varName, "ExpandedScheme", 1)
         defer { unsetenv(varName) }
 
-        let tempDirectory = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let tempDirectory = scratch.url
 
         let shipfileURL = tempDirectory.appendingPathComponent("Shipfile.yml")
         try """
@@ -673,8 +691,9 @@ struct ConfigResolverTests {
         let varName = "SHIPIT_TEST_UNDEFINED_\(UUID().uuidString.replacingOccurrences(of: "-", with: ""))"
         // Deliberately NOT set in the environment.
 
-        let tempDirectory = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let tempDirectory = scratch.url
 
         let shipfileURL = tempDirectory.appendingPathComponent("Shipfile.yml")
         try """
@@ -692,8 +711,9 @@ struct ConfigResolverTests {
 
     @Test("AndroidCLI is disabled by default and resolves explicit Shipfile settings")
     func androidCLIConfiguration() async throws {
-        let tempDirectory = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let tempDirectory = scratch.url
         let shipfileURL = tempDirectory.appendingPathComponent("Shipfile.yml")
         try """
         platform: android
