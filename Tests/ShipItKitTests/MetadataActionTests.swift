@@ -1,6 +1,7 @@
 #if os(macOS)
 import Foundation
 import Testing
+import TestCommons
 
 @testable import ShipItKit
 
@@ -9,8 +10,9 @@ struct MetadataActionTests {
 
     @Test("MetadataAction pull writes localized metadata files")
     func pullWritesMetadataFiles() async throws {
-        let tempDirectory = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let tempDirectory = scratch.url
 
         let client = makeClient(responses: [
             .json([
@@ -80,8 +82,9 @@ struct MetadataActionTests {
 
     @Test("MetadataAction push updates existing locale metadata")
     func pushUpdatesExistingLocale() async throws {
-        let tempDirectory = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let tempDirectory = scratch.url
 
         let localeDirectory = tempDirectory.appendingPathComponent("en-US")
         try FileManager.default.createDirectory(at: localeDirectory, withIntermediateDirectories: true)
@@ -159,8 +162,9 @@ struct MetadataActionTests {
 
     @Test("MetadataAction creates missing app info localization")
     func pushCreatesMissingAppInfoLocalization() async throws {
-        let tempDirectory = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let tempDirectory = scratch.url
 
         let localeDirectory = tempDirectory.appendingPathComponent("fr-FR")
         try FileManager.default.createDirectory(at: localeDirectory, withIntermediateDirectories: true)
@@ -216,8 +220,9 @@ struct MetadataActionTests {
 
     @Test("MetadataAction can submit pushed metadata for review")
     func pushSubmitsForReview() async throws {
-        let tempDirectory = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let tempDirectory = scratch.url
 
         let localeDirectory = tempDirectory.appendingPathComponent("en-US")
         try FileManager.default.createDirectory(at: localeDirectory, withIntermediateDirectories: true)
@@ -328,9 +333,4 @@ struct MetadataActionTests {
     }
 }
 
-func makeTempDirectory() throws -> URL {
-    let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
-    try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
-    return url
-}
 #endif

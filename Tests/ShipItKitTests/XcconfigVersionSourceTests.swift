@@ -1,5 +1,6 @@
 import Foundation
 import SwiftyShell
+import TestCommons
 import Testing
 
 @testable import ShipItKit
@@ -26,23 +27,19 @@ struct XcconfigVersionSourceTests {
         return makeTestActionContext(executor: executor, config: config, platform: .ios)
     }
 
-    private func writeTempXcconfig(_ content: String) throws -> URL {
-        let dir = try makeTempDirectory()
-        let configDir = dir.appendingPathComponent("Config")
-        try FileManager.default.createDirectory(at: configDir, withIntermediateDirectories: true)
-        let file = configDir.appendingPathComponent("Version.xcconfig")
-        try content.write(to: file, atomically: true, encoding: .utf8)
-        return file
+    private func writeTempXcconfig(_ content: String, in scratch: TemporaryDirectory) throws -> URL {
+        try scratch.write(Data(content.utf8), named: "Config/Version.xcconfig")
     }
 
     @Test("Reads custom marketing version and build number keys")
     func readsCustomKeys() async throws {
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
         let file = try writeTempXcconfig(
             """
             JOT_MARKETING_VERSION = 1.0.0
             JOT_BUILD_NUMBER = 1
-            """)
-        defer { try? FileManager.default.removeItem(at: file.deletingLastPathComponent()) }
+            """, in: scratch)
 
         let bumper = VersionBumper(context: makeContext(path: file.path))
         #expect(try await bumper.readVersion() == "1.0.0")
@@ -51,13 +48,14 @@ struct XcconfigVersionSourceTests {
 
     @Test("Bumping the build number rewrites only the build key")
     func bumpsBuildNumber() async throws {
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
         let file = try writeTempXcconfig(
             """
             // Single source of truth for app version.
             JOT_MARKETING_VERSION = 2.3.1
             JOT_BUILD_NUMBER = 7
-            """)
-        defer { try? FileManager.default.removeItem(at: file.deletingLastPathComponent()) }
+            """, in: scratch)
 
         let result = try await VersionBumper(context: makeContext(path: file.path))
             .bump(options: VersionAction.Options(bump: .build))
@@ -74,12 +72,13 @@ struct XcconfigVersionSourceTests {
 
     @Test("Bumping the marketing version rewrites only the marketing key")
     func bumpsMarketingVersion() async throws {
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
         let file = try writeTempXcconfig(
             """
             JOT_MARKETING_VERSION = 1.4.9
             JOT_BUILD_NUMBER = 12
-            """)
-        defer { try? FileManager.default.removeItem(at: file.deletingLastPathComponent()) }
+            """, in: scratch)
 
         let result = try await VersionBumper(context: makeContext(path: file.path))
             .bump(options: VersionAction.Options(bump: .minor))
@@ -94,12 +93,13 @@ struct XcconfigVersionSourceTests {
 
     @Test("Setting explicit values writes both keys")
     func setsExplicitValues() async throws {
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
         let file = try writeTempXcconfig(
             """
             JOT_MARKETING_VERSION = 1.0.0
             JOT_BUILD_NUMBER = 1
-            """)
-        defer { try? FileManager.default.removeItem(at: file.deletingLastPathComponent()) }
+            """, in: scratch)
 
         _ = try await VersionBumper(context: makeContext(path: file.path)).bump(
             options: VersionAction.Options(bump: .set, version: "9.8.7", buildNumber: "42"))
@@ -111,13 +111,14 @@ struct XcconfigVersionSourceTests {
 
     @Test("Indentation and inline comments are preserved/handled")
     func preservesIndentAndStripsComment() async throws {
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
         let file = try writeTempXcconfig(
             """
             #include "Shared.xcconfig"
                 JOT_MARKETING_VERSION = 3.0.0 // marketing
                 JOT_BUILD_NUMBER = 5
-            """)
-        defer { try? FileManager.default.removeItem(at: file.deletingLastPathComponent()) }
+            """, in: scratch)
 
         let bumper = VersionBumper(context: makeContext(path: file.path))
         // Inline comment stripped on read.
@@ -133,13 +134,14 @@ struct XcconfigVersionSourceTests {
 
     @Test("A key sharing a prefix is not matched")
     func prefixCollisionGuard() async throws {
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
         let file = try writeTempXcconfig(
             """
             JOT_MARKETING_VERSION = 1.0.0
             JOT_BUILD_NUMBER_SUFFIX = beta
             JOT_BUILD_NUMBER = 3
-            """)
-        defer { try? FileManager.default.removeItem(at: file.deletingLastPathComponent()) }
+            """, in: scratch)
 
         let bumper = VersionBumper(context: makeContext(path: file.path))
         #expect(try await bumper.readBuildNumber() == "3")
@@ -153,8 +155,9 @@ struct XcconfigVersionSourceTests {
 
     @Test("Missing key throws invalidConfiguration")
     func missingKeyThrows() async throws {
-        let file = try writeTempXcconfig("JOT_BUILD_NUMBER = 1")
-        defer { try? FileManager.default.removeItem(at: file.deletingLastPathComponent()) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let file = try writeTempXcconfig("JOT_BUILD_NUMBER = 1", in: scratch)
 
         let bumper = VersionBumper(context: makeContext(path: file.path))
         await #expect {

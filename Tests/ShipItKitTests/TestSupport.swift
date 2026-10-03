@@ -158,13 +158,6 @@ private func makeTestActionContext(
     #endif
 }
 
-func makeTempDirectory(prefix: String = "ShipItTests") throws -> URL {
-    let url = FileManager.default.temporaryDirectory
-        .appendingPathComponent("\(prefix)-\(UUID().uuidString)", isDirectory: true)
-    try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
-    return url
-}
-
 final class MockURLProtocol: URLProtocol {
     private static let handlers: Mutex<[String: @Sendable (URLRequest) -> MockHTTPResponse]> = .init([:])
     private static let latestSessionID: Mutex<String?> = .init(nil)

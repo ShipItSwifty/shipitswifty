@@ -1,5 +1,6 @@
 import Foundation
 import SwiftyShell
+import TestCommons
 import Testing
 
 @testable import ShipItKit
@@ -21,8 +22,9 @@ struct PubspecVersionSourceTests {
 
     @Test("Reads marketing version and build number from version: X.Y.Z+B")
     func readsVersionAndBuild() async throws {
-        let dir = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: dir) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let dir = scratch.url
 
         let pubspecURL = dir.appendingPathComponent("pubspec.yaml")
         try """
@@ -43,8 +45,9 @@ struct PubspecVersionSourceTests {
 
     @Test("Build number reads as 0 when the +build suffix is absent")
     func missingBuildSuffixReadsAsZero() async throws {
-        let dir = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: dir) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let dir = scratch.url
 
         let pubspecURL = dir.appendingPathComponent("pubspec.yaml")
         try """
@@ -59,8 +62,9 @@ struct PubspecVersionSourceTests {
 
     @Test("Quoted version values parse and inline comments are preserved on write")
     func quotedValueAndInlineComment() async throws {
-        let dir = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: dir) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let dir = scratch.url
 
         let pubspecURL = dir.appendingPathComponent("pubspec.yaml")
         try """
@@ -81,8 +85,9 @@ struct PubspecVersionSourceTests {
 
     @Test("Bumping the build number rewrites only the top-level version line")
     func bumpsBuildNumber() async throws {
-        let dir = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: dir) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let dir = scratch.url
 
         let pubspecURL = dir.appendingPathComponent("pubspec.yaml")
         try """
@@ -113,8 +118,9 @@ struct PubspecVersionSourceTests {
 
     @Test("Setting an explicit version and build writes a combined version: value")
     func setsExplicitVersion() async throws {
-        let dir = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: dir) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let dir = scratch.url
 
         let pubspecURL = dir.appendingPathComponent("pubspec.yaml")
         try """
@@ -151,8 +157,9 @@ struct PubspecVersionSourceTests {
 
     @Test("Missing top-level version key throws an actionable invalidConfiguration error")
     func missingVersionKeyThrows() async throws {
-        let dir = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: dir) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let dir = scratch.url
 
         let pubspecURL = dir.appendingPathComponent("pubspec.yaml")
         try """

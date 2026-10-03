@@ -3,6 +3,7 @@ import Foundation
 import GoogleAuthKit
 import GooglePlayKit
 import SwiftyShell
+import TestCommons
 import Testing
 
 @testable import ShipItKit
@@ -74,8 +75,9 @@ struct PlayStoreActionTests {
     @Test("PlayStoreAction resolves relative AAB path against shell workingDirectory")
     func relativeAABPathAnchoredToWorkingDirectory() async throws {
         // Arrange: create a temp project directory with an AAB at the conventional location
-        let projectDir = try makeTempDirectory(prefix: "PlayStoreTests")
-        defer { try? FileManager.default.removeItem(at: projectDir) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let projectDir = scratch.url
 
         let aabRelative = "app/build/outputs/bundle/release/app-release.aab"
         let aabURL = projectDir.appendingPathComponent(aabRelative, isDirectory: false)
@@ -126,8 +128,9 @@ struct PlayStoreActionTests {
 
     @Test("PlayStoreAction throws invalidConfiguration when AAB not found at anchored path")
     func throwsWhenAABMissingAtAnchoredPath() async throws {
-        let projectDir = try makeTempDirectory(prefix: "PlayStoreTests")
-        defer { try? FileManager.default.removeItem(at: projectDir) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let projectDir = scratch.url
 
         // Do NOT create the AAB — the action should throw before hitting the API
 
@@ -144,8 +147,9 @@ struct PlayStoreActionTests {
     @Test("PlayStoreAction uses per-step buildVariant for artifact path discovery")
     func perStepBuildVariantOverridesConfig() async throws {
         // Arrange: config says "release" but step options say "prodRelease"
-        let projectDir = try makeTempDirectory(prefix: "PlayStoreTests")
-        defer { try? FileManager.default.removeItem(at: projectDir) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let projectDir = scratch.url
 
         let aabRelative = "app/build/outputs/bundle/prodRelease/app-prod-release.aab"
         let aabURL = projectDir.appendingPathComponent(aabRelative, isDirectory: false)

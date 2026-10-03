@@ -1,4 +1,5 @@
 import Foundation
+import TestCommons
 import Testing
 
 @testable import ShipItKit
@@ -8,8 +9,9 @@ struct JestJSONTestParserTests {
 
     @Test("Parses Jest JSON output into normalized test cases")
     func parsesJestJSON() async throws {
-        let temp = try makeTempDirectory(prefix: "JestJSON")
-        defer { try? FileManager.default.removeItem(at: temp) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let temp = scratch.url
 
         let file = temp.appendingPathComponent("jest-results.json")
         let json = """

@@ -1,5 +1,6 @@
 import Foundation
 import SwiftyShell
+import TestCommons
 import Testing
 
 @testable import ShipItKit
@@ -9,8 +10,9 @@ struct ProjectInspectorBuildSystemTests {
 
     @Test("Detects KMP via build.gradle.kts using kotlin(\"multiplatform\")")
     func detectsKMP() async throws {
-        let dir = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: dir) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let dir = scratch.url
 
         try """
         plugins {
@@ -36,8 +38,9 @@ struct ProjectInspectorBuildSystemTests {
 
     @Test("Detects Flutter via pubspec.yaml with a flutter: key")
     func detectsFlutter() async throws {
-        let dir = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: dir) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let dir = scratch.url
 
         try """
         name: demo
@@ -63,8 +66,9 @@ struct ProjectInspectorBuildSystemTests {
 
     @Test("Detects React Native via package.json")
     func detectsReactNative() async throws {
-        let dir = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: dir) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let dir = scratch.url
 
         try """
         {
@@ -93,8 +97,9 @@ struct ProjectInspectorBuildSystemTests {
 
     @Test("Returns nil for a vanilla native project")
     func nativeProjectHasNilBuildSystem() async throws {
-        let dir = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: dir) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let dir = scratch.url
 
         let executor = MockExecutor { _, _ in
             ShellOutput(stdout: "", stderr: "", exitCode: 0)

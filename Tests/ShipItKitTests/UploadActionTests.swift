@@ -3,6 +3,7 @@ import AppStoreConnectKit
 import Foundation
 import SwiftyShell
 import Testing
+import TestCommons
 
 @testable import ShipItKit
 
@@ -11,8 +12,9 @@ struct UploadActionTests {
 
     @Test("UploadAction uploads IPA and returns build id")
     func uploadsIPA() async throws {
-        let tempDirectory = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let tempDirectory = scratch.url
 
         let ipaURL = tempDirectory.appendingPathComponent("Example.ipa")
         try Data("ipa-data".utf8).write(to: ipaURL)
@@ -64,8 +66,9 @@ struct UploadActionTests {
 
     @Test("UploadAction can create a review submission")
     func uploadCreatesReviewSubmission() async throws {
-        let tempDirectory = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let tempDirectory = scratch.url
 
         let ipaURL = tempDirectory.appendingPathComponent("Example.ipa")
         try Data("ipa-data".utf8).write(to: ipaURL)
@@ -138,8 +141,9 @@ struct UploadActionTests {
 
     @Test("UploadAction discovers Flutter IPA output when export directory is absent")
     func uploadDiscoversFlutterIPAOutput() async throws {
-        let tempDirectory = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let tempDirectory = scratch.url
 
         let ipaDirectory = tempDirectory.appendingPathComponent("build/ios/ipa", isDirectory: true)
         try FileManager.default.createDirectory(at: ipaDirectory, withIntermediateDirectories: true)
@@ -180,12 +184,6 @@ struct UploadActionTests {
     }
 
     // MARK: - Helpers
-
-    private func makeTempDirectory() throws -> URL {
-        let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
-        try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
-        return url
-    }
 
     private func makeContext(
         executor: MockExecutor,

@@ -1,5 +1,6 @@
 import Foundation
 import SwiftyShell
+import TestCommons
 import Testing
 
 @testable import ShipItKit
@@ -10,8 +11,9 @@ struct GradleVersionSourceTests {
 
     @Test("Reads versionName and versionCode from build.gradle.kts (Kotlin DSL)")
     func readsKotlinDSL() async throws {
-        let dir = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: dir) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let dir = scratch.url
 
         let appDir = dir.appendingPathComponent("app")
         try FileManager.default.createDirectory(at: appDir, withIntermediateDirectories: true)
@@ -50,8 +52,9 @@ struct GradleVersionSourceTests {
 
     @Test("Reads versionName and versionCode from build.gradle (Groovy DSL)")
     func readsGroovyDSL() async throws {
-        let dir = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: dir) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let dir = scratch.url
 
         let appDir = dir.appendingPathComponent("app")
         try FileManager.default.createDirectory(at: appDir, withIntermediateDirectories: true)
@@ -86,8 +89,9 @@ struct GradleVersionSourceTests {
 
     @Test("Bumping the build number rewrites only versionCode")
     func bumpsBuildNumber() async throws {
-        let dir = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: dir) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let dir = scratch.url
 
         let appDir = dir.appendingPathComponent("app")
         try FileManager.default.createDirectory(at: appDir, withIntermediateDirectories: true)
@@ -127,8 +131,9 @@ struct GradleVersionSourceTests {
 
     @Test("Setting an explicit version writes both values")
     func setsExplicitVersion() async throws {
-        let dir = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: dir) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let dir = scratch.url
 
         let appDir = dir.appendingPathComponent("app")
         try FileManager.default.createDirectory(at: appDir, withIntermediateDirectories: true)
@@ -164,8 +169,9 @@ struct GradleVersionSourceTests {
 
     @Test("Missing versionName throws invalidConfiguration")
     func missingVersionNameThrows() async throws {
-        let dir = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: dir) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let dir = scratch.url
 
         let appDir = dir.appendingPathComponent("app")
         try FileManager.default.createDirectory(at: appDir, withIntermediateDirectories: true)

@@ -1,6 +1,7 @@
 import Foundation
 import SwiftyShell
 import Synchronization
+import TestCommons
 import Testing
 
 @testable import ShipItKit
@@ -38,8 +39,9 @@ struct TestActionAndroidRerunTests {
 
     @Test("A failed Gradle run is re-run with --tests after the task, and flaky tests pass the action")
     func flakyFailureIsRerunAndPasses() async throws {
-        let tempDirectory = try makeTempDirectory(prefix: "AndroidRerunFlaky")
-        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let tempDirectory = scratch.url
         let reportPath = tempDirectory.appendingPathComponent("report.json").path
 
         let (executor, commands) = makeCaptureExecutor { command, _ in
@@ -66,8 +68,9 @@ struct TestActionAndroidRerunTests {
 
     @Test("Failures that persist after the rerun still fail the action and write the report")
     func persistentFailureThrows() async throws {
-        let tempDirectory = try makeTempDirectory(prefix: "AndroidRerunPersistent")
-        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let tempDirectory = scratch.url
         let reportPath = tempDirectory.appendingPathComponent("report.json").path
 
         let (executor, commands) = makeCaptureExecutor { command, _ in
@@ -99,8 +102,9 @@ struct TestActionAndroidRerunTests {
 
     @Test("Without reruns a failed Gradle run throws immediately")
     func rerunDisabledThrows() async throws {
-        let tempDirectory = try makeTempDirectory(prefix: "AndroidRerunDisabled")
-        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let tempDirectory = scratch.url
 
         let (executor, commands) = makeCaptureExecutor { _, _ in
             ShellOutput(stdout: Self.failingOutput, stderr: "", exitCode: 1)
@@ -117,8 +121,9 @@ struct TestActionAndroidRerunTests {
 
     @Test("A failure that names no tests (e.g. compilation) is not re-run")
     func nonTestFailureIsNotRerun() async throws {
-        let tempDirectory = try makeTempDirectory(prefix: "AndroidRerunCompile")
-        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let tempDirectory = scratch.url
 
         let (executor, commands) = makeCaptureExecutor { _, _ in
             ShellOutput(stdout: "", stderr: "e: Unresolved reference: foo\nFAILURE: Build failed", exitCode: 1)
@@ -135,8 +140,9 @@ struct TestActionAndroidRerunTests {
 
     @Test("JUnit XML reports supply fully-qualified rerun filters")
     func junitReportsDriveRerunFilters() async throws {
-        let tempDirectory = try makeTempDirectory(prefix: "AndroidRerunJUnit")
-        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let tempDirectory = scratch.url
 
         let reportDirectory = tempDirectory.appendingPathComponent("app/build/test-results/testDebugUnitTest")
         try FileManager.default.createDirectory(at: reportDirectory, withIntermediateDirectories: true)
@@ -173,8 +179,9 @@ struct TestActionAndroidRerunTests {
     }
     @Test("A new failure on rerun cannot turn two nonzero exits into success")
     func changedFailureStillThrows() async throws {
-        let directory = try makeTempDirectory(prefix: "AndroidChangedFailure")
-        defer { try? FileManager.default.removeItem(at: directory) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let directory = scratch.url
         let reportPath = directory.appendingPathComponent("report.json").path
         let (executor, _) = makeCaptureExecutor { command, _ in
             let name = command.description.contains("--tests") ? "initializationError" : "testOfflineMode"
@@ -192,8 +199,9 @@ struct TestActionAndroidRerunTests {
 
     @Test("A skipped rerun does not resolve an initial failure")
     func skippedRerunStillThrows() async throws {
-        let directory = try makeTempDirectory(prefix: "AndroidSkippedRerun")
-        defer { try? FileManager.default.removeItem(at: directory) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let directory = scratch.url
         let (executor, _) = makeCaptureExecutor { command, _ in
             if command.description.contains("--tests") {
                 return ShellOutput(stdout: "1 tests completed, 0 failed, 1 skipped\n", stderr: "", exitCode: 0)
@@ -209,8 +217,9 @@ struct TestActionAndroidRerunTests {
         "Root reruns include failures from every module; module reruns exclude unrelated reports",
         arguments: [GradleTaskScope.root, .module])
     func reportDiscoveryRespectsScope(scope: GradleTaskScope) async throws {
-        let directory = try makeTempDirectory(prefix: "AndroidReportScope")
-        defer { try? FileManager.default.removeItem(at: directory) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let directory = scratch.url
         for module in ["app", "feature"] {
             let reports = directory.appendingPathComponent("\(module)/build/test-results/testDebugUnitTest")
             try FileManager.default.createDirectory(at: reports, withIntermediateDirectories: true)
@@ -261,8 +270,9 @@ struct TestActionAndroidRerunTests {
 
     @Test("Android honors the attempt limit and stops after recovery", arguments: [1, 2, 3, 4])
     func respectsAttemptLimit(maxAttempts: Int) async throws {
-        let directory = try makeTempDirectory(prefix: "AndroidAttemptLimit")
-        defer { try? FileManager.default.removeItem(at: directory) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let directory = scratch.url
         let attempt = Mutex(0)
         let (executor, commands) = makeCaptureExecutor { _, _ in
             let current = attempt.withLock {
@@ -291,8 +301,9 @@ struct TestActionAndroidRerunTests {
 
     @Test("Android persistent failures exhaust all configured attempts")
     func persistentFailureExhaustsAttempts() async throws {
-        let directory = try makeTempDirectory(prefix: "AndroidExhaustAttempts")
-        defer { try? FileManager.default.removeItem(at: directory) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let directory = scratch.url
         let reportPath = directory.appendingPathComponent("report.json").path
         let (executor, commands) = makeCaptureExecutor { _, _ in
             ShellOutput(stdout: Self.failingOutput, stderr: "", exitCode: 1)

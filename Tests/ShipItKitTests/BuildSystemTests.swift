@@ -1,4 +1,5 @@
 import Foundation
+import TestCommons
 import Testing
 
 @testable import ShipItKit
@@ -27,8 +28,9 @@ struct BuildSystemTests {
 
     @Test("autoDetect returns .flutter when pubspec.yaml has a flutter: key")
     func detectsFlutter() throws {
-        let dir = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: dir) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let dir = scratch.url
 
         try """
         name: demo
@@ -46,8 +48,9 @@ struct BuildSystemTests {
 
     @Test("autoDetect ignores pubspec.yaml without a flutter: key")
     func ignoresDartOnlyPubspec() throws {
-        let dir = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: dir) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let dir = scratch.url
 
         try """
         name: demo
@@ -65,8 +68,9 @@ struct BuildSystemTests {
 
     @Test("autoDetect returns .reactNative when package.json has react-native dep")
     func detectsReactNative() throws {
-        let dir = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: dir) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let dir = scratch.url
 
         try """
         {
@@ -88,8 +92,9 @@ struct BuildSystemTests {
 
     @Test("autoDetect returns .reactNative when react-native is in devDependencies")
     func detectsReactNativeInDevDependencies() throws {
-        let dir = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: dir) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let dir = scratch.url
 
         try """
         {
@@ -109,8 +114,9 @@ struct BuildSystemTests {
 
     @Test("autoDetect ignores package.json without react-native")
     func ignoresUnrelatedPackageJson() throws {
-        let dir = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: dir) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let dir = scratch.url
 
         try """
         {
@@ -128,8 +134,9 @@ struct BuildSystemTests {
 
     @Test("autoDetect returns .kmp when build.gradle.kts applies kotlin(\"multiplatform\")")
     func detectsKMPViaKotlinDsl() throws {
-        let dir = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: dir) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let dir = scratch.url
 
         try """
         plugins {
@@ -147,8 +154,9 @@ struct BuildSystemTests {
 
     @Test("autoDetect returns .kmp via the jetbrains plugin id form")
     func detectsKMPViaJetbrainsPluginId() throws {
-        let dir = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: dir) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let dir = scratch.url
 
         try """
         plugins {
@@ -165,8 +173,9 @@ struct BuildSystemTests {
 
     @Test("autoDetect returns nil for a plain Android Gradle project")
     func ignoresPlainGradle() throws {
-        let dir = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: dir) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let dir = scratch.url
 
         try """
         plugins {
@@ -184,16 +193,18 @@ struct BuildSystemTests {
 
     @Test("autoDetect returns nil for an empty directory")
     func returnsNilForEmptyDirectory() throws {
-        let dir = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: dir) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let dir = scratch.url
 
         #expect(BuildSystem.autoDetect(in: dir.path) == nil)
     }
 
     @Test("autoDetect prefers Flutter over Gradle when both files are present")
     func flutterWinsOverGradle() throws {
-        let dir = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: dir) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let dir = scratch.url
 
         try """
         name: demo
@@ -220,8 +231,9 @@ struct BuildSystemTests {
 
     @Test("autoDetect returns .kmp when the plugin ID is only in gradle/libs.versions.toml")
     func detectsKMPViaVersionCatalog() throws {
-        let dir = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: dir) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let dir = scratch.url
 
         // JetBrains wizard layout: the root build file only references the catalog alias,
         // so none of the plugin-ID literals appear in any build.gradle.kts.
@@ -256,8 +268,9 @@ struct BuildSystemTests {
 
     @Test("autoDetect returns .kmp when only a module-level build file applies the plugin")
     func detectsKMPViaModuleBuildFile() throws {
-        let dir = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: dir) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let dir = scratch.url
 
         try """
         // Root build file with no plugin references.
@@ -284,8 +297,9 @@ struct BuildSystemTests {
 
     @Test("autoDetect ignores a version catalog without the KMP plugin ID")
     func ignoresVersionCatalogWithoutKMP() throws {
-        let dir = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: dir) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let dir = scratch.url
 
         let gradleDir = dir.appendingPathComponent("gradle")
         try FileManager.default.createDirectory(at: gradleDir, withIntermediateDirectories: true)

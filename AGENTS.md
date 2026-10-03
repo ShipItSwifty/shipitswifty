@@ -431,6 +431,7 @@ Every subcommand inherits `GlobalOptions`: `--shipfile`, `--output (human|json)`
 - **Linux first:** Keep Android, config, and parser tests outside `#if os(macOS)` so both CI jobs run them.
 - **Shell mocking:** Inject a `MockExecutor` from SwiftyShell. Use `ActionContext.mock(executor:)` — it wires a `MockExecutor` into a fully-formed `ActionContext` without spawning real processes.
 - **HTTP mocking:** Use `makeClient(responses:)` + `MockURLProtocol` from `Tests/ShipItKitTests/TestSupport.swift` to queue canned HTTP responses for ASC API tests.
+- **Scratch directories:** Use `TemporaryDirectory` from [SwiftTestCommons](https://github.com/maniramezan/SwiftTestCommons) (`let scratch = try TemporaryDirectory(); defer { try? scratch.remove() }`). Create it in the test that owns the files and pass it to helpers; a helper that removes its directory before returning leaves callers with a dangling path. TestCommons is linked into test targets only.
 - All tests use Swift Testing (`@Test`) where possible per project conventions.
 
 ## Plugin system

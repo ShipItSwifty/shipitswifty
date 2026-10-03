@@ -3,6 +3,7 @@ import AppStoreConnectKit
 import Foundation
 import SwiftyShell
 import Testing
+import TestCommons
 
 @testable import ShipItKit
 

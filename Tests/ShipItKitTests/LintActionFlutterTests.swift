@@ -1,5 +1,6 @@
 import Foundation
 import SwiftyShell
+import TestCommons
 import Testing
 
 @testable import ShipItKit
@@ -49,7 +50,9 @@ struct LintActionFlutterTests {
 
     @Test("React Native lint runs package manager lint script")
     func rnLintRunsPackageManagerScript() async throws {
-        let tempDir = try makeTempDirectory(prefix: "RNLintAction")
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let tempDir = scratch.url
         let packageJSON = """
             {
               "name": "my-app",
@@ -82,7 +85,9 @@ struct LintActionFlutterTests {
 
     @Test("React Native lint auto-installs when node_modules is absent")
     func rnLintAutoInstallsWhenNodeModulesMissing() async throws {
-        let tempDir = try makeTempDirectory(prefix: "RNLintAutoInstall")
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let tempDir = scratch.url
         let packageJSON = """
             {"name": "my-app", "scripts": {"lint": "eslint src/"}}
             """
@@ -116,7 +121,9 @@ struct LintActionFlutterTests {
 
     @Test("React Native lint skips install when node_modules already present")
     func rnLintSkipsInstallWhenNodeModulesPresent() async throws {
-        let tempDir = try makeTempDirectory(prefix: "RNLintSkipInstall")
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let tempDir = scratch.url
         let packageJSON = """
             {"name": "my-app", "scripts": {"lint": "eslint src/"}}
             """
@@ -149,7 +156,9 @@ struct LintActionFlutterTests {
 
     @Test("React Native lint throws when lint script missing and failOnError is true")
     func rnLintThrowsWhenScriptMissing() async throws {
-        let tempDir = try makeTempDirectory(prefix: "RNLintNoScript")
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let tempDir = scratch.url
         let packageJSON = """
             {"name": "my-app", "scripts": {}}
             """
@@ -178,7 +187,9 @@ struct LintActionFlutterTests {
 
     @Test("React Native lint still throws unexpected errors when failOnError is false")
     func rnLintDoesNotSwallowUnexpectedErrors() async throws {
-        let tempDir = try makeTempDirectory(prefix: "RNLintUnexpectedError")
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let tempDir = scratch.url
         let packageJSON = """
             {"name": "my-app", "scripts": {"lint": "eslint src/"}}
             """

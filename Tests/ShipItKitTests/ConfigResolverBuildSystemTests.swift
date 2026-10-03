@@ -1,4 +1,5 @@
 import Foundation
+import TestCommons
 import Testing
 
 @testable import ShipItKit
@@ -8,8 +9,9 @@ struct ConfigResolverBuildSystemTests {
 
     @Test("Defaults to .native when no source sets a build system")
     func defaultsToNative() async throws {
-        let tempDirectory = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let tempDirectory = scratch.url
         let shipfileURL = tempDirectory.appendingPathComponent("Shipfile.yml")
         try """
         app:
@@ -25,8 +27,9 @@ struct ConfigResolverBuildSystemTests {
 
     @Test("Reads build_system from the ios: block")
     func readsIOSShipfileBlock() async throws {
-        let tempDirectory = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let tempDirectory = scratch.url
         let shipfileURL = tempDirectory.appendingPathComponent("Shipfile.yml")
         try """
         app:
@@ -44,8 +47,9 @@ struct ConfigResolverBuildSystemTests {
 
     @Test("Reads build_system from the android: block")
     func readsAndroidShipfileBlock() async throws {
-        let tempDirectory = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let tempDirectory = scratch.url
         let shipfileURL = tempDirectory.appendingPathComponent("Shipfile.yml")
         try """
         android:
@@ -62,8 +66,9 @@ struct ConfigResolverBuildSystemTests {
 
     @Test("Shipfile overrides environment variable (iOS)")
     func shipfileOverridesEnvIOS() async throws {
-        let tempDirectory = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let tempDirectory = scratch.url
         let shipfileURL = tempDirectory.appendingPathComponent("Shipfile.yml")
         try """
         ios:
@@ -81,8 +86,9 @@ struct ConfigResolverBuildSystemTests {
 
     @Test("Shipfile overrides environment variable (Android)")
     func shipfileOverridesEnvAndroid() async throws {
-        let tempDirectory = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let tempDirectory = scratch.url
         let shipfileURL = tempDirectory.appendingPathComponent("Shipfile.yml")
         try """
         android:
@@ -100,8 +106,9 @@ struct ConfigResolverBuildSystemTests {
 
     @Test("Environment variable is used when Shipfile does not set build_system (iOS)")
     func envFallbackWhenNoShipfileIOS() async throws {
-        let tempDirectory = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let tempDirectory = scratch.url
         let shipfileURL = tempDirectory.appendingPathComponent("Shipfile.yml")
         try """
         app:
@@ -119,8 +126,9 @@ struct ConfigResolverBuildSystemTests {
 
     @Test("Environment variable is used when Shipfile does not set build_system (Android)")
     func envFallbackWhenNoShipfileAndroid() async throws {
-        let tempDirectory = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let tempDirectory = scratch.url
         let shipfileURL = tempDirectory.appendingPathComponent("Shipfile.yml")
         try """
         app:
@@ -155,8 +163,9 @@ struct ConfigResolverBuildSystemTests {
         // *inside* that directory. The Shipfile leaves build_system unset, so the
         // detection step must inspect the Shipfile's directory — not cwd — to find
         // the KMP marker and resolve `.kmp`.
-        let tempDirectory = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let tempDirectory = scratch.url
 
         try """
         plugins {
@@ -185,8 +194,9 @@ struct ConfigResolverBuildSystemTests {
 
     @Test("Flutter auto-detection activates flutter build system")
     func flutterAutoDetectionActivatesFlutterBuildSystem() async throws {
-        let tempDirectory = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let tempDirectory = scratch.url
 
         try """
         name: demo
@@ -209,8 +219,9 @@ struct ConfigResolverBuildSystemTests {
 
     @Test("Reads KMP and Gradle execution settings")
     func readsKMPAndGradleSettings() async throws {
-        let tempDirectory = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let tempDirectory = scratch.url
         let shipfileURL = tempDirectory.appendingPathComponent("Shipfile.yml")
         try """
         ios:
@@ -241,8 +252,9 @@ struct ConfigResolverBuildSystemTests {
 
     @Test("Unknown environment value is ignored; Shipfile value wins")
     func unknownEnvFallsThrough() async throws {
-        let tempDirectory = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let tempDirectory = scratch.url
         let shipfileURL = tempDirectory.appendingPathComponent("Shipfile.yml")
         try """
         ios:
@@ -261,8 +273,9 @@ struct ConfigResolverBuildSystemTests {
 
     @Test("Flutter build system defaults versioning source to pubspec")
     func flutterDefaultsVersioningSourceToPubspec() async throws {
-        let tempDirectory = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let tempDirectory = scratch.url
         let shipfileURL = tempDirectory.appendingPathComponent("Shipfile.yml")
         try """
         app:
@@ -281,8 +294,9 @@ struct ConfigResolverBuildSystemTests {
 
     @Test("Explicit versioning source overrides the Flutter pubspec default")
     func explicitVersioningSourceWinsOverFlutterDefault() async throws {
-        let tempDirectory = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let tempDirectory = scratch.url
         let shipfileURL = tempDirectory.appendingPathComponent("Shipfile.yml")
         try """
         app:
@@ -301,8 +315,9 @@ struct ConfigResolverBuildSystemTests {
 
     @Test("Native build system keeps the platform versioning source defaults")
     func nativeKeepsPlatformVersioningDefaults() async throws {
-        let tempDirectory = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let tempDirectory = scratch.url
         let shipfileURL = tempDirectory.appendingPathComponent("Shipfile.yml")
         try "app:\n  scheme: MyApp\n".write(to: shipfileURL, atomically: true, encoding: .utf8)
 

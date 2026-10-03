@@ -2,6 +2,7 @@
 import Foundation
 import SwiftyShell
 import Testing
+import TestCommons
 
 @testable import ShipItKit
 
@@ -68,8 +69,9 @@ struct SnapshotActionTests {
 
     @Test("runs xcodebuild test for each device/locale with destination and locale build setting")
     func capturesAcrossDeviceLocaleMatrix() async throws {
-        let outputDir = try makeTempDirectory(prefix: "Snapshots")
-        defer { try? FileManager.default.removeItem(at: outputDir) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let outputDir = scratch.url
 
         let (executor, commands) = makeCaptureExecutor()
         let context = makeTestActionContext(
@@ -103,8 +105,9 @@ struct SnapshotActionTests {
 
     @Test("falls back to app.scheme when no explicit or screenshot scheme is set")
     func fallsBackToAppScheme() async throws {
-        let outputDir = try makeTempDirectory(prefix: "Snapshots")
-        defer { try? FileManager.default.removeItem(at: outputDir) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let outputDir = scratch.url
 
         let (executor, commands) = makeCaptureExecutor()
         let context = makeTestActionContext(
@@ -125,8 +128,9 @@ struct SnapshotActionTests {
 
     @Test("records device/locale in failures when xcodebuild exits non-zero")
     func tracksFailures() async throws {
-        let outputDir = try makeTempDirectory(prefix: "Snapshots")
-        defer { try? FileManager.default.removeItem(at: outputDir) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let outputDir = scratch.url
 
         let (executor, _) = makeCaptureExecutor { _, _ in
             ShellOutput(stdout: "", stderr: "boom", exitCode: 65)

@@ -3,6 +3,7 @@ import AppStoreConnectKit
 import Foundation
 import SwiftyShell
 import Testing
+import TestCommons
 
 @testable import ShipItKit
 
@@ -11,8 +12,9 @@ struct TestFlightActionTests {
 
     @Test("distributes uploaded build using app beta groups and 204 relationship response")
     func distributesBuildToRequestedGroups() async throws {
-        let tempDirectory = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let tempDirectory = scratch.url
 
         let ipaURL = tempDirectory.appendingPathComponent("Example.ipa")
         try Data("ipa-data".utf8).write(to: ipaURL)
@@ -128,8 +130,9 @@ struct TestFlightActionTests {
 
     @Test("skip waiting with no groups does not resolve build ID")
     func skipsBuildLookupWhenWaitingAndDistributionAreDisabled() async throws {
-        let tempDirectory = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let tempDirectory = scratch.url
 
         let ipaURL = tempDirectory.appendingPathComponent("Example.ipa")
         try Data("ipa-data".utf8).write(to: ipaURL)
@@ -182,8 +185,9 @@ struct TestFlightActionTests {
 
     @Test("Flutter iOS TestFlight discovers IPA from flutter archive output")
     func discoversFlutterIPAOutput() async throws {
-        let tempDirectory = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let tempDirectory = scratch.url
 
         let ipaDirectory = tempDirectory.appendingPathComponent("build/ios/ipa", isDirectory: true)
         try FileManager.default.createDirectory(at: ipaDirectory, withIntermediateDirectories: true)
@@ -251,12 +255,6 @@ struct TestFlightActionTests {
     }
 
     // MARK: - Helpers
-
-    private func makeTempDirectory() throws -> URL {
-        let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
-        try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
-        return url
-    }
 
     private func isolatedShell(from shell: ShellContext, executor: MockExecutor) -> ShellContext {
         let homeURL = FileManager.default.temporaryDirectory

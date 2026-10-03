@@ -38,6 +38,8 @@ let package = Package(
         .package(url: "https://github.com/apple/swift-crypto", from: "4.4.0"),
         // Structured logging
         .package(url: "https://github.com/apple/swift-log", from: "1.12.0"),
+        // Shared test helpers (test targets only)
+        .package(url: "https://github.com/maniramezan/SwiftTestCommons.git", from: "0.1.0"),
     ],
     targets: [
         // MARK: - Reusable tool libraries
@@ -145,6 +147,7 @@ let package = Package(
                 .product(name: "GoogleAuthKit", package: "google-play-store-mcp"),
                 .product(name: "GooglePlayKit", package: "google-play-store-mcp"),
                 .product(name: "Logging", package: "swift-log"),
+                .product(name: "TestCommons", package: "SwiftTestCommons"),
             ]
         ),
         .testTarget(
