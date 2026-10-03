@@ -1,13 +1,13 @@
 {
-  "originHash" : "d72f3493db288f7e2c795368639943c085a591f0595073892d9c0b42b42ff3ca",
+  "originHash" : "950d43f046097390c3ca41cea8c755a1f3e1830cf3246786dcf1661dc7c6aa8d",
   "pins" : [
     {
       "identity" : "app-store-connect-mcp",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/ShipItSwifty/app-store-connect-mcp.git",
       "state" : {
-        "revision" : "30f260faa22af3edc667cf67b844862a6649ddba",
-        "version" : "0.1.6"
+        "revision" : "55bc47237df5425ecde242f1bec36d85be611663",
+        "version" : "0.2.2"
       }
     },
     {
@@ -24,8 +24,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/ShipItSwifty/google-play-store-mcp.git",
       "state" : {
-        "revision" : "21ed5010f453c26ae070f878ee3f8b00d9511ce2",
-        "version" : "0.1.3"
+        "revision" : "dd2838df2dc9bc86a5e35abc34f0516bddcf8d59",
+        "version" : "0.2.1"
       }
     },
     {
@@ -33,8 +33,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/vapor/jwt-kit",
       "state" : {
-        "revision" : "94a8b96d0ab5aae91324b68f100e3670cd908b51",
-        "version" : "5.4.1"
+        "revision" : "1b55c7529eff82cd9fa907e67a539404459a02e6",
+        "version" : "5.7.1"
       }
     },
     {
@@ -150,8 +150,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-system",
       "state" : {
-        "revision" : "7c6ad0fc39d0763e0b699210e4124afd5041c5df",
-        "version" : "1.6.4"
+        "revision" : "869129b7bf4ecc57b97d0193ad29690ca2134750",
+        "version" : "1.8.1"
       }
     },
     {
