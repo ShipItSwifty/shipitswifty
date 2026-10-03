@@ -430,7 +430,8 @@ Every subcommand inherits `GlobalOptions`: `--shipfile`, `--output (human|json)`
 - **Realistic exit codes:** Test runners exit non-zero when a test fails (`gradlew` 1, `xcodebuild` 65). Mock that, not exit 0 with failure text — the latter hides bugs where a failure throws before later logic (e.g. reruns) runs.
 - **Linux first:** Keep Android, config, and parser tests outside `#if os(macOS)` so both CI jobs run them.
 - **Shell mocking:** Inject a `MockExecutor` from SwiftyShell. Use `ActionContext.mock(executor:)` — it wires a `MockExecutor` into a fully-formed `ActionContext` without spawning real processes.
-- **HTTP mocking:** Use `makeClient(responses:)` + `MockURLProtocol` from `Tests/ShipItKitTests/TestSupport.swift` to queue canned HTTP responses for ASC API tests.
+- **HTTP mocking:** Use `makeClient(responses:)` + `StubbedURLSession` from `Tests/ShipItKitTests/TestSupport.swift` to queue canned HTTP responses for ASC API tests. Keep the returned stub alive and `defer { stub.invalidate() }` until the test finishes.
+- **Scratch directories:** Use `TemporaryDirectory` from [SwiftTestCommons](https://github.com/maniramezan/SwiftTestCommons) (`let scratch = try TemporaryDirectory(); defer { try? scratch.remove() }`). Create it in the test that owns the files and pass it to helpers; a helper that removes its directory before returning leaves callers with a dangling path. TestCommons is linked into test targets only.
 - All tests use Swift Testing (`@Test`) where possible per project conventions.
 
 ## Plugin system
@@ -543,3 +544,9 @@ Detailed reference material lives in `docs/`:
 - [`docs/ci-setup.md`](docs/ci-setup.md) — GitHub Actions, GitLab CI, Bitrise
 - [`docs/walkthrough.md`](docs/walkthrough.md) — step-by-step getting started
 - [`docs/react-native-quickstart.md`](docs/react-native-quickstart.md) — React Native / Expo Shipfile placement, workflow naming, and Gradle memory caps
+
+## Conditional body readability
+
+Short, obvious early exits may stay on one line (for example, `guard let self else { return }`).
+Use multiline bodies for complex conditions, error construction, or meaningful work.
+This is a review guideline; Apple’s official `swift format` remains the only formatting tool.

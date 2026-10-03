@@ -2,6 +2,7 @@
 import Foundation
 import SwiftyShell
 import Testing
+import TestCommons
 
 @testable import ShipItKit
 
@@ -79,12 +80,14 @@ struct ArchiveExportActionTests {
         nonisolated(unsafe) var capturedCommand: Command?
         nonisolated(unsafe) var plistContents: String?
 
-        let exportDirectory = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: exportDirectory) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let exportDirectory = scratch.url
         try Data().write(to: exportDirectory.appendingPathComponent("MockApp.ipa"))
 
-        let archiveDirectory = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: archiveDirectory) }
+        let archiveDirectoryScratch = try TemporaryDirectory()
+        defer { try? archiveDirectoryScratch.remove() }
+        let archiveDirectory = archiveDirectoryScratch.url
         let archivePath = archiveDirectory.appendingPathComponent("MockApp.xcarchive").path
         FileManager.default.createFile(atPath: archivePath, contents: Data())
 
@@ -135,12 +138,14 @@ struct ArchiveExportActionTests {
     func exportActionPassesASCAuthKey() async throws {
         nonisolated(unsafe) var capturedCommand: Command?
 
-        let exportDirectory = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: exportDirectory) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let exportDirectory = scratch.url
         try Data().write(to: exportDirectory.appendingPathComponent("MockApp.ipa"))
 
-        let archiveDirectory = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: archiveDirectory) }
+        let archiveDirectoryScratch = try TemporaryDirectory()
+        defer { try? archiveDirectoryScratch.remove() }
+        let archiveDirectory = archiveDirectoryScratch.url
         let archivePath = archiveDirectory.appendingPathComponent("MockApp.xcarchive").path
         FileManager.default.createFile(atPath: archivePath, contents: Data())
 
@@ -184,12 +189,14 @@ struct ArchiveExportActionTests {
     func exportActionManualSigning() async throws {
         nonisolated(unsafe) var capturedCommand: Command?
 
-        let exportDirectory = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: exportDirectory) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let exportDirectory = scratch.url
         try Data().write(to: exportDirectory.appendingPathComponent("MockApp.ipa"))
 
-        let archiveDirectory = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: archiveDirectory) }
+        let archiveDirectoryScratch = try TemporaryDirectory()
+        defer { try? archiveDirectoryScratch.remove() }
+        let archiveDirectory = archiveDirectoryScratch.url
         let archivePath = archiveDirectory.appendingPathComponent("MockApp.xcarchive").path
         FileManager.default.createFile(atPath: archivePath, contents: Data())
 
@@ -224,12 +231,14 @@ struct ArchiveExportActionTests {
     func exportActionNoTeamID() async throws {
         nonisolated(unsafe) var plistContents: String?
 
-        let exportDirectory = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: exportDirectory) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let exportDirectory = scratch.url
         try Data().write(to: exportDirectory.appendingPathComponent("MockApp.ipa"))
 
-        let archiveDirectory = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: archiveDirectory) }
+        let archiveDirectoryScratch = try TemporaryDirectory()
+        defer { try? archiveDirectoryScratch.remove() }
+        let archiveDirectory = archiveDirectoryScratch.url
         let archivePath = archiveDirectory.appendingPathComponent("MockApp.xcarchive").path
         FileManager.default.createFile(atPath: archivePath, contents: Data())
 
@@ -273,12 +282,14 @@ struct ArchiveExportActionTests {
     func exportActionWritesMethodToPlist() async throws {
         nonisolated(unsafe) var plistContents: String?
 
-        let exportDirectory = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: exportDirectory) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let exportDirectory = scratch.url
         try Data().write(to: exportDirectory.appendingPathComponent("MockApp.ipa"))
 
-        let archiveDirectory = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: archiveDirectory) }
+        let archiveDirectoryScratch = try TemporaryDirectory()
+        defer { try? archiveDirectoryScratch.remove() }
+        let archiveDirectory = archiveDirectoryScratch.url
         let archivePath = archiveDirectory.appendingPathComponent("MockApp.xcarchive").path
         FileManager.default.createFile(atPath: archivePath, contents: Data())
 
@@ -321,8 +332,9 @@ struct ArchiveExportActionTests {
 
     @Test("ArchiveAction uses full Android build variant in Gradle task")
     func archiveActionUsesFullAndroidVariantTask() async throws {
-        let tmpDir = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: tmpDir) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let tmpDir = scratch.url
         let aabPath = tmpDir.appendingPathComponent("app/build/outputs/bundle/prodRelease/app-prod-release.aab")
         try FileManager.default.createDirectory(at: aabPath.deletingLastPathComponent(), withIntermediateDirectories: true)
         try Data("aab".utf8).write(to: aabPath)
@@ -364,10 +376,5 @@ struct ArchiveExportActionTests {
         }
     }
 
-    private func makeTempDirectory() throws -> URL {
-        let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
-        try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
-        return url
-    }
 }
 #endif

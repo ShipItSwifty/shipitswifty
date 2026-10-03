@@ -2,6 +2,7 @@ import AppStoreConnectKit
 import Foundation
 import SwiftyShell
 import Synchronization
+import TestCommons
 import Testing
 
 @testable import ShipItKit
@@ -73,8 +74,9 @@ struct TestActionTests {
 
     @Test("Selective iOS rerun preserves exit-65 failures and writes report", arguments: [false, true])
     func selectiveIOSRerunReportsFlakyTests(changedFailure: Bool) async throws {
-        let tempDirectory = try makeTempDirectory(prefix: "IOSRerunReport")
-        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+        let scratch = try TemporaryDirectory(prefix: "IOSRerunReport")
+        defer { try? scratch.remove() }
+        let tempDirectory = scratch.url
 
         let resultBundlePath = tempDirectory.appendingPathComponent("Tests.xcresult").path
         let reportPath = tempDirectory.appendingPathComponent("test-report.json").path
@@ -164,8 +166,9 @@ struct TestActionTests {
 
     @Test("iOS honors the attempt limit and stops after recovery", arguments: [1, 2, 3, 4])
     func iosAttemptLimit(maxAttempts: Int) async throws {
-        let directory = try makeTempDirectory(prefix: "IOSAttemptLimit")
-        defer { try? FileManager.default.removeItem(at: directory) }
+        let scratch = try TemporaryDirectory(prefix: "IOSAttemptLimit")
+        defer { try? scratch.remove() }
+        let directory = scratch.url
         let attempt = Mutex(0)
         let (executor, commands) = makeCaptureExecutor { command, _ in
             let description = command.description
@@ -238,8 +241,9 @@ struct TestActionTests {
 
     @Test("Merges result bundles across multiple destinations before parsing")
     func mergesResultBundlesAcrossDestinations() async throws {
-        let tempDirectory = try makeTempDirectory(prefix: "MultiDestinationResults")
-        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+        let scratch = try TemporaryDirectory(prefix: "MultiDestinationResults")
+        defer { try? scratch.remove() }
+        let tempDirectory = scratch.url
         let resultBundlePath = tempDirectory.appendingPathComponent("Tests.xcresult").path
 
         let (executor, commands) = makeCaptureExecutor { command, _ in
@@ -1355,8 +1359,9 @@ struct TestActionTests {
 
     @Test("Android JUnit XML fallback includes named passed and failed tests")
     func androidJUnitXMLFallbackIncludesNamedTests() async throws {
-        let tempDirectory = try makeTempDirectory(prefix: "ShipItJUnitNamed")
-        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+        let scratch = try TemporaryDirectory(prefix: "ShipItJUnitNamed")
+        defer { try? scratch.remove() }
+        let tempDirectory = scratch.url
 
         let reportsDirectory =
             tempDirectory
@@ -1413,8 +1418,9 @@ struct TestActionTests {
 
     @Test("Android unit rerun uses --tests filters and writes report")
     func androidUnitRerunUsesGradleTestFilters() async throws {
-        let tempDirectory = try makeTempDirectory(prefix: "AndroidRerun")
-        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+        let scratch = try TemporaryDirectory(prefix: "AndroidRerun")
+        defer { try? scratch.remove() }
+        let tempDirectory = scratch.url
 
         let reportPath = tempDirectory.appendingPathComponent("android-test-report.json").path
         let (executor, commands) = makeCaptureExecutor { command, _ in

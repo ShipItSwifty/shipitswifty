@@ -1,5 +1,6 @@
 import Foundation
 import SwiftyShell
+import TestCommons
 import Testing
 
 @testable import ShipItKit
@@ -35,8 +36,9 @@ struct IntrospectionTests {
 
     @Test("Project inspector prefers workspace and extracts schemes")
     func projectInspectorDetectsWorkspaceAndSchemes() async throws {
-        let tempDirectory = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let tempDirectory = scratch.url
 
         try FileManager.default.createDirectory(
             at: tempDirectory.appendingPathComponent("Example.xcworkspace"),
@@ -130,8 +132,9 @@ struct IntrospectionTests {
 
     @Test("Project inspector discovers test plans inside Xcode project bundles")
     func projectInspectorDiscoversTestPlans() async throws {
-        let tempDirectory = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let tempDirectory = scratch.url
         let planDirectory =
             tempDirectory
             .appendingPathComponent("App.xcodeproj/xcshareddata/xctestplans")
@@ -270,8 +273,9 @@ struct IntrospectionTests {
     #if os(macOS)
     @Test("Shipfile validator flags TestFlight workflow without export context")
     func shipfileValidatorFlagsMissingIPAContext() async throws {
-        let tempDirectory = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let tempDirectory = scratch.url
 
         let shipfileURL = tempDirectory.appendingPathComponent("Shipfile.yml")
         try """
@@ -374,8 +378,9 @@ struct IntrospectionTests {
     #if os(macOS)
     @Test("Project inspector infers Android package name from Gradle applicationId")
     func projectInspectorInfersAndroidPackageNameFromGradle() async throws {
-        let tempDirectory = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let tempDirectory = scratch.url
 
         let appDirectory = tempDirectory.appendingPathComponent("app")
         try FileManager.default.createDirectory(at: appDirectory, withIntermediateDirectories: true)
@@ -394,9 +399,4 @@ struct IntrospectionTests {
     }
     #endif
 
-    private func makeTempDirectory() throws -> URL {
-        let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
-        try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
-        return url
-    }
 }

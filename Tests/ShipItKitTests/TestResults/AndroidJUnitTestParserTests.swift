@@ -1,4 +1,5 @@
 import Foundation
+import TestCommons
 import Testing
 
 @testable import ShipItKit
@@ -8,8 +9,9 @@ struct AndroidJUnitTestParserTests {
 
     @Test("Parses Gradle JUnit XML files into normalized suites and test cases")
     func parsesJUnitDirectory() async throws {
-        let root = try makeTempDirectory(prefix: "AndroidJUnitTestParser")
-        defer { try? FileManager.default.removeItem(at: root) }
+        let scratch = try TemporaryDirectory(prefix: "AndroidJUnitTestParser")
+        defer { try? scratch.remove() }
+        let root = scratch.url
 
         let reportDirectory = root.appendingPathComponent("app/build/test-results/testDebugUnitTest", isDirectory: true)
         try FileManager.default.createDirectory(at: reportDirectory, withIntermediateDirectories: true)
@@ -50,8 +52,9 @@ struct AndroidJUnitTestParserTests {
 
     @Test("Throws when the report directory has no JUnit XML files")
     func throwsWhenNoXMLFilesExist() async throws {
-        let root = try makeTempDirectory(prefix: "AndroidJUnitMissing")
-        defer { try? FileManager.default.removeItem(at: root) }
+        let scratch = try TemporaryDirectory(prefix: "AndroidJUnitMissing")
+        defer { try? scratch.remove() }
+        let root = scratch.url
 
         do {
             _ = try await AndroidJUnitTestParser().parse(reportDirectory: root.path)

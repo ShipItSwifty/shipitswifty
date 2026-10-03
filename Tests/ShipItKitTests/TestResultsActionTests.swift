@@ -1,5 +1,6 @@
 import Foundation
 import SwiftyShell
+import TestCommons
 import Testing
 
 @testable import ShipItKit
@@ -9,8 +10,9 @@ struct TestResultsActionTests {
 
     @Test("Parses iOS xcresult artifacts through the action and writes a report")
     func parsesIOSArtifactsAndWritesReport() async throws {
-        let temp = try makeTempDirectory(prefix: "TestResultsAction")
-        defer { try? FileManager.default.removeItem(at: temp) }
+        let scratch = try TemporaryDirectory(prefix: "TestResultsAction")
+        defer { try? scratch.remove() }
+        let temp = scratch.url
 
         let reportPath = temp.appendingPathComponent("report.json").path
 
@@ -83,8 +85,9 @@ struct TestResultsActionTests {
 
     @Test("Filters down to failed tests only")
     func filtersFailedOnly() async throws {
-        let root = try makeTempDirectory(prefix: "TestResultsActionAndroid")
-        defer { try? FileManager.default.removeItem(at: root) }
+        let scratch = try TemporaryDirectory(prefix: "TestResultsActionAndroid")
+        defer { try? scratch.remove() }
+        let root = scratch.url
 
         let reportDirectory = root.appendingPathComponent("app/build/test-results/testReleaseUnitTest", isDirectory: true)
         try FileManager.default.createDirectory(at: reportDirectory, withIntermediateDirectories: true)

@@ -3,6 +3,7 @@ import AppStoreConnectKit
 import Foundation
 import SwiftyShell
 import Testing
+import TestCommons
 
 @testable import ShipItKit
 
@@ -11,8 +12,9 @@ struct UploadActionTests {
 
     @Test("UploadAction uploads IPA and returns build id")
     func uploadsIPA() async throws {
-        let tempDirectory = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let tempDirectory = scratch.url
 
         let ipaURL = tempDirectory.appendingPathComponent("Example.ipa")
         try Data("ipa-data".utf8).write(to: ipaURL)
@@ -29,7 +31,7 @@ struct UploadActionTests {
             return ShellOutput(stdout: "", stderr: "", exitCode: 0)
         }
 
-        let session = makeMockSession { request in
+        let stub = try StubbedURLSession { request in
             let path = request.url?.path ?? ""
             let queryItems = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)?.queryItems ?? []
             let query = Dictionary(uniqueKeysWithValues: queryItems.map { ($0.name, $0.value ?? "") })
@@ -52,6 +54,8 @@ struct UploadActionTests {
             }
             return .error(statusCode: 404, body: "not found")
         }
+        defer { stub.invalidate() }
+        let session = stub.session
 
         let context = makeContext(executor: executor, session: session, bundleID: "com.example.app")
         let result = try await UploadAction().run(
@@ -64,8 +68,9 @@ struct UploadActionTests {
 
     @Test("UploadAction can create a review submission")
     func uploadCreatesReviewSubmission() async throws {
-        let tempDirectory = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let tempDirectory = scratch.url
 
         let ipaURL = tempDirectory.appendingPathComponent("Example.ipa")
         try Data("ipa-data".utf8).write(to: ipaURL)
@@ -80,7 +85,7 @@ struct UploadActionTests {
             return ShellOutput(stdout: "", stderr: "", exitCode: 0)
         }
 
-        let session = makeMockSession { request in
+        let stub = try StubbedURLSession { request in
             let path = request.url?.path ?? ""
             let queryItems = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)?.queryItems ?? []
             let query = Dictionary(uniqueKeysWithValues: queryItems.map { ($0.name, $0.value ?? "") })
@@ -120,6 +125,8 @@ struct UploadActionTests {
             }
             return .error(statusCode: 404, body: "not found")
         }
+        defer { stub.invalidate() }
+        let session = stub.session
 
         let context = makeContext(
             executor: executor,
@@ -138,8 +145,9 @@ struct UploadActionTests {
 
     @Test("UploadAction discovers Flutter IPA output when export directory is absent")
     func uploadDiscoversFlutterIPAOutput() async throws {
-        let tempDirectory = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: tempDirectory) }
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let tempDirectory = scratch.url
 
         let ipaDirectory = tempDirectory.appendingPathComponent("build/ios/ipa", isDirectory: true)
         try FileManager.default.createDirectory(at: ipaDirectory, withIntermediateDirectories: true)
@@ -154,7 +162,7 @@ struct UploadActionTests {
             }
             return ShellOutput(stdout: "", stderr: "", exitCode: 0)
         }
-        let session = makeMockSession { request in
+        let stub = try StubbedURLSession { request in
             let path = request.url?.path ?? ""
             let queryItems = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)?.queryItems ?? []
             let query = Dictionary(uniqueKeysWithValues: queryItems.map { ($0.name, $0.value ?? "") })
@@ -166,6 +174,8 @@ struct UploadActionTests {
             }
             return .error(statusCode: 404, body: "not found")
         }
+        defer { stub.invalidate() }
+        let session = stub.session
 
         let context = makeContext(
             executor: executor,
@@ -180,12 +190,6 @@ struct UploadActionTests {
     }
 
     // MARK: - Helpers
-
-    private func makeTempDirectory() throws -> URL {
-        let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
-        try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
-        return url
-    }
 
     private func makeContext(
         executor: MockExecutor,

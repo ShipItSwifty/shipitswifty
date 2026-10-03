@@ -3,6 +3,7 @@ import Foundation
 import GoogleAuthKit
 import SwiftyShell
 import Synchronization
+import TestCommons
 import Testing
 
 @testable import ShipItKit
@@ -24,9 +25,9 @@ struct FirebaseAppDistributionActionTests {
     }
 
     /// Creates a mock session that replays a fixed response queue in order.
-    private func makeQueuedSession(_ responses: [MockHTTPResponse]) -> URLSession {
-        let queue = ResponseQueue(responses)
-        return makeMockSession { _ in queue.next() }
+    private func makeQueuedSession(_ responses: [MockHTTPResponse]) throws -> StubbedURLSession {
+        try StubbedURLSession(
+            responses: responses, fallback: .error(statusCode: 500, body: "No queued mock response"))
     }
 
     private func makeContext(workingDirectory: String, platform: Platform) -> ActionContext {
@@ -61,10 +62,9 @@ struct FirebaseAppDistributionActionTests {
         bytes: Data = Data("binary".utf8),
         _ body: (_ directory: String, _ path: String) async throws -> T
     ) async throws -> T {
-        let directory = FileManager.default.temporaryDirectory
-            .appendingPathComponent("FirebaseAppDistTest_\(UUID().uuidString)")
-        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        defer { try? FileManager.default.removeItem(at: directory) }
+        let scratch = try TemporaryDirectory(prefix: "FirebaseAppDistTest")
+        defer { try? scratch.remove() }
+        let directory = scratch.url
         let artifact = directory.appendingPathComponent(name)
         try bytes.write(to: artifact)
         return try await body(directory.path, artifact.path)
@@ -185,7 +185,9 @@ struct FirebaseAppDistributionActionTests {
     @Test("Requires an explicit app_id")
     func requiresAppID() async throws {
         try await withArtifact(named: "App.ipa") { directory, path in
-            let action = FirebaseAppDistributionAction(client: makeClient(session: makeMockSession { _ in .json([:]) }))
+            let stub = try StubbedURLSession { _ in .json([:]) }
+            defer { stub.invalidate() }
+            let action = FirebaseAppDistributionAction(client: makeClient(session: stub.session))
             let context = makeContext(workingDirectory: directory, platform: .ios)
             await #expect(throws: ShipItError.self) {
                 try await action.run(
@@ -196,7 +198,9 @@ struct FirebaseAppDistributionActionTests {
 
     @Test("Requires an artifact_path")
     func requiresArtifactPath() async throws {
-        let action = FirebaseAppDistributionAction(client: makeClient(session: makeMockSession { _ in .json([:]) }))
+        let stub = try StubbedURLSession { _ in .json([:]) }
+        defer { stub.invalidate() }
+        let action = FirebaseAppDistributionAction(client: makeClient(session: stub.session))
         let context = makeContext(workingDirectory: "/tmp", platform: .ios)
         await #expect(throws: ShipItError.self) {
             try await action.run(
@@ -207,7 +211,9 @@ struct FirebaseAppDistributionActionTests {
     @Test("Requires at least one tester group or tester email")
     func requiresAudience() async throws {
         try await withArtifact(named: "App.ipa") { directory, path in
-            let action = FirebaseAppDistributionAction(client: makeClient(session: makeMockSession { _ in .json([:]) }))
+            let stub = try StubbedURLSession { _ in .json([:]) }
+            defer { stub.invalidate() }
+            let action = FirebaseAppDistributionAction(client: makeClient(session: stub.session))
             let context = makeContext(workingDirectory: directory, platform: .ios)
             await #expect(throws: ShipItError.self) {
                 try await action.run(
@@ -222,10 +228,12 @@ struct FirebaseAppDistributionActionTests {
     func dryRunPerformsNoRequests() async throws {
         try await withArtifact(named: "App.ipa") { directory, path in
             let requestCount = Mutex(0)
-            let session = makeMockSession { _ in
+            let stub = try StubbedURLSession { _ in
                 requestCount.withLock { $0 += 1 }
                 return .json([:])
             }
+            defer { stub.invalidate() }
+            let session = stub.session
             let action = FirebaseAppDistributionAction(client: makeClient(session: session))
             let context = makeContext(workingDirectory: directory, platform: .ios)
 
@@ -244,7 +252,9 @@ struct FirebaseAppDistributionActionTests {
     @Test("Dry run still rejects a mismatched artifact")
     func dryRunStillValidatesArtifact() async throws {
         try await withArtifact(named: "App.ipa") { directory, path in
-            let action = FirebaseAppDistributionAction(client: makeClient(session: makeMockSession { _ in .json([:]) }))
+            let stub = try StubbedURLSession { _ in .json([:]) }
+            defer { stub.invalidate() }
+            let action = FirebaseAppDistributionAction(client: makeClient(session: stub.session))
             let context = makeContext(workingDirectory: directory, platform: .android)
             await #expect(throws: ShipItError.self) {
                 try await action.run(
@@ -260,8 +270,10 @@ struct FirebaseAppDistributionActionTests {
     @Test("Uploads an IPA and distributes it to the requested groups")
     func uploadsIPA() async throws {
         try await withArtifact(named: "App.ipa") { directory, path in
-            let session = makeQueuedSession(
+            let stub = try makeQueuedSession(
                 successResponses(releaseName: "projects/1234567890/apps/x/releases/r1"))
+            defer { stub.invalidate() }
+            let session = stub.session
             let action = FirebaseAppDistributionAction(client: makeClient(session: session))
             let context = makeContext(workingDirectory: directory, platform: .ios)
 
@@ -280,8 +292,10 @@ struct FirebaseAppDistributionActionTests {
     @Test("Uploads an APK for an Android app")
     func uploadsAPK() async throws {
         try await withArtifact(named: "app-qa-release.apk") { directory, path in
-            let session = makeQueuedSession(
+            let stub = try makeQueuedSession(
                 successResponses(releaseName: "projects/1234567890/apps/y/releases/r2"))
+            defer { stub.invalidate() }
+            let session = stub.session
             let action = FirebaseAppDistributionAction(client: makeClient(session: session))
             let context = makeContext(workingDirectory: directory, platform: .android)
 
@@ -299,10 +313,12 @@ struct FirebaseAppDistributionActionTests {
             let methods = Mutex<[String]>([])
             let queue = ResponseQueue(
                 successResponses(releaseName: "projects/1/apps/x/releases/r1") + [.json([:])])
-            let session = makeMockSession { request in
+            let stub = try StubbedURLSession { request in
                 methods.withLock { $0.append(request.httpMethod ?? "") }
-                return queue.next()
+                return try queue.next()
             }
+            defer { stub.invalidate() }
+            let session = stub.session
             let action = FirebaseAppDistributionAction(client: makeClient(session: session))
             let context = makeContext(workingDirectory: directory, platform: .ios)
 
@@ -337,10 +353,12 @@ struct FirebaseAppDistributionActionTests {
                 .json([:]),
                 .json([:]),
             ])
-            let session = makeMockSession { request in
+            let stub = try StubbedURLSession { request in
                 methods.withLock { $0.append(request.httpMethod ?? "") }
-                return queue.next()
+                return try queue.next()
             }
+            defer { stub.invalidate() }
+            let session = stub.session
             let action = FirebaseAppDistributionAction(
                 client: makeClient(session: session),
                 sleep: { delay in delays.withLock { $0.append(delay) } })
@@ -363,10 +381,12 @@ struct FirebaseAppDistributionActionTests {
         try await withArtifact(named: "App.ipa") { directory, path in
             let methods = Mutex<[String]>([])
             let queue = ResponseQueue(successResponses(releaseName: "projects/1/apps/x/releases/r1"))
-            let session = makeMockSession { request in
+            let stub = try StubbedURLSession { request in
                 methods.withLock { $0.append(request.httpMethod ?? "") }
-                return queue.next()
+                return try queue.next()
             }
+            defer { stub.invalidate() }
+            let session = stub.session
             let action = FirebaseAppDistributionAction(client: makeClient(session: session))
             let context = makeContext(workingDirectory: directory, platform: .ios)
 
@@ -381,13 +401,15 @@ struct FirebaseAppDistributionActionTests {
     @Test("Surfaces an operation error returned while polling")
     func surfacesPollingError() async throws {
         try await withArtifact(named: "App.ipa") { directory, path in
-            let session = makeQueuedSession([
+            let stub = try makeQueuedSession([
                 .json(["name": "operations/upload-1"]),
                 .json([
                     "name": "operations/upload-1", "done": true,
                     "error": ["code": 3, "message": "unsupported binary"],
                 ]),
             ])
+            defer { stub.invalidate() }
+            let session = stub.session
             let action = FirebaseAppDistributionAction(client: makeClient(session: session))
             let context = makeContext(workingDirectory: directory, platform: .ios)
 
@@ -418,7 +440,9 @@ struct FirebaseAppDistributionActionTests {
                         body: #"{"error": {"status": "NOT_FOUND", "message": "not found"}}"#),
                     .json([:]),
                 ])
-            let session = makeMockSession { _ in queue.next() }
+            let stub = try StubbedURLSession { _ in try queue.next() }
+            defer { stub.invalidate() }
+            let session = stub.session
             // Non-nil client-init sleep hook (a no-op) exercises the same code path CI hits,
             // without a real delay in the test.
             let action = FirebaseAppDistributionAction(client: makeClient(session: session))
@@ -453,12 +477,14 @@ struct FirebaseAppDistributionActionTests {
                     ]),
                     notFound, notFound, notFound, notFound,
                 ])
-            let session = makeMockSession { request in
+            let stub = try StubbedURLSession { request in
                 if request.url?.path.hasSuffix(":distribute") == true {
                     distributeRequestCount.withLock { $0 += 1 }
                 }
-                return queue.next()
+                return try queue.next()
             }
+            defer { stub.invalidate() }
+            let session = stub.session
             let action = FirebaseAppDistributionAction(
                 client: makeClient(session: session),
                 sleep: { delay in delays.withLock { $0.append(delay) } })
@@ -484,7 +510,9 @@ struct FirebaseAppDistributionActionTests {
     @Test("Fails when the upload response carries no operation name")
     func failsWithoutOperationName() async throws {
         try await withArtifact(named: "App.ipa") { directory, path in
-            let session = makeQueuedSession([.json([:])])
+            let stub = try makeQueuedSession([.json([:])])
+            defer { stub.invalidate() }
+            let session = stub.session
             let action = FirebaseAppDistributionAction(client: makeClient(session: session))
             let context = makeContext(workingDirectory: directory, platform: .ios)
 
@@ -537,8 +565,10 @@ struct FirebaseAppDistributionActionTests {
     @Test("Tester emails are reported as a count, never as addresses")
     func testerEmailsAreNotEchoed() async throws {
         try await withArtifact(named: "App.ipa") { directory, path in
-            let session = makeQueuedSession(
+            let stub = try makeQueuedSession(
                 successResponses(releaseName: "projects/1/apps/x/releases/r1"))
+            defer { stub.invalidate() }
+            let session = stub.session
             let action = FirebaseAppDistributionAction(client: makeClient(session: session))
             let context = makeContext(workingDirectory: directory, platform: .ios)
 

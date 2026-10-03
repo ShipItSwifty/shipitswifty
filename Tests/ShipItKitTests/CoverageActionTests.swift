@@ -1,6 +1,7 @@
 import Foundation
 import Logging
 import SwiftyShell
+import TestCommons
 import Testing
 
 @testable import ShipItKit

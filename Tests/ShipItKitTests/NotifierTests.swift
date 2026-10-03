@@ -1,5 +1,6 @@
 import Foundation
 import Synchronization
+import TestCommons
 import Testing
 
 @testable import ShipItKit
@@ -8,9 +9,7 @@ import Testing
 import FoundationNetworking
 #endif
 
-/// Injects the transport closure directly rather than going through the shared
-/// makeMockSession/MockURLProtocol helper — see WorkloadIdentityFederationClientTests for why
-/// (session-ID header routing is unreliable on Linux under concurrent test execution).
+/// Injects the transport closure directly to inspect request bodies on every platform.
 @Suite("Notifier")
 struct NotifierTests {
 
