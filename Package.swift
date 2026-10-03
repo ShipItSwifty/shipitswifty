@@ -27,7 +27,8 @@ let package = Package(
         // App Store Connect API client + Xcode Cloud read API (extracted from this repo).
         // Includes the 0.1.6 write-encoding fix: earlier versions sent snake_case
         // POST/PATCH keys that ASC ignored in AppStoreReleaseService writes.
-        .package(url: "https://github.com/ShipItSwifty/app-store-connect-mcp.git", from: "0.2.2"),
+        // Pin the MCP target-conflict fix pending a patch release: app-store-connect-mcp#19.
+        .package(url: "https://github.com/ShipItSwifty/app-store-connect-mcp.git", revision: "912a98974bba73182ac63d9f4b5c26b1d45bd395"),
         // Google service-account auth + Google Play Developer API client (extracted from this repo).
         // Includes the fixes through 0.1.3 for decoding draft releases in listTracks
         // and the live-verified write encoding.

@@ -1,13 +1,12 @@
 {
-  "originHash" : "950d43f046097390c3ca41cea8c755a1f3e1830cf3246786dcf1661dc7c6aa8d",
+  "originHash" : "43e4fc38ea567b9731db0cabc3b3e6088b9a35f1e4bd1adf6673a68c90a5361c",
   "pins" : [
     {
       "identity" : "app-store-connect-mcp",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/ShipItSwifty/app-store-connect-mcp.git",
       "state" : {
-        "revision" : "55bc47237df5425ecde242f1bec36d85be611663",
-        "version" : "0.2.2"
+        "revision" : "912a98974bba73182ac63d9f4b5c26b1d45bd395"
       }
     },
     {

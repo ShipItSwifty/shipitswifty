@@ -8,6 +8,8 @@ extension ShipItError {
         switch error {
         case .apiError(let statusCode, let body):
             self = .apiError(statusCode: statusCode, body: body)
+        case .decodingFailed(let path, let type, let underlying):
+            self = .apiDecodingFailed(path: path, type: type, underlying: underlying)
         case .jwtGenerationFailed(let underlying):
             self = .jwtGenerationFailed(underlying: underlying)
         case .uploadFailed(let asset, let reason):
