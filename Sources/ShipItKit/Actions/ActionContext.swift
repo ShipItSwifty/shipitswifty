@@ -22,6 +22,8 @@ import SwiftyShell
 /// ```
 public struct ActionContext: Sendable {
     /// SwiftyShell context for executing shell commands.
+    public var testEvidence: TestEvidenceRecorder? = nil
+    public var evidenceRoot: String? = nil
     public let shell: ShellContext
 
     /// Structured logger scoped to the current operation.
@@ -298,7 +300,7 @@ extension ActionContext {
     /// Used by `Workflow.run()` to apply per-workflow config overrides (e.g. `build_variant`).
     public func withConfig(_ newConfig: ResolvedConfig) -> ActionContext {
         #if os(macOS)
-        return ActionContext(
+        var result = ActionContext(
             shell: shell,
             logger: logger,
             config: newConfig,
@@ -308,7 +310,7 @@ extension ActionContext {
             verbose: verbose, jsonOutput: jsonOutput
         )
         #else
-        return ActionContext(
+        var result = ActionContext(
             shell: shell,
             logger: logger,
             config: newConfig,
@@ -317,23 +319,13 @@ extension ActionContext {
             verbose: verbose, jsonOutput: jsonOutput
         )
         #endif
+        result.testEvidence = testEvidence
+        result.evidenceRoot = evidenceRoot
+        return result
     }
 
     /// Returns a copy of this context with the Gradle project directory overridden.
     public func withGradleProjectDir(_ dir: String) -> ActionContext {
-        #if os(macOS)
-        return ActionContext(
-            shell: shell, logger: logger,
-            config: config.overriding(gradleProjectDir: dir),
-            appStoreConnect: appStoreConnect, googlePlay: googlePlay,
-            platform: platform, verbose: verbose, jsonOutput: jsonOutput
-        )
-        #else
-        return ActionContext(
-            shell: shell, logger: logger,
-            config: config.overriding(gradleProjectDir: dir),
-            googlePlay: googlePlay, platform: platform, verbose: verbose, jsonOutput: jsonOutput
-        )
-        #endif
+        withConfig(config.overriding(gradleProjectDir: dir))
     }
 }

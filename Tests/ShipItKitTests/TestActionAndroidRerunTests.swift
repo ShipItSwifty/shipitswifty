@@ -146,18 +146,10 @@ struct TestActionAndroidRerunTests {
 
         let reportDirectory = tempDirectory.appendingPathComponent("app/build/test-results/testDebugUnitTest")
         try FileManager.default.createDirectory(at: reportDirectory, withIntermediateDirectories: true)
-        try """
-        <?xml version="1.0" encoding="UTF-8"?>
-        <testsuite name="com.example.FeatureTests" tests="2" skipped="0" failures="1" errors="0">
-          <testcase name="testHappyPath()" classname="com.example.FeatureTests" time="0.01"/>
-          <testcase name="testOfflineMode()" classname="com.example.FeatureTests" time="0.02">
-            <failure message="boom">java.lang.AssertionError</failure>
-          </testcase>
-        </testsuite>
-        """.write(to: reportDirectory.appendingPathComponent("TEST-com.example.FeatureTests.xml"), atomically: true, encoding: .utf8)
 
         let (executor, commands) = makeCaptureExecutor { command, _ in
             if command.description.contains("--tests") {
+                try FileManager.default.createDirectory(at: reportDirectory, withIntermediateDirectories: true)
                 try """
                 <testsuite tests="1" failures="0" errors="0" skipped="0"><testcase name="testOfflineMode()" classname="com.example.FeatureTests"/></testsuite>
                 """.write(
@@ -165,7 +157,18 @@ struct TestActionAndroidRerunTests {
 
                 return ShellOutput(stdout: "1 tests completed, 0 failed, 0 skipped\n", stderr: "", exitCode: 0)
             }
-            // Console output without per-test lines: only the XML names the failed test.
+            // Console output without per-test lines: only the XML names the failed test. Gradle writes it
+            // during the run (previous results are cleared first).
+            try FileManager.default.createDirectory(at: reportDirectory, withIntermediateDirectories: true)
+            try """
+            <?xml version="1.0" encoding="UTF-8"?>
+            <testsuite name="com.example.FeatureTests" tests="2" skipped="0" failures="1" errors="0">
+              <testcase name="testHappyPath()" classname="com.example.FeatureTests" time="0.01"/>
+              <testcase name="testOfflineMode()" classname="com.example.FeatureTests" time="0.02">
+                <failure message="boom">java.lang.AssertionError</failure>
+              </testcase>
+            </testsuite>
+            """.write(to: reportDirectory.appendingPathComponent("TEST-com.example.FeatureTests.xml"), atomically: true, encoding: .utf8)
             return ShellOutput(stdout: "2 tests completed, 1 failed\n", stderr: "", exitCode: 1)
         }
 
@@ -220,16 +223,12 @@ struct TestActionAndroidRerunTests {
         let scratch = try TemporaryDirectory(prefix: "AndroidReportScope")
         defer { try? scratch.remove() }
         let directory = scratch.url
-        for module in ["app", "feature"] {
-            let reports = directory.appendingPathComponent("\(module)/build/test-results/testDebugUnitTest")
-            try FileManager.default.createDirectory(at: reports, withIntermediateDirectories: true)
-            try """
-            <testsuite name="\(module).Tests" tests="1" failures="1" errors="0" skipped="0"><testcase classname="\(module).Tests" name="testFailure"><failure message="failure"/></testcase></testsuite>
-            """.write(to: reports.appendingPathComponent("TEST-example.xml"), atomically: true, encoding: .utf8)
-        }
         let (executor, commands) = makeCaptureExecutor { command, _ in
             if command.description.contains("--tests") {
                 for module in ["app", "feature"] {
+                    try FileManager.default.createDirectory(
+                        at: directory.appendingPathComponent("\(module)/build/test-results/testDebugUnitTest"),
+                        withIntermediateDirectories: true)
                     try """
                     <testsuite tests="1" failures="0" errors="0" skipped="0"><testcase classname="\(module).Tests" name="testFailure"/></testsuite>
                     """.write(
@@ -238,6 +237,14 @@ struct TestActionAndroidRerunTests {
                 }
 
                 return ShellOutput(stdout: "2 tests completed, 0 failed, 0 skipped\n", stderr: "", exitCode: 0)
+            }
+            // The failing run writes both modules' reports, as Gradle does.
+            for module in ["app", "feature"] {
+                let reports = directory.appendingPathComponent("\(module)/build/test-results/testDebugUnitTest")
+                try FileManager.default.createDirectory(at: reports, withIntermediateDirectories: true)
+                try """
+                <testsuite name="\(module).Tests" tests="1" failures="1" errors="0" skipped="0"><testcase classname="\(module).Tests" name="testFailure"><failure message="failure"/></testcase></testsuite>
+                """.write(to: reports.appendingPathComponent("TEST-example.xml"), atomically: true, encoding: .utf8)
             }
             return ShellOutput(stdout: "2 tests completed, 2 failed, 0 skipped\n", stderr: "", exitCode: 1)
         }

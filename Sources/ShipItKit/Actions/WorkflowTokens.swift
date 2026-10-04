@@ -26,7 +26,10 @@ import Foundation
 /// left untouched so it can be handled by its own mechanism or surface downstream.
 struct WorkflowTokenResolver: Sendable {
     /// Reserved token names this resolver substitutes.
-    static let reservedTokens: Set<String> = ["version", "build_number", "version_changed"]
+    static let reservedTokens: Set<String> = [
+        "version", "build_number", "version_changed", "run_id", "coverage_path", "test_result_bundle", "test_output_directory",
+        "test_report_path",
+    ]
 
     /// Current token values, keyed by token name.
     private var values: [String: String]
@@ -53,13 +56,22 @@ struct WorkflowTokenResolver: Sendable {
     /// Captures `version`, `buildNumber`, and `versionChanged` from a `version` step's
     /// payload (encoded camelCase by `runJSON`).
     mutating func update(from envelope: ActionResultEnvelope) {
-        guard envelope.action == VersionAction.name,
-            case .object(let payload)? = envelope.payload
-        else { return }
+        guard case .object(let payload)? = envelope.payload else { return }
+        if envelope.action == SwiftTestAction.name || envelope.action == TestAction.name {
+            if let path = payload["coveragePath"].flatMap(Self.scalarString) { values["coverage_path"] = path }
+            if let path = payload["resultBundlePath"].flatMap(Self.scalarString) { values["test_result_bundle"] = path }
+            if let path = payload["outputDirectory"].flatMap(Self.scalarString) {
+                values["test_output_directory"] = path
+                values["test_report_path"] = URL(fileURLWithPath: path).appendingPathComponent("report.json").path
+            }
+        }
+        guard envelope.action == VersionAction.name else { return }
         if let v = payload["version"].flatMap(Self.scalarString) { values["version"] = v }
         if let b = payload["buildNumber"].flatMap(Self.scalarString) { values["build_number"] = b }
         if let c = payload["versionChanged"].flatMap(Self.scalarString) { values["version_changed"] = c }
     }
+
+    mutating func setRunID(_ id: String) { values["run_id"] = id }
 
     // MARK: - Substitution
 

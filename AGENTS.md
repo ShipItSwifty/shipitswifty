@@ -545,6 +545,21 @@ Detailed reference material lives in `docs/`:
 - [`docs/walkthrough.md`](docs/walkthrough.md) — step-by-step getting started
 - [`docs/react-native-quickstart.md`](docs/react-native-quickstart.md) — React Native / Expo Shipfile placement, workflow naming, and Gradle memory caps
 
+### Shared test lane contracts
+
+- `test_workflow` selects the default named lane for `shipit test`; `--workflow` selects explicitly.
+- Use `swift-test` for packages and `swift-format` for lint. Package `environment` supports snapshot controls.
+- Native iOS defaults to build-for-testing once into `.xctestproducts`, then separate per-plan/destination result bundles. Use `test_plans` for compatible target sets; `legacy_combined_test` preserves older behavior.
+- Actual clone failures fall back serially once per destination, without rebuilding. Ordinary assertions never trigger this fallback.
+- Infrastructure and selective assertion retry budgets are separate. SwiftPM reruns skip building; recovered assertions pass and remain marked flaky.
+- Every attempt retains logs/native artifacts. Workflow/custom-action steps can declare `artifacts` (`name`, `paths`, `retention_days`); `ci export` generates GitHub always-upload steps. Other CI providers implement `CIProvider`.
+- `continue_on_failure` is opt-in for independent checks and preserves a failed lane status. `{{run_id}}` scopes top-level output/artifact paths.
+- `report.json` always describes the whole run; an unfinished run gets a provisional report from the reconciled attempts plus one extra `errored`. Exiting 0 without results fails (Flutter, KMP, Android) unless Gradle reported `NO-SOURCE`/`SKIPPED` for that exact task. Saving evidence is best effort and never replaces a test outcome.
+- Prefer explicit portable `test-results --input` for xcresult/JUnit/Swift/Flutter/Jest/ShipIt manifests. Export into a new directory; preserve original evidence and relative index links.
+- Coverage supports SwiftPM LLVM JSON, Flutter LCOV and JaCoCo/Kover JVM XML. Native/JS coverage is unavailable through these formats. Swift/LCOV gates can filter source roots and previews; zero executable lines fail gates.
+- Simulator claims share amoo's lease format. Never reap an external companion's lease or erase an already booted simulator; teardown only devices booted by the lane.
+- The repository's own `Shipfile.yml` supplies `format`, `ci-macos`, `ci-linux`, `fixtures` and `integration-advisory` workflows. Preserve their exclusions, advisory integration behavior and initial unit coverage for Codecov.
+
 ## Conditional body readability
 
 Short, obvious early exits may stay on one line (for example, `guard let self else { return }`).
