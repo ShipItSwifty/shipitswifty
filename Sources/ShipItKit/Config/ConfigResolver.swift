@@ -318,6 +318,7 @@ public struct ConfigResolver: Sendable {
             projectGenerationAutoGenerate: projGenAutoGenerate,
             slackWebhookUrl: shipfile?.notifications?.slack?.webhookUrl ?? environment.slackWebhookUrl,
             slackChannel: shipfile?.notifications?.slack?.channel,
+            testWorkflow: shipfile?.testWorkflow ?? environment.testWorkflow,
             workflows: shipfile?.workflows ?? [:],
             customActions: shipfile?.customActions ?? [:],
             platform: platform,

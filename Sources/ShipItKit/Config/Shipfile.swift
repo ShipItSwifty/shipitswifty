@@ -58,6 +58,7 @@ public struct Shipfile: Codable, Sendable {
     public var notifications: NotificationsConfig?
 
     /// Named release workflows.
+    public var testWorkflow: String?
     public var workflows: [String: WorkflowConfig]?
 
     /// User-defined composite actions — reusable, parameterized sequences of built-in
@@ -113,6 +114,7 @@ public struct Shipfile: Codable, Sendable {
         versioning: VersioningConfig? = nil,
         projectGeneration: ProjectGenerationConfig? = nil,
         notifications: NotificationsConfig? = nil,
+        testWorkflow: String? = nil,
         workflows: [String: WorkflowConfig]? = nil,
         customActions: [String: CustomActionConfig]? = nil,
         ios: IOSConfig? = nil,
@@ -131,6 +133,7 @@ public struct Shipfile: Codable, Sendable {
         self.versioning = versioning
         self.projectGeneration = projectGeneration
         self.notifications = notifications
+        self.testWorkflow = testWorkflow
         self.workflows = workflows
         self.customActions = customActions
         self.ios = ios
@@ -151,6 +154,7 @@ public struct Shipfile: Codable, Sendable {
         case versioning
         case projectGeneration = "project_generation"
         case notifications
+        case testWorkflow = "test_workflow"
         case workflows
         case customActions = "custom_actions"
         case ios
@@ -805,11 +809,12 @@ public struct WorkflowConfig: Codable, Sendable {
     public var codeSigning: CodeSigningConfig?
 
     /// The ordered sequence of steps in this workflow.
+    public var continueOnFailure: Bool?
     public var steps: [WorkflowStepConfig]
 
     /// Whether this workflow declares any override at all.
     var hasOverrides: Bool {
-        buildVariant != nil || flavor != nil || app != nil || build != nil || archive != nil
+        continueOnFailure != nil || buildVariant != nil || flavor != nil || app != nil || build != nil || archive != nil
             || export != nil || codeSigning != nil
     }
 
@@ -822,6 +827,7 @@ public struct WorkflowConfig: Codable, Sendable {
         archive: ArchiveConfig? = nil,
         export: ExportConfig? = nil,
         codeSigning: CodeSigningConfig? = nil,
+        continueOnFailure: Bool? = nil,
         steps: [WorkflowStepConfig]
     ) {
         self.buildVariant = buildVariant
@@ -831,6 +837,7 @@ public struct WorkflowConfig: Codable, Sendable {
         self.archive = archive
         self.export = export
         self.codeSigning = codeSigning
+        self.continueOnFailure = continueOnFailure
         self.steps = steps
     }
 
@@ -842,6 +849,7 @@ public struct WorkflowConfig: Codable, Sendable {
         case archive
         case export
         case codeSigning = "code_signing"
+        case continueOnFailure = "continue_on_failure"
         case steps
     }
 
@@ -850,6 +858,7 @@ public struct WorkflowConfig: Codable, Sendable {
         if let container = try? decoder.singleValueContainer(),
             let steps = try? container.decode([WorkflowStepConfig].self)
         {
+            self.continueOnFailure = nil
             self.buildVariant = nil
             self.flavor = nil
             self.app = nil
@@ -862,6 +871,7 @@ public struct WorkflowConfig: Codable, Sendable {
         }
         // Decode as struct (new format)
         let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.continueOnFailure = try container.decodeIfPresent(Bool.self, forKey: .continueOnFailure)
         self.buildVariant = try container.decodeIfPresent(String.self, forKey: .buildVariant)
         self.flavor = try container.decodeIfPresent(String.self, forKey: .flavor)
         self.app = try container.decodeIfPresent(AppConfig.self, forKey: .app)
@@ -879,6 +889,7 @@ public struct WorkflowConfig: Codable, Sendable {
             try container.encode(steps)
         } else {
             var container = encoder.container(keyedBy: CodingKeys.self)
+            try container.encodeIfPresent(continueOnFailure, forKey: .continueOnFailure)
             try container.encodeIfPresent(buildVariant, forKey: .buildVariant)
             try container.encodeIfPresent(flavor, forKey: .flavor)
             try container.encodeIfPresent(app, forKey: .app)
@@ -894,6 +905,7 @@ public struct WorkflowConfig: Codable, Sendable {
 /// A single step within a workflow definition from the Shipfile.
 public struct WorkflowStepConfig: Codable, Sendable {
     /// The registered action name to execute.
+    public let artifacts: [ArtifactDeclaration]?
     public let action: String
 
     /// Options to pass to the action, as a JSON-compatible dictionary.
@@ -913,7 +925,8 @@ public struct WorkflowStepConfig: Codable, Sendable {
     ///   - action: The registered action name to execute.
     ///   - options: Optional JSON options passed to the action.
     ///   - when: Optional truthy-token condition; when falsy the step is skipped.
-    public init(action: String, options: JSONValue? = nil, when: String? = nil) {
+    public init(action: String, options: JSONValue? = nil, when: String? = nil, artifacts: [ArtifactDeclaration]? = nil) {
+        self.artifacts = artifacts
         self.action = action
         self.options = options
         self.when = when

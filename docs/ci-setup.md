@@ -298,3 +298,30 @@ jobs:
 ```
 
 Use macOS runners for Flutter iOS or React Native iOS distribution because both require Xcode and Apple signing tooling.
+
+## Exporting test lanes
+
+`shipit ci export` translates a named workflow and its artifact declarations into runnable
+provider configuration. The built-in provider is GitHub Actions; other integrations implement
+`CIProvider` and register with `CIProviderRegistry` in library consumers. Xcode Cloud, Bitrise
+and CircleCI providers are not included yet.
+
+```bash
+shipit ci export --provider github-actions --workflow tests --runner macos-26 \
+  --setup-command 'swift build && mkdir -p build/bin && cp "$(swift build --show-bin-path)/shipit" build/bin/shipit' \
+  --executable ./build/bin/shipit --export-path .github/workflows/tests.yml
+```
+
+Choose the runner and toolchain/setup commands explicitly. Export does not execute setup,
+publish a workflow, or upload anything. The exported job runs the lane and uses
+`actions/upload-artifact` with `if: always()` for declared artifacts and lane evidence,
+including failed attempts. Each step may declare `artifacts` with `name`, `paths` and
+`retention_days`; this also works for custom actions. Local runs stage the same files under
+`build/workflow-artifacts/<run-id>/` with manifests. `{{run_id}}` scopes output and artifact
+paths to the current top-level workflow. The export path must be new.
+
+Steps also stage report and result locations they publish (`report_path`, `output_directory`,
+`result_bundle_path`, `coverage_path`) unless those already live under the run's evidence
+directory. Build products such as IPAs, AABs, APKs and archives are **never** collected
+implicitly; list them under `artifacts` to publish them. Artifact `paths` may use `*`, `?` and
+`**` (zero or more directories); a glob only walks the directory that precedes its first wildcard.
