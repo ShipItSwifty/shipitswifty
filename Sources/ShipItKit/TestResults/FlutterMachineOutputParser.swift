@@ -1,143 +1,81 @@
 import Foundation
 import Logging
 
-/// Parses `flutter test --machine` newline-delimited JSON output.
+/// Parses saved `flutter test --machine` events; incomplete tests are errors.
 public struct FlutterMachineOutputParser: Sendable {
     private let logger: Logger
-
-    public init(logger: Logger = Logger.forType(subsystem: "ShipItSwifty", FlutterMachineOutputParser.self)) {
-        self.logger = logger
-    }
-
+    public init(logger: Logger = Logger.forType(subsystem: "ShipItSwifty", FlutterMachineOutputParser.self)) { self.logger = logger }
     public func parse(machineOutput: String) async throws -> ParsedTestRun {
-        var testsByID: [Int: ParsedTestCase] = [:]
+        struct Pending {
+            var name: String
+            var file: String?
+            var started: Double?
+            var status: TestCaseStatus = .errored
+            var message: String? = "Test did not finish"
+            var duration: Double?
+        }
+        var tests: [Int: Pending] = [:]
+        var suiteFiles: [Int: String] = [:]
         var diagnostics: [ParsingDiagnostic] = []
-
-        for rawLine in machineOutput.components(separatedBy: .newlines) {
-            let line = rawLine.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !line.isEmpty, let data = line.data(using: .utf8) else { continue }
-            // Skip non-object lines (e.g. array-wrapped VM service events like `[{...}]`)
-            guard line.hasPrefix("{") else { continue }
-            guard let event = try? JSONDecoder().decode(FlutterMachineEvent.self, from: data) else { continue }
-
-            switch event.type {
+        var recognized = false
+        for line in machineOutput.components(separatedBy: .newlines) {
+            try Task.checkCancellation()
+            guard let data = line.data(using: .utf8), let event = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                let type = event["type"] as? String
+            else { continue }
+            recognized = true
+            switch type {
+            case "suite":
+                if let suite = event["suite"] as? [String: Any], let id = suite["id"] as? Int, let path = suite["path"] as? String {
+                    suiteFiles[id] = path
+                }
             case "testStart":
-                guard let id = event.test?.id, let name = event.test?.name else { continue }
-                testsByID[id] = ParsedTestCase(
-                    stableID: "flutter-case:\(id)",
-                    suite: nil,
-                    name: name,
-                    status: .passed,
-                    rerunSelector: .flutter(name: name)
-                )
+                if let test = event["test"] as? [String: Any], let id = test["id"] as? Int, let name = test["name"] as? String {
+                    tests[id] = Pending(
+                        name: name, file: (test["suiteID"] as? Int).flatMap { suiteFiles[$0] }, started: event["time"] as? Double)
+                }
+            case "error":
+                let message = [event["error"] as? String ?? event["message"] as? String, event["stackTrace"] as? String].compactMap { $0 }
+                    .joined(separator: "\n")
+                if let id = event["testID"] as? Int, tests[id] != nil {
+                    tests[id]?.message = message
+                } else {
+                    diagnostics.append(.init(severity: .error, message: message))
+                }
             case "testDone":
-                guard let id = event.testID, var testCase = testsByID[id] else { continue }
-                // Hidden tests are infrastructure (e.g. file-loading) — exclude from results
-                if event.hidden == true {
-                    testsByID.removeValue(forKey: id)
+                guard let id = event["testID"] as? Int, var test = tests[id] else { continue }
+                if event["hidden"] as? Bool == true {
+                    tests.removeValue(forKey: id)
                     continue
                 }
-                // Skipped must be checked before `result == "success"`: the
-                // package:test machine protocol reports a skipped test as
-                // `result: "success"` *with* `skipped: true` in the same event,
-                // so a success-first check would misclassify it as passed.
-                if event.skipped == true {
-                    testCase = ParsedTestCase(
-                        stableID: testCase.stableID,
-                        suite: testCase.suite,
-                        name: testCase.name,
-                        status: .skipped,
-                        durationSeconds: testCase.durationSeconds,
-                        message: testCase.message,
-                        file: testCase.file,
-                        line: testCase.line,
-                        rerunSelector: testCase.rerunSelector
-                    )
-                } else if event.result == "success" {
-                    testCase = ParsedTestCase(
-                        stableID: testCase.stableID,
-                        suite: testCase.suite,
-                        name: testCase.name,
-                        status: .passed,
-                        durationSeconds: testCase.durationSeconds,
-                        message: testCase.message,
-                        file: testCase.file,
-                        line: testCase.line,
-                        rerunSelector: testCase.rerunSelector
-                    )
-                } else if event.result == "failure" || event.result == "error" {
-                    testCase = ParsedTestCase(
-                        stableID: testCase.stableID,
-                        suite: testCase.suite,
-                        name: testCase.name,
-                        status: event.result == "failure" ? .failed : .errored,
-                        durationSeconds: testCase.durationSeconds,
-                        message: event.message,
-                        file: testCase.file,
-                        line: testCase.line,
-                        rerunSelector: testCase.rerunSelector
-                    )
+                let result = event["result"] as? String
+                test.status =
+                    event["skipped"] as? Bool == true ? .skipped : result == "success" ? .passed : result == "failure" ? .failed : .errored
+                if test.status == .passed || test.status == .skipped {
+                    test.message = nil
+                } else if let message = event["message"] as? String {
+                    test.message = message
                 }
-                testsByID[id] = testCase
-            case "error":
-                diagnostics.append(
-                    ParsingDiagnostic(
-                        severity: .error,
-                        message: event.message ?? "Flutter machine output error"
-                    )
-                )
-            default:
-                continue
+                if let end = event["time"] as? Double, let start = test.started { test.duration = max(0, end - start) / 1000 }
+                tests[id] = test
+            default: break
             }
         }
-
-        let testCases = testsByID.values.sorted { $0.stableID < $1.stableID }
-        logger.info("Parsed Flutter machine output with \(testCases.count) test case(s)")
-
+        guard recognized else { throw ShipItError.invalidConfiguration(reason: "No Flutter machine events found.") }
+        let cases = tests.values.map { test in
+            ParsedTestCase(
+                stableID: "flutter-case:\(test.file ?? "unknown"):\(test.name)", name: test.name,
+                status: test.status, durationSeconds: test.duration, message: test.message, file: test.file,
+                rerunSelector: .flutter(name: test.name))
+        }.sorted { $0.stableID < $1.stableID }
         return ParsedTestRun(
-            platform: "flutter",
-            runner: "flutter-test",
-            source: "machine-output",
+            platform: "flutter", runner: "flutter-test", source: "machine-output",
             summary: TestSummary(
-                passed: testCases.filter { $0.status == .passed }.count,
-                failed: testCases.filter { $0.status == .failed }.count,
-                skipped: testCases.filter { $0.status == .skipped }.count,
-                errored: testCases.filter { $0.status == .errored }.count
-            ),
-            suites: [],
-            testCases: testCases,
-            diagnostics: diagnostics
-        )
+                passed: cases.filter { $0.status == .passed }.count, failed: cases.filter { $0.status == .failed }.count,
+                skipped: cases.filter { $0.status == .skipped }.count, errored: cases.filter { $0.status == .errored }.count),
+            testCases: cases, diagnostics: diagnostics)
     }
 }
-
 extension FlutterMachineOutputParser: TestResultParser {
-    public func parse(_ input: String) async throws -> ParsedTestRun {
-        try await parse(machineOutput: input)
-    }
-}
-
-private struct FlutterMachineEvent: Decodable {
-    let type: String
-    let test: FlutterMachineTest?
-    let testID: Int?
-    let result: String?
-    let skipped: Bool?
-    let hidden: Bool?
-    let message: String?
-
-    private enum CodingKeys: String, CodingKey {
-        case type
-        case test
-        case testID = "testID"
-        case result
-        case skipped
-        case hidden
-        case message
-    }
-}
-
-private struct FlutterMachineTest: Decodable {
-    let id: Int
-    let name: String
+    public func parse(_ input: String) async throws -> ParsedTestRun { try await parse(machineOutput: input) }
 }

@@ -97,5 +97,33 @@ struct IOSXCResultTestParserTests {
             }
         }
     }
+    @Test("Modern configuration leaves retain independent outcomes, target selectors and messages")
+    func modernConfigurations() async throws {
+        let executor = MockExecutor { command, _ in
+            if command.arguments.contains("summary") {
+                return .init(stdout: "{\"failedTests\":1,\"passedTests\":0}", stderr: "", exitCode: 0)
+            }
+            if command.arguments.contains("test-details") {
+                return .init(
+                    stdout: """
+                        {"testRuns":[{"nodeType":"Test Plan Configuration","name":"English","result":"Passed"},{"nodeType":"Test Plan Configuration","name":"German","result":"Failed","children":[{"nodeType":"Failure Message","name":"XCTAssertEqual failed"}]}]}
+                        """, stderr: "", exitCode: 0)
+            }
+            return .init(
+                stdout: """
+                    {"devices":[{"deviceName":"Phone","deviceId":"UDID","osVersion":"27.2"}],"testPlanConfigurations":[{"configurationName":"English"},{"configurationName":"German"}],"testNodes":[{"nodeType":"UI test bundle","name":"AppUITests","children":[{"nodeType":"Test Case","nodeIdentifier":"Suite/test()","result":"Failed"}]}]}
+                    """, stderr: "", exitCode: 0)
+        }
+        let run = try await IOSXCResultTestParser(shell: ShellContext(executor: executor)).parse(xcresultPath: "sample.xcresult")
+        #expect(run.testCases.count == 2)
+        #expect(run.summary.passed == 1)
+        #expect(run.summary.failed == 1)
+        let failure = try #require(run.testCases.first(where: { $0.status == .failed }))
+        #expect(failure.metadata?["configuration"] == "German")
+        #expect(failure.metadata?["runtime"] == "27.2")
+        #expect(failure.message == "XCTAssertEqual failed")
+        #expect(failure.rerunSelector == .xcodeOnlyTesting("AppUITests/Suite/test()"))
+    }
+
 }
 #endif

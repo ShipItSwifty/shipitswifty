@@ -152,13 +152,14 @@ struct AndroidCoverageParser: Sendable {
 // MARK: - JaCoCo XML Parser
 
 /// SAX-style parser for the JaCoCo XML report format.
-private final class JacocoXMLParser: NSObject, XMLParserDelegate, @unchecked Sendable {
+private final class JacocoXMLParser: NSObject, XMLParserDelegate {
 
     private let data: Data
     private var packages: [JacocoPackage] = []
     private var currentPackage: MutablePackage?
     private var currentSourceFile: MutableSourceFile?
     private var parseError: Error?
+    private var elements: [String] = []
 
     init(data: Data) {
         self.data = data
@@ -166,6 +167,7 @@ private final class JacocoXMLParser: NSObject, XMLParserDelegate, @unchecked Sen
 
     func parse() throws -> [JacocoPackage] {
         let xmlParser = XMLParser(data: data)
+        xmlParser.shouldResolveExternalEntities = false
         xmlParser.delegate = self
         xmlParser.parse()
 
@@ -187,6 +189,8 @@ private final class JacocoXMLParser: NSObject, XMLParserDelegate, @unchecked Sen
         qualifiedName qName: String?,
         attributes attributeDict: [String: String] = [:]
     ) {
+        let parent = elements.last
+        elements.append(elementName)
         switch elementName {
         case "package":
             if let name = attributeDict["name"] {
@@ -203,11 +207,11 @@ private final class JacocoXMLParser: NSObject, XMLParserDelegate, @unchecked Sen
             let covered = Int(attributeDict["covered"] ?? "0") ?? 0
             let missed = Int(attributeDict["missed"] ?? "0") ?? 0
 
-            if currentSourceFile != nil {
+            if parent == "sourcefile" {
                 // Inside a <sourcefile>
                 currentSourceFile?.coveredLines += covered
                 currentSourceFile?.executableLines += covered + missed
-            } else if currentPackage != nil {
+            } else if parent == "package" {
                 // Inside a <package> but outside <sourcefile> — package-level counter
                 currentPackage?.packageCoveredLines += covered
                 currentPackage?.packageExecutableLines += covered + missed
@@ -225,6 +229,7 @@ private final class JacocoXMLParser: NSObject, XMLParserDelegate, @unchecked Sen
         namespaceURI: String?,
         qualifiedName qName: String?
     ) {
+        defer { _ = elements.popLast() }
         switch elementName {
         case "sourcefile":
             if let sf = currentSourceFile {
