@@ -47,6 +47,16 @@ public struct ParsedTestRun: Codable, Sendable {
     }
 }
 
+extension ParsedTestRun {
+    /// `true` when at least one test reported an outcome.
+    ///
+    /// A run without outcomes (an unparsable file, a crashed runner, an empty directory) must never be
+    /// presented as a successful zero-test run, so callers check this before trusting the summary.
+    public var hasResults: Bool {
+        !testCases.isEmpty || summary.passed + summary.failed + summary.skipped > 0
+    }
+}
+
 /// Aggregate counts for a parsed test run or rerun attempt.
 public struct TestSummary: Codable, Sendable, Hashable {
     public let passed: Int
@@ -88,6 +98,7 @@ public struct ParsedTestSuite: Codable, Sendable, Hashable {
 /// One parsed test case from a tool artifact.
 public struct ParsedTestCase: Codable, Sendable, Hashable {
     /// Stable identifier used to correlate the same test across attempts.
+    public let metadata: [String: String]?
     public let stableID: String
 
     /// Owning suite name when the source format provides one.
@@ -123,8 +134,10 @@ public struct ParsedTestCase: Codable, Sendable, Hashable {
         message: String? = nil,
         file: String? = nil,
         line: Int? = nil,
-        rerunSelector: TestRerunSelector? = nil
+        rerunSelector: TestRerunSelector? = nil,
+        metadata: [String: String]? = nil
     ) {
+        self.metadata = metadata
         self.stableID = stableID
         self.suite = suite
         self.name = name
@@ -150,6 +163,7 @@ public enum TestCaseStatus: String, Codable, Sendable {
 public enum TestRerunSelector: Codable, Sendable, Hashable {
     case xcodeOnlyTesting(String)
     case gradleTestFilter(String)
+    case swiftTestFilter(String)
     case jest(file: String?, fullName: String)
     case flutter(name: String)
     case unsupported(rawIdentifier: String)
@@ -166,6 +180,7 @@ public enum TestRerunSelector: Codable, Sendable, Hashable {
     private enum SelectorType: String, Codable {
         case xcodeOnlyTesting
         case gradleTestFilter
+        case swiftTestFilter
         case jest
         case flutter
         case unsupported
@@ -176,6 +191,8 @@ public enum TestRerunSelector: Codable, Sendable, Hashable {
         switch try container.decode(SelectorType.self, forKey: .type) {
         case .xcodeOnlyTesting:
             self = .xcodeOnlyTesting(try container.decode(String.self, forKey: .value))
+        case .swiftTestFilter:
+            self = .swiftTestFilter(try container.decode(String.self, forKey: .value))
         case .gradleTestFilter:
             self = .gradleTestFilter(try container.decode(String.self, forKey: .value))
         case .jest:
@@ -195,6 +212,9 @@ public enum TestRerunSelector: Codable, Sendable, Hashable {
         switch self {
         case .xcodeOnlyTesting(let value):
             try container.encode(SelectorType.xcodeOnlyTesting, forKey: .type)
+            try container.encode(value, forKey: .value)
+        case .swiftTestFilter(let value):
+            try container.encode(SelectorType.swiftTestFilter, forKey: .type)
             try container.encode(value, forKey: .value)
         case .gradleTestFilter(let value):
             try container.encode(SelectorType.gradleTestFilter, forKey: .type)
@@ -246,6 +266,7 @@ public struct TestRunReport: Codable, Sendable {
     public let flakyTests: [ParsedTestCase]
     public let persistentFailedTests: [ParsedTestCase]
     public let summary: TestSummary
+    public let testCases: [ParsedTestCase]?
     public let generatedAt: Date
 
     public init(
@@ -258,7 +279,8 @@ public struct TestRunReport: Codable, Sendable {
         flakyTests: [ParsedTestCase] = [],
         persistentFailedTests: [ParsedTestCase] = [],
         summary: TestSummary,
-        generatedAt: Date = Date()
+        generatedAt: Date = Date(),
+        testCases: [ParsedTestCase]? = nil
     ) {
         self.schemaVersion = schemaVersion
         self.platform = platform
@@ -270,11 +292,14 @@ public struct TestRunReport: Codable, Sendable {
         self.persistentFailedTests = persistentFailedTests
         self.summary = summary
         self.generatedAt = generatedAt
+        self.testCases = testCases
     }
 }
 
 /// One execution attempt within a multi-attempt test run.
 public struct TestAttempt: Codable, Sendable, Hashable {
+    public let reason: String?
+    public let metadata: [String: String]?
     public let attemptNumber: Int
     public let summary: TestSummary
     public let failedTests: [ParsedTestCase]
@@ -283,15 +308,36 @@ public struct TestAttempt: Codable, Sendable, Hashable {
 
     public init(
         attemptNumber: Int,
+        reason: String? = nil,
+        metadata: [String: String]? = nil,
         summary: TestSummary,
         failedTests: [ParsedTestCase] = [],
         durationSeconds: Double? = nil,
         source: String? = nil
     ) {
+        self.reason = reason
+        self.metadata = metadata
         self.attemptNumber = attemptNumber
         self.summary = summary
         self.failedTests = failedTests
         self.durationSeconds = durationSeconds
         self.source = source
     }
+}
+
+/// Preserve all case identities in final reports while replacing outcomes resolved by reruns.
+func finalTestCases(_ initial: [ParsedTestCase], remaining: [ParsedTestCase], flaky: [ParsedTestCase]) -> [ParsedTestCase] {
+    let recovered = Set(flaky.map(\.stableID))
+    var cases = initial.map { test in
+        if let persistent = remaining.first(where: { $0.stableID == test.stableID }) { return persistent }
+        guard recovered.contains(test.stableID) else { return test }
+        var metadata = test.metadata ?? [:]
+        metadata["flaky"] = "true"
+        return ParsedTestCase(
+            stableID: test.stableID, suite: test.suite, name: test.name, status: .passed,
+            durationSeconds: test.durationSeconds, message: test.message, file: test.file, line: test.line,
+            rerunSelector: test.rerunSelector, metadata: metadata)
+    }
+    for test in remaining where !cases.contains(where: { $0.stableID == test.stableID }) { cases.append(test) }
+    return cases
 }

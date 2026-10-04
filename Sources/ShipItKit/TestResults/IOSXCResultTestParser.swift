@@ -24,13 +24,18 @@ public struct IOSXCResultTestParser: Sendable {
 
     /// Parses a `.xcresult` bundle into a normalized test run.
     public func parse(xcresultPath: String) async throws -> ParsedTestRun {
-        async let summaryOutput = runXCResultTool(arguments: ["get", "test-results", "summary", "--path", xcresultPath, "--compact"])
-        async let testsOutput = runXCResultTool(arguments: ["get", "test-results", "tests", "--path", xcresultPath, "--compact"])
-
-        let (summary, tests) = try await (summaryOutput, testsOutput)
+        // xcresulttool may initialize its result database on first read; serialize these reads.
+        let summary = try await runXCResultTool(arguments: ["get", "test-results", "summary", "--path", xcresultPath, "--compact"])
+        let tests = try await runXCResultTool(arguments: ["get", "test-results", "tests", "--path", xcresultPath, "--compact"])
         let summaryJSON = try decodeJSON(summary.stdout, source: xcresultPath, command: "summary")
-        let testsJSON = try decodeJSON(tests.stdout, source: xcresultPath, command: "tests")
+        var testsJSON = try decodeJSON(tests.stdout, source: xcresultPath, command: "tests")
 
+        // Aggregate test nodes collapse configurations. Read each test's runs when dimensions vary.
+        if let object = testsJSON.objectValue,
+            (object.array(for: "testPlanConfigurations")?.count ?? 0) > 1 || (object.array(for: "devices")?.count ?? 0) > 1
+        {
+            testsJSON = try await enrichRuns(testsJSON, path: xcresultPath)
+        }
         let extractor = XCResultTestExtractor(logger: logger)
         let extracted = extractor.extract(fromTestsJSON: testsJSON, summaryJSON: summaryJSON)
 
@@ -43,6 +48,27 @@ public struct IOSXCResultTestParser: Sendable {
             testCases: extracted.testCases,
             diagnostics: extracted.diagnostics
         )
+    }
+
+    private func enrichRuns(_ value: JSONValue, path: String) async throws -> JSONValue {
+        switch value {
+        case .object(var object):
+            if object.string(for: "nodeType") == "Test Case", let id = object.string(for: "nodeIdentifier") {
+                let output = try await runXCResultTool(arguments: [
+                    "get", "test-results", "test-details", "--path", path, "--test-id", id, "--compact",
+                ])
+                let details = try decodeJSON(output.stdout, source: path, command: "test-details")
+                if let runs = details.objectValue?.array(for: "testRuns"), !runs.isEmpty { object["children"] = .array(runs) }
+            } else {
+                for key in object.keys.sorted() { if let child = object[key] { object[key] = try await enrichRuns(child, path: path) } }
+            }
+            return .object(object)
+        case .array(let values):
+            var enriched: [JSONValue] = []
+            for value in values { enriched.append(try await enrichRuns(value, path: path)) }
+            return .array(enriched)
+        default: return value
+        }
     }
 
     private func runXCResultTool(arguments: [String]) async throws -> ShellOutput {
@@ -91,11 +117,22 @@ private struct XCResultTestExtractor: Sendable {
         var testCasesByID: [String: ParsedTestCase] = [:]
         var diagnostics: [ParsingDiagnostic] = []
 
-        let nodes = collectObjects(from: testsJSON)
+        var dimensions: [String: JSONValue] = [:]
+        if let devices = testsJSON.objectValue?.array(for: "devices"), devices.count == 1, let device = devices.first?.objectValue {
+            dimensions["_device"] = device["deviceName"]
+            dimensions["_deviceID"] = device["deviceId"]
+            dimensions["_runtime"] = device["osVersion"]
+        }
+        if let configurations = testsJSON.objectValue?.array(for: "testPlanConfigurations"), configurations.count == 1 {
+            dimensions["_configuration"] = configurations.first?.objectValue?["configurationName"]
+        }
+        let nodes = collectObjects(from: testsJSON, context: dimensions)
         for node in nodes {
             let nodeType = node.string(for: "nodeType") ?? node.string(for: "type") ?? node.string(for: "kind")
             let identifier =
-                node.string(for: "identifier")
+                node.string(for: "_testIdentifier")
+                ?? node.string(for: "nodeIdentifier")
+                ?? node.string(for: "identifier")
                 ?? node.string(for: "id")
                 ?? node.string(for: "testIdentifierURL")
                 ?? node.string(for: "name")
@@ -127,23 +164,46 @@ private struct XCResultTestExtractor: Sendable {
                 )
             }
 
+            if let nodeType,
+                ["Test Plan", "Test Suite", "Unit test bundle", "UI test bundle", "Failure Message"].contains(nodeType)
+                    || (["Device", "Test Plan Configuration"].contains(nodeType)
+                        && children.contains(where: { child in
+                            ["Test Case Run", "Device", "Test Plan Configuration"].contains(
+                                child.objectValue?.string(for: "nodeType") ?? "")
+                        }))
+            {
+                continue
+            }
             let status = status(from: nodeType, node: node)
             guard let status, let identifier else { continue }
 
             let suiteName = node.string(for: "parentName") ?? inferredSuiteName(from: identifier)
-            let selector = onlyTestingSelector(from: identifier)
-            let stableID = "xcresult-case:\(identifier)"
+            let selector = onlyTestingSelector(from: identifier).map { value in
+                if identifier.split(separator: "/").count < 3, let target = node.string(for: "_testTarget") { return target + "/" + value }
+                return value
+            }
+            let dimensions = [node.string(for: "_configuration"), node.string(for: "_device")].compactMap { $0 }
+            let stableID = "xcresult-case:\(identifier)" + (dimensions.isEmpty ? "" : ":" + dimensions.joined(separator: ":"))
 
             testCasesByID[stableID] = ParsedTestCase(
                 stableID: stableID,
                 suite: suiteName,
                 name: displayName(from: identifier),
                 status: status,
-                durationSeconds: node.double(for: "duration") ?? node.double(for: "durationSeconds"),
-                message: node.string(for: "failureText") ?? node.string(for: "summary") ?? node.string(for: "message"),
-                file: node.string(for: "sourceFileName"),
-                line: node.int(for: "sourceLineNumber") ?? node.int(for: "lineNumber"),
-                rerunSelector: selector.map(TestRerunSelector.xcodeOnlyTesting)
+                durationSeconds: node.double(for: "durationInSeconds") ?? node.double(for: "duration")
+                    ?? node.double(for: "durationSeconds"),
+                message: node.string(for: "failureText") ?? node.string(for: "summary") ?? node.string(for: "message")
+                    ?? children.compactMap { child in
+                        child.objectValue?.string(for: "nodeType") == "Failure Message" ? child.objectValue?.string(for: "name") : nil
+                    }.first,
+                file: node.string(for: "sourceFileName") ?? node.object(for: "sourceLocation")?.string(for: "filePath"),
+                line: node.int(for: "sourceLineNumber") ?? node.int(for: "lineNumber")
+                    ?? node.object(for: "sourceLocation")?.int(for: "lineNumber"),
+                rerunSelector: selector.map(TestRerunSelector.xcodeOnlyTesting),
+                metadata: [
+                    "configuration": node.string(for: "_configuration"), "device": node.string(for: "_device"),
+                    "device_id": node.string(for: "_deviceID"), "runtime": node.string(for: "_runtime"),
+                ].compactMapValues { $0 }
             )
         }
 
@@ -164,16 +224,26 @@ private struct XCResultTestExtractor: Sendable {
     }
 
     private func summarize(testCases: [ParsedTestCase], summaryJSON: JSONValue) -> TestSummary {
+        if testCases.contains(where: { $0.metadata?["configuration"] != nil || $0.metadata?["device"] != nil }) {
+            return .init(
+                passed: testCases.filter { $0.status == .passed }.count, failed: testCases.filter { $0.status == .failed }.count,
+                skipped: testCases.filter { $0.status == .skipped }.count, errored: testCases.filter { $0.status == .errored }.count)
+        }
         if let object = summaryJSON.objectValue {
             let metrics = object.object(for: "metrics") ?? object.object(for: "summary") ?? object
-            let passed = metrics.int(for: "testsCount")
+            let passed =
+                metrics.int(for: "passedTests")
+                ?? metrics.int(for: "testsCount")
                 .flatMap { total in
-                    let skipped = metrics.int(for: "testsSkippedCount") ?? 0
-                    let failed = metrics.int(for: "testsFailedCount") ?? 0
+                    let skipped = metrics.int(for: "skippedTests") ?? metrics.int(for: "testsSkippedCount") ?? 0
+                    let failed = metrics.int(for: "failedTests") ?? metrics.int(for: "testsFailedCount") ?? 0
                     return max(total - skipped - failed, 0)
                 }
-            let failed = metrics.int(for: "testsFailedCount") ?? testCases.filter { $0.status == .failed || $0.status == .errored }.count
-            let skipped = metrics.int(for: "testsSkippedCount") ?? testCases.filter { $0.status == .skipped }.count
+            let failed =
+                metrics.int(for: "failedTests") ?? metrics.int(for: "testsFailedCount") ?? testCases.filter { $0.status == .failed }.count
+            let skipped =
+                metrics.int(for: "skippedTests") ?? metrics.int(for: "testsSkippedCount")
+                ?? testCases.filter { $0.status == .skipped }.count
             let errored = metrics.int(for: "testsErroredCount") ?? testCases.filter { $0.status == .errored }.count
             return TestSummary(
                 passed: passed ?? testCases.filter { $0.status == .passed }.count,
@@ -206,22 +276,34 @@ private struct XCResultTestExtractor: Sendable {
         default: break
         }
 
-        let loweredNodeType = nodeType?.lowercased() ?? ""
-        if loweredNodeType.contains("test") && node.array(for: "subtests") == nil && node.array(for: "children") == nil {
-            return .passed
-        }
-
         return nil
     }
 
-    private func collectObjects(from value: JSONValue) -> [[String: JSONValue]] {
+    private func collectObjects(from value: JSONValue, context: [String: JSONValue] = [:]) -> [[String: JSONValue]] {
         switch value {
-        case .object(let object):
-            return [object] + object.values.flatMap(collectObjects(from:))
-        case .array(let array):
-            return array.flatMap(collectObjects(from:))
-        default:
-            return []
+        case .object(let raw):
+            var inherited = context
+            let type = raw.string(for: "nodeType")
+            if type == "Test Plan Configuration" { inherited["_configuration"] = raw["name"] }
+            if let configuration = raw["configurationName"] { inherited["_configuration"] = configuration }
+            if let device = raw["deviceName"] { inherited["_device"] = device }
+            if type == "Device" { inherited["_device"] = raw["name"] }
+            if type == "UI test bundle" || type == "Unit test bundle" { inherited["_testTarget"] = raw["name"] }
+            if type == "Test Case" { inherited["_testIdentifier"] = raw["nodeIdentifier"] ?? raw["identifier"] }
+            var object = raw
+            for (key, value) in inherited { object[key] = value }
+            let children = raw.values.flatMap { collectObjects(from: $0, context: inherited) }
+            if type == "Test Case",
+                children.contains(where: {
+                    ["Test Case Run", "Test Plan Configuration", "Device"].contains($0.string(for: "nodeType") ?? "")
+                        && $0.string(for: "result") != nil
+                })
+            {
+                return children
+            }
+            return [object] + children
+        case .array(let array): return array.flatMap { collectObjects(from: $0, context: context) }
+        default: return []
         }
     }
 
