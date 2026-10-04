@@ -154,8 +154,9 @@ public struct FlutterCLI: RunnableCommandFamily {
     }
 
     /// `flutter test --machine` — emits newline-delimited JSON events.
-    public func testMachine(coverage: Bool = false) -> Self {
+    public func testMachine(coverage: Bool = false, name: String? = nil) -> Self {
         var args = ["test", "--machine"]
+        if let name { args += ["--name", name] }
         if coverage { args.append("--coverage") }
         return copy(arguments: args)
     }
