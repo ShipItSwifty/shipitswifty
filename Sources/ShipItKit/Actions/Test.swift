@@ -19,6 +19,8 @@ extension ParsedTestCase {
         switch rerunSelector {
         case .xcodeOnlyTesting(let value):
             return Self.formatXCTestName(value)
+        case .swiftTestFilter(let value):
+            return value
         case .gradleTestFilter(let value):
             return Self.formatGradleTestName(value)
         case .jest(_, let fullName):
@@ -290,6 +292,12 @@ public struct TestAction: Action {
 
         /// Test plan name to run (if multiple plans exist). (iOS only)
         public var testPlan: String?
+        public var testPlans: [String]?
+        public var testProductsPath: String?
+        public var legacyCombinedTest: Bool?
+        public var serial: Bool?
+        public var skipMacroValidation: Bool?
+        public var eraseSimulator: Bool?
 
         /// Restrict the run to specific test targets or test cases. (iOS only)
         /// Each entry maps to a separate `-only-testing` argument.
@@ -350,6 +358,7 @@ public struct TestAction: Action {
         ///
         /// All parameters are optional; unset values fall back to `ResolvedConfig`.
         public init(
+            legacyCombinedTest: Bool? = nil,
             scheme: String? = nil,
             destinations: [String]? = nil,
             destination: String? = nil,
@@ -357,6 +366,11 @@ public struct TestAction: Action {
             enableCodeCoverage: Bool? = nil,
             resultBundlePath: String? = nil,
             testPlan: String? = nil,
+            testPlans: [String]? = nil,
+            testProductsPath: String? = nil,
+            serial: Bool? = nil,
+            skipMacroValidation: Bool? = nil,
+            eraseSimulator: Bool? = nil,
             onlyTesting: [String]? = nil,
             skipTesting: [String]? = nil,
             retryOnFailure: Bool? = nil,
@@ -377,6 +391,12 @@ public struct TestAction: Action {
             self.enableCodeCoverage = enableCodeCoverage
             self.resultBundlePath = resultBundlePath
             self.testPlan = testPlan
+            self.testPlans = testPlans
+            self.testProductsPath = testProductsPath
+            self.legacyCombinedTest = legacyCombinedTest
+            self.serial = serial
+            self.skipMacroValidation = skipMacroValidation
+            self.eraseSimulator = eraseSimulator
             self.onlyTesting = onlyTesting
             self.skipTesting = skipTesting
             self.retryOnFailure = retryOnFailure
@@ -427,6 +447,7 @@ public struct TestAction: Action {
 
         /// Structured multi-attempt report for this test run.
         public let report: TestRunReport?
+        public let outputDirectory: String?
 
         /// Whether all executed tests passed (no failures).
         public var succeeded: Bool { failCount == 0 }
@@ -439,7 +460,8 @@ public struct TestAction: Action {
             passedTests: [String] = [],
             failedTests: [String] = [],
             resultBundlePath: String? = nil,
-            report: TestRunReport? = nil
+            report: TestRunReport? = nil,
+            outputDirectory: String? = nil
         ) {
             self.passCount = passCount
             self.failCount = failCount
@@ -448,10 +470,48 @@ public struct TestAction: Action {
             self.failedTests = failedTests
             self.resultBundlePath = resultBundlePath
             self.report = report
+            self.outputDirectory = outputDirectory
         }
     }
 
-    public func run(with options: Options, context: ActionContext) async throws -> Result {
+    public func run(with options: Options, context suppliedContext: ActionContext) async throws -> Result {
+        var context = suppliedContext
+        let root = URL(
+            fileURLWithPath: (context.evidenceRoot.map { $0 + "/test-runs/" } ?? "build/test-runs/") + context.platform.rawValue + "-"
+                + UUID().uuidString)
+        context.testEvidence = TestEvidenceRecorder(root: root)
+        do {
+            let result = try await runRecorded(options: options, context: context)
+            if let report = result.report, FileManager.default.fileExists(atPath: root.path) {
+                saveEvidence("test report", logger: logger) { try writeJSON(report, to: root.appendingPathComponent("report.json")) }
+            }
+            return Result(
+                passCount: result.passCount, failCount: result.failCount, skipCount: result.skipCount,
+                passedTests: result.passedTests, failedTests: result.failedTests, resultBundlePath: result.resultBundlePath,
+                report: result.report,
+                outputDirectory: result.outputDirectory
+                    ?? (FileManager.default.fileExists(atPath: root.path) ? root.path : result.report?.source))
+        } catch {
+            if FileManager.default.fileExists(atPath: root.path) { logger.error("Test evidence: \(root.path)") }
+            // The action did not finish, so no final report exists yet. Failing tests are an outcome in their
+            // own right; anything else (cancellation, I/O, configuration) means the run is incomplete.
+            if let evidence = context.testEvidence {
+                var testFailure = false
+                if case ShipItError.testFailed = error { testFailure = true }
+                do { try await evidence.writeProvisionalReport(executionError: !testFailure) } catch {
+                    logger.warning("Could not save provisional test report: \(error)")
+                }
+            }
+            if let path = options.reportPath, let data = try? Data(contentsOf: root.appendingPathComponent("report.json")) {
+                let target = URL(fileURLWithPath: path)
+                try? FileManager.default.createDirectory(at: target.deletingLastPathComponent(), withIntermediateDirectories: true)
+                try? data.write(to: target, options: .atomic)
+            }
+            throw error
+        }
+    }
+
+    private func runRecorded(options: Options, context: ActionContext) async throws -> Result {
         let buildSystem: BuildSystem =
             context.platform == .ios
             ? context.config.iosBuildSystem
@@ -502,108 +562,103 @@ public struct TestAction: Action {
 
     /// Runs `flutter test` for Flutter projects (both iOS and Android platforms).
     private func runFlutterTests(options: Options, context: ActionContext) async throws -> Result {
-        logger.info("Running Flutter tests (flutter test)")
-
-        return try await InfrastructureRetryScheduler.executeIfConfigured(
-            options: options.infrastructureRetry,
-            classifier: FlutterInfrastructureClassifier(),
-            label: "flutter test"
-        ) {
-            let flutter = FlutterCLI(context: context.shell).testMachine()
-            let output: ShellOutput
-            do {
-                output = try await flutter.run()
-            } catch let ShellError.exitFailure(_, shellOutput) {
-                let combinedLog = ShellRunHelpers.combinedLog(shellOutput)
-                let failCount = self.parseFlutterFailureCount(from: combinedLog)
-                self.logger.error("Flutter tests failed with \(failCount) failure(s)")
-                throw ShipItError.testFailed(
-                    exitCode: Int(shellOutput.exitCode),
-                    failureCount: failCount,
-                    log: combinedLog
-                )
+        let limit = options.rerunFailedTests?.enabled == true ? max(1, options.rerunFailedTests?.maxAttempts ?? 2) : 1
+        var attempts: [TestAttempt] = []
+        var initial: ParsedTestRun?
+        var remaining: [ParsedTestCase] = []
+        var flaky: [ParsedTestCase] = []
+        var lastOutput: ShellOutput?
+        for number in 1...limit {
+            let names =
+                number == 1
+                ? []
+                : remaining.compactMap { test -> String? in
+                    guard case .flutter(let name) = test.rerunSelector else { return nil }
+                    return NSRegularExpression.escapedPattern(for: name)
+                }
+            if number > 1 && names.isEmpty { break }
+            let command = FlutterCLI(context: context.shell).testMachine(
+                coverage: options.enableCodeCoverage == true && number == 1,
+                name: names.isEmpty ? nil : "^(?:" + names.joined(separator: "|") + ")$")
+            let output = try await InfrastructureRetryScheduler.executeIfConfigured(
+                options: options.infrastructureRetry,
+                classifier: FlutterInfrastructureClassifier(), label: "flutter test"
+            ) {
+                let output = try await executeRecordedTest(
+                    command, context: context, reason: number == 1 ? "initial" : "failed_tests",
+                    parse: { output in try await FlutterMachineOutputParser().parse(machineOutput: output.stdout) },
+                    sources: {
+                        options.enableCodeCoverage == true && number == 1
+                            ? [URL(fileURLWithPath: context.config.projectRoot).appendingPathComponent("coverage/lcov.info")] : []
+                    })
+                if output.exitCode != 0, FlutterInfrastructureClassifier().isRetryable(log: output.stdout + output.stderr) {
+                    throw ShipItError.testFailed(exitCode: Int(output.exitCode), failureCount: 0, log: output.stdout + output.stderr)
+                }
+                return output
+            } extractContext: { error in
+                if let error = error as? ShipItError, case .testFailed(_, _, let log) = error { return .init(log: log) }
+                return nil
             }
-            if output.exitCode != 0 {
-                let combinedLog = ShellRunHelpers.combinedLog(output)
-                let failCount = self.parseFlutterFailureCount(from: combinedLog)
-                throw ShipItError.testFailed(
-                    exitCode: Int(output.exitCode),
-                    failureCount: failCount,
-                    log: combinedLog
-                )
+            lastOutput = output
+            let run: ParsedTestRun
+            if let parsed = try? await FlutterMachineOutputParser().parse(machineOutput: output.stdout), !parsed.testCases.isEmpty {
+                run = parsed
+            } else {
+                let counts = parseFlutterCounts(from: output.stdout)
+                run = ParsedTestRun(
+                    platform: "flutter", runner: "flutter-test", source: "stdout",
+                    summary: .init(passed: counts.pass, failed: counts.fail, skipped: counts.skip),
+                    testCases: counts.failedTests.map { .init(stableID: $0, name: $0, status: .failed, rerunSelector: .flutter(name: $0)) })
             }
-            // Prefer the machine-output parser, but only when it actually parsed test
-            // cases. `flutter test --machine` emits newline-delimited JSON; if the output
-            // is human-format (older Flutter, or a wrapper that ignores `--machine`), the
-            // parser returns an empty run rather than throwing, so fall back to the
-            // stdout regex parser instead of reporting zero tests.
-            if let parsedRun = try? await FlutterMachineOutputParser(logger: logger).parse(machineOutput: output.stdout),
-                !parsedRun.testCases.isEmpty
-            {
-                let named = legacyNamedResults(from: parsedRun)
+            // An initial run that reported no outcomes is an execution failure, never a passing zero-test run.
+            // (A selective rerun that matches nothing keeps the original failures instead.)
+            if initial == nil && !run.hasResults {
                 let report = TestRunReport(
-                    platform: "flutter",
-                    runner: "flutter-test",
-                    source: "machine-output",
-                    attempts: [
-                        TestAttempt(
-                            attemptNumber: 1, summary: parsedRun.summary,
-                            failedTests: parsedRun.testCases.filter { $0.status == .failed || $0.status == .errored })
-                    ],
-                    initialFailedTests: parsedRun.testCases.filter { $0.status == .failed || $0.status == .errored },
-                    flakyTests: [],
-                    persistentFailedTests: parsedRun.testCases.filter { $0.status == .failed || $0.status == .errored },
-                    summary: parsedRun.summary
-                )
+                    platform: "flutter", runner: "flutter-test", source: context.testEvidence?.root.path ?? "flutter",
+                    attempts: attempts, summary: .init(errored: 1))
                 try writeTestReportIfNeeded(report, to: options.reportPath)
-                self.logger.info(
-                    "Flutter tests complete — pass: \(parsedRun.summary.passed), fail: \(parsedRun.summary.failed), skip: \(parsedRun.summary.skipped)"
-                )
-                return Result(
-                    passCount: parsedRun.summary.passed,
-                    failCount: parsedRun.summary.failed,
-                    skipCount: parsedRun.summary.skipped,
-                    passedTests: named.passedTests,
-                    failedTests: named.failedTests,
-                    report: report
-                )
+                if let root = context.testEvidence?.root { try writeJSON(report, to: root.appendingPathComponent("report.json")) }
+                throw ShipItError.testFailed(
+                    exitCode: Int(output.exitCode == 0 ? 1 : output.exitCode), failureCount: 0,
+                    log: "Flutter test produced no test results.\n" + output.stdout + output.stderr)
             }
-
-            let parsed = self.parseFlutterCounts(from: output.stdout)
-            let report = TestRunReport(
-                platform: "flutter",
-                runner: "flutter-test",
-                source: "stdout",
-                attempts: [
-                    TestAttempt(attemptNumber: 1, summary: TestSummary(passed: parsed.pass, failed: parsed.fail, skipped: parsed.skip))
-                ],
-                initialFailedTests: parsed.failedTests.map {
-                    ParsedTestCase(stableID: $0, name: $0, status: .failed, rerunSelector: .flutter(name: $0))
-                },
-                flakyTests: [],
-                persistentFailedTests: parsed.failedTests.map {
-                    ParsedTestCase(stableID: $0, name: $0, status: .failed, rerunSelector: .flutter(name: $0))
-                },
-                summary: TestSummary(passed: parsed.pass, failed: parsed.fail, skipped: parsed.skip)
-            )
-            try writeTestReportIfNeeded(report, to: options.reportPath)
-            self.logger.info("Flutter tests complete — pass: \(parsed.pass), fail: \(parsed.fail), skip: \(parsed.skip)")
-            return Result(
-                passCount: parsed.pass,
-                failCount: parsed.fail,
-                skipCount: parsed.skip,
-                passedTests: parsed.passedTests,
-                failedTests: parsed.failedTests,
-                report: report
-            )
-        } extractContext: { error in
-            if let shipItError = error as? ShipItError,
-                case .testFailed(_, _, let log) = shipItError
-            {
-                return .init(log: log)
+            let failures = run.testCases.filter { $0.status == .failed || $0.status == .errored }
+            attempts.append(
+                .init(attemptNumber: number, reason: number == 1 ? "initial" : "failed_tests", summary: run.summary, failedTests: failures))
+            if initial == nil {
+                initial = run
+                remaining = failures
+            } else {
+                let passedIDs = Set(run.testCases.filter { $0.status == .passed }.map(\.stableID))
+                flaky += remaining.filter { passedIDs.contains($0.stableID) }
+                remaining = remaining.filter { !passedIDs.contains($0.stableID) }
+                for test in failures where !remaining.contains(where: { $0.stableID == test.stableID }) { remaining.append(test) }
             }
-            return nil
+            if remaining.isEmpty { break }
         }
+        guard let initial else { throw ShipItError.invalidConfiguration(reason: "Flutter produced no results") }
+        let executionError = remaining.isEmpty && lastOutput?.exitCode != 0
+        let report = TestRunReport(
+            platform: "flutter", runner: "flutter-test", source: context.testEvidence?.root.path ?? "flutter",
+            attempts: attempts, initialFailedTests: initial.testCases.filter { $0.status == .failed || $0.status == .errored },
+            flakyTests: flaky, persistentFailedTests: remaining,
+            summary: .init(
+                passed: initial.summary.passed + flaky.count,
+                failed: remaining.filter { $0.status == .failed }.count, skipped: initial.summary.skipped, flaky: flaky.count,
+                errored: remaining.filter { $0.status == .errored }.count + (executionError ? 1 : 0)),
+            testCases: finalTestCases(initial.testCases, remaining: remaining, flaky: flaky))
+        try writeTestReportIfNeeded(report, to: options.reportPath)
+        if let root = context.testEvidence?.root { try writeJSON(report, to: root.appendingPathComponent("report.json")) }
+        if !remaining.isEmpty || executionError {
+            throw ShipItError.testFailed(
+                exitCode: Int(lastOutput?.exitCode ?? 1),
+                failureCount: max(1, remaining.count, initial.summary.failed + initial.summary.errored),
+                log: lastOutput.map { $0.stdout + $0.stderr } ?? "Flutter tests failed")
+        }
+        let named = legacyNamedResults(from: initial)
+        return .init(
+            passCount: report.summary.passed, failCount: 0, skipCount: report.summary.skipped, passedTests: named.passedTests,
+            failedTests: [], report: report)
     }
 
     /// Returns a context whose `gradleProjectDir` points to `./android` when the project root
@@ -646,7 +701,8 @@ public struct TestAction: Action {
                 : []
             let output = try await runner.run(
                 script: "test",
-                arguments: arguments
+                arguments: arguments,
+                evidence: context.testEvidence
             )
 
             if FileManager.default.fileExists(atPath: outputFile.path),
@@ -865,7 +921,13 @@ public struct TestAction: Action {
 
             let output: ShellOutput
             do {
-                output = try await gradle.run()
+                output = try await executeRecordedTest(
+                    gradle, context: context,
+                    parse: { output in
+                        try await self.parseJUnitReports(projectDir: context.config.gradleProjectDir, task: task.name, platform: "kmp")
+                            ?? self.noSourceRun(output, platform: "kmp", task: task.name)
+                    }, sources: { junitReportDirectories(projectDir: context.config.gradleProjectDir, task: task.name) },
+                    staleResults: { junitReportDirectories(projectDir: context.config.gradleProjectDir, task: task.name) })
             } catch let ShellError.exitFailure(_, shellOutput) {
                 let combinedLog = [shellOutput.stdout, shellOutput.stderr]
                     .filter { !$0.isEmpty }
@@ -889,10 +951,35 @@ public struct TestAction: Action {
                 )
             }
 
+            if let parsedRun = try await self.parseJUnitReports(
+                projectDir: context.config.gradleProjectDir, task: task.name, platform: "kmp")
+            {
+                let failures = parsedRun.testCases.filter { $0.status == .failed || $0.status == .errored }
+                let report = TestRunReport(
+                    platform: "kmp", runner: "kmp-native", source: parsedRun.source,
+                    attempts: [.init(attemptNumber: 1, reason: "initial", summary: parsedRun.summary, failedTests: failures)],
+                    initialFailedTests: failures, persistentFailedTests: failures, summary: parsedRun.summary)
+                try self.writeTestReportIfNeeded(report, to: options.reportPath)
+                let named = self.legacyNamedResults(from: parsedRun)
+                return Result(
+                    passCount: parsedRun.summary.passed, failCount: parsedRun.summary.failed + parsedRun.summary.errored,
+                    skipCount: parsedRun.summary.skipped, passedTests: named.passedTests, failedTests: named.failedTests, report: report)
+            }
             let parsed = self.parseGradleCounts(from: output.stdout)
             let pass = parsed.pass
             let fail = parsed.fail
             let skip = parsed.skip
+            // No XML and no console counts means the task reported nothing; Gradle's `NO-SOURCE` is the one
+            // legitimate exception because no test source exists for the target.
+            guard pass + fail + skip > 0 || self.gradleTaskHadNothingToRun(output.stdout + "\n" + output.stderr, task: task.name) else {
+                let report = TestRunReport(
+                    platform: "kmp", runner: "kmp-native", source: context.config.gradleProjectDir, summary: .init(errored: 1))
+                try self.writeTestReportIfNeeded(report, to: options.reportPath)
+                if let root = context.testEvidence?.root { try writeJSON(report, to: root.appendingPathComponent("report.json")) }
+                throw ShipItError.testFailed(
+                    exitCode: 1, failureCount: 0,
+                    log: "KMP test task '\(task.name)' produced no JUnit XML and no test counts.\n" + output.stdout + output.stderr)
+            }
             self.logger.info("KMP iOS tests complete — pass: \(pass), fail: \(fail), skip: \(skip)")
             return Result(
                 passCount: pass,
@@ -915,6 +1002,7 @@ public struct TestAction: Action {
     // MARK: - iOS Test (xcodebuild test)
 
     private func runIOS(options: Options, context: ActionContext) async throws -> Result {
+        if options.legacyCombinedTest != true { return try await NativeTestLane(action: self, context: context).run(options: options) }
         let scheme = options.scheme ?? context.config.appScheme
         guard let scheme else {
             throw ShipItError.invalidConfiguration(
@@ -1382,7 +1470,7 @@ public struct TestAction: Action {
             // Gradle exits non-zero when any test fails. When reruns are enabled, that failure is
             // captured as a snapshot so its failed tests can be retried; infrastructure retries
             // still see the raw error first.
-            let (initialSnapshot, initialFailure) = try await runCapturingTestFailure(enabled: canRerunFailedTests) {
+            let (initialSnapshot, initialFailure) = try await runCapturingTestFailure(enabled: true) {
                 try await InfrastructureRetryScheduler.executeIfConfigured(
                     options: options.infrastructureRetry,
                     classifier: AndroidInfrastructureClassifier(),
@@ -1474,14 +1562,18 @@ public struct TestAction: Action {
                 persistentFailedTests: persistentFailedTests,
                 summary: TestSummary(
                     passed: finalPassCount,
-                    failed: finalFailCount,
+                    failed: persistentFailedTests.filter { $0.status == .failed }.count,
                     skipped: finalSnapshot.summary.skipped,
                     flaky: flakyTests.count,
-                    errored: 0
-                )
+                    errored: persistentFailedTests.filter { $0.status == .errored }.count
+                ),
+                testCases: initialSnapshot.parsedRun.map {
+                    finalTestCases($0.testCases, remaining: persistentFailedTests, flaky: flakyTests)
+                }
             )
 
             try writeTestReportIfNeeded(report, to: options.reportPath)
+            if let root = context.testEvidence?.root { try writeJSON(report, to: root.appendingPathComponent("report.json")) }
 
             try Self.rethrowPersistentFailure(
                 lastFailure ?? (finalFailCount > 0 ? initialFailure : nil), persistentFailureCount: finalFailCount)
@@ -1516,7 +1608,13 @@ public struct TestAction: Action {
 
         let output: ShellOutput
         do {
-            output = try await gradle.run()
+            output = try await executeRecordedTest(
+                gradle, context: context, reason: testFilters == nil ? "initial" : "failed_tests",
+                parse: { output in
+                    try await self.parseJUnitReports(projectDir: context.config.gradleProjectDir, task: baseTask.name)
+                        ?? self.noSourceRun(output, platform: "android", task: baseTask.name)
+                }, sources: { junitReportDirectories(projectDir: context.config.gradleProjectDir, task: baseTask.name) },
+                staleResults: { junitReportDirectories(projectDir: context.config.gradleProjectDir, task: baseTask.name) })
         } catch let ShellError.exitFailure(_, shellOutput) {
             let combinedLog = [shellOutput.stdout, shellOutput.stderr]
                 .filter { !$0.isEmpty }
@@ -1531,6 +1629,9 @@ public struct TestAction: Action {
         }
 
         if output.exitCode != 0 {
+            if kind == .instrumented, let recorder = context.testEvidence {
+                await captureAndroidFailure(context: context, directory: await recorder.latestDirectory())
+            }
             let combinedLog = output.stdout + "\n" + output.stderr
             let failCount = self.parseGradleFailureCount(from: combinedLog)
             throw ShipItError.testFailed(
@@ -1543,7 +1644,7 @@ public struct TestAction: Action {
         let parsed = self.parseGradleCounts(from: output.stdout + "\n" + output.stderr)
         // Output already streamed live via streamingGradle()'s .tee destination — no debug re-dump.
 
-        if parsed.pass == 0 && parsed.fail == 0 && parsed.skip == 0 {
+        do {
             if let run = try await parseJUnitReports(projectDir: context.config.gradleProjectDir, task: baseTask.name) {
                 let named = legacyNamedResults(from: run)
                 return TestExecutionSnapshot(
@@ -1552,6 +1653,18 @@ public struct TestAction: Action {
             }
         }
 
+        // Same policy as Flutter and KMP: exiting 0 without any result is an execution failure, unless Gradle
+        // said this task had nothing to run. (Gradle prints test counts only for failures, so the XML above is
+        // the real signal.)
+        guard
+            parsed.pass + parsed.fail + parsed.skip > 0
+                || gradleTaskHadNothingToRun(output.stdout + "\n" + output.stderr, task: baseTask.name)
+        else {
+            throw ShipItError.testFailed(
+                exitCode: 1, failureCount: 0,
+                log: "Gradle task '\(baseTask.name)' exited 0 but produced no JUnit XML and no test counts.\n" + output.stdout
+                    + output.stderr)
+        }
         return TestExecutionSnapshot(
             summary: TestSummary(passed: parsed.pass, failed: parsed.fail, skipped: parsed.skip),
             passedTests: parsed.passedTests,
@@ -1680,7 +1793,7 @@ public struct TestAction: Action {
     }
 
     #if os(macOS)
-    private func resetIOSAppInstallationIfNeeded(
+    func resetIOSAppInstallationIfNeeded(
         scheme: String,
         destination: String,
         context: ActionContext
@@ -1709,13 +1822,14 @@ public struct TestAction: Action {
         }
     }
 
-    private func resolveSimulatorUDID(
+    func resolveSimulatorUDID(
         scheme: String,
         destination: String,
         context: ActionContext
     ) async throws -> String? {
         let requestedParts = parseDestinationComponents(destination)
         guard let platform = requestedParts["platform"], platform.contains("Simulator") else { return nil }
+        if let id = requestedParts["id"] { return id }
 
         let discoverer = DestinationDiscovery(shell: context.shell)
         let destinations = try await discoverer.availableDestinations(
@@ -1724,12 +1838,16 @@ public struct TestAction: Action {
             project: context.config.appProject
         )
 
-        return destinations.first {
+        let matches = destinations.filter {
             $0.isSimulator
                 && $0.platform == platform
                 && (requestedParts["name"] == nil || $0.name == requestedParts["name"])
                 && (requestedParts["OS"] == nil || $0.os == requestedParts["OS"])
-        }?.udid
+        }
+        guard matches.count <= 1 else {
+            throw ShipItError.invalidConfiguration(reason: "Ambiguous simulator destination; specify id or name plus OS: \(destination)")
+        }
+        return matches.first?.udid
     }
 
     private func parseDestinationComponents(_ destination: String) -> [String: String] {
@@ -1908,44 +2026,60 @@ public struct TestAction: Action {
     }
 
     /// Qualified tasks read only their module; root tasks collect every exact task directory.
-    private func parseJUnitReports(projectDir: String, task: String) async throws -> ParsedTestRun? {
-        let parts = task.split(separator: ":").map(String.init)
-        guard let taskName = parts.last else { return nil }
-        let root = URL(fileURLWithPath: projectDir)
-        let directories: [URL]
-        if parts.count > 1 {
-            let module = parts.dropLast().joined(separator: "/")
-            directories = [root.appendingPathComponent("\(module)/build/test-results/\(taskName)")]
-        } else {
-            let enumerator = FileManager.default.enumerator(
-                at: root, includingPropertiesForKeys: [.isDirectoryKey], options: [.skipsHiddenFiles])
-            directories = (enumerator?.allObjects as? [URL] ?? []).filter {
-                $0.lastPathComponent == taskName && $0.deletingLastPathComponent().lastPathComponent == "test-results"
-                    && $0.deletingLastPathComponent().deletingLastPathComponent().lastPathComponent == "build"
-            }.sorted { $0.path < $1.path }
-        }
+    /// Reads the Gradle JUnit XML for `task`. Identities are relative to `projectDir`, matching what
+    /// `ResultInspection` produces offline for the same files, so live and saved runs agree on every test ID.
+    func parseJUnitReports(
+        projectDir: String, task: String, platform: String = "android", runner: String = "gradle"
+    ) async throws -> ParsedTestRun? {
+        let directories = junitReportDirectories(projectDir: projectDir, task: task)
+        var suites: [ParsedTestSuite] = []
         var cases: [ParsedTestCase] = []
+        var diagnostics: [ParsingDiagnostic] = []
         var passed = 0
         var failed = 0
         var skipped = 0
+        var errored = 0
         var found = false
         for directory in directories where FileManager.default.fileExists(atPath: directory.path) {
-            let run = try await AndroidJUnitTestParser(logger: logger).parse(reportDirectory: directory.path)
+            let run = try await AndroidJUnitTestParser(logger: logger).parse(
+                reportDirectory: directory.path, platform: platform, runner: runner, identityRoot: projectDir)
             found = true
             passed += run.summary.passed
-            failed += run.summary.failed + run.summary.errored
+            failed += run.summary.failed
+            errored += run.summary.errored
             skipped += run.summary.skipped
-            cases += run.testCases.map {
-                ParsedTestCase(
-                    stableID: directory.path + ":" + $0.stableID, suite: $0.suite, name: $0.name,
-                    status: $0.status, durationSeconds: $0.durationSeconds, message: $0.message,
-                    file: $0.file, line: $0.line, rerunSelector: $0.rerunSelector)
-            }
+            suites += run.suites
+            cases += run.testCases
+            diagnostics += run.diagnostics
         }
         guard found else { return nil }
         return ParsedTestRun(
-            platform: "android", runner: "gradle", source: projectDir,
-            summary: TestSummary(passed: passed, failed: failed, skipped: skipped), testCases: cases)
+            platform: platform, runner: runner, source: projectDir,
+            summary: TestSummary(passed: passed, failed: failed, skipped: skipped, errored: errored),
+            suites: suites, testCases: cases, diagnostics: diagnostics)
+    }
+
+    /// `true` when Gradle reported `NO-SOURCE` or `SKIPPED` for exactly this test task: it had nothing to run,
+    /// which is a legitimate empty run. Other tasks reporting `NO-SOURCE` (common for aidl, renderscript and
+    /// the like) say nothing about whether the tests ran.
+    func gradleTaskHadNothingToRun(_ log: String, task: String) -> Bool {
+        let parts = task.split(separator: ":").map(String.init)
+        guard let leaf = parts.last else { return false }
+        // A module-qualified task must match its own module; an unqualified one runs in every module.
+        let name =
+            parts.count > 1
+            ? ":" + parts.map(NSRegularExpression.escapedPattern(for:)).joined(separator: ":")
+            : "(?:\\S*:)?" + NSRegularExpression.escapedPattern(for: leaf)
+        return log.range(of: "(?m)^> Task " + name + " (?:NO-SOURCE|SKIPPED)\\s*$", options: .regularExpression) != nil
+    }
+
+    /// An explicit empty run for a task Gradle reported as having nothing to run, so it is recorded as such
+    /// rather than as missing results.
+    func noSourceRun(_ output: ShellOutput, platform: String, task: String) -> ParsedTestRun? {
+        guard output.exitCode == 0, gradleTaskHadNothingToRun(output.stdout + "\n" + output.stderr, task: task) else { return nil }
+        return ParsedTestRun(
+            platform: platform, runner: "gradle", source: "gradle", summary: .init(),
+            diagnostics: [.init(severity: .info, message: "Gradle reported NO-SOURCE/SKIPPED: the test task had no tests to run")])
     }
 
     private func parseGradleNamedTests(from output: String) -> (passedTests: [String], failedTests: [String]) {
@@ -1993,7 +2127,7 @@ public struct TestAction: Action {
     ///   - context: Action context providing shell and config.
     /// - Returns: A destination string suitable for `-destination`.
     /// - Throws: `ShipItError.invalidConfiguration` when no suitable simulator is found.
-    private func autoDiscoverDestination(scheme: String, context: ActionContext) async throws -> String {
+    func autoDiscoverDestination(scheme: String, context: ActionContext) async throws -> String {
         let discoverer = DestinationDiscovery(shell: context.shell)
         let allDestinations = try await discoverer.availableDestinations(
             scheme: scheme,
@@ -2038,7 +2172,23 @@ public struct TestAction: Action {
             return lhs.name < rhs.name
         }
 
-        let selected = sorted[0]
+        var selected = sorted[0]
+        if let output = try? await Simctl(context: context.shell).list(.devices, json: true).run(),
+            let data = output.stdout.data(using: .utf8), let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+            let devices = object["devices"] as? [String: [[String: Any]]]
+        {
+            let unused = Set(
+                devices.values.flatMap { $0 }.filter { $0["state"] as? String == "Shutdown" }.compactMap { $0["udid"] as? String })
+            let leaseRoot =
+                context.shell.environment["AMOO_LEASE_DIR"].map { URL(fileURLWithPath: $0) }
+                ?? FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".amoo/leases")
+            if let available = sorted.first(where: { destination in
+                guard let id = destination.udid else { return false }
+                return unused.contains(id) && !FileManager.default.fileExists(atPath: leaseRoot.appendingPathComponent(id + ".json").path)
+            }) {
+                selected = available
+            }
+        }
         logger.info("Auto-selected simulator: '\(selected.name)' (OS \(selected.os ?? "?"))")
         return selected.destinationString
     }
