@@ -216,9 +216,21 @@ struct GenerateCommand: AsyncParsableCommand {
             formatter.printWarning(warning)
         }
 
-        let overrides = collectOverrides(
-            suggestion: suggestion, platform: platform, formatter: formatter)
+        let overrides =
+            suggestion.yaml.contains("test_workflow:")
+            ? [:]
+            : collectOverrides(
+                suggestion: suggestion, platform: platform, formatter: formatter)
         var confirmedYAML = apply(overrides: overrides, to: suggestion.yaml)
+        if platform == .ios, suggestion.inspection.testPlans.count > 1, confirmedYAML.contains("- action: test") {
+            let names = suggestion.inspection.testPlans.map { URL(fileURLWithPath: $0).deletingPathExtension().lastPathComponent }
+            let selection = choose("Choose the Xcode test plan", options: names + ["Run all compatible plans"], defaultIndex: 0)
+            let option =
+                selection < names.count
+                ? "test_plan: \"\(names[selection])\"" : "test_plans: [" + names.map { "\"\($0)\"" }.joined(separator: ", ") + "]"
+            confirmedYAML = confirmedYAML.replacingOccurrences(
+                of: "    - action: test\n      options:\n", with: "    - action: test\n      options:\n        \(option)\n")
+        }
         confirmedYAML = applyTestRetryQuestionnaire(to: confirmedYAML, formatter: formatter)
         confirmedYAML = applyReleaseTaggingQuestionnaire(to: confirmedYAML, formatter: formatter)
 

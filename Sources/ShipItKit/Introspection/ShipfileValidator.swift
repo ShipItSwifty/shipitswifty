@@ -79,6 +79,9 @@ public struct ShipfileValidator: Sendable {
     private func validationIssues(for resolvedConfig: ResolvedConfig, actionDescriptors: [ActionDescriptor]) -> [ValidationIssue] {
         var issues: [ValidationIssue] = []
 
+        if let workflow = resolvedConfig.testWorkflow, resolvedConfig.workflows[workflow] == nil {
+            issues.append(.init(severity: .error, path: "$.test_workflow", message: "Unknown workflow '\(workflow)'."))
+        }
         let builtInNames = Set(actionDescriptors.map(\.name))
         var descriptorsByName = Dictionary(uniqueKeysWithValues: actionDescriptors.map { ($0.name, $0) })
 
@@ -105,6 +108,16 @@ public struct ShipfileValidator: Sendable {
         for (workflowName, workflowConfig) in resolvedConfig.workflows.sorted(by: { $0.key < $1.key }) {
             for (index, step) in workflowConfig.steps.enumerated() {
                 let stepPath = "$.workflows.\(workflowName)[\(index)]"
+                for artifact in step.artifacts ?? [] {
+                    if artifact.name.range(of: "^[A-Za-z0-9_-]+$", options: .regularExpression) == nil || artifact.paths.isEmpty
+                        || artifact.retentionDays.map({ !(1...90).contains($0) }) == true
+                    {
+                        issues.append(
+                            .init(
+                                severity: .error, path: stepPath + ".artifacts",
+                                message: "Artifact requires a safe name, nonempty paths, and retention_days between 1 and 90."))
+                    }
+                }
 
                 guard let descriptor = descriptorsByName[step.action] else {
                     issues.append(.init(severity: .error, path: stepPath + ".action", message: "Unknown action '\(step.action)'."))

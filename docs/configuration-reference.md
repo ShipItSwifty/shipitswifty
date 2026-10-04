@@ -346,17 +346,23 @@ The `test` action is configured inline in a workflow step. It does **not** have 
 
 | Option | Type | Default | Description |
 |---|---|---|---|
-| `destinations` | list | — | **Required.** One or more xcodebuild destination strings. Each entry triggers a separate `xcodebuild test` pass; pass/fail/skip counts are aggregated. Discover valid values with `xcodebuild -showdestinations -scheme <Scheme>`. |
+| `destinations` | list | — | One or more xcodebuild destination strings; omitted/empty uses simulator discovery. Each entry triggers a separate `test-without-building` pass; pass/fail/skip counts are aggregated. Discover valid values with `xcodebuild -showdestinations -scheme <Scheme>`. |
 | `destination` | string | — | Legacy single-destination string. Promoted to a one-element `destinations` list internally. Prefer `destinations` for new configuration. |
 | `scheme` | string | `app.scheme` | Xcode scheme containing the test targets. Falls back to `app.scheme` when omitted. |
 | `configuration` | string | `Debug` | Build configuration used for test compilation. |
-| `enable_code_coverage` | bool | — | Enable `-enableCodeCoverage YES`. When `true` and `result_bundle_path` is unset, a path of `./build/<scheme>-tests.xcresult` is auto-derived. |
-| `result_bundle_path` | string | — | Output path for the `.xcresult` bundle. Auto-derived when `enable_code_coverage` is `true`. |
+| `enable_code_coverage` | bool | — | Enable `-enableCodeCoverage YES`. Default lanes always save unique result bundles; coverage is retained within them. |
+| `result_bundle_path` | string | — | Explicit initial bundle path for a single-plan/single-destination run. Default lanes save each plan/destination/attempt separately. |
 | `test_plan` | string | — | Named `.xctestplan` to run. |
+| `test_plans` | list | — | Multiple compatible named plans sharing one build; exclusive with `test_plan`. |
+| `test_products_path` | string | unique run directory | New `.xctestproducts` output path for the shared build. |
+| `serial` | bool | false | Force `-parallel-testing-enabled NO`; clone errors also trigger one sticky fallback per destination. |
+| `skip_macro_validation` | bool | false | Pass `-skipMacroValidation` during the shared build. |
+| `erase_simulator` | bool | false | Erase the selected simulator before execution; refuses an already booted device. |
+| `legacy_combined_test` | bool | false | Use the previous combined `xcodebuild test` behavior. |
 | `only_testing` | list | — | Restrict to specific targets or test cases. Each entry maps to `-only-testing`. |
 | `skip_testing` | list | — | Skip specific targets or test cases. Each entry maps to `-skip-testing`. |
 | `retry_on_failure` | bool | `false` | Pass `-retry-tests-on-failure` to retry each failing test once. |
-| `rerun_failed_tests` | object | — | Selectively rerun only the failed tests when the runner supports it. Supports `enabled` and `max_attempts` (default `2`, including the initial run). Set `1` to disable additional attempts; larger limits are honored, with early exit after recovery. Supported for Android unit tests (`kind: unit`; failed tests come from JUnit XML or the Gradle log and are re-run with `--tests`) and for iOS with a single destination plus `result_bundle_path` (failed tests come from the xcresult and are re-run with `-only-testing`). Root-scoped Android unit runs use `--continue` to finish independent modules and collect their reports; module-scoped runs read only the selected module. The step fails if any test fails again, including a new initialization failure; if every failure passes on rerun it succeeds and reports the tests as flaky. |
+| `rerun_failed_tests` | object | — | Selectively rerun only the failed tests when the runner supports it. Supports `enabled` and `max_attempts` (default `2`, including the initial run). Set `1` to disable additional attempts; larger limits are honored, with early exit after recovery. Supported for Android unit tests (`kind: unit`; failed tests come from JUnit XML or the Gradle log and are re-run with `--tests`) for native iOS across plans/destinations (failed tests come from each xcresult and use `-only-testing` with configuration filters), and for Flutter machine-output runs. Root-scoped Android unit runs use `--continue` to finish independent modules and collect their reports; module-scoped runs read only the selected module. The step fails if any test fails again, including a new initialization failure; if every failure passes on rerun it succeeds and reports the tests as flaky. |
 | `report_path` | string | — | Optional path to write the structured JSON `TestRunReport` for CI artifact upload. |
 | `infrastructure_retry` | object | — | Retry the entire test invocation for transient infrastructure failures. Presence enables retries; omit to disable. Recommended default: `{ max_attempts: 3, initial_delay_seconds: 2, max_delay_seconds: 30 }`. |
 
@@ -366,10 +372,16 @@ The `test` action is configured inline in a workflow step. It does **not** have 
 
 ## `test-results` action options
 
-Use `test-results` to parse an existing `.xcresult` bundle or Gradle JUnit XML directory into a normalized JSON report.
+Use `test-results` to parse xcresult, JUnit (Android/KMP), Swift Testing events, Flutter machine events, Jest or portable ShipIt results without running tests. Explicit artifacts work without a Shipfile.
 
 | Option | Type | Default | Description |
 |---|---|---|---|
+| `inputs` | list | — | Explicit artifact inputs; CLI `--input` is repeatable. |
+| `input_format` | string | detect | `xcresult`, `junit`, `swift`, `flutter`, `jest`, `shipit`, `manifest`. Ambiguous input requires an override. |
+| `runner` | string | source default | Runner identity, e.g. `kmp`, `gradle`, `swift-test`. |
+| `coverage_inputs` / `coverage_format` | list / string | — | Preserve coverage separately; format is `swift`, `lcov`, `jacoco`, or `kover`. |
+| `evidence_paths` | list | — | Additional screenshots, videos, logs and native artifacts to copy. |
+| `export_directory` | string | — | Create a new portable export with originals, extracted evidence, manifest and relative index links. |
 | `format` | string | `text` | Output format hint: `text`, `json`, or `markdown`. |
 | `platform` | string | resolved platform | Explicit platform override when parsing outside a Shipfile-backed context. |
 | `xcresult_path` | string | auto-discover | Explicit path to a `.xcresult` bundle (iOS). Falls back to `./build/<scheme>-tests.xcresult` or the first `.xcresult` under `./build/`. |
@@ -822,3 +834,27 @@ Use the Makefile targets for Docker-based development and CI:
    - **Shell profile** (`~/.zshrc` or `~/.bashrc`) — appends `export` lines.
    - **Manual** — prints the required export lines for you to handle.
 6. Runs `shipit doctor` to validate the environment.
+
+## Test workflows and Swift packages
+
+Top-level `test_workflow` (or `SHIPIT_TEST_WORKFLOW`) selects a named workflow for unqualified
+`shipit test`. `shipit test --workflow <name>` overrides it; workflow selection is exclusive
+with direct test options. `swift-test` and `swift-format` are ordinary workflow actions.
+
+`swift-test` options: `package_path` (default `.`), `scratch_path`, `filter`, `skip`,
+`environment` (string map), `enable_code_coverage`, `output_directory` (must be new),
+`rerun_failed_tests` and `infrastructure_retry`. It saves Swift Testing events, attachments,
+stdout/stderr and a final report, and snapshots full-run coverage before selective reruns.
+`swift-format` accepts `paths`, `configuration`, and `report_path`; it lints without rewriting.
+
+`coverage` accepts `input_format: swift|lcov|jacoco|kover` with `report_path`. Swift/LCOV inputs
+support `source_roots` and `exclude_previews`; `minimum_coverage` applies to every format and
+rejects empty coverage. Kotlin Native/JS coverage is unavailable through these formats.
+
+Workflow object syntax accepts `continue_on_failure: true` for independent checks. The default
+remains fail-fast and any failed step makes the whole lane fail. Every step, including custom
+action steps, may declare `artifacts: [{ name: results, paths: [build/results], retention_days: 14 }]`.
+Names use letters/numbers/underscore/hyphen; retention is 1–90 days. Missing optional matches
+become diagnostics. `{{run_id}}` resolves in top-level step options and artifact paths to keep
+attempts and exports separate. See [test lane examples](testing.md#test-lanes-and-portable-evidence)
+and [CI export](ci-setup.md#exporting-test-lanes).

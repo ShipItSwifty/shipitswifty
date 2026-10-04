@@ -36,25 +36,43 @@ public struct AISessionBuilder: Sendable {
     ) -> AISessionPayload {
         let suggestion = ShipfileSuggester().suggest(goal: goal, platform: platform, from: inspection)
         let app = inspection.suggestedAppConfig
-        let appConfig = buildInferredConfig(app: app, inspection: inspection, goal: goal, platform: platform)
+        let packageLane = suggestion.yaml.contains("test_workflow: tests")
+        let appConfig =
+            packageLane
+            ? [
+                InferredConfigEntry(
+                    keyPath: "test_workflow", value: .string("tests"), source: .detected, confidence: .high, why: "Swift package test lane"),
+                InferredConfigEntry(
+                    keyPath: "workflows.tests[swift-test].options.package_path", value: .string("."), source: .detected, confidence: .high,
+                    why: "Found Package.swift"),
+            ] : buildInferredConfig(app: app, inspection: inspection, goal: goal, platform: platform)
         let ambiguities = buildAmbiguities(inspection: inspection, platform: platform)
         let requiredSecrets = buildSecretDescriptors(for: goal, platform: platform)
-        let readiness = buildReadiness(
-            goal: goal,
-            app: app,
-            inspection: inspection,
-            requiredSecrets: requiredSecrets,
-            platform: platform
-        )
-        let nextAction = buildNextAction(
-            goal: goal,
-            hasExistingShipfile: hasExistingShipfile,
-            readiness: readiness,
-            missingValues: suggestion.missingValues,
-            ambiguities: ambiguities,
-            platform: platform
-        )
-        let agentPrompt = buildAgentPrompt(
+        let readiness =
+            packageLane
+            ? AIReadiness(
+                goal: goal.rawValue, isReady: suggestion.missingValues.isEmpty,
+                blockers: suggestion.missingValues.map(\.reason), missingSecrets: [], signingRisk: "not_applicable",
+                unblockSteps: suggestion.missingValues.map(\.reason))
+            : buildReadiness(
+                goal: goal,
+                app: app,
+                inspection: inspection,
+                requiredSecrets: requiredSecrets,
+                platform: platform
+            )
+        let nextAction =
+            packageLane && hasExistingShipfile && readiness.isReady && ambiguities.isEmpty
+            ? NextAction(action: "run_tests", command: "shipit test", reason: "Run the configured package test lane")
+            : buildNextAction(
+                goal: goal,
+                hasExistingShipfile: hasExistingShipfile,
+                readiness: readiness,
+                missingValues: suggestion.missingValues,
+                ambiguities: ambiguities,
+                platform: platform
+            )
+        var agentPrompt = buildAgentPrompt(
             goal: goal,
             readiness: readiness,
             platform: platform,
@@ -62,13 +80,20 @@ public struct AISessionBuilder: Sendable {
             testPlans: inspection.testPlans,
             customActions: customActions
         )
-        let nextQuestion = buildNextQuestion(
-            goal: goal,
-            missingValues: suggestion.missingValues,
-            ambiguities: ambiguities,
-            readiness: readiness,
-            platform: platform
-        )
+        if packageLane {
+            agentPrompt +=
+                "\nThis project has a Swift package test lane. Use shipit test; package tests need no app identity, signing credentials or simulator unless a sample test step is included. Resolve sample scheme/test-plan choices before running that step."
+        }
+        let nextQuestion =
+            packageLane && suggestion.missingValues.isEmpty && ambiguities.isEmpty
+            ? nil
+            : buildNextQuestion(
+                goal: goal,
+                missingValues: suggestion.missingValues,
+                ambiguities: ambiguities,
+                readiness: readiness,
+                platform: platform
+            )
 
         return AISessionPayload(
             version: Self.contractVersion,
@@ -840,9 +865,14 @@ public struct AISessionBuilder: Sendable {
             "Generated test steps enable `infrastructure_retry: { max_attempts: 3, initial_delay_seconds: 2, max_delay_seconds: 30 }` by default for transient test infrastructure failures.",
             "Preserve that default unless the user explicitly opts out or supplies a different retry policy.",
             "Use `retry_on_failure` only for iOS test re-runs of failing test cases; use `infrastructure_retry` for whole-invocation simulator, emulator, Flutter tool, or JS worker failures.",
-            "Use `rerun_failed_tests: { enabled: true, max_attempts: 2 }` when the user wants one selective rerun pass plus structured flaky-test reporting. `max_attempts` includes the initial run; larger limits are honored and recovery stops retries early. It applies to Android unit tests and to iOS runs with a single destination and a `result_bundle_path` (failed tests are read back from the result bundle).",
+            "Use `rerun_failed_tests: { enabled: true, max_attempts: 2 }` when the user wants one selective rerun pass plus structured flaky-test reporting. `max_attempts` includes the initial run; larger limits are honored and recovery stops retries early. It applies to SwiftPM, Flutter, Android JVM tests, and native iOS lanes. Native iOS builds reusable products once, then runs every selected plan and destination with separate result bundles. Recovered failures pass and remain marked flaky.",
+            "For Swift packages use a named workflow containing swift-test and optional swift-format/coverage steps; set test_workflow to make shipit test select it, or use shipit test --workflow <name>.",
+            "For multiple compatible Xcode plans use test_plans; test builds once and reuses .xctestproducts. Clone failure falls back serially once per destination. Use serial: true to disable cloning or legacy_combined_test: true for the old invocation.",
+            "Declare artifacts on any workflow step with name, paths, and retention_days. shipit ci export --provider github-actions needs an explicit runner and setup commands and emits always-upload steps. Other providers can implement CIProvider.",
+            "Use continue_on_failure only for independent checks; the lane still fails if any check fails. {{run_id}} provides a unique output directory per workflow run.",
+            "Coverage reads Xcode, SwiftPM/LLVM JSON, JaCoCo/Kover JVM XML, and Flutter LCOV; use source_roots/exclude_previews/minimum_coverage for package gates. Kotlin Native/JS coverage is unavailable unless the toolchain provides a supported report.",
             "Workflow test summaries may include named passed/failed tests when the underlying tool output or JUnit XML reports expose them; otherwise they fall back to aggregated counts.",
-            "Use `shipit test-results` to turn an existing xcresult or JUnit report into a stable JSON artifact for CI.",
+            "Use `shipit test-results --input <path>` for xcresult, JUnit (Android/KMP), Flutter machine events, Jest, Swift Testing events, or a portable ShipIt manifest. Add --export-directory to save originals, attachments, screenshots, logs and normalized results without running tests.",
             "For Android instrumented tests, ask whether ShipIt should boot named local emulators (`devices.strategy: named_emulators`) or rely on CI-managed devices before generating the workflow.",
         ]
 
