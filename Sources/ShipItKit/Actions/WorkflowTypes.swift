@@ -7,6 +7,7 @@ import Logging
 /// `[WorkflowStep]` sequences for execution by `Workflow.run(context:registry:)`.
 public struct WorkflowStep: Codable, Sendable {
     /// The registered action name to execute (e.g. `"build"`, `"testflight"`).
+    public let artifacts: [ArtifactDeclaration]?
     public let action: String
 
     /// Options to forward to the action, decoded from YAML or JSON.
@@ -26,7 +27,8 @@ public struct WorkflowStep: Codable, Sendable {
     ///   - action: The registered action name to execute.
     ///   - options: Optional JSON options forwarded to the action.
     ///   - when: Optional truthy-token condition; when falsy the step is skipped.
-    public init(action: String, options: JSONValue? = nil, when: String? = nil) {
+    public init(action: String, options: JSONValue? = nil, when: String? = nil, artifacts: [ArtifactDeclaration]? = nil) {
+        self.artifacts = artifacts
         self.action = action
         self.options = options
         self.when = when
@@ -85,6 +87,7 @@ public enum WorkflowBuilder {
 /// ```
 public struct Workflow: Sendable {
     /// The unique workflow name, referenced by `shipit run <workflow>`.
+    public let continueOnFailure: Bool
     public let name: String
 
     /// The ordered sequence of steps in this workflow.
@@ -159,6 +162,7 @@ public struct Workflow: Sendable {
     public init(
         _ name: String,
         steps: [WorkflowStep],
+        continueOnFailure: Bool = false,
         buildVariant: String? = nil,
         flavor: String? = nil,
         app: AppConfig? = nil,
@@ -167,6 +171,7 @@ public struct Workflow: Sendable {
         export: ExportConfig? = nil,
         codeSigning: CodeSigningConfig? = nil
     ) {
+        self.continueOnFailure = continueOnFailure
         self.name = name
         self.steps = steps
         self.buildVariant = buildVariant
@@ -192,6 +197,7 @@ public struct Workflow: Sendable {
     ///   - builder: A result builder closure producing workflow steps.
     public init(
         _ name: String,
+        continueOnFailure: Bool = false,
         buildVariant: String? = nil,
         flavor: String? = nil,
         app: AppConfig? = nil,
@@ -201,6 +207,7 @@ public struct Workflow: Sendable {
         codeSigning: CodeSigningConfig? = nil,
         @WorkflowBuilder _ builder: () -> [WorkflowStep]
     ) {
+        self.continueOnFailure = continueOnFailure
         self.name = name
         self.steps = builder()
         self.buildVariant = buildVariant
@@ -222,7 +229,7 @@ public struct Workflow: Sendable {
     ///   - context: Shared execution context passed to each action.
     ///   - registry: The action registry used to look up descriptors by name.
     /// - Returns: A `WorkflowResult` summarizing the outcomes of all steps.
-    /// - Throws: The first error encountered (workflow execution stops on error).
+    /// - Throws: The first error unless collect-all is enabled; cancellation always stops execution.
     public func run(
         context: ActionContext,
         registry: ActionRegistry
@@ -234,7 +241,7 @@ public struct Workflow: Sendable {
         // Apply workflow-level overrides to the context config. This derives a new config
         // rather than mutating the shared one, so a staging lane's scheme, configuration, and
         // export method cannot bleed into the production lane running from the same Shipfile.
-        let effectiveContext: ActionContext
+        var effectiveContext: ActionContext
         if hasOverrides {
             let overriddenConfig = context.config.overriding(
                 buildVariant: buildVariant,
@@ -251,6 +258,9 @@ public struct Workflow: Sendable {
             effectiveContext = context
         }
 
+        let runID = UUID().uuidString
+        let artifactRoot = "build/workflow-artifacts/" + runID
+        effectiveContext.evidenceRoot = artifactRoot
         // Auto-generate project before running any Xcode-dependent steps
         #if os(macOS)
         if Self.requiresXcodeContainer(steps: steps, customActions: effectiveContext.config.customActions) {
@@ -262,6 +272,7 @@ public struct Workflow: Sendable {
         // Seed best-effort from the current versioning source so tokens resolve even when
         // referenced before a `version` step runs; updated after each step.
         var tokens = await Self.seededTokenResolver(steps: steps, context: effectiveContext)
+        tokens.setRunID(runID)
 
         for (index, step) in steps.enumerated() {
             logger.info("Workflow '\(name)' step \(index + 1)/\(steps.count): \(step.action)")
@@ -285,7 +296,36 @@ public struct Workflow: Sendable {
             }
 
             let substitutedOptions = step.options.map { tokens.substitute($0) }
-            let result = try await descriptor.runJSON(substitutedOptions, effectiveContext)
+            let declarations = (step.artifacts ?? []).map {
+                ArtifactDeclaration(name: $0.name, paths: $0.paths.map { tokens.substitute(in: $0) }, retentionDays: $0.retentionDays)
+            }
+            let result: ActionResultEnvelope
+            do {
+                result = try await descriptor.runJSON(substitutedOptions, effectiveContext)
+            } catch {
+                try? collectWorkflowArtifacts(
+                    step: "step-\(index + 1)", action: step.action, declarations: declarations,
+                    payload: nil, status: "failure", root: artifactRoot)
+                try? writeJSON(
+                    WorkflowResult(
+                        workflowName: name,
+                        stepResults: stepResults + [
+                            ActionResultEnvelope(
+                                action: step.action, status: "failure", payload: .object(["error": .string(String(describing: error))]))
+                        ], duration: Date().timeIntervalSince(startTime), artifactDirectory: artifactRoot),
+                    to: URL(fileURLWithPath: artifactRoot).appendingPathComponent("workflow.json"))
+                if error is CancellationError || Task.isCancelled { throw error }
+                guard continueOnFailure else { throw error }
+                stepResults.append(
+                    ActionResultEnvelope(
+                        action: step.action, status: "failure", payload: .object(["error": .string(String(describing: error))])))
+                continue
+            }
+            do {
+                try collectWorkflowArtifacts(
+                    step: "step-\(index + 1)", action: step.action, declarations: declarations,
+                    payload: result.payload, status: result.status, root: artifactRoot)
+            } catch { logger.warning("Artifact collection failed: \(error)") }
             stepResults.append(result)
             tokens.update(from: result)
             if let stepDuration = result.durationSeconds {
@@ -298,7 +338,9 @@ public struct Workflow: Sendable {
 
         let duration = Date().timeIntervalSince(startTime)
         logger.info("Workflow '\(name)' completed in \(formatDurationSeconds(duration))")
-        return WorkflowResult(workflowName: name, stepResults: stepResults, duration: duration)
+        let result = WorkflowResult(workflowName: name, stepResults: stepResults, duration: duration, artifactDirectory: artifactRoot)
+        try writeJSON(result, to: URL(fileURLWithPath: artifactRoot).appendingPathComponent("workflow.json"))
+        return result
     }
 
     /// Builds a token resolver seeded best-effort from the current versioning source.
@@ -325,7 +367,7 @@ public struct Workflow: Sendable {
     /// Returns `true` when any step's `when` or `options` contains a `{{…}}` reference.
     private static func stepsReferenceTokens(_ steps: [WorkflowStep]) -> Bool {
         for step in steps {
-            if step.when?.contains("{{") == true { return true }
+            if let condition = step.when, ["{{version", "{{build_number"].contains(where: { condition.contains($0) }) { return true }
             if let options = step.options, jsonContainsToken(options) { return true }
         }
         return false
@@ -333,7 +375,7 @@ public struct Workflow: Sendable {
 
     private static func jsonContainsToken(_ value: JSONValue) -> Bool {
         switch value {
-        case .string(let s): return s.contains("{{")
+        case .string(let s): return s.contains("{{version") || s.contains("{{build_number")
         case .array(let items): return items.contains(where: jsonContainsToken)
         case .object(let dict): return dict.values.contains(where: jsonContainsToken)
         case .null, .bool, .int, .double: return false
@@ -378,6 +420,7 @@ public struct Workflow: Sendable {
 /// Contains the per-step results and overall execution duration.
 public struct WorkflowResult: Codable, Sendable {
     /// The name of the workflow that was executed.
+    public let artifactDirectory: String?
     public let workflowName: String
 
     /// Results for each step, in execution order.
@@ -397,7 +440,8 @@ public struct WorkflowResult: Codable, Sendable {
     ///   - workflowName: The name of the workflow that was executed.
     ///   - stepResults: Ordered results for each step.
     ///   - duration: Total wall-clock execution time in seconds.
-    public init(workflowName: String, stepResults: [ActionResultEnvelope], duration: TimeInterval) {
+    public init(workflowName: String, stepResults: [ActionResultEnvelope], duration: TimeInterval, artifactDirectory: String? = nil) {
+        self.artifactDirectory = artifactDirectory
         self.workflowName = workflowName
         self.stepResults = stepResults
         self.duration = duration
