@@ -379,6 +379,15 @@ reported `NO-SOURCE` or `SKIPPED` for that exact test task. Saving evidence is b
 write logs, snapshots or reports is logged and never replaces or hides the test outcome; an unreadable
 SwiftPM rerun keeps the original failures as persistent.
 
+JUnit XML keeps a failure's `message` and `stackTrace` apart (a body-only failure uses its first line
+as the message), plus the `failure_type`. Surefire `flakyFailure` marks a test passed and flaky, and
+`rerunFailure` records `retries` on a persistent failure; a retry's own message and output never replace
+the final result. A name that repeats inside one file keeps every occurrence under its own ID (the first
+keeps the plain ID, later ones get `#<n>`, each with an `occurrence` of `n/total`). Each case records its
+`report` location and, from the Gradle layout and the properties AGP writes for connected runs, its
+`module`, `task`, `device`, `flavor` and `project`, so the same test on two devices stays distinct. When
+the suites' declared totals disagree with the listed test cases a warning diagnostic says so.
+
 Coverage gates use executable lines, reject empty input and merge overlapping source lines.
 SwiftPM uses LLVM JSON, Flutter uses LCOV, and Android/KMP JVM use JaCoCo-compatible XML
 (including Kover). Coverage for Kotlin Native/JS is unavailable through these formats.
