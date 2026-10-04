@@ -125,12 +125,7 @@ public struct TestResultsAction: Action {
             parsedRun = runs[0]
         } else {
             let cases = runs.enumerated().flatMap { index, run in
-                run.testCases.map { test in
-                    ParsedTestCase(
-                        stableID: "input-\(index + 1):" + test.stableID, suite: test.suite, name: test.name,
-                        status: test.status, durationSeconds: test.durationSeconds, message: test.message,
-                        file: test.file, line: test.line, rerunSelector: test.rerunSelector, metadata: test.metadata)
-                }
+                run.testCases.map { $0.copy(stableID: "input-\(index + 1):" + $0.stableID) }
             }
             parsedRun = ParsedTestRun(
                 platform: "multiple", runner: options.runner ?? "multiple", source: paths.joined(separator: ", "),
