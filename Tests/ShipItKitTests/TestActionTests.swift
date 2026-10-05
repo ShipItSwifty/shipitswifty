@@ -34,6 +34,7 @@ struct TestActionTests {
 
         let result = try await TestAction().run(
             with: .init(
+                legacyCombinedTest: true,
                 scheme: "MockApp",
                 destination: "platform=iOS Simulator,name=iPhone 16",
                 resultBundlePath: "/tmp/Test.xcresult"
@@ -63,7 +64,7 @@ struct TestActionTests {
         let context = ActionContext.mock(executor: executor)
 
         let result = try await TestAction().run(
-            with: .init(scheme: "MockApp", destination: "platform=iOS Simulator,name=iPhone 16"),
+            with: .init(legacyCombinedTest: true, scheme: "MockApp", destination: "platform=iOS Simulator,name=iPhone 16"),
             context: context
         )
 
@@ -141,6 +142,7 @@ struct TestActionTests {
 
         let context = ActionContext.mock(executor: executor)
         let options = TestAction.Options(
+            legacyCombinedTest: true,
             scheme: "MockApp", destination: "platform=iOS Simulator,name=iPhone 16",
             resultBundlePath: resultBundlePath, rerunFailedTests: .init(enabled: true, maxAttempts: 2), reportPath: reportPath)
         if changedFailure {
@@ -194,6 +196,7 @@ struct TestActionTests {
             return ShellOutput(stdout: "", stderr: "", exitCode: 0)
         }
         let options = TestAction.Options(
+            legacyCombinedTest: true,
             scheme: "MockApp", destination: "platform=iOS Simulator,name=iPhone 16",
             resultBundlePath: directory.appendingPathComponent("Tests.xcresult").path,
             rerunFailedTests: .init(enabled: true, maxAttempts: maxAttempts))
@@ -224,6 +227,7 @@ struct TestActionTests {
 
         let result = try await TestAction().run(
             with: .init(
+                legacyCombinedTest: true,
                 scheme: "MockApp",
                 destinations: [
                     "platform=iOS Simulator,name=iPhone 16",
@@ -271,6 +275,7 @@ struct TestActionTests {
 
         let result = try await TestAction().run(
             with: .init(
+                legacyCombinedTest: true,
                 scheme: "MockApp",
                 destinations: [
                     "platform=iOS Simulator,name=iPhone 16",
@@ -298,6 +303,7 @@ struct TestActionTests {
 
         _ = try await TestAction().run(
             with: .init(
+                legacyCombinedTest: true,
                 scheme: "MockApp",
                 destinations: ["platform=iOS Simulator,name=iPhone 16 Pro"],
                 destination: "platform=iOS Simulator,name=iPhone 14"  // should be ignored
@@ -319,7 +325,7 @@ struct TestActionTests {
         let context = ActionContext.mock(executor: executor)
 
         _ = try await TestAction().run(
-            with: .init(scheme: "MockApp", destination: "platform=iOS Simulator,name=iPhone 15"),
+            with: .init(legacyCombinedTest: true, scheme: "MockApp", destination: "platform=iOS Simulator,name=iPhone 15"),
             context: context
         )
 
@@ -336,7 +342,7 @@ struct TestActionTests {
         let context = ActionContext.mock(executor: executor)
 
         do {
-            _ = try await TestAction().run(with: .init(scheme: "MockApp"), context: context)
+            _ = try await TestAction().run(with: .init(legacyCombinedTest: true, scheme: "MockApp"), context: context)
             Issue.record("Expected TestAction to throw when no destinations are configured")
         } catch let error as ShipItError {
             guard case .invalidConfiguration = error else {
@@ -353,7 +359,7 @@ struct TestActionTests {
 
         do {
             _ = try await TestAction().run(
-                with: .init(scheme: "MockApp", destinations: []),
+                with: .init(legacyCombinedTest: true, scheme: "MockApp", destinations: []),
                 context: context
             )
             Issue.record("Expected TestAction to throw when destinations is empty")
@@ -380,7 +386,7 @@ struct TestActionTests {
 
         do {
             _ = try await TestAction().run(
-                with: .init(scheme: "MockApp", destination: "platform=iOS Simulator,name=iPhone 16"),
+                with: .init(legacyCombinedTest: true, scheme: "MockApp", destination: "platform=iOS Simulator,name=iPhone 16"),
                 context: context
             )
             Issue.record("Expected TestAction to throw")
@@ -407,7 +413,7 @@ struct TestActionTests {
 
         do {
             _ = try await TestAction().run(
-                with: .init(scheme: "MockApp", destination: "platform=iOS Simulator,name=iPhone 16"),
+                with: .init(legacyCombinedTest: true, scheme: "MockApp", destination: "platform=iOS Simulator,name=iPhone 16"),
                 context: context
             )
             Issue.record("Expected TestAction to throw")
@@ -436,7 +442,7 @@ struct TestActionTests {
 
         do {
             _ = try await TestAction().run(
-                with: .init(scheme: "MockApp", destination: "platform=iOS Simulator,name=iPhone 16"),
+                with: .init(legacyCombinedTest: true, scheme: "MockApp", destination: "platform=iOS Simulator,name=iPhone 16"),
                 context: context
             )
             Issue.record("Expected TestAction to throw")
@@ -460,6 +466,7 @@ struct TestActionTests {
 
         let result = try await TestAction().run(
             with: .init(
+                legacyCombinedTest: true,
                 scheme: "MockApp",
                 destination: "platform=iOS Simulator,name=iPhone 16",
                 enableCodeCoverage: true
@@ -482,6 +489,7 @@ struct TestActionTests {
 
         let result = try await TestAction().run(
             with: .init(
+                legacyCombinedTest: true,
                 scheme: "MockApp",
                 destination: "platform=iOS Simulator,name=iPhone 16",
                 enableCodeCoverage: true,
@@ -516,6 +524,7 @@ struct TestActionTests {
 
         let result = try await TestAction().run(
             with: .init(
+                legacyCombinedTest: true,
                 scheme: "MockApp",
                 destination: "platform=iOS Simulator,name=iPhone 16",
                 resultBundlePath: bundlePath
@@ -555,6 +564,7 @@ struct TestActionTests {
 
         _ = try await TestAction().run(
             with: .init(
+                legacyCombinedTest: true,
                 scheme: scheme,
                 destination: "platform=iOS Simulator,name=iPhone 16",
                 enableCodeCoverage: true
@@ -577,6 +587,7 @@ struct TestActionTests {
 
         _ = try await TestAction().run(
             with: .init(
+                legacyCombinedTest: true,
                 scheme: "MockApp",
                 destination: "platform=iOS Simulator,name=iPhone 16",
                 enableCodeCoverage: true,
@@ -601,6 +612,7 @@ struct TestActionTests {
 
         _ = try await TestAction().run(
             with: .init(
+                legacyCombinedTest: true,
                 scheme: "MockApp",
                 destination: "platform=iOS Simulator,name=iPhone 16",
                 onlyTesting: ["MockAppTests/FeatureATests", "MockAppTests/FeatureBTests"]
@@ -622,6 +634,7 @@ struct TestActionTests {
 
         _ = try await TestAction().run(
             with: .init(
+                legacyCombinedTest: true,
                 scheme: "MockApp",
                 destination: "platform=iOS Simulator,name=iPhone 16",
                 skipTesting: ["MockAppTests/SlowTests"]
@@ -642,6 +655,7 @@ struct TestActionTests {
 
         _ = try await TestAction().run(
             with: .init(
+                legacyCombinedTest: true,
                 scheme: "MockApp",
                 destination: "platform=iOS Simulator,name=iPhone 16",
                 retryOnFailure: true
@@ -661,7 +675,7 @@ struct TestActionTests {
         let context = ActionContext.mock(executor: executor)
 
         _ = try await TestAction().run(
-            with: .init(scheme: "MockApp", destination: "platform=iOS Simulator,name=iPhone 16"),
+            with: .init(legacyCombinedTest: true, scheme: "MockApp", destination: "platform=iOS Simulator,name=iPhone 16"),
             context: context
         )
 
@@ -699,6 +713,7 @@ struct TestActionTests {
 
         let result = try await TestAction().run(
             with: .init(
+                legacyCombinedTest: true,
                 scheme: "MockApp",
                 destination: "platform=iOS Simulator,name=iPhone 16",
                 infrastructureRetry: .init(maxAttempts: 2, initialDelaySeconds: 0)
@@ -727,6 +742,7 @@ struct TestActionTests {
         do {
             _ = try await TestAction().run(
                 with: .init(
+                    legacyCombinedTest: true,
                     scheme: "MockApp",
                     destination: "platform=iOS Simulator,name=iPhone 16",
                     infrastructureRetry: .init(maxAttempts: 3, initialDelaySeconds: 0)
@@ -847,7 +863,7 @@ struct TestActionTests {
         )
         let context = makeTestActionContext(executor: executor, config: config, platform: .android)
 
-        _ = try await TestAction().run(with: .init(kind: .unit), context: context)
+        _ = try await TestAction().run(with: .init(legacyCombinedTest: true, kind: .unit), context: context)
 
         #expect(commands().contains { $0.contains(":app:testProdDebugUnitTest") })
     }
@@ -855,7 +871,9 @@ struct TestActionTests {
     @Test("Android instrumented connected test defaults to root scope")
     func androidInstrumentedConnectedDefaultsToRootScope() async throws {
         let (executor, commands) = makeCaptureExecutor { _, _ in
-            ShellOutput(stdout: "List of devices attached\nemulator-5554\tdevice\n", stderr: "", exitCode: 0)
+            ShellOutput(
+                stdout: "List of devices attached\nemulator-5554\tdevice\n> Task :app:connectedProdDebugAndroidTest NO-SOURCE\n",
+                stderr: "", exitCode: 0)
         }
         let config = ResolvedConfig(
             platform: .android,
@@ -867,6 +885,7 @@ struct TestActionTests {
         // No explicit scope set — should default to root for connected instrumented tests
         _ = try await TestAction().run(
             with: .init(
+                legacyCombinedTest: true,
                 kind: .instrumented,
                 devices: TestDeviceConfig(strategy: .connected)
             ),
@@ -922,6 +941,7 @@ struct TestActionTests {
 
         _ = try await TestAction().run(
             with: .init(
+                legacyCombinedTest: true,
                 kind: .instrumented,
                 devices: TestDeviceConfig(strategy: .connected, promptLocally: false)
             ),
@@ -998,6 +1018,7 @@ struct TestActionTests {
 
         _ = try await TestAction().run(
             with: .init(
+                legacyCombinedTest: true,
                 kind: .instrumented,
                 devices: TestDeviceConfig(strategy: .connected, promptLocally: false)
             ),
@@ -1057,6 +1078,7 @@ struct TestActionTests {
 
         _ = try await action.run(
             with: .init(
+                legacyCombinedTest: true,
                 kind: .instrumented,
                 devices: TestDeviceConfig(
                     strategy: .namedEmulators,
@@ -1095,6 +1117,7 @@ struct TestActionTests {
         do {
             _ = try await TestAction().run(
                 with: .init(
+                    legacyCombinedTest: true,
                     kind: .instrumented,
                     devices: TestDeviceConfig(
                         strategy: .namedEmulators,
@@ -1139,6 +1162,7 @@ struct TestActionTests {
         do {
             _ = try await TestAction().run(
                 with: .init(
+                    legacyCombinedTest: true,
                     kind: .instrumented,
                     devices: TestDeviceConfig(strategy: .connected)
                 ),
@@ -1169,6 +1193,7 @@ struct TestActionTests {
         // Explicit scope: module must be respected
         _ = try await TestAction().run(
             with: .init(
+                legacyCombinedTest: true,
                 kind: .instrumented,
                 scope: .module,
                 devices: TestDeviceConfig(strategy: .connected)
@@ -1193,6 +1218,7 @@ struct TestActionTests {
 
         _ = try await TestAction().run(
             with: .init(
+                legacyCombinedTest: true,
                 kind: .instrumented,
                 devices: TestDeviceConfig(strategy: .managed, group: "pixel2api30")
             ),
@@ -1234,7 +1260,7 @@ struct TestActionTests {
 
         // No destinations or destination in options — should auto-discover
         let result = try await TestAction().run(
-            with: .init(scheme: "MockApp"),
+            with: .init(legacyCombinedTest: true, scheme: "MockApp"),
             context: context
         )
 
@@ -1265,7 +1291,7 @@ struct TestActionTests {
         }
         let context = ActionContext.mock(executor: executor)
 
-        _ = try await TestAction().run(with: .init(scheme: "MockApp"), context: context)
+        _ = try await TestAction().run(with: .init(legacyCombinedTest: true, scheme: "MockApp"), context: context)
 
         // The test run command (second call) should use the iPhone 16 Pro (highest OS + Pro)
         let testCommand = commands().last ?? ""
@@ -1291,7 +1317,7 @@ struct TestActionTests {
         let context = ActionContext.mock(executor: executor)
 
         do {
-            _ = try await TestAction().run(with: .init(scheme: "MockApp"), context: context)
+            _ = try await TestAction().run(with: .init(legacyCombinedTest: true, scheme: "MockApp"), context: context)
             Issue.record("Expected TestAction to throw when no iPhone simulators found")
         } catch let error as ShipItError {
             guard case .invalidConfiguration(let reason) = error else {
@@ -1315,6 +1341,7 @@ struct TestActionTests {
 
         _ = try await TestAction().run(
             with: .init(
+                legacyCombinedTest: true,
                 scheme: "MockApp",
                 destinations: ["platform=iOS Simulator,name=iPhone 15,OS=17.5"]
             ),
@@ -1347,7 +1374,7 @@ struct TestActionTests {
         )
 
         do {
-            _ = try await TestAction().run(with: .init(), context: context)
+            _ = try await TestAction().run(with: .init(legacyCombinedTest: true, ), context: context)
             Issue.record("Expected TestAction to throw")
         } catch let error as ShipItError {
             guard case .invalidConfiguration = error else {
@@ -1383,19 +1410,20 @@ struct TestActionTests {
             </testsuite>
             """
 
-        try passingXML.write(
-            to: reportsDirectory.appendingPathComponent("TEST-com.example.FeatureTests-passing.xml"),
-            atomically: true,
-            encoding: .utf8
-        )
-        try failingXML.write(
-            to: reportsDirectory.appendingPathComponent("TEST-com.example.FeatureTests-failing.xml"),
-            atomically: true,
-            encoding: .utf8
-        )
-
+        // Stale results are cleared before a run, so the reports must be written by the (mock) Gradle run.
         let (executor, _) = makeCaptureExecutor { _, _ in
-            ShellOutput(stdout: "", stderr: "", exitCode: 0)
+            try FileManager.default.createDirectory(at: reportsDirectory, withIntermediateDirectories: true)
+            try passingXML.write(
+                to: reportsDirectory.appendingPathComponent("TEST-com.example.FeatureTests-passing.xml"),
+                atomically: true,
+                encoding: .utf8
+            )
+            try failingXML.write(
+                to: reportsDirectory.appendingPathComponent("TEST-com.example.FeatureTests-failing.xml"),
+                atomically: true,
+                encoding: .utf8
+            )
+            return ShellOutput(stdout: "", stderr: "", exitCode: 0)
         }
         let config = ResolvedConfig(
             platform: .android,
@@ -1406,7 +1434,7 @@ struct TestActionTests {
         let context = makeTestActionContext(executor: executor, config: config, platform: .android)
 
         let result = try await TestAction().run(
-            with: .init(kind: .unit),
+            with: .init(legacyCombinedTest: true, kind: .unit),
             context: context
         )
 
@@ -1446,6 +1474,7 @@ struct TestActionTests {
 
         let result = try await TestAction().run(
             with: .init(
+                legacyCombinedTest: true,
                 rerunFailedTests: .init(enabled: true, maxAttempts: 2),
                 reportPath: reportPath,
                 kind: .unit

@@ -88,7 +88,21 @@ public enum CompositeAction {
                         )
                     }
 
-                    let envelope = try await descriptor.runJSON(substituted, context)
+                    let envelope: ActionResultEnvelope
+                    let evidenceStep = "composite-" + UUID().uuidString + "-step-\(index + 1)"
+                    do { envelope = try await descriptor.runJSON(substituted, context) } catch {
+                        if let root = context.evidenceRoot {
+                            try? collectWorkflowArtifacts(
+                                step: evidenceStep, action: step.action,
+                                declarations: step.artifacts ?? [], payload: nil, status: "failure", root: root)
+                        }
+                        throw error
+                    }
+                    if let root = context.evidenceRoot {
+                        try? collectWorkflowArtifacts(
+                            step: evidenceStep, action: step.action,
+                            declarations: step.artifacts ?? [], payload: envelope.payload, status: envelope.status, root: root)
+                    }
                     let encoded = try JSONEncoder().encode(envelope)
                     let asJSON = try JSONDecoder().decode(JSONValue.self, from: encoded)
                     childResults.append(asJSON)

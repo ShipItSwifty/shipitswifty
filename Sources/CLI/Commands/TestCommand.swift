@@ -5,14 +5,17 @@ extension TestKind: ExpressibleByArgument {}
 extension GradleTaskScope: ExpressibleByArgument {}
 extension TestDeviceStrategy: ExpressibleByArgument {}
 
-/// Run unit and UI tests using `xcodebuild test`.
+/// Run a named test lane or platform tests.
 struct TestCommand: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "test",
-        abstract: "Run unit and UI tests using xcodebuild test"
+        abstract: "Run a named test lane or platform unit/UI tests"
     )
 
     @OptionGroup var global: GlobalOptions
+
+    @Option(name: .long, help: "Run a named test workflow")
+    var workflow: String?
 
     @Option(name: .long, help: "Xcode scheme to test")
     var scheme: String?
@@ -28,6 +31,19 @@ struct TestCommand: AsyncParsableCommand {
 
     @Option(name: .long, help: "Path to write the .xcresult bundle")
     var resultBundlePath: String?
+
+    @Option(name: .customLong("test-plans"), parsing: .upToNextOption, help: "Ordered plans sharing one test build")
+    var testPlans: [String] = []
+    @Option(name: .long, help: "New .xctestproducts path")
+    var testProductsPath: String?
+    @Flag(name: .long, help: "Use the legacy combined xcodebuild test invocation")
+    var legacyCombinedTest: Bool = false
+    @Flag(name: .long, help: "Force serial Xcode test execution")
+    var serial: Bool = false
+    @Flag(name: .long, help: "Skip macro validation while building tests")
+    var skipMacroValidation: Bool = false
+    @Flag(name: .long, help: "Erase a shutdown simulator before testing")
+    var eraseSimulator: Bool = false
 
     @Option(name: .long, help: "Test plan name to run")
     var testPlan: String?
@@ -98,6 +114,23 @@ struct TestCommand: AsyncParsableCommand {
             let context = try await buildActionContext(
                 config: config, verbose: global.verbose, jsonOutput: global.output == .json)
 
+            let directOptions =
+                scheme != nil || destination != nil || configuration != nil || codeCoverage || resultBundlePath != nil
+                || !testPlans.isEmpty || testProductsPath != nil || legacyCombinedTest || serial || skipMacroValidation || eraseSimulator
+                || testPlan != nil || !onlyTesting.isEmpty || !skipTesting.isEmpty || retryOnFailure || rerunFailedTests
+                || maxRerunAttempts != nil || reportPath != nil || kind != nil || scope != nil || module != nil || buildVariant != nil
+                || task != nil || deviceStrategy != nil || !emulators.isEmpty || deviceGroup != nil || promptLocally
+            if workflow != nil && directOptions {
+                throw ShipItError.invalidConfiguration(reason: "--workflow cannot be mixed with direct test options")
+            }
+            if let lane = workflow ?? (directOptions ? nil : config.testWorkflow) {
+                var run = RunCommand()
+                run.global = global
+                run.workflow = lane
+                try await run.run()
+                return
+            }
+
             // Build device config from CLI flags
             let devices: TestDeviceConfig?
             if deviceStrategy != nil || !emulators.isEmpty || deviceGroup != nil || promptLocally {
@@ -112,12 +145,16 @@ struct TestCommand: AsyncParsableCommand {
             }
 
             let options = TestAction.Options(
+                legacyCombinedTest: legacyCombinedTest ? true : nil,
                 scheme: scheme,
                 destination: destination,
                 configuration: configuration,
                 enableCodeCoverage: codeCoverage ? true : nil,
                 resultBundlePath: resultBundlePath,
                 testPlan: testPlan,
+                testPlans: testPlans.isEmpty ? nil : testPlans, testProductsPath: testProductsPath,
+                serial: serial ? true : nil,
+                skipMacroValidation: skipMacroValidation ? true : nil, eraseSimulator: eraseSimulator ? true : nil,
                 onlyTesting: onlyTesting.isEmpty ? nil : onlyTesting,
                 skipTesting: skipTesting.isEmpty ? nil : skipTesting,
                 retryOnFailure: retryOnFailure ? true : nil,

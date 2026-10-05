@@ -8,7 +8,7 @@ This document covers the planned feature surface, current v1 scope, the long-ter
 
 | Area | Included in v1.0 | Deferred |
 |---|---|---|
-| **CLI** | `generate`, `schema`, `inspect project`, `suggest-config`, `ai session`, `validate` (`yml`, `metadata`, `archive`, `bundle`, `all`), `build`, `test`, `test-results`, `coverage`, `archive`, `lint`, `export`, `sign sync`, `testflight`, `play-store`, `metadata`, `version`, `notify`, `run`, `env`, `doctor` | Advanced git automation, PR creation, sales/finance reporting |
+| **CLI** | `generate`, `schema`, `inspect project`, `suggest-config`, `ai session`, `validate` (`yml`, `metadata`, `archive`, `bundle`, `all`), `build`, `test`, `swift-test`, `swift-format`, `test-results`, `coverage`, `ci export`, `archive`, `lint`, `export`, `sign sync`, `testflight`, `play-store`, `metadata`, `version`, `notify`, `run`, `env`, `doctor` | Advanced git automation, PR creation, sales/finance reporting |
 | **Code signing** | Vault-style sync from Git-backed encrypted storage | S3/GCS backends, certificate lifecycle beyond core sync |
 | **Distribution** | TestFlight upload, metadata push/pull, App Store submission primitives | Full review automation coverage |
 | **Screenshots** | Capture + upload basics | Framing, visual diffing, preview video processing |
@@ -82,7 +82,7 @@ This document covers the planned feature surface, current v1 scope, the long-ter
 | **Structured test artifact parsing** | Implemented | `shipit test-results` and `TestResultsAction` parse native `.xcresult` and Gradle JUnit XML artifacts into `ParsedTestRun` and `TestRunReport`, with optional JSON report export for CI artifacts. |
 | **Test Plans** | Implemented | `--test-plan` selects a named `.xctestplan` |
 | **Retry on Failure** | Implemented | `retry_on_failure: true` passes `-retry-tests-on-failure` to xcodebuild |
-| **Selective failed-test reruns** | Implemented | `rerun_failed_tests: { enabled: true, max_attempts: 2 }` reruns only the failing iOS tests (single destination with a result bundle) and Android JVM tests up to `max_attempts` total attempts (including the initial run), stopping early on recovery, then reports flaky vs persistent failures in `TestRunReport`. Failed tests are read back from the xcresult / JUnit XML (console log fallback) after the runner exits non-zero; root-scoped Android runs collect reports across modules, while module-scoped runs ignore unrelated reports. Newly reported rerun failures remain failures; the step still fails if any test fails again, and passes (with `flakyTests` populated) if every failure passes on rerun. |
+| **Selective failed-test reruns** | Implemented | `rerun_failed_tests: { enabled: true, max_attempts: 2 }` reruns failing native iOS tests by plan, destination, and configuration, Android JVM tests, Flutter tests, and SwiftPM tests up to `max_attempts` total attempts (including the initial run), stopping early on recovery, then reports flaky vs persistent failures in `TestRunReport`. Failed tests are read back from the xcresult / JUnit XML (console log fallback) after the runner exits non-zero; root-scoped Android runs collect reports across modules, while module-scoped runs ignore unrelated reports. Newly reported rerun failures remain failures; the step still fails if any test fails again, and passes (with `flakyTests` populated) if every failure passes on rerun. |
 
 ### Coverage Reporting
 
@@ -366,3 +366,16 @@ Migrating from `fastlane`? See the dedicated migration guide in [Walkthrough](wa
 | App config | `Shipfile.yml` app section | Unified config |
 
 Build progress remains live on stderr in JSON output mode; stdout contains the JSON result. Full child output remains captured for build and test parsing.
+
+## Shared test lanes
+
+Named test workflows compose Swift package checks and native sample UI plans. Native iOS builds
+once into `.xctestproducts`, saves one bundle per plan/destination/attempt, and falls back to
+serial after a classified clone failure. SwiftPM, Flutter, Android JVM and Xcode selective
+reruns share normalized identities and flaky reporting. Android/KMP JUnit, Flutter/Jest events,
+Swift Testing streams and xcresult can be inspected/exported offline with originals, screenshots,
+attachments and logs. Coverage adds SwiftPM LLVM JSON, Flutter LCOV and Kover JVM XML.
+
+Artifacts belong to any workflow/custom-action step. GitHub Actions export publishes declared
+artifacts and failure evidence with `always()`. Other providers implement the public `CIProvider`
+protocol. See [testing](testing.md#test-lanes-and-portable-evidence) for options and limits.

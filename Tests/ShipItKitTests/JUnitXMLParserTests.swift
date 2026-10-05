@@ -98,7 +98,7 @@ struct JUnitXMLParserTests {
         let action = TestAction()
         let result = try await action.aggregateJUnitXMLResults(projectDir: tmpDir.path, task: "testDebugUnitTest")
 
-        #expect(result.pass == 1)
+        #expect(result.pass == 6)
         #expect(result.fail == 1)
         #expect(result.skip == 1)
         #expect(result.passedTests == ["Test1.testA"])

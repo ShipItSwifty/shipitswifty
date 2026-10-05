@@ -399,4 +399,23 @@ struct IntrospectionTests {
     }
     #endif
 
+    @Test("Package generation and AI readiness select a test lane without app credentials")
+    func packageLaneGuidance() throws {
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        try "// swift-tools-version: 6.0".write(to: scratch.url.appendingPathComponent("Package.swift"), atomically: true, encoding: .utf8)
+        let inspection = ProjectInspection(
+            rootPath: scratch.url.path, xcodeContainers: [], preferredContainer: nil, schemes: [], suggestedAppConfig: .init(),
+            existingShipfiles: [], fastlaneFiles: [], ciFiles: [], warnings: [])
+        let suggestion = ShipfileSuggester().suggest(goal: .local, from: inspection)
+        #expect(suggestion.yaml.contains("test_workflow: tests"))
+        #expect(suggestion.yaml.contains("action: swift-test"))
+        #expect(suggestion.yaml.contains("infrastructure_retry"))
+        #expect(suggestion.missingValues.isEmpty)
+        let session = AISessionBuilder().build(goal: .local, inspection: inspection, hasExistingShipfile: true)
+        #expect(session.readiness.isReady)
+        #expect(session.nextAction.command == "shipit test")
+        #expect(session.nextQuestion == nil)
+    }
+
 }

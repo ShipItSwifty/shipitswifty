@@ -265,3 +265,125 @@ func retriesInfrastructureFailureAndRecovers() async throws {
     #expect(commands().count == 2) // one failure + one success
 }
 ```
+
+## Test lanes and portable evidence
+
+This repository defines its checks in `Shipfile.yml`. After `swift build`, run
+`"$(swift build --show-bin-path)/shipit" test --workflow ci-macos` (or `ci-linux`).
+The `format`, `fixtures`, and `integration-advisory` workflows preserve the previous
+formatting scopes, platform exclusions, fixture suites, and advisory integration policy.
+CI keeps the initial unit coverage snapshot separate from later integration runs for Codecov.
+
+For a library with an Xcode sample, compose ordinary actions in one named lane:
+
+```yaml
+test_workflow: tests
+app:
+  project: Examples/Sample/Sample.xcodeproj
+  scheme: Sample
+workflows:
+  tests:
+    - action: swift-format
+      options: { paths: [Sources, Tests] }
+    - action: swift-test
+      options:
+        enable_code_coverage: true
+        output_directory: "build/tests/{{run_id}}/package"
+        environment: { SNAPSHOT_RECORD_MODE: never }
+        rerun_failed_tests: { enabled: true, max_attempts: 2 }
+        infrastructure_retry: { max_attempts: 3, initial_delay_seconds: 2, max_delay_seconds: 30 }
+    - action: coverage
+      options:
+        input_format: swift
+        report_path: "build/tests/{{run_id}}/package/coverage.json"
+        source_roots: [Sources/MyLibrary]
+        exclude_previews: true
+        minimum_coverage: 80
+    - action: test
+      options:
+        test_plans: [Sample, SampleLocales]
+        destinations: ["platform=iOS Simulator,name=iPhone 17,OS=27.2"]
+        skip_macro_validation: true
+        rerun_failed_tests: { enabled: true, max_attempts: 2 }
+        infrastructure_retry: { max_attempts: 3, initial_delay_seconds: 2, max_delay_seconds: 30 }
+      artifacts:
+        - name: test-evidence
+          paths: ["build/tests/{{run_id}}", "build/workflow-artifacts/{{run_id}}/test-runs"]
+          retention_days: 14
+```
+
+`shipit test` selects `test_workflow`; `shipit test --workflow tests` selects it explicitly.
+Workflows stop on failure by default. Use object syntax with `continue_on_failure: true`
+and `steps:` only when checks are independent; the overall exit status still fails.
+
+Native Xcode lanes build `.xctestproducts` once, then run each plan and destination with
+`test-without-building`. Simulator/device mixtures and locally discoverable plans with
+incompatible target sets require separate steps. Xcode controls parallel workers. A
+classified clone failure switches that destination to serial once and reuses the products;
+assertion failures do not trigger this fallback. `serial: true` forces serial execution.
+`legacy_combined_test: true` preserves the previous `xcodebuild test` invocation.
+
+Each attempt retains commands, stdout/stderr, results and native evidence before another
+attempt can overwrite it. SwiftPM reruns use `--skip-build`; SwiftPM, Flutter, Android JVM,
+and Xcode reruns use normalized selectors. `max_attempts` includes the initial assertion
+run. Infrastructure retry budgets are separate; recovered assertions pass and remain marked
+flaky. Instrumented Android and Kotlin Native tests retain results but do not claim selective
+assertion-rerun support. Saved Swift Testing streams require a Swift toolchain supporting
+`--event-stream-output-path` and `--attachments-path`.
+
+Simulator claims use amoo's `AMOO_LEASE_DIR` / `~/.amoo/leases` protocol. ShipIt refuses held
+devices and releases its own leases on completion/error/cancellation. It shuts down only
+simulators it booted and refuses to erase an already booted simulator. Shutdown is best effort
+when cancellation interrupts the shell; its own lease is still released. Known Xcode processes
+holding an explicit UDID are reported with their PID and command. Runners that neither use a
+lease nor expose their destination in their command cannot be detected reliably. Failure
+screenshots and bounded device logs are best effort; unavailable device state is recorded as
+`unknown`, and native attachment associations are retained.
+
+Inspect saved results without running tests or requiring a Shipfile:
+
+```bash
+shipit test-results --input results.xcresult --export-directory artifacts/ios
+shipit test-results --input app/build/test-results/testDebugUnitTest --runner gradle
+shipit test-results --input shared/build/test-results/iosSimulatorArm64Test --runner kmp
+shipit test-results --input flutter-events.jsonl --input-format flutter
+shipit test-results --input swift-events.jsonl --input-format swift
+shipit test-results --input artifacts/ios/manifest.json --format markdown
+shipit coverage --input-format kover --report build/reports/kover/report.xml
+shipit coverage --input-format lcov --report coverage/lcov.info
+```
+
+Repeated `--input`, `--coverage-input` (with `--coverage-format`), and `--evidence` allow results,
+coverage, screenshots, videos and logs to be exported together. Export creates a **new** directory
+with normalized results, coverage, originals, extracted xcresult attachments/diagnostics/logs,
+a manifest and an index with relative links. It never overwrites a prior export. Malformed
+inputs fail; optional missing evidence produces diagnostics. Filtering the displayed cases
+never changes the full-run summary. xcresult extraction requires macOS/Xcode; portable exported
+results, JUnit, Swift events, Flutter events, Jest, LCOV and JVM coverage can be read on Linux.
+
+A run that reports no test outcomes is never a passing zero-test run: offline inspection rejects
+empty or unreadable artifacts, and live Flutter/KMP runs that exit 0 without results fail with an
+error report (Gradle's `NO-SOURCE` is the one legitimate empty run). Gradle result directories are
+cleared before each run so a build that fails before executing tests cannot reuse the previous
+run's XML. Test IDs for Gradle JUnit XML are relative to the Gradle project (the nearest directory with
+`settings.gradle[.kts]` or `gradlew`), so live and offline inspection agree and the same test in two
+modules stays distinct; JUnit stack traces and output written as CDATA are preserved.
+
+`report.json` always describes the whole run. The recorder keeps one directory per attempt and does
+not rewrite the report per attempt; if an action stops before writing its final report (cancellation, an
+I/O error, a failing run), a provisional report is written from the reconciled attempts: the first full
+run's identities, failures still unresolved by reruns, and flaky recoveries. A run that stopped for any
+reason other than failing tests carries one extra `errored` so it can never read as a clean pass. Android
+follows the same zero-result policy as Flutter and KMP: exiting 0 without JUnit XML fails unless Gradle
+reported `NO-SOURCE` or `SKIPPED` for that exact test task. Saving evidence is best effort: a failure to
+write logs, snapshots or reports is logged and never replaces or hides the test outcome; an unreadable
+SwiftPM rerun keeps the original failures as persistent.
+
+Coverage gates use executable lines, reject empty input and merge overlapping source lines.
+SwiftPM uses LLVM JSON, Flutter uses LCOV, and Android/KMP JVM use JaCoCo-compatible XML
+(including Kover). Coverage for Kotlin Native/JS is unavailable through these formats.
+Original artifacts preserve additional runner metrics beyond the normalized line summary.
+
+Test steps expose `{{test_output_directory}}`, `{{test_report_path}}`, and
+`{{test_result_bundle}}` when produced. SwiftPM steps also expose `{{coverage_path}}`.
+Use these paths in later steps or artifact declarations instead of guessing output names.

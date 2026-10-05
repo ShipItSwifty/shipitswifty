@@ -453,6 +453,7 @@ public enum BuiltInSchemaCatalog {
                     ),
                 ]
             ),
+            .string("test_workflow", description: "Workflow selected by unqualified shipit test"),
             .object(
                 "workflows",
                 description:
@@ -469,7 +470,7 @@ public enum BuiltInSchemaCatalog {
                         "Workflow definition. Can be a plain array of steps (legacy) or an object with workflow-level overrides and a required `steps` array.",
                     notes: [
                         "Legacy format: a plain array of step objects [{action, options?}, ...].",
-                        "New format: an object with a required `steps` array plus optional overrides.",
+                        "New format: an object with a required `steps` array plus optional overrides and continue_on_failure.",
                         "Android overrides: `build_variant`, `flavor`.",
                         "iOS overrides: `app` (scheme, bundle_id, team_id, workspace, project), `build` (configuration, derived_data_path, xcargs), `archive` (export_method, output_path, include_symbols), `export` (archive_path, output_directory), and `code_signing`.",
                         "Overrides apply only while that workflow runs, so a staging lane can coexist with production in one Shipfile without changing the top-level production defaults.",
@@ -539,6 +540,12 @@ public enum BuiltInSchemaCatalog {
 
     public static func actionSchemas() -> [ActionSchema] {
         var schemas: [ActionSchema] = [
+            actionSchema(
+                name: SwiftTestAction.name, description: SwiftTestAction.description, options: swiftTestOptions(),
+                example: .object(["package_path": .string(".")])),
+            actionSchema(
+                name: SwiftFormatAction.name, description: SwiftFormatAction.description, options: swiftFormatOptions(),
+                example: .object(["paths": .array([.string("Sources")])])),
             actionSchema(
                 name: BuildAction.name, description: BuildAction.description, options: buildOptions(),
                 example: buildExample()),
@@ -642,6 +649,12 @@ public enum BuiltInSchemaCatalog {
 
     private static func allValidationActionSchemas() -> [ActionSchema] {
         var schemas = [
+            actionSchema(
+                name: SwiftTestAction.name, description: SwiftTestAction.description, options: swiftTestOptions(),
+                example: .object(["package_path": .string(".")])),
+            actionSchema(
+                name: SwiftFormatAction.name, description: SwiftFormatAction.description, options: swiftFormatOptions(),
+                example: .object(["paths": .array([.string("Sources")])])),
             actionSchema(name: "archive", description: ArchiveAction.description, options: archiveOptions(), example: archiveExample()),
             actionSchema(name: "build", description: BuildAction.description, options: buildOptions(), example: buildExample()),
             actionSchema(name: "coverage", description: CoverageAction.description, options: coverageOptions(), example: coverageExample()),
@@ -759,6 +772,16 @@ public enum BuiltInSchemaCatalog {
                 .string(
                     "action", required: true, description: "Registered action name.",
                     example: .string("archive")),
+                .array(
+                    "artifacts", description: "Evidence collected after success or failure",
+                    items: .object(
+                        "artifact", description: "Artifact declaration",
+                        properties: [
+                            .string("name", required: true, description: "Artifact name (letters, digits, _ or -)"),
+                            .array(
+                                "paths", required: true, description: "Paths/globs", items: .string("path", description: "Evidence path")),
+                            .integer("retention_days", description: "Provider retention, 1...90 days"),
+                        ])),
                 .string(
                     "when",
                     description:
@@ -835,8 +858,51 @@ public enum BuiltInSchemaCatalog {
         ]
     }
 
+    private static func swiftTestOptions() -> [SchemaField] {
+        [
+            .string("package_path", description: "Swift package path", defaultValue: .string(".")),
+            .string("scratch_path", description: "Isolated SwiftPM build storage"),
+            .string("filter", description: "Test selector regex"),
+            .string("skip", description: "Excluded test selector regex"),
+            .object(
+                "environment", description: "Additional test environment", allowsAdditionalProperties: true,
+                additionalProperties: .string("value", description: "Environment value")),
+            .boolean("enable_code_coverage", description: "Collect initial full-suite coverage"),
+            .object(
+                "infrastructure_retry", description: "Retry transient SwiftPM execution failures",
+                properties: [
+                    .integer("max_attempts", description: "Total attempts", defaultValue: .int(3)),
+                    .number("initial_delay_seconds", description: "Initial delay", defaultValue: .double(2)),
+                    .number("max_delay_seconds", description: "Delay cap", defaultValue: .double(30)),
+                ]),
+            .string("output_directory", description: "New directory for per-attempt results, logs and attachments"),
+            .object(
+                "rerun_failed_tests", description: "Selective rerun policy",
+                properties: [
+                    .boolean("enabled", description: "Enable selective reruns", defaultValue: .bool(false)),
+                    .integer("max_attempts", description: "Total attempts including initial run", defaultValue: .int(2)),
+                ]),
+        ]
+    }
+    private static func swiftFormatOptions() -> [SchemaField] {
+        [
+            .array("paths", description: "Paths to lint recursively", items: .string("path", description: "Source path")),
+            .string("configuration", description: "swift-format configuration path"),
+            .string("report_path", description: "Save lint stdout/stderr"),
+        ]
+    }
+
     private static func testOptions() -> [SchemaField] {
         [
+            .array(
+                "test_plans", description: "Ordered Xcode plans sharing one build; exclusive with test_plan.",
+                items: .string("plan", description: "Plan name")),
+            .string("test_products_path", description: "New .xctestproducts output path; default is unique per run."),
+            .boolean(
+                "legacy_combined_test", description: "Use legacy xcodebuild test instead of a shared build", defaultValue: .bool(false)),
+            .boolean("serial", description: "Force serial Xcode test execution"),
+            .boolean("skip_macro_validation", description: "Forward -skipMacroValidation while building tests"),
+            .boolean("erase_simulator", description: "Erase an explicitly resolved shutdown simulator before testing"),
             .string("scheme", description: "Xcode scheme containing tests.", example: .string("MyApp")),
             .array(
                 "destinations",
@@ -871,7 +937,7 @@ public enum BuiltInSchemaCatalog {
             .boolean(
                 "enable_code_coverage",
                 description:
-                    "Enable code coverage collection. When true and result_bundle_path is unset, a default .xcresult path of ./build/<scheme>-tests.xcresult is used automatically.",
+                    "Collect coverage in each native result bundle. Default lanes save unique bundles under build/test-runs or the workflow evidence root.",
                 example: .bool(true)),
             .string(
                 "result_bundle_path",
@@ -902,7 +968,7 @@ public enum BuiltInSchemaCatalog {
             .object(
                 "rerun_failed_tests",
                 description:
-                    "Selectively rerun only the failed tests when the runner supports it (Android unit tests; iOS with a single destination and result_bundle_path). Separate from whole-invocation infrastructure_retry and from iOS retry_on_failure.",
+                    "Selectively rerun failed tests using saved identities (native iOS plan/destination/configuration, Android JVM, Flutter, and SwiftPM). Separate from infrastructure_retry and iOS retry_on_failure.",
                 properties: [
                     .boolean(
                         "enabled",
@@ -1302,6 +1368,10 @@ public enum BuiltInSchemaCatalog {
 
     private static func coverageOptions() -> [SchemaField] {
         [
+            .string("input_format", description: "Portable coverage encoding", allowedValues: ["swift", "lcov", "jacoco", "kover"]),
+            .array("source_roots", description: "Included source directories", items: .string("path", description: "Source root")),
+            .boolean("exclude_previews", description: "Exclude Swift preview regions"),
+            .number("minimum_coverage", description: "Required line coverage percentage (0...100)"),
             // Shared options
             .string(
                 "format", description: "Output format.", defaultValue: .string("text"),
@@ -1355,6 +1425,19 @@ public enum BuiltInSchemaCatalog {
 
     private static func testResultsOptions() -> [SchemaField] {
         [
+            .array("inputs", description: "Native result artifacts (repeatable)", items: .string("path", description: "Result path")),
+            .string(
+                "input_format", description: "Result encoding independent of platform",
+                allowedValues: ["xcresult", "junit", "flutter", "jest", "swift", "shipit", "manifest"]),
+            .string("runner", description: "Runner identity, including kmp or swift-test"),
+            .array(
+                "coverage_inputs", description: "Coverage artifacts retained independently",
+                items: .string("path", description: "Coverage path")),
+            .string("coverage_format", description: "Coverage encoding", allowedValues: ["swift", "lcov", "jacoco", "kover"]),
+            .array(
+                "evidence_paths", description: "Additional screenshots, logs, or attachments",
+                items: .string("path", description: "Evidence path")),
+            .string("export_directory", description: "New directory for a portable report and original evidence"),
             .string(
                 "format", description: "Output format hint.", defaultValue: .string("text"),
                 allowedValues: ["text", "json", "markdown"], example: .string("json")),

@@ -200,6 +200,7 @@ public struct ResolvedConfig: Sendable {
     // MARK: - Workflows
 
     /// Named release workflows from the Shipfile.
+    public let testWorkflow: String?
     public let workflows: [String: WorkflowConfig]
 
     /// User-defined composite actions from the Shipfile.
@@ -349,6 +350,7 @@ public struct ResolvedConfig: Sendable {
         projectGenerationAutoGenerate: Bool = true,
         slackWebhookUrl: String? = nil,
         slackChannel: String? = nil,
+        testWorkflow: String? = nil,
         workflows: [String: WorkflowConfig] = [:],
         customActions: [String: CustomActionConfig] = [:],
         platform: Platform = .ios,
@@ -432,6 +434,7 @@ public struct ResolvedConfig: Sendable {
         self.projectGenerationAutoGenerate = projectGenerationAutoGenerate
         self.slackWebhookUrl = slackWebhookUrl
         self.slackChannel = slackChannel
+        self.testWorkflow = testWorkflow
         self.workflows = workflows
         self.customActions = customActions
         self.platform = platform
@@ -506,7 +509,7 @@ public struct ResolvedConfig: Sendable {
             projectGenerationOutputProject: projectGenerationOutputProject,
             projectGenerationAutoGenerate: projectGenerationAutoGenerate,
             slackWebhookUrl: slackWebhookUrl, slackChannel: slackChannel,
-            workflows: workflows, customActions: customActions, platform: platform,
+            testWorkflow: testWorkflow, workflows: workflows, customActions: customActions, platform: platform,
             iosBuildSystem: iosBuildSystem, androidBuildSystem: androidBuildSystem, ci: ci,
             projectRoot: projectRoot, kmpSharedModule: kmpSharedModule,
             kmpBuildTarget: kmpBuildTarget, kmpArchiveTarget: kmpArchiveTarget,
@@ -612,7 +615,7 @@ public struct ResolvedConfig: Sendable {
             projectGenerationAutoGenerate: projectGenerationAutoGenerate,
             slackWebhookUrl: slackWebhookUrl,
             slackChannel: slackChannel,
-            workflows: workflows,
+            testWorkflow: testWorkflow, workflows: workflows,
             customActions: customActions,
             platform: platform,
             iosBuildSystem: iosBuildSystem,

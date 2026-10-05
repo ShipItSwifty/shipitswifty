@@ -1,0 +1,56 @@
+# ShipIt's own checks exercise the same lane contracts offered to package users.
+test_workflow: ci-macos
+workflows:
+  format:
+    - action: swift-format
+      options:
+        configuration: .swift-format
+        paths: [Sources, Tests/AndroidCLIKitTests, Tests/CLITests, Tests/GradleKitTests, Tests/ShipItKitTests, Tests/XcodeBuildKitTests, Tests/XcodeGenKitTests, Tests/IntegrationTests/Support]
+        report_path: build/format.log
+      artifacts:
+        - name: format
+          paths: [build/format.log]
+          retention_days: 14
+  ci-macos:
+    - action: swift-test
+      options:
+        skip: IntegrationTests
+        enable_code_coverage: true
+        output_directory: "build/ci/{{run_id}}/unit"
+        rerun_failed_tests: { enabled: true, max_attempts: 2 }
+        infrastructure_retry: { max_attempts: 3, initial_delay_seconds: 2, max_delay_seconds: 30 }
+      artifacts:
+        - name: unit-tests
+          paths: ["build/ci/{{run_id}}/unit"]
+          retention_days: 14
+  ci-linux:
+    - action: swift-test
+      options:
+        skip: 'IntegrationTests|XcodeBuildKitTests|XcodeGenKitTests'
+        enable_code_coverage: true
+        output_directory: "build/ci/{{run_id}}/unit"
+        rerun_failed_tests: { enabled: true, max_attempts: 2 }
+        infrastructure_retry: { max_attempts: 3, initial_delay_seconds: 2, max_delay_seconds: 30 }
+      artifacts:
+        - name: unit-tests
+          paths: ["build/ci/{{run_id}}/unit"]
+          retention_days: 14
+  integration-advisory:
+    - action: swift-test
+      options:
+        filter: IntegrationTests
+        enable_code_coverage: true
+        output_directory: "build/ci/{{run_id}}/integration"
+      artifacts:
+        - name: integration-tests
+          paths: ["build/ci/{{run_id}}/integration"]
+          retention_days: 14
+  fixtures:
+    continue_on_failure: true
+    steps:
+      - action: swift-test
+        options: { filter: FlutterFixtureIntegrationTests }
+      - action: swift-test
+        options: { filter: ReactNativeFixtureIntegrationTests }
+      - action: swift-test
+        options: { filter: KMPFixtureIntegrationTests }

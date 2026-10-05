@@ -42,11 +42,12 @@ struct RunCommand: AsyncParsableCommand {
             let formatter = makeHumanFormatter(global: global)
 
             let steps = workflowConfig.steps.map {
-                WorkflowStep(action: $0.action, options: $0.options, when: $0.when)
+                WorkflowStep(action: $0.action, options: $0.options, when: $0.when, artifacts: $0.artifacts)
             }
             let workflowObj = Workflow(
                 workflow,
                 steps: steps,
+                continueOnFailure: workflowConfig.continueOnFailure ?? false,
                 buildVariant: workflowConfig.buildVariant,
                 flavor: workflowConfig.flavor,
                 app: workflowConfig.app,
@@ -90,6 +91,7 @@ struct RunCommand: AsyncParsableCommand {
                     status: result.succeeded ? "success" : "failure",
                     payload: .object([
                         "workflow": .string(workflow),
+                        "artifactDirectory": result.artifactDirectory.map(JSONValue.string) ?? .null,
                         "steps": .int(result.stepResults.count),
                         "duration": .double(result.duration),
                         "stepTimings": .array(stepTimingValues(result.stepResults)),
@@ -101,14 +103,23 @@ struct RunCommand: AsyncParsableCommand {
                     let stepName = steps[i].action
                     let summary = humanStepSummary(action: stepName, payload: stepResult.payload)
                     let timing = stepResult.durationSeconds.map { " (\(formatDurationSeconds($0)))" } ?? ""
-                    if let summary {
+                    if stepResult.status == "failure" {
+                        formatter.printError("  \(stepName): failed\(timing)")
+                    } else if stepResult.status == "skipped" {
+                        formatter.print("  \(stepName): skipped")
+                    } else if let summary {
                         formatter.printSuccess("  \(stepName): \(summary)\(timing)")
                     } else {
                         formatter.printSuccess("  \(stepName)\(timing)")
                     }
                 }
-                formatter.printSuccess("Workflow '\(workflow)' completed in \(formatDurationSeconds(result.duration))")
+                if !result.succeeded {
+                    formatter.printError("Workflow '\(workflow)' failed; evidence: \(result.artifactDirectory ?? "unavailable")")
+                } else {
+                    formatter.printSuccess("Workflow '\(workflow)' completed in \(formatDurationSeconds(result.duration))")
+                }
             }
+            if !result.succeeded { throw ExitCode(1) }
         } catch let error as ShipItError {
             outputError(error: error, format: global.output, colorMode: global.effectiveColorMode)
             throw ExitCode(error.exitCode)
@@ -151,6 +162,9 @@ func registerBuiltInActions(into registry: ActionRegistry) async throws {
 
 func builtInActionDescriptors() -> [ActionDescriptor] {
     var descriptors: [ActionDescriptor] = [
+        SwiftTestAction.descriptor(for: SwiftTestAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: SwiftTestAction.name)),
+        SwiftFormatAction.descriptor(
+            for: SwiftFormatAction(), optionSchema: BuiltInSchemaCatalog.optionSchema(for: SwiftFormatAction.name)),
         BuildAction.descriptor(
             for: BuildAction(),
             optionSchema: BuiltInSchemaCatalog.optionSchema(for: BuildAction.name),
