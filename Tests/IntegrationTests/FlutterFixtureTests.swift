@@ -1,4 +1,5 @@
 import Foundation
+import ShipItKit
 import Testing
 
 @Suite("Flutter Fixture Integration", .serialized)
@@ -152,6 +153,17 @@ struct FlutterFixtureIntegrationTests {
             )
             #expect(testResult.exitCode == 0, "Flutter tests failed:\n\(testResult.output)")
             #expect(testResult.stdout.contains("\"passCount\":3") || testResult.stdout.contains("\"passCount\" : 3"))
+
+            // The report comes from the machine events, not from scraping the console.
+            let object = try #require(JSONSerialization.jsonObject(with: Data(testResult.stdout.utf8)) as? [String: Any])
+            let reportObject = try #require((object["payload"] as? [String: Any])?["report"], "no report: \(testResult.stdout.prefix(300))")
+            let report = try JSONDecoder().decode(TestRunReport.self, from: JSONSerialization.data(withJSONObject: reportObject))
+            #expect(report.runner == .flutterTest)
+            #expect(report.buildSystem == .flutter)
+            #expect(report.destinations == [TestDestination.host()], "`flutter test` runs in the Dart VM on this machine")
+            #expect(report.summary.passed == 3)
+            #expect(report.testCases?.count == 3, "the hidden `loading <file>` test is not a test")
+            #expect(report.testCases?.allSatisfy { $0.attempts == 1 && $0.destinationID == TestDestination.host().id } == true)
 
             let lintResult = try await CLI.run(
                 "lint",

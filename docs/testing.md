@@ -324,8 +324,8 @@ assertion failures do not trigger this fallback. `serial: true` forces serial ex
 `legacy_combined_test: true` preserves the previous `xcodebuild test` invocation.
 
 Each attempt retains commands, stdout/stderr, results and native evidence before another
-attempt can overwrite it. SwiftPM reruns use `--skip-build`; SwiftPM, Flutter, Android JVM,
-and Xcode reruns use normalized selectors. `max_attempts` includes the initial assertion
+attempt can overwrite it. SwiftPM reruns use `--skip-build`; SwiftPM, Flutter, React Native
+(Jest), Android JVM, and Xcode reruns use normalized selectors. `max_attempts` includes the initial assertion
 run. Infrastructure retry budgets are separate; recovered assertions pass and remain marked
 flaky. Instrumented Android and Kotlin Native tests retain results but do not claim selective
 assertion-rerun support. Saved Swift Testing streams require a Swift toolchain supporting
@@ -429,11 +429,13 @@ fake `gradlew` that printed counts real Gradle never prints.
 
 | Layer | What it runs | Proves | Needs | Runs |
 |---|---|---|---|---|
-| Real captures (`Tests/ShipItKitTests/Fixtures/real/`) | Artifacts from Gradle 9.8 + `test-retry`, `xcodebuild` and `xcresulttool` | Parsers, classifiers and the native workflow handle what the tools actually write, including a real simulator clone failure | nothing | every `swift test` |
+| Real captures (`Tests/ShipItKitTests/Fixtures/real/`) | Artifacts from Gradle 9.8 + `test-retry`, `xcodebuild`/`xcresulttool`, `flutter test --machine` and `jest --json` | Parsers, classifiers and the native workflow handle what the tools actually write, including a real simulator clone failure | nothing | every `swift test` |
 | SwiftPM sample (`Fixtures/swiftpm-sample`) | The real `shipit` binary, real `swift test` (Swift Testing and XCTest) | Selective reruns, attempt counts, flaky recovery, persistent failures, evidence per attempt, coverage when a test fails, live = offline, export relocation, CI export | Swift | every `swift test`, macOS and Linux CI |
-| KMP, Flutter, React Native fixtures | The real binary with scripted tool stand-ins that write realistic output | Dispatch, typed report, destinations, Kotlin/Native rerun rule | nothing | every `swift test`, CI fixtures job |
+| KMP, Flutter, React Native fixtures | The real binary with scripted tool stand-ins that write realistic output (JUnit XML, `--machine` events) | Dispatch, typed report, destinations, Kotlin/Native rerun rule | nothing | every `swift test`, CI fixtures job |
 | JVM sample (`Fixtures/jvm-retry-sample`) | The real binary, real Gradle, the real `org.gradle.test-retry` plugin | Plugin retries and workflow reruns add up (2/4/6 attempts), one flaky count, stale results not reused after a compile failure, `NO-SOURCE`, live = offline | JDK, network, `SHIPIT_E2E=1` | CI fixtures job |
-| Real simulator | `shipit test` on an iOS simulator | Destination naming, serial clone fallback, simulator leases | Xcode, a free simulator | by hand (see below) |
+| Flutter app (`Fixtures/flutter-app`, `test/scripted_test.dart`) | The real binary, real `flutter test --machine` | Machine events, reruns by name, attempts, host destination, offline = live, no tests is a failure, not a pass | Flutter SDK, network, `SHIPIT_E2E=1` | opt-in quick tier |
+| React Native app (`Fixtures/react-native-app`, `__tests__/scripted.test.js`) | The real binary, real Jest | Failing tests are a test failure (not a build failure), reruns via `--testNamePattern`, relative identities, stale results file not reused, offline = live | Node, network, `SHIPIT_E2E=1` | opt-in quick tier |
+| iOS sample (`Fixtures/ios-sample`, two `.xctestplan`s) | The real binary, real `xcodebuild`, a real simulator | One build shared by every plan, per-plan flaky recovery with configurations (English/German), device name (not UDID), evidence per attempt, offline xcresult = live | Xcode, a simulator nothing else is using, `SHIPIT_E2E_BUILD=1` | opt-in build tier |
 
 Sample projects give their tests **scripted** outcomes (pass, fail, skip, flake) through environment variables, so
 one project plays every role and assertions are exact. Add a scripted outcome to a sample when a behavior has no
@@ -442,9 +444,10 @@ real coverage, rather than mocking it.
 ```bash
 swift test --filter SwiftPMFixtureIntegrationTests                     # needs only Swift
 SHIPIT_E2E=1 swift test --filter JVMFixtureIntegrationTests            # real Gradle
-# By hand, on a simulator nothing else is using:
-shipit test --shipfile Tests/IntegrationTests/Fixtures/ios-sample/Shipfile.yml \
-  --destination "platform=iOS Simulator,id=<udid>"
+SHIPIT_E2E=1 swift test --filter "FlutterScriptedE2ETests|ReactNativeScriptedE2ETests"
+# iOS needs a simulator no other process holds; pick it with SHIPIT_E2E_IOS_DESTINATION (a run takes minutes):
+SHIPIT_E2E_BUILD=1 SHIPIT_E2E_IOS_DESTINATION="platform=iOS Simulator,id=<udid>" \
+  swift test --filter IOSFixtureIntegrationTests
 ```
 
 Refresh a capture by re-running the tool and replacing the file (local paths scrubbed); the tests state what each

@@ -1,0 +1,25 @@
+{
+  "configurations" : [
+    {
+      "id" : "6E1C1A3B-0000-4000-8000-000000000002",
+      "name" : "German",
+      "options" : {
+        "language" : "de",
+        "region" : "DE"
+      }
+    }
+  ],
+  "defaultOptions" : {
+
+  },
+  "testTargets" : [
+    {
+      "target" : {
+        "containerPath" : "container:ios-sample.xcodeproj",
+        "identifier" : "AA000022",
+        "name" : "ios-sampleTests"
+      }
+    }
+  ],
+  "version" : 1
+}

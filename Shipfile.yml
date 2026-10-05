@@ -61,6 +61,23 @@ workflows:
         options:
           filter: JVMFixtureIntegrationTests
           environment: { SHIPIT_E2E: "1" }
+  # The real tools against sample projects with scripted outcomes (see docs/testing.md, "Verifying against real
+  # projects"). Needs Flutter, Node, Xcode and a free simulator, so it runs in its own CI job.
+  fixtures-real:
+    continue_on_failure: true
+    steps:
+      - action: swift-test
+        options:
+          filter: FlutterScriptedE2ETests
+          environment: { SHIPIT_E2E: "1" }
+      - action: swift-test
+        options:
+          filter: ReactNativeScriptedE2ETests
+          environment: { SHIPIT_E2E: "1" }
+      - action: swift-test
+        options:
+          filter: IOSFixtureIntegrationTests
+          environment: { SHIPIT_E2E_BUILD: "1" }
   # Runs the real `shipit` binary against the SwiftPM sample on Linux too. Needs only a Swift toolchain.
   fixtures-linux:
     steps:
