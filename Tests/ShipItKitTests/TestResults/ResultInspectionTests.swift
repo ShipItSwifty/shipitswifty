@@ -21,7 +21,8 @@ struct ResultInspectionTests {
         #expect(run.summary.errored == 1)
         #expect(run.summary.failed == 0)
         #expect(test.durationSeconds == 1.25)
-        #expect(test.message?.contains("stack") == true)
+        #expect(test.message == "boom")
+        #expect(test.stackTrace == "stack")
         #expect(run.diagnostics.first?.message == "console")
         try "<testsuite><testcase".write(to: path, atomically: true, encoding: .utf8)
         await #expect(throws: ShipItError.self) { _ = try await ResultInspection(shell: .init()).read(path.path) }
@@ -285,7 +286,8 @@ struct ResultIntegrityTests {
         <testsuite name="S" tests="1" failures="1"><testcase classname="C" name="m"><failure message="boom"><![CDATA[at C.m(C.kt:7)]]></failure></testcase><system-out><![CDATA[console line]]></system-out></testsuite>
         """.write(to: path, atomically: true, encoding: .utf8)
         let run = try await ResultInspection(shell: .init()).read(path.path)
-        #expect(run.testCases.first?.message?.contains("at C.m(C.kt:7)") == true)
+        #expect(run.testCases.first?.message == "boom")
+        #expect(run.testCases.first?.stackTrace == "at C.m(C.kt:7)")
         #expect(run.diagnostics.first?.message == "console line")
     }
 

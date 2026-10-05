@@ -97,8 +97,10 @@ public struct ParsedTestSuite: Codable, Sendable, Hashable {
 
 /// One parsed test case from a tool artifact.
 public struct ParsedTestCase: Codable, Sendable, Hashable {
-    /// Stable identifier used to correlate the same test across attempts.
+    /// Runner-specific context such as module, task, device, plan or configuration.
     public let metadata: [String: String]?
+
+    /// Stable identifier used to correlate the same test across attempts.
     public let stableID: String
 
     /// Owning suite name when the source format provides one.
@@ -115,6 +117,18 @@ public struct ParsedTestCase: Codable, Sendable, Hashable {
 
     /// Failure or skip message when available.
     public let message: String?
+
+    /// Stack trace or longer failure detail, kept apart from `message` when the runner reports them separately.
+    public let stackTrace: String?
+
+    /// How many times the runner executed this test to reach its result, retries included. `nil` when the
+    /// runner does not report executions; `1` means it ran once. A passing test with more than one attempt
+    /// is flaky: it failed, then passed.
+    public let attempts: Int?
+
+    /// Time spent across every attempt, in seconds, when the test ran more than once. `durationSeconds` is the
+    /// deciding attempt alone, so the difference is what retries cost.
+    public let totalDurationSeconds: Double?
 
     /// Source file reported by the runner when available.
     public let file: String?
@@ -135,9 +149,15 @@ public struct ParsedTestCase: Codable, Sendable, Hashable {
         file: String? = nil,
         line: Int? = nil,
         rerunSelector: TestRerunSelector? = nil,
-        metadata: [String: String]? = nil
+        metadata: [String: String]? = nil,
+        stackTrace: String? = nil,
+        attempts: Int? = nil,
+        totalDurationSeconds: Double? = nil
     ) {
         self.metadata = metadata
+        self.stackTrace = stackTrace
+        self.attempts = attempts
+        self.totalDurationSeconds = totalDurationSeconds
         self.stableID = stableID
         self.suite = suite
         self.name = name
@@ -147,6 +167,18 @@ public struct ParsedTestCase: Codable, Sendable, Hashable {
         self.file = file
         self.line = line
         self.rerunSelector = rerunSelector
+    }
+}
+
+extension ParsedTestCase {
+    /// A copy with selected fields replaced. Everything else, including fields added later, is carried over, so
+    /// call sites never have to re-list (and silently drop) the rest.
+    func copy(stableID: String? = nil, status: TestCaseStatus? = nil, metadata: [String: String]?? = nil) -> ParsedTestCase {
+        ParsedTestCase(
+            stableID: stableID ?? self.stableID, suite: suite, name: name, status: status ?? self.status,
+            durationSeconds: durationSeconds, message: message, file: file, line: line, rerunSelector: rerunSelector,
+            metadata: metadata ?? self.metadata, stackTrace: stackTrace,
+            attempts: attempts, totalDurationSeconds: totalDurationSeconds)
     }
 }
 
@@ -333,10 +365,7 @@ func finalTestCases(_ initial: [ParsedTestCase], remaining: [ParsedTestCase], fl
         guard recovered.contains(test.stableID) else { return test }
         var metadata = test.metadata ?? [:]
         metadata["flaky"] = "true"
-        return ParsedTestCase(
-            stableID: test.stableID, suite: test.suite, name: test.name, status: .passed,
-            durationSeconds: test.durationSeconds, message: test.message, file: test.file, line: test.line,
-            rerunSelector: test.rerunSelector, metadata: metadata)
+        return test.copy(status: .passed, metadata: metadata)
     }
     for test in remaining where !cases.contains(where: { $0.stableID == test.stableID }) { cases.append(test) }
     return cases
