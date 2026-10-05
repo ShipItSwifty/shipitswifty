@@ -43,7 +43,8 @@ public struct ResultInspection: Sendable {
             let root =
                 url.hasDirectoryPath || (try? url.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true
                 ? url : url.deletingLastPathComponent()
-            let runs = try JSONDecoder().decode([ParsedTestRun].self, from: Data(contentsOf: root.appendingPathComponent("results.json")))
+            let data = try Data(contentsOf: root.appendingPathComponent("results.json"))
+            let runs = try JSONDecoder().decode(ExportedResults.self, from: data).runs
             guard !runs.isEmpty else { throw ShipItError.invalidConfiguration(reason: "Export contains no normalized results") }
             return ParsedTestRun(
                 platform: runs.count == 1 ? runs[0].platform : "mixed", runner: runs.count == 1 ? runs[0].runner : "multiple", source: path,
@@ -52,12 +53,7 @@ public struct ResultInspection: Sendable {
                     skipped: runs.reduce(0) { $0 + $1.summary.skipped }, flaky: runs.reduce(0) { $0 + $1.summary.flaky },
                     errored: runs.reduce(0) { $0 + $1.summary.errored }),
                 testCases: runs.enumerated().flatMap { index, run in
-                    run.testCases.map { test in
-                        ParsedTestCase(
-                            stableID: "input-\(index + 1):" + test.stableID, suite: test.suite, name: test.name, status: test.status,
-                            durationSeconds: test.durationSeconds, message: test.message, file: test.file, line: test.line,
-                            rerunSelector: test.rerunSelector, metadata: test.metadata)
-                    }
+                    run.testCases.map { $0.copy(stableID: "input-\(index + 1):" + $0.stableID) }
                 }, diagnostics: runs.flatMap(\.diagnostics))
         case .shipit:
             var file = URL(fileURLWithPath: path)
@@ -130,7 +126,7 @@ public struct ResultInspection: Sendable {
             if xml { return .junit }
         }
         if let data = try? Data(contentsOf: url), let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
-            if object["entries"] != nil, object["schemaVersion"] != nil { return .manifest }
+            if object["entries"] != nil || object["runs"] != nil, object["schemaVersion"] != nil { return .manifest }
             if object["testCases"] != nil, object["summary"] != nil { return .shipit }
             if object["testResults"] != nil { return .jest }
             if object["attempts"] != nil, object["schemaVersion"] != nil { return .shipit }

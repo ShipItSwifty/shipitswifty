@@ -143,10 +143,8 @@ struct NativeTestExecution: Sendable {
                                 metadata["configuration"] = configuration.key
                                 metadata.merge(configuration.value) { old, _ in old }
                             }
-                            return ParsedTestCase(
+                            return test.copy(
                                 stableID: "plan-\(planIndex + 1):destination-\(destinationIndex + 1):" + test.stableID,
-                                suite: test.suite, name: test.name, status: test.status, durationSeconds: test.durationSeconds,
-                                message: test.message, file: test.file, line: test.line, rerunSelector: test.rerunSelector,
                                 metadata: metadata)
                         }
                         let failures = scopedCases.filter { $0.status == .failed || $0.status == .errored }

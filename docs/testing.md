@@ -356,7 +356,12 @@ shipit coverage --input-format lcov --report coverage/lcov.info
 Repeated `--input`, `--coverage-input` (with `--coverage-format`), and `--evidence` allow results,
 coverage, screenshots, videos and logs to be exported together. Export creates a **new** directory
 with normalized results, coverage, originals, extracted xcresult attachments/diagnostics/logs,
-a manifest and an index with relative links. It never overwrites a prior export. Malformed
+a manifest and an index with relative links (including a per-report coverage summary; reports are
+never summed). The export is assembled in a hidden sibling directory and renamed into place only when
+complete, so a failed or cancelled export leaves nothing behind and the same path can be retried
+(a hard-killed process can leave a `.<name>.partial-*` directory, which is safe to delete). Symbolic
+links in sources are followed so the export holds real files. `results.json` and `coverage.json` carry a
+`schemaVersion`, and `results.json` can be passed straight to `--input`. It never overwrites a prior export. Malformed
 inputs fail; optional missing evidence produces diagnostics. Filtering the displayed cases
 never changes the full-run summary. xcresult extraction requires macOS/Xcode; portable exported
 results, JUnit, Swift events, Flutter events, Jest, LCOV and JVM coverage can be read on Linux.
@@ -378,6 +383,22 @@ follows the same zero-result policy as Flutter and KMP: exiting 0 without JUnit 
 reported `NO-SOURCE` or `SKIPPED` for that exact test task. Saving evidence is best effort: a failure to
 write logs, snapshots or reports is logged and never replaces or hides the test outcome; an unreadable
 SwiftPM rerun keeps the original failures as persistent.
+
+JUnit XML keeps a failure's `message` and `stackTrace` apart (a body-only failure uses its first line
+as the message), plus the `failure_type`. Every test reports `attempts`, how many times the runner
+executed it, so a test that passes after retrying is visible rather than looking like an ordinary pass.
+Retry plugins (Gradle `test-retry`) write one `testcase` per attempt; when a repeated name includes a
+failure, the attempts are folded into one test: the last attempt decides the status, `attempts` counts
+them all, `durationSeconds` is the deciding attempt and `totalDurationSeconds` is what every attempt
+cost, `first_failure` keeps why it first failed, and a test that passed after a failure is marked
+`flaky` (and counted in `summary.flaky`). Surefire `flakyFailure` / `rerunFailure` elements are
+counted the same way, and a retry's own message and output never replace the final result. A name that
+repeats with every occurrence passing is a genuine duplicate, not a retry: each keeps its own ID (the
+first the plain ID, later ones `#<n>`, with an `occurrence` of `n/total`). Each case records its
+`report` location and, from the Gradle layout and the properties AGP writes for connected runs, its
+`module`, `task`, `device`, `flavor` and `project`, so the same test on two devices stays distinct. When
+the suites' declared totals (restated for folded attempts) disagree with the listed test cases a
+warning diagnostic says so.
 
 Coverage gates use executable lines, reject empty input and merge overlapping source lines.
 SwiftPM uses LLVM JSON, Flutter uses LCOV, and Android/KMP JVM use JaCoCo-compatible XML
