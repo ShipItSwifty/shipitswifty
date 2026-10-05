@@ -138,6 +138,12 @@ struct AIInstructionsCommand: ParsableCommand {
         Fastfile, KMP dual-platform, custom actions), check `shipit ai skills list` before \
         working it out from the full reference docs — a matching playbook gives the exact \
         steps and keys involved.
+        7. To understand a test run, read its structured results, not the console: \
+        `build/test-runs/<run>/report.json` and the per-attempt evidence beside it, or \
+        `shipit test-results --input <path> --output json` for saved artifacts. Results state the \
+        `runner`, `buildSystem` and `destinations` separately, count `attempts` per test, and mark \
+        tests that passed only after a retry as flaky. `shipit ai skills show \
+        investigate-test-failures` walks through triage.
 
         Hard invariants (do not work around these):
         - Never invoke `xcodebuild`, `gradlew`, or other build tools directly when a `shipit` action \
@@ -147,6 +153,9 @@ struct AIInstructionsCommand: ParsableCommand {
         documented environment variables (see `shipit env`).
         - A workflow name must be run with `shipit run <name>`, not assembled by chaining individual \
         actions unless that's what the user explicitly asked for.
+        - Never scrape console output for results when a structured report exists, never edit a \
+        report or its evidence to change an outcome, and never treat a run with zero results as \
+        passing.
         """
 }
 

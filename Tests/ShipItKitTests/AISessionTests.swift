@@ -477,3 +477,48 @@ struct AISessionTests {
         )
     }
 }
+
+@Suite("AI session test-results guidance")
+struct AISessionTestResultsGuidanceTests {
+    private func prompt(platform: Platform) -> String {
+        AISessionBuilder().build(
+            goal: .beta,
+            inspection: ProjectInspection(
+                rootPath: "/tmp/none", xcodeContainers: [], preferredContainer: nil, schemes: [],
+                suggestedAppConfig: .init(workspace: nil, scheme: nil, bundleID: nil, teamID: nil),
+                existingShipfiles: [], fastlaneFiles: [], ciFiles: [], warnings: []),
+            hasExistingShipfile: false, platform: platform
+        ).agentPrompt
+    }
+
+    @Test("Every agent prompt teaches the result model, triage order and offline inspection", arguments: [Platform.ios, .android])
+    func promptTeachesResultModel(platform: Platform) {
+        let text = prompt(platform: platform)
+        for phrase in [
+            "report.json", "`runner`", "`buildSystem`", "`destinations`", "`destinationID`", "`attempts`", "persistentFailedTests",
+            "flakyTests", "first_failure", "buildSeconds", "NO-SOURCE", "shipit test-results --input", "--build-system kmp",
+            "--runner swift-test", "shipit coverage --input-format",
+        ] {
+            #expect(text.contains(phrase), "the \(platform.rawValue) prompt should mention \(phrase)")
+        }
+        #expect(text.contains("Never treat `kmp` or `flutter` as a platform"))
+    }
+
+    @Test("The guidance does not tell users' agents about this repository's own contributor tooling")
+    func promptIsForUsersNotContributors() {
+        let text = prompt(platform: .ios)
+        #expect(!text.contains("Verifying against real projects"))
+        #expect(!text.contains("jvm-retry-sample"))
+    }
+
+    @Test("The test playbooks exist and point at the typed report")
+    func playbooks() throws {
+        let workflows = try #require(AISkillsCatalog.skill(id: "test-workflows"))
+        #expect(workflows.content.contains("rerun_failed_tests"))
+        #expect(workflows.content.contains("shipit ci export"))
+        let triage = try #require(AISkillsCatalog.skill(id: "investigate-test-failures"))
+        for phrase in ["report.json", "persistentFailedTests", "flakyTests", "serial_fallback", "--build-system kmp"] {
+            #expect(triage.content.contains(phrase), "\(phrase)")
+        }
+    }
+}

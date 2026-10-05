@@ -34,11 +34,74 @@ public enum AISkillsCatalog {
         migrateFromFastlane,
         kmpDualPlatform,
         customActions,
+        testWorkflows,
+        investigateTestFailures,
     ]
 
     public static func skill(id: String) -> AISkill? {
         all.first { $0.id == id }
     }
+
+    private static let testWorkflows = AISkill(
+        id: "test-workflows",
+        title: "Set up and run test workflows",
+        summary: "Run package, Xcode, Gradle, Flutter and Jest tests with reruns, evidence and CI export.",
+        content: """
+            # Set up and run test workflows
+
+            1. Put the checks in a named workflow and select it with `test_workflow: <name>` (or run
+               `shipit test --workflow <name>`). Swift packages use `swift-test` (and `swift-format`);
+               apps use the `test` action, which runs xcodebuild, Gradle, Flutter or Jest from the
+               project's `build_system`.
+            2. Add `rerun_failed_tests: { enabled: true, max_attempts: 2 }` to rerun only failures. It
+               applies to SwiftPM, Flutter, React Native (Jest), Android JVM and native iOS. A test that
+               passes on a rerun is reported flaky, not hidden. Keep the default
+               `infrastructure_retry` for simulator, emulator and tool failures.
+            3. Native iOS builds once into `.xctestproducts`, then runs every plan and destination. Use
+               `test_plans: [Unit, Smoke]` for plans over the same test targets. A simulator clone
+               failure falls back to serial once per destination, without rebuilding.
+            4. Declare `artifacts:` (name, paths, retention_days) on any step to keep what you need.
+               `continue_on_failure: true` is for independent checks only.
+            5. `shipit ci export --provider github-actions --workflow <name> --runner <label>` emits a
+               job that runs the workflow and publishes evidence even when tests fail. Setup (toolchain
+               install) is explicit: pass `--setup-command`.
+            6. Gate coverage with `minimum_coverage` and `source_roots`.
+
+            Evidence for every attempt (logs, command.json with durations, results) lands under
+            `build/test-runs/<run>/`. Full reference: docs/testing.md and docs/configuration-reference.md.
+            """
+    )
+
+    private static let investigateTestFailures = AISkill(
+        id: "investigate-test-failures",
+        title: "Investigate a failed or flaky test run",
+        summary: "Triage from the typed report and saved evidence, not the console.",
+        content: """
+            # Investigate a failed or flaky test run
+
+            1. Open `build/test-runs/<run>/report.json` (or the file written by `--report-path`). For
+               saved artifacts without a Shipfile: `shipit test-results --input <path> --output json`
+               (add `--runner swift-test` for JUnit from `swift test`, `--build-system kmp` for Kotlin
+               Multiplatform).
+            2. Read `summary` first. `errored` above zero means the run failed without producing
+               results (compile error, crash, no tests found): fix that before looking at tests.
+            3. `persistentFailedTests` are real failures: use `message` and `stackTrace`, and
+               `destinationID` to see where (`destinations` lists platform, kind, device name and the
+               Gradle task or Xcode plan).
+            4. `flakyTests` passed only after a retry (`attempts` above 1). `metadata.first_failure` says
+               why the first attempt failed. A green run can still contain flaky tests: report them.
+            5. `attempts` shows how each execution ended: `reason` (initial, failed_tests,
+               infrastructure, serial_fallback), `durationSeconds`, `metadata.overhead_seconds`. A
+               `serial_fallback` means a simulator clone failure, not a test failure. `buildSeconds`
+               is the shared native build.
+            6. Each `attempt-N/` keeps its own stdout.log, stderr.log, command.json and native results
+               (xcresult, events.jsonl, JUnit XML, Jest JSON), so an earlier attempt is never lost.
+            7. To share evidence, `shipit test-results --input <path> --export-directory <new dir>` writes
+               a portable folder with a manifest and index.
+
+            Never edit a report or its evidence to change an outcome. Full reference: docs/testing.md.
+            """
+    )
 
     private static let reactNativeSetup = AISkill(
         id: "react-native-setup",
