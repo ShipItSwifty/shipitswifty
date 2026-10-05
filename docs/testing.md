@@ -356,7 +356,12 @@ shipit coverage --input-format lcov --report coverage/lcov.info
 Repeated `--input`, `--coverage-input` (with `--coverage-format`), and `--evidence` allow results,
 coverage, screenshots, videos and logs to be exported together. Export creates a **new** directory
 with normalized results, coverage, originals, extracted xcresult attachments/diagnostics/logs,
-a manifest and an index with relative links. It never overwrites a prior export. Malformed
+a manifest and an index with relative links (including a per-report coverage summary; reports are
+never summed). The export is assembled in a hidden sibling directory and renamed into place only when
+complete, so a failed or cancelled export leaves nothing behind and the same path can be retried
+(a hard-killed process can leave a `.<name>.partial-*` directory, which is safe to delete). Symbolic
+links in sources are followed so the export holds real files. `results.json` and `coverage.json` carry a
+`schemaVersion`, and `results.json` can be passed straight to `--input`. It never overwrites a prior export. Malformed
 inputs fail; optional missing evidence produces diagnostics. Filtering the displayed cases
 never changes the full-run summary. xcresult extraction requires macOS/Xcode; portable exported
 results, JUnit, Swift events, Flutter events, Jest, LCOV and JVM coverage can be read on Linux.
