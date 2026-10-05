@@ -109,12 +109,20 @@ public struct SwiftTestAction: Action {
                 junit: directory.appendingPathComponent("xctest.xml").path)
             for (key, value) in options.environment ?? [:] { command = command.env(key, value) }
             let output: ShellOutput
+            let started = Date()
             do { output = try await command.run() } catch let ShellError.exitFailure(_, captured) { output = captured } catch {
                 try? saveInterruptedTestOutput(error, directory: directory)
                 throw error
             }
-            try output.stdout.write(to: directory.appendingPathComponent("stdout.log"), atomically: true, encoding: .utf8)
-            try output.stderr.write(to: directory.appendingPathComponent("stderr.log"), atomically: true, encoding: .utf8)
+            let duration = Date().timeIntervalSince(started)
+            saveEvidence("attempt logs", logger: context.logger) {
+                try output.stdout.write(to: directory.appendingPathComponent("stdout.log"), atomically: true, encoding: .utf8)
+                try output.stderr.write(to: directory.appendingPathComponent("stderr.log"), atomically: true, encoding: .utf8)
+                try writeJSON(
+                    CommandRecord(
+                        arguments: command.command().arguments, exitCode: [String(output.exitCode)], startedAt: started,
+                        durationSeconds: duration), to: directory.appendingPathComponent("command.json"))
+            }
             lastOutput = output
             if output.exitCode != 0, SwiftPMInfrastructureClassifier().isRetryable(log: output.stdout + output.stderr),
                 let policy = options.infrastructureRetry, infrastructureAttempts < policy.resolvedMaxAttempts
@@ -122,6 +130,7 @@ public struct SwiftTestAction: Action {
                 attempts.append(
                     .init(
                         attemptNumber: number, reason: reason, metadata: ["exit_code": String(output.exitCode)], summary: .init(errored: 1),
+                        durationSeconds: duration,
                         source: directory.path))
                 infrastructureAttempts += 1
                 number += 1
@@ -176,7 +185,7 @@ public struct SwiftTestAction: Action {
             attempts.append(
                 .init(
                     attemptNumber: number, reason: reason, summary: parsed.summary,
-                    failedTests: failures, source: events.path))
+                    failedTests: failures, durationSeconds: duration, source: events.path))
             if initial == nil {
                 initial = parsed
                 remaining = failures

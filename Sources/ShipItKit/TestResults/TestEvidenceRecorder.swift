@@ -2,12 +2,32 @@ import Foundation
 import Logging
 import SwiftyShell
 
+/// What `command.json` holds for one command an attempt ran: the exact arguments, how it ended, and how long it took.
+struct CommandRecord: Codable, Sendable {
+    let arguments: [String]
+    let exitCode: [String]
+    let startedAt: String
+    let durationSeconds: Double
+    init(arguments: [String], exitCode: [String], startedAt: Date, durationSeconds: Double) {
+        self.arguments = arguments
+        self.exitCode = exitCode
+        self.startedAt = ISO8601DateFormatter().string(from: startedAt)
+        self.durationSeconds = durationSeconds
+    }
+    enum CodingKeys: String, CodingKey {
+        case arguments
+        case exitCode = "exit_code"
+        case startedAt = "started_at"
+        case durationSeconds = "duration_seconds"
+    }
+}
+
 /// Serializes attempt allocation and evidence writes; process execution remains structured.
 ///
 /// The recorder writes one directory per attempt plus `attempts.json`. It deliberately does **not** write
 /// `report.json` per attempt: an attempt only knows its own tests, so after a selective rerun it would
 /// describe the rerun subset as the whole run. The action writes the final, reconciled report; if the
-/// action never gets that far (cancellation, a crash, an I/O error), ``writeProvisionalReport(executionError:)``
+/// action never gets that far (cancellation, a crash, an I/O error), `writeProvisionalReport(executionError:)`
 /// writes the best report the recorded attempts support.
 public actor TestEvidenceRecorder {
     public nonisolated let root: URL
@@ -27,12 +47,14 @@ public actor TestEvidenceRecorder {
     }
     func record(
         _ run: ParsedTestRun?, index: Int, directory: URL, output: ShellOutput, arguments: [String], reason: String,
-        parseFailure: String? = nil
+        parseFailure: String? = nil, startedAt: Date = Date(), duration: TimeInterval = 0
     ) throws {
         try output.stdout.write(to: directory.appendingPathComponent("stdout.log"), atomically: true, encoding: .utf8)
         try output.stderr.write(to: directory.appendingPathComponent("stderr.log"), atomically: true, encoding: .utf8)
         try writeJSON(
-            ["arguments": arguments, "exit_code": [String(output.exitCode)]], to: directory.appendingPathComponent("command.json"))
+            CommandRecord(
+                arguments: arguments, exitCode: [String(output.exitCode)], startedAt: startedAt, durationSeconds: duration),
+            to: directory.appendingPathComponent("command.json"))
         // Missing structured results are an error even when the process exited 0: an unreadable result must
         // never be recorded as a clean zero-test run.
         let effectiveRun =
@@ -54,7 +76,8 @@ public actor TestEvidenceRecorder {
             .init(
                 attemptNumber: index, reason: reason == "initial" && index > 1 ? "infrastructure" : reason,
                 metadata: ["exit_code": String(output.exitCode)], summary: effectiveRun.summary,
-                failedTests: run?.testCases.filter { $0.status == .failed || $0.status == .errored } ?? [], source: directory.path))
+                failedTests: run?.testCases.filter { $0.status == .failed || $0.status == .errored } ?? [],
+                durationSeconds: duration, source: directory.path))
         reconcile(run, reason: reason)
         try writeJSON(attempts, to: root.appendingPathComponent("attempts.json"))
     }
@@ -137,10 +160,12 @@ func executeRecordedTest<C: RunnableCommandFamily>(
         return try await command.run()
     }
     let output: ShellOutput
+    let started = Date()
     do { output = try await command.run() } catch let ShellError.exitFailure(_, captured) { output = captured } catch {
         try? saveInterruptedTestOutput(error, directory: directory)
         throw error
     }
+    let duration = Date().timeIntervalSince(started)
     var run: ParsedTestRun?
     var parseFailure: String?
     if let parse {
@@ -153,7 +178,7 @@ func executeRecordedTest<C: RunnableCommandFamily>(
     do {
         try await recorder.record(
             run, index: index, directory: directory, output: output, arguments: command.command().arguments, reason: reason,
-            parseFailure: parseFailure)
+            parseFailure: parseFailure, startedAt: started, duration: duration)
     } catch {
         if error is CancellationError { throw error }
         context.logger.warning("Could not save test evidence for attempt \(index): \(error)")
