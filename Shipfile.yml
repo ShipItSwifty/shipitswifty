@@ -54,3 +54,15 @@ workflows:
         options: { filter: ReactNativeFixtureIntegrationTests }
       - action: swift-test
         options: { filter: KMPFixtureIntegrationTests }
+      - action: swift-test
+        options: { filter: SwiftPMFixtureIntegrationTests }
+      # Real Gradle and the real test-retry plugin; opt-in tier, needs a JDK and network.
+      - action: swift-test
+        options:
+          filter: JVMFixtureIntegrationTests
+          environment: { SHIPIT_E2E: "1" }
+  # Runs the real `shipit` binary against the SwiftPM sample on Linux too. Needs only a Swift toolchain.
+  fixtures-linux:
+    steps:
+      - action: swift-test
+        options: { filter: SwiftPMFixtureIntegrationTests }

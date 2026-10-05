@@ -1,5 +1,6 @@
 #if os(macOS)
 import Foundation
+import ShipItKit
 import Testing
 
 @Suite("KMP Fixture Integration", .serialized)
@@ -119,6 +120,24 @@ struct KMPFixtureIntegrationTests {
                 timeout: 300
             )
             #expect(result.exitCode == 0, "KMP iOS tests failed:\n\(result.output)")
+
+            // One Kotlin/Native simulator task: its tests ran on an iOS simulator, through Gradle, in a KMP build.
+            let report = try testReport(in: result)
+            #expect(report.runner == .gradle)
+            #expect(report.buildSystem == .kmp)
+            #expect(report.destinations.map(\.platform) == [.ios])
+            #expect(report.destinations.first?.kind == .simulator)
+            #expect(report.destinations.first?.scope == "iosSimulatorArm64Test")
+            #expect(report.summary.passed == 4)
+            let cases = try #require(report.testCases)
+            #expect(cases.count == 4)
+            #expect(cases.allSatisfy { $0.destinationID == report.destinations.first?.id })
+            #expect(
+                cases.allSatisfy { if case .unsupported = $0.rerunSelector { true } else { false } },
+                "Gradle's --tests filter cannot select Kotlin/Native tests, so a rerun must not be attempted")
+            #expect(
+                !cases.contains { $0.stableID.contains(tmpFixture.lastPathComponent) },
+                "test IDs must not embed this machine's paths")
         }
     }
 
@@ -210,7 +229,25 @@ struct KMPFixtureIntegrationTests {
                 timeout: 300
             )
             #expect(result.exitCode == 0, "KMP Android tests failed:\n\(result.output)")
+
+            // Android unit tests run on the host JVM but belong to Android, and are filterable by Gradle.
+            let report = try testReport(in: result)
+            #expect(report.runner == .gradle)
+            #expect(report.buildSystem == .kmp)
+            #expect(report.destinations.map(\.platform) == [.android])
+            #expect(report.destinations.first?.kind == .host)
+            #expect(report.destinations.first?.scope == "testReleaseUnitTest", "the variant the Shipfile builds")
+            #expect(report.summary.passed == 6)
+            #expect(report.testCases?.allSatisfy { if case .gradleTestFilter = $0.rerunSelector { true } else { false } } == true)
         }
+    }
+
+    /// The typed report from a `shipit test --output json` run.
+    private func testReport(in result: CLIResult) throws -> TestRunReport {
+        let object = try #require(JSONSerialization.jsonObject(with: Data(result.stdout.utf8)) as? [String: Any])
+        let payload = try #require(object["payload"] as? [String: Any])
+        let report = try #require(payload["report"], "no report in: \(result.stdout.prefix(400))")
+        return try JSONDecoder().decode(TestRunReport.self, from: JSONSerialization.data(withJSONObject: report))
     }
 }
 

@@ -465,6 +465,23 @@ private let fakeKMPGradlewScript = """
       trap - EXIT
     }
 
+    # Writes the JUnit XML a real Gradle test task leaves behind. Real Gradle prints no per-run counts on
+    # success; the XML is the result.
+    write_junit() {
+      dir="$1"; class="$2"; count="$3"
+      mkdir -p "$dir"
+      {
+        printf '<?xml version="1.0" encoding="UTF-8"?>\n'
+        printf '<testsuite name="%s" tests="%s" skipped="0" failures="0" errors="0" time="0.1">\n' "$class" "$count"
+        i=1
+        while [ "$i" -le "$count" ]; do
+          printf '  <testcase name="test%s" classname="%s" time="0.01"/>\n' "$i" "$class"
+          i=$((i+1))
+        done
+        printf '</testsuite>\n'
+      } > "$dir/TEST-$class.xml"
+    }
+
     write_aab() {
       path="$1"
       tmpdir=$(mktemp -d)
@@ -510,11 +527,13 @@ private let fakeKMPGradlewScript = """
           exit 0
           ;;
         *iosSimulatorArm64Test)
-          printf '4 tests completed, 0 failed, 0 skipped\n'
+          write_junit "shared/build/test-results/iosSimulatorArm64Test" "shared.GreeterTest" 4
+          printf 'BUILD SUCCESSFUL\n'
           exit 0
           ;;
         *testDebugUnitTest|*testReleaseUnitTest)
-          printf '6 tests completed, 0 failed, 0 skipped\n'
+          write_junit "androidApp/build/test-results/${arg##*:}" "androidApp.MainTest" 6
+          printf 'BUILD SUCCESSFUL\n'
           exit 0
           ;;
       esac

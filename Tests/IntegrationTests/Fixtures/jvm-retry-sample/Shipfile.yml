@@ -1,0 +1,3 @@
+# A pure Gradle/JVM project run through ShipIt's Android-native test path (`--task test`).
+android:
+  build_system: native
