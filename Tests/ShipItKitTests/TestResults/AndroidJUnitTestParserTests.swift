@@ -37,8 +37,8 @@ struct AndroidJUnitTestParserTests {
         let parser = AndroidJUnitTestParser()
         let run = try await parser.parse(reportDirectory: reportDirectory.path)
 
-        #expect(run.platform == "android")
-        #expect(run.runner == "gradle")
+        #expect(run.runner == .gradle)
+        #expect(run.destinations.isEmpty, "a bare report directory says nothing about where the tests ran")
         #expect(run.summary.passed == 1)
         #expect(run.summary.failed == 1)
         #expect(run.summary.skipped == 1)

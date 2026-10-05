@@ -85,7 +85,8 @@ struct CoverageActionTests {
 
         let result = try await CoverageAction().run(with: options, context: context)
 
-        #expect(result.platform == "ios")
+        #expect(result.platform == .ios)
+        #expect(result.runner == .xcodebuild)
         #expect(result.source == "/tmp/fake.xcresult")
         #expect(result.firstPartyOnly == true)
 
@@ -626,7 +627,8 @@ struct AndroidCoverageParserTests {
         let options = CoverageAction.Options(firstPartyOnly: false, reportPath: tempURL.path)
         let result = try await CoverageAction().run(with: options, context: context)
 
-        #expect(result.platform == "android")
+        #expect(result.platform == .android)
+        #expect(result.runner == .gradle)
         // featureA: 60/100, featureB: 80/100 → total: 140/200 = 70%
         #expect(result.coveredLines == 140)
         #expect(result.executableLines == 200)

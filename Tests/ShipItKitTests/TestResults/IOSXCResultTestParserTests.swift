@@ -66,8 +66,7 @@ struct IOSXCResultTestParserTests {
 
         let run = try await parser.parse(xcresultPath: "/tmp/MyApp-tests.xcresult")
 
-        #expect(run.platform == "ios")
-        #expect(run.runner == "xcodebuild")
+        #expect(run.runner == .xcodebuild)
         #expect(run.summary.passed == 1)
         #expect(run.summary.failed == 1)
         #expect(run.summary.skipped == 1)
@@ -123,6 +122,38 @@ struct IOSXCResultTestParserTests {
         #expect(failure.metadata?["runtime"] == "27.2")
         #expect(failure.message == "XCTAssertEqual failed")
         #expect(failure.rerunSelector == .xcodeOnlyTesting("AppUITests/Suite/test()"))
+    }
+
+    @Test("Each result-bundle device becomes a destination and its tests point at it")
+    func devicesBecomeDestinations() async throws {
+        func parse(device: String) async throws -> ParsedTestRun {
+            let executor = MockExecutor { command, _ in
+                if command.arguments.contains("summary") {
+                    return .init(stdout: "{\"failedTests\":0,\"passedTests\":1}", stderr: "", exitCode: 0)
+                }
+                return .init(
+                    stdout: """
+                        {"devices":[\(device)],"testNodes":[{"nodeType":"Unit test bundle","name":"AppTests","children":[{"nodeType":"Test Case","nodeIdentifier":"Suite/test()","result":"Passed"}]}]}
+                        """, stderr: "", exitCode: 0)
+            }
+            return try await IOSXCResultTestParser(shell: ShellContext(executor: executor)).parse(xcresultPath: "sample.xcresult")
+        }
+        let simulator = try await parse(
+            device: "{\"deviceName\":\"iPhone 16\",\"deviceId\":\"UDID\",\"osVersion\":\"18.2\",\"platform\":\"iOS Simulator\"}")
+        let phone = try #require(simulator.destinations.first)
+        #expect(simulator.destinations.count == 1)
+        #expect(phone.platform == .ios)
+        #expect(phone.kind == .simulator)
+        #expect(phone.name == "iPhone 16")
+        #expect(simulator.testCases.first?.destinationID == phone.id)
+
+        let mac = try await parse(device: "{\"deviceName\":\"My Mac\",\"deviceId\":\"MAC\",\"platform\":\"macOS\"}")
+        #expect(mac.destinations.first?.platform == .macos)
+        #expect(mac.destinations.first?.kind == .host)
+
+        let unlabeled = try await parse(device: "{\"deviceName\":\"Phone\",\"deviceId\":\"UDID\"}")
+        #expect(unlabeled.destinations.first?.platform == .unknown, "a device that does not say its platform is not guessed")
+        #expect(unlabeled.destinations.first?.name == "Phone")
     }
 
 }

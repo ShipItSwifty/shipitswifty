@@ -136,8 +136,13 @@ public struct CoverageAction: Action {
 
     /// Summary of coverage across all selected targets/modules.
     public struct Result: Codable, Sendable {
-        /// Target platform that produced these results.
-        public let platform: String
+        /// The platform the covered tests ran on, or `unknown` when the report does not say (an LCOV or SwiftPM
+        /// file read outside the run that produced it).
+        public let platform: TestPlatform
+
+        /// The tool whose coverage format this is: xccov for `xcodebuild`, JaCoCo/Kover for `gradle`, LLVM JSON for
+        /// `swift-test`, LCOV for `flutter-test`.
+        public let runner: TestRunner
 
         /// Path to the coverage source artifact (xcresult or XML report).
         public let source: String
@@ -158,7 +163,8 @@ public struct CoverageAction: Action {
         public let firstPartyOnly: Bool
 
         public init(
-            platform: String,
+            platform: TestPlatform,
+            runner: TestRunner,
             source: String,
             overallLineCoverage: Double,
             targets: [CoverageTarget],
@@ -167,6 +173,7 @@ public struct CoverageAction: Action {
             firstPartyOnly: Bool
         ) {
             self.platform = platform
+            self.runner = runner
             self.source = source
             self.overallLineCoverage = overallLineCoverage
             self.targets = targets
@@ -251,7 +258,8 @@ public struct CoverageAction: Action {
         logger.info("iOS coverage parsed: \(String(format: "%.1f", overall))% overall across \(filtered.count) targets")
 
         return Result(
-            platform: "ios",
+            platform: .ios,
+            runner: .xcodebuild,
             source: xcresultPath,
             overallLineCoverage: overall,
             targets: filtered,
@@ -297,7 +305,8 @@ public struct CoverageAction: Action {
         logger.info("Android coverage parsed: \(String(format: "%.1f", overall))% overall across \(filtered.count) modules")
 
         return Result(
-            platform: "android",
+            platform: .android,
+            runner: .gradle,
             source: reportPath,
             overallLineCoverage: overall,
             targets: filtered,
