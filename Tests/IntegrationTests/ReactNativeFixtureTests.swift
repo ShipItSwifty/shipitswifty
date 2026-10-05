@@ -1,4 +1,5 @@
 import Foundation
+import ShipItKit
 import Testing
 
 @Suite("React Native Fixture Integration", .serialized)
@@ -28,6 +29,21 @@ struct ReactNativeFixtureIntegrationTests {
             )
             #expect(testResult.exitCode == 0, "React Native tests failed:\n\(testResult.output)")
             #expect(testResult.stdout.contains("\"passCount\":5") || testResult.stdout.contains("\"passCount\" : 5"))
+
+            // The report comes from the Jest JSON the script wrote, not from scraping the console.
+            let object = try #require(JSONSerialization.jsonObject(with: Data(testResult.stdout.utf8)) as? [String: Any])
+            let reportObject = try #require((object["payload"] as? [String: Any])?["report"], "no report: \(testResult.stdout.prefix(300))")
+            let report = try JSONDecoder().decode(TestRunReport.self, from: JSONSerialization.data(withJSONObject: reportObject))
+            #expect(report.runner == .jest)
+            #expect(report.buildSystem == .reactNative)
+            #expect(report.destinations == [TestDestination(platform: .js, kind: .host)], "Jest runs in Node")
+            #expect(report.summary.passed == 5)
+            let cases = try #require(report.testCases, "the Jest JSON path was not taken")
+            #expect(cases.count == 5)
+            #expect(cases.allSatisfy { $0.destinationID == "js:host" && $0.attempts == 1 })
+            #expect(
+                cases.allSatisfy { $0.stableID.hasPrefix("jest-case:__tests__/sample.test.js::") },
+                "identities are relative to the project, not this machine's paths: \(cases.map(\.stableID))")
 
             let lintResult = try await CLI.run(
                 "lint",

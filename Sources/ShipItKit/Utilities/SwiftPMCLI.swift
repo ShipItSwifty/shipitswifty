@@ -1,7 +1,7 @@
 import Foundation
 import SwiftyShell
 
-/// Typed `swift` commands used by package test lanes.
+/// Typed `swift` commands used by package test workflows.
 ///
 /// ## Usage
 /// ```swift

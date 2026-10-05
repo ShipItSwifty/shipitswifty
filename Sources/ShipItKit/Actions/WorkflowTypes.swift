@@ -27,6 +27,7 @@ public struct WorkflowStep: Codable, Sendable {
     ///   - action: The registered action name to execute.
     ///   - options: Optional JSON options forwarded to the action.
     ///   - when: Optional truthy-token condition; when falsy the step is skipped.
+    ///   - artifacts: Evidence to collect after the step, even when it fails.
     public init(action: String, options: JSONValue? = nil, when: String? = nil, artifacts: [ArtifactDeclaration]? = nil) {
         self.artifacts = artifacts
         self.action = action
@@ -152,6 +153,7 @@ public struct Workflow: Sendable {
     /// - Parameters:
     ///   - name: The workflow identifier.
     ///   - steps: Array of steps to execute in order.
+    ///   - continueOnFailure: When `true`, later steps still run after a step fails, and the workflow still fails.
     ///   - buildVariant: Optional build variant override for all steps.
     ///   - flavor: Optional product flavor override for all steps.
     ///   - app: Optional app identity override for all steps.
@@ -194,6 +196,7 @@ public struct Workflow: Sendable {
     ///   - archive: Optional archive override for all steps.
     ///   - export: Optional export override for all steps.
     ///   - codeSigning: Optional code-signing override for all steps.
+    ///   - continueOnFailure: When `true`, later steps still run after a step fails, and the workflow still fails.
     ///   - builder: A result builder closure producing workflow steps.
     public init(
         _ name: String,
@@ -239,8 +242,8 @@ public struct Workflow: Sendable {
         let startTime = Date()
 
         // Apply workflow-level overrides to the context config. This derives a new config
-        // rather than mutating the shared one, so a staging lane's scheme, configuration, and
-        // export method cannot bleed into the production lane running from the same Shipfile.
+        // rather than mutating the shared one, so a staging workflow's scheme, configuration, and
+        // export method cannot bleed into the production workflow running from the same Shipfile.
         var effectiveContext: ActionContext
         if hasOverrides {
             let overriddenConfig = context.config.overriding(
@@ -440,6 +443,7 @@ public struct WorkflowResult: Codable, Sendable {
     ///   - workflowName: The name of the workflow that was executed.
     ///   - stepResults: Ordered results for each step.
     ///   - duration: Total wall-clock execution time in seconds.
+    ///   - artifactDirectory: Where this run's evidence was staged, when it was collected.
     public init(workflowName: String, stepResults: [ActionResultEnvelope], duration: TimeInterval, artifactDirectory: String? = nil) {
         self.artifactDirectory = artifactDirectory
         self.workflowName = workflowName

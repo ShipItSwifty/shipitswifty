@@ -266,7 +266,7 @@ func retriesInfrastructureFailureAndRecovers() async throws {
 }
 ```
 
-## Test lanes and portable evidence
+## Test workflows and portable evidence
 
 This repository defines its checks in `Shipfile.yml`. After `swift build`, run
 `"$(swift build --show-bin-path)/shipit" test --workflow ci-macos` (or `ci-linux`).
@@ -274,7 +274,7 @@ The `format`, `fixtures`, and `integration-advisory` workflows preserve the prev
 formatting scopes, platform exclusions, fixture suites, and advisory integration policy.
 CI keeps the initial unit coverage snapshot separate from later integration runs for Codecov.
 
-For a library with an Xcode sample, compose ordinary actions in one named lane:
+For a library with an Xcode sample, compose ordinary actions in one named workflow:
 
 ```yaml
 test_workflow: tests
@@ -316,16 +316,22 @@ workflows:
 Workflows stop on failure by default. Use object syntax with `continue_on_failure: true`
 and `steps:` only when checks are independent; the overall exit status still fails.
 
-Native Xcode lanes build `.xctestproducts` once, then run each plan and destination with
+Native Xcode test workflows build `.xctestproducts` once, then run each plan and destination with
 `test-without-building`. Simulator/device mixtures and locally discoverable plans with
 incompatible target sets require separate steps. Xcode controls parallel workers. A
 classified clone failure switches that destination to serial once and reuses the products;
 assertion failures do not trigger this fallback. `serial: true` forces serial execution.
 `legacy_combined_test: true` preserves the previous `xcodebuild test` invocation.
 
+Every `test-without-building` passes `-collect-test-diagnostics never`. Without it a failing test makes `xcodebuild` gather a simulator
+sysdiagnose, which was observed hanging for its full 600 s timeout after the tests had finished in under a second (Xcode 27, each rerun attempt
+cost 10 minutes). ShipIt keeps its own device log, screenshot and result-bundle attachments for every attempt. The run logs
+`Built the tests once in <t>` and `Attempt N of plan P: tests <t>, overhead <t>`, and `report.json` carries `buildSeconds` and per-attempt durations,
+so a slow run can be attributed to the build, the tests or ShipIt's own overhead.
+
 Each attempt retains commands, stdout/stderr, results and native evidence before another
-attempt can overwrite it. SwiftPM reruns use `--skip-build`; SwiftPM, Flutter, Android JVM,
-and Xcode reruns use normalized selectors. `max_attempts` includes the initial assertion
+attempt can overwrite it. SwiftPM reruns use `--skip-build`; SwiftPM, Flutter, React Native
+(Jest), Android JVM, and Xcode reruns use normalized selectors. `max_attempts` includes the initial assertion
 run. Infrastructure retry budgets are separate; recovered assertions pass and remain marked
 flaky. Instrumented Android and Kotlin Native tests retain results but do not claim selective
 assertion-rerun support. Saved Swift Testing streams require a Swift toolchain supporting
@@ -345,7 +351,7 @@ Inspect saved results without running tests or requiring a Shipfile:
 ```bash
 shipit test-results --input results.xcresult --export-directory artifacts/ios
 shipit test-results --input app/build/test-results/testDebugUnitTest --runner gradle
-shipit test-results --input shared/build/test-results/iosSimulatorArm64Test --runner kmp
+shipit test-results --input shared/build/test-results --runner gradle --build-system kmp
 shipit test-results --input flutter-events.jsonl --input-format flutter
 shipit test-results --input swift-events.jsonl --input-format swift
 shipit test-results --input artifacts/ios/manifest.json --format markdown
@@ -384,6 +390,21 @@ reported `NO-SOURCE` or `SKIPPED` for that exact test task. Saving evidence is b
 write logs, snapshots or reports is logged and never replaces or hides the test outcome; an unreadable
 SwiftPM rerun keeps the original failures as persistent.
 
+Every result says **who ran it, where, and on what framework** as three separate things rather than one
+overloaded label. `runner` is the tool (`xcodebuild`, `gradle`, `swift-test`, `flutter-test`, `jest`);
+`buildSystem` is the project's framework (`native`, `kmp`, `flutter`, `react_native`) when known; and
+`destinations` lists where tests ran, each with a `platform` (`ios`, `android`, `macos`, `linux`,
+`windows`, `jvm`, `js`, or `unknown`), a `kind` (`simulator`, `emulator`, `device`, `host`), an optional
+device `name`, and the `scope` it ran (a Gradle task or an Xcode test plan). Tests refer to their
+destination by `destinationID`, so one Gradle run can span `ios`, `android` and `jvm` and every test still
+knows which. Destinations come from evidence: the Gradle task name and the device AGP records, the
+devices an `.xcresult` lists, the `xcodebuild -destination` used, or the host for `swift test`, Flutter and
+Jest; a result that does not say (saved Flutter events, an LCOV file) has none rather than a guess. The
+vocabularies are closed for built-in values but keep unknown ones (`other`), so a result from a plugin or a
+newer ShipIt still reads. `TestRunReport` is schema version 2. Coverage results carry the same typed
+`platform` and the `runner` whose format they are. Reading Gradle JUnit XML for a Kotlin Multiplatform
+project needs `--build-system kmp`, and a bare `swift test` report needs `--runner swift-test`.
+
 JUnit XML keeps a failure's `message` and `stackTrace` apart (a body-only failure uses its first line
 as the message), plus the `failure_type`. Every test reports `attempts`, how many times the runner
 executed it, so a test that passes after retrying is visible rather than looking like an ordinary pass.
@@ -396,7 +417,7 @@ counted the same way, and a retry's own message and output never replace the fin
 repeats with every occurrence passing is a genuine duplicate, not a retry: each keeps its own ID (the
 first the plain ID, later ones `#<n>`, with an `occurrence` of `n/total`). Each case records its
 `report` location and, from the Gradle layout and the properties AGP writes for connected runs, its
-`module`, `task`, `device`, `flavor` and `project`, so the same test on two devices stays distinct. When
+`module`, `gradle_task`, `device`, `flavor` and `project`, so the same test on two devices stays distinct. When
 the suites' declared totals (restated for folded attempts) disagree with the listed test cases a
 warning diagnostic says so.
 
@@ -408,3 +429,37 @@ Original artifacts preserve additional runner metrics beyond the normalized line
 Test steps expose `{{test_output_directory}}`, `{{test_report_path}}`, and
 `{{test_result_bundle}}` when produced. SwiftPM steps also expose `{{coverage_path}}`.
 Use these paths in later steps or artifact declarations instead of guessing output names.
+
+## Verifying against real projects
+
+Mocks and hand-written XML prove a parser handles what we *thought* a tool writes. Anything that changes how
+results are parsed, counted or reported is also checked against sample projects that real tools run, and against
+artifacts captured from real runs. Running the real thing has found bugs mocks could not: coverage silently
+dropped when a test fails, a UDID used as a device name, a compile failure reported as a failed test, and a
+fake `gradlew` that printed counts real Gradle never prints.
+
+| Layer | What it runs | Proves | Needs | Runs |
+|---|---|---|---|---|
+| Real captures (`Tests/ShipItKitTests/Fixtures/real/`) | Artifacts from Gradle 9.8 + `test-retry`, `xcodebuild`/`xcresulttool`, `flutter test --machine` and `jest --json` | Parsers, classifiers and the native workflow handle what the tools actually write, including a real simulator clone failure | nothing | every `swift test` |
+| SwiftPM sample (`Fixtures/swiftpm-sample`) | The real `shipit` binary, real `swift test` (Swift Testing and XCTest) | Selective reruns, attempt counts, flaky recovery, persistent failures, evidence per attempt, coverage when a test fails, live = offline, export relocation, CI export | Swift | every `swift test`, macOS and Linux CI |
+| KMP, Flutter, React Native fixtures | The real binary with scripted tool stand-ins that write realistic output (JUnit XML, `--machine` events) | Dispatch, typed report, destinations, Kotlin/Native rerun rule | nothing | every `swift test`, CI fixtures job |
+| JVM sample (`Fixtures/jvm-retry-sample`) | The real binary, real Gradle, the real `org.gradle.test-retry` plugin | Plugin retries and workflow reruns add up (2/4/6 attempts), one flaky count, stale results not reused after a compile failure, `NO-SOURCE`, live = offline | JDK, network, `SHIPIT_E2E=1` | CI fixtures job |
+| Flutter app (`Fixtures/flutter-app`, `test/scripted_test.dart`) | The real binary, real `flutter test --machine` | Machine events, reruns by name, attempts, host destination, offline = live, no tests is a failure, not a pass | Flutter SDK, network, `SHIPIT_E2E=1` | opt-in quick tier |
+| React Native app (`Fixtures/react-native-app`, `__tests__/scripted.test.js`) | The real binary, real Jest | Failing tests are a test failure (not a build failure), reruns via `--testNamePattern`, relative identities, stale results file not reused, offline = live | Node, network, `SHIPIT_E2E=1` | opt-in quick tier |
+| iOS sample (`Fixtures/ios-sample`, two `.xctestplan`s) | The real binary, real `xcodebuild`, a real simulator | One build shared by every plan, per-plan flaky recovery with configurations (English/German), device name (not UDID), evidence per attempt, offline xcresult = live | Xcode, a simulator nothing else is using, `SHIPIT_E2E_BUILD=1` | opt-in build tier |
+
+Sample projects give their tests **scripted** outcomes (pass, fail, skip, flake) through environment variables, so
+one project plays every role and assertions are exact. Add a scripted outcome to a sample when a behavior has no
+real coverage, rather than mocking it.
+
+```bash
+swift test --filter SwiftPMFixtureIntegrationTests                     # needs only Swift
+SHIPIT_E2E=1 swift test --filter JVMFixtureIntegrationTests            # real Gradle
+SHIPIT_E2E=1 swift test --filter "FlutterScriptedE2ETests|ReactNativeScriptedE2ETests"
+# iOS needs a simulator no other process holds; pick it with SHIPIT_E2E_IOS_DESTINATION (a run takes minutes):
+SHIPIT_E2E_BUILD=1 SHIPIT_E2E_IOS_DESTINATION="platform=iOS Simulator,id=<udid>" \
+  swift test --filter IOSFixtureIntegrationTests
+```
+
+Refresh a capture by re-running the tool and replacing the file (local paths scrubbed); the tests state what each
+artifact must produce, and `Fixtures/real/README.md` records how each was made.

@@ -31,7 +31,7 @@ import SwiftyShell
 /// ### Results
 /// - ``Result``
 public struct LintAction: Action {
-    /// The registered name used in Shipfile lanes.
+    /// The registered name used in Shipfile workflows.
     public static let name = "lint"
 
     /// Human-readable description for `--help` output.

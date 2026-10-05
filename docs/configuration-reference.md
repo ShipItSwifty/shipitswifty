@@ -350,8 +350,8 @@ The `test` action is configured inline in a workflow step. It does **not** have 
 | `destination` | string | — | Legacy single-destination string. Promoted to a one-element `destinations` list internally. Prefer `destinations` for new configuration. |
 | `scheme` | string | `app.scheme` | Xcode scheme containing the test targets. Falls back to `app.scheme` when omitted. |
 | `configuration` | string | `Debug` | Build configuration used for test compilation. |
-| `enable_code_coverage` | bool | — | Enable `-enableCodeCoverage YES`. Default lanes always save unique result bundles; coverage is retained within them. |
-| `result_bundle_path` | string | — | Explicit initial bundle path for a single-plan/single-destination run. Default lanes save each plan/destination/attempt separately. |
+| `enable_code_coverage` | bool | — | Enable `-enableCodeCoverage YES`. By default ShipIt saves unique result bundles; coverage is retained within them. |
+| `result_bundle_path` | string | — | Explicit initial bundle path for a single-plan/single-destination run. By default ShipIt saves each plan/destination/attempt separately. |
 | `test_plan` | string | — | Named `.xctestplan` to run. |
 | `test_plans` | list | — | Multiple compatible named plans sharing one build; exclusive with `test_plan`. |
 | `test_products_path` | string | unique run directory | New `.xctestproducts` output path for the shared build. |
@@ -368,6 +368,8 @@ The `test` action is configured inline in a workflow step. It does **not** have 
 
 `retry_on_failure`, `rerun_failed_tests`, and `infrastructure_retry` solve different problems. Use `retry_on_failure` for xcodebuild's built-in one-pass iOS retry behavior. Use `rerun_failed_tests` when you want ShipIt to collect the initial failures, rerun those specific tests once, and emit flaky/persistent failure information in `TestRunReport`. Use `infrastructure_retry` for whole-run failures such as simulator launch crashes, Android emulator disconnects, Flutter tool crashes, or JS worker failures.
 
+Every test run writes a `TestRunReport` (schema version 2) that separates three things: the `runner` (the tool that ran the tests), the `buildSystem` (how the project is built) and `destinations` (where the tests ran: `platform`, `kind`, `name`, `scope`). Each test points at one destination by `destinationID` and carries `attempts`; a test that failed and then passed has `attempts > 1` and is counted as flaky. Each attempt keeps its logs and native artifacts under `build/test-runs/`, with a `command.json` recording the exact command and its duration; the report's `buildSeconds` and per-attempt `durationSeconds` / `overhead_seconds` show where the time went. See the Test Workflows and Test Results articles in the DocC documentation.
+
 `shipit generate` enables this retry policy on generated test steps by default; interactive generation lets users opt out. `shipit ai session` preserves that default in its prompt rather than asking agents to recreate it.
 
 ## `test-results` action options
@@ -378,7 +380,8 @@ Use `test-results` to parse xcresult, JUnit (Android/KMP), Swift Testing events,
 |---|---|---|---|
 | `inputs` | list | — | Explicit artifact inputs; CLI `--input` is repeatable. |
 | `input_format` | string | detect | `xcresult`, `junit`, `swift`, `flutter`, `jest`, `shipit`, `manifest`. Ambiguous input requires an override. |
-| `runner` | string | source default | Runner identity, e.g. `kmp`, `gradle`, `swift-test`. |
+| `runner` | string | from the artifact | Tool that produced the results: `xcodebuild`, `gradle`, `swift-test`, `flutter-test` or `jest`. Needed only for JUnit XML, which Gradle and `swift test` both write. |
+| `build_system` | string | from the Shipfile | `native`, `kmp`, `flutter` or `react_native`, for results read outside a Shipfile. A framework is a build system, never a platform. |
 | `coverage_inputs` / `coverage_format` | list / string | — | Preserve coverage separately; format is `swift`, `lcov`, `jacoco`, or `kover`. |
 | `evidence_paths` | list | — | Additional screenshots, videos, logs and native artifacts to copy. |
 | `export_directory` | string | — | Create a new portable export with originals, extracted evidence, manifest and relative index links. |
@@ -852,9 +855,9 @@ support `source_roots` and `exclude_previews`; `minimum_coverage` applies to eve
 rejects empty coverage. Kotlin Native/JS coverage is unavailable through these formats.
 
 Workflow object syntax accepts `continue_on_failure: true` for independent checks. The default
-remains fail-fast and any failed step makes the whole lane fail. Every step, including custom
+remains fail-fast and any failed step makes the whole workflow fail. Every step, including custom
 action steps, may declare `artifacts: [{ name: results, paths: [build/results], retention_days: 14 }]`.
 Names use letters/numbers/underscore/hyphen; retention is 1–90 days. Missing optional matches
 become diagnostics. `{{run_id}}` resolves in top-level step options and artifact paths to keep
-attempts and exports separate. See [test lane examples](testing.md#test-lanes-and-portable-evidence)
-and [CI export](ci-setup.md#exporting-test-lanes).
+attempts and exports separate. See [test workflow examples](testing.md#test-workflows-and-portable-evidence)
+and [CI export](ci-setup.md#exporting-test-workflows).

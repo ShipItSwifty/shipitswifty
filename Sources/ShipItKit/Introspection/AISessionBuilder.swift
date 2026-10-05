@@ -41,7 +41,8 @@ public struct AISessionBuilder: Sendable {
             packageLane
             ? [
                 InferredConfigEntry(
-                    keyPath: "test_workflow", value: .string("tests"), source: .detected, confidence: .high, why: "Swift package test lane"),
+                    keyPath: "test_workflow", value: .string("tests"), source: .detected, confidence: .high,
+                    why: "Swift package test workflow"),
                 InferredConfigEntry(
                     keyPath: "workflows.tests[swift-test].options.package_path", value: .string("."), source: .detected, confidence: .high,
                     why: "Found Package.swift"),
@@ -63,7 +64,7 @@ public struct AISessionBuilder: Sendable {
             )
         let nextAction =
             packageLane && hasExistingShipfile && readiness.isReady && ambiguities.isEmpty
-            ? NextAction(action: "run_tests", command: "shipit test", reason: "Run the configured package test lane")
+            ? NextAction(action: "run_tests", command: "shipit test", reason: "Run the configured package test workflow")
             : buildNextAction(
                 goal: goal,
                 hasExistingShipfile: hasExistingShipfile,
@@ -82,7 +83,7 @@ public struct AISessionBuilder: Sendable {
         )
         if packageLane {
             agentPrompt +=
-                "\nThis project has a Swift package test lane. Use shipit test; package tests need no app identity, signing credentials or simulator unless a sample test step is included. Resolve sample scheme/test-plan choices before running that step."
+                "\nThis project has a Swift package test workflow. Use shipit test; package tests need no app identity, signing credentials or simulator unless a sample test step is included. Resolve sample scheme/test-plan choices before running that step."
         }
         let nextQuestion =
             packageLane && suggestion.missingValues.isEmpty && ambiguities.isEmpty
@@ -865,16 +866,17 @@ public struct AISessionBuilder: Sendable {
             "Generated test steps enable `infrastructure_retry: { max_attempts: 3, initial_delay_seconds: 2, max_delay_seconds: 30 }` by default for transient test infrastructure failures.",
             "Preserve that default unless the user explicitly opts out or supplies a different retry policy.",
             "Use `retry_on_failure` only for iOS test re-runs of failing test cases; use `infrastructure_retry` for whole-invocation simulator, emulator, Flutter tool, or JS worker failures.",
-            "Use `rerun_failed_tests: { enabled: true, max_attempts: 2 }` when the user wants one selective rerun pass plus structured flaky-test reporting. `max_attempts` includes the initial run; larger limits are honored and recovery stops retries early. It applies to SwiftPM, Flutter, Android JVM tests, and native iOS lanes. Native iOS builds reusable products once, then runs every selected plan and destination with separate result bundles. Recovered failures pass and remain marked flaky.",
+            "Use `rerun_failed_tests: { enabled: true, max_attempts: 2 }` when the user wants one selective rerun pass plus structured flaky-test reporting. `max_attempts` includes the initial run; larger limits are honored and recovery stops retries early. It applies to SwiftPM, Flutter, React Native (Jest), Android JVM tests, and native iOS test workflows. Native iOS builds reusable products once, then runs every selected plan and destination with separate result bundles. Recovered failures pass and remain marked flaky.",
             "For Swift packages use a named workflow containing swift-test and optional swift-format/coverage steps; set test_workflow to make shipit test select it, or use shipit test --workflow <name>.",
             "For multiple compatible Xcode plans use test_plans; test builds once and reuses .xctestproducts. Clone failure falls back serially once per destination. Use serial: true to disable cloning or legacy_combined_test: true for the old invocation.",
             "Declare artifacts on any workflow step with name, paths, and retention_days. shipit ci export --provider github-actions needs an explicit runner and setup commands and emits always-upload steps. Other providers can implement CIProvider.",
-            "Use continue_on_failure only for independent checks; the lane still fails if any check fails. {{run_id}} provides a unique output directory per workflow run.",
+            "Use continue_on_failure only for independent checks; the workflow still fails if any check fails. {{run_id}} provides a unique output directory per workflow run.",
             "Coverage reads Xcode, SwiftPM/LLVM JSON, JaCoCo/Kover JVM XML, and Flutter LCOV; use source_roots/exclude_previews/minimum_coverage for package gates. Kotlin Native/JS coverage is unavailable unless the toolchain provides a supported report.",
-            "Workflow test summaries may include named passed/failed tests when the underlying tool output or JUnit XML reports expose them; otherwise they fall back to aggregated counts.",
-            "Use `shipit test-results --input <path>` for xcresult, JUnit (Android/KMP), Flutter machine events, Jest, Swift Testing events, or a portable ShipIt manifest. Add --export-directory to save originals, attachments, screenshots, logs and normalized results without running tests.",
             "For Android instrumented tests, ask whether ShipIt should boot named local emulators (`devices.strategy: named_emulators`) or rely on CI-managed devices before generating the workflow.",
         ]
+
+        lines += Self.testResultsGuidance
+        lines.append("")
 
         // Custom composite actions are first-class. Always mention the feature;
         // enumerate concrete ones when the resolved Shipfile defines any.
@@ -909,6 +911,20 @@ public struct AISessionBuilder: Sendable {
 
         return lines.joined(separator: "\n")
     }
+
+    /// What an agent needs to read test results and evidence correctly, in place of scraping console output.
+    static let testResultsGuidance: [String] = [
+        "",
+        "Test results and evidence (read these instead of scraping console output):",
+        "  Every test run writes a typed report.json (schema version 2) beside per-attempt evidence under build/test-runs/<run>/attempt-N/: stdout.log, stderr.log, command.json (arguments, exit_code, duration_seconds), results.json, and the runner's own results (.xcresult, events.jsonl, JUnit XML, Jest JSON). Workflows also stage evidence under build/workflow-artifacts/<run-id>/ with a manifest.",
+        "  A result states who ran it, where, and on what framework as three separate things: `runner` (xcodebuild | gradle | swift-test | flutter-test | jest), `buildSystem` (native | kmp | flutter | react_native) and `destinations` (platform ios | android | macos | linux | jvm | js, kind simulator | emulator | device | host, the device name, and scope = the Gradle task or Xcode test plan). Each test refers to its destination by `destinationID` and carries `attempts` (executions, including a runner's own retries), `stackTrace` apart from `message`, and `metadata` (module, gradle_task, plan, configuration, language, device, flaky, first_failure). Never treat `kmp` or `flutter` as a platform: a KMP run spans ios, android and jvm destinations.",
+        "  Read a failed run in this order: `summary` (`errored` above zero means the run itself failed, such as a compile failure, a crash, or no results, and is not a failing test), `persistentFailedTests` (message and stackTrace), `flakyTests` (passed only after a retry; `first_failure` says why it first failed), then `attempts` (reason: initial | failed_tests | infrastructure | serial_fallback; durationSeconds; metadata.overhead_seconds) to see where the time went. `buildSeconds` is the shared build that native iOS reuses for every plan and attempt.",
+        "  A test that passed with attempts above 1 is flaky even though the run is green. Surface it; do not hide it. `summary.flaky` counts recoveries from any source: the workflow's reruns, or a retry plugin (Gradle test-retry) inside one run.",
+        "  Exiting 0 with no results is a failure (Flutter, KMP, Android, Jest). Gradle reporting NO-SOURCE or SKIPPED for the test task is the one legitimate empty run.",
+        "  Inspect saved artifacts without running tests: `shipit test-results --input <path> [--input-format xcresult|junit|swift|flutter|jest|shipit|manifest] [--runner gradle|swift-test|...] [--build-system kmp|native|flutter|react_native] [--export-directory <new directory>]`. JUnit XML needs --runner swift-test when it came from `swift test`, and --build-system kmp for Kotlin Multiplatform, because the file alone does not say. Coverage: `shipit coverage --input-format swift|lcov|jacoco|kover --report <path> [--source-root <dir>] [--minimum-coverage <percent>]`.",
+        "  Selective reruns depend on stable test identities, so do not rename or reformat IDs. A runner that cannot select a failed test reports that rerun as unsupported (Kotlin/Native targets in a KMP build).",
+        "  Never edit report.json or saved evidence to change an outcome, and never mark a run green from the exit code alone when the report says otherwise.",
+    ]
 
     // MARK: - Next question
 

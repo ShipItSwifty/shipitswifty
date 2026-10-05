@@ -1,0 +1,35 @@
+Command line invocation:
+    /Applications/Xcode2.app/Contents/Developer/usr/bin/xcodebuild -destination "platform=iOS Simulator,id=91D4F57C-42BF-4630-8799-32B377B67A02" -testProductsPath /tmp/scratch -resultBundlePath /tmp/scratch -parallel-testing-enabled NO test-without-building
+
+Writing result bundle at path:
+	/tmp/scratch
+
+2026-10-04 22:23:57.950669-0400 ios-sample[71374:100558488] [General] Failed to send CA Event for app launch measurements for ca_event_type: 0 event_name: com.apple.app_launch_measurement.FirstFramePresentationMetric
+2026-10-04 22:23:57.999150-0400 ios-sample[71374:100558488] [General] Failed to send CA Event for app launch measurements for ca_event_type: 1 event_name: com.apple.app_launch_measurement.ExtendedLaunchMetrics
+Test Suite 'All tests' started at 2026-10-04 22:23:58.153.
+Test Suite 'ios-sampleTests.xctest' started at 2026-10-04 22:23:58.153.
+Test Suite 'SmokeTests' started at 2026-10-04 22:23:58.153.
+Test Case '-[ios_sampleTests.SmokeTests testArithmetic]' started.
+Test Case '-[ios_sampleTests.SmokeTests testArithmetic]' passed (0.001 seconds).
+Test Case '-[ios_sampleTests.SmokeTests testBundleIdentifier]' started.
+Test Case '-[ios_sampleTests.SmokeTests testBundleIdentifier]' passed (0.000 seconds).
+Test Suite 'SmokeTests' passed at 2026-10-04 22:23:58.156.
+	 Executed 2 tests, with 0 failures (0 unexpected) in 0.002 (0.003) seconds
+Test Suite 'ios-sampleTests.xctest' passed at 2026-10-04 22:23:58.156.
+	 Executed 2 tests, with 0 failures (0 unexpected) in 0.002 (0.003) seconds
+Test Suite 'All tests' passed at 2026-10-04 22:23:58.156.
+	 Executed 2 tests, with 0 failures (0 unexpected) in 0.002 (0.004) seconds
+
+Test session results, code coverage, and logs:
+	/tmp/claude-501/-Users-dev-Developer-manman-ShipItSwifty/c3609392-ae86-4f23-bfed-f166ad052de3/scratchpad/ios-probe/build/test-runs/xcode-796A2265-8C6F-44FD-9B03-9BBA0E688FC3/plan-1/destination-1/attempt-2/results.xcresult
+
+** TEST EXECUTE SUCCEEDED **
+
+Testing started
+2026-10-04 22:23:48.256 xcodebuild[70986:100555640] [MT] IDESchemeActionSDKRecord: operatingSystemBuild = <DVTBuildVersion 24A94403>, error = invalidDigitCount(94403).
+2026-10-04 22:23:58.165 xcodebuild[70986:100555640] [MT] IDESchemeActionSDKRecord: operatingSystemBuild = <DVTBuildVersion 24A94403>, error = invalidDigitCount(94403).
+2026-10-04 22:23:58.165 xcodebuild[70986:100555640] [MT] IDESchemeActionSDKRecord: operatingSystemBuild = <DVTBuildVersion 24A94403>, error = invalidDigitCount(94403).
+2026-10-04 22:23:58.166 xcodebuild[70986:100555640] [MT] IDESchemeActionSDKRecord: operatingSystemBuild = <DVTBuildVersion 24A94403>, error = invalidDigitCount(94403).
+2026-10-04 22:23:58.425 xcodebuild[70986:100555640] [MT] IDETestOperationsObserverDebug: 11.270 elapsed -- Testing started completed.
+2026-10-04 22:23:58.425 xcodebuild[70986:100555640] [MT] IDETestOperationsObserverDebug: 0.000 sec, +0.000 sec -- start
+2026-10-04 22:23:58.425 xcodebuild[70986:100555640] [MT] IDETestOperationsObserverDebug: 11.270 sec, +11.270 sec -- end
