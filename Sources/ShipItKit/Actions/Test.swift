@@ -654,7 +654,8 @@ public struct TestAction: Action {
                 passed: initial.summary.passed + flaky.count,
                 failed: remaining.filter { $0.status == .failed }.count, skipped: initial.summary.skipped, flaky: flaky.count,
                 errored: remaining.filter { $0.status == .errored }.count + (executionError ? 1 : 0)),
-            testCases: finalTestCases(initial.testCases, remaining: remaining, flaky: flaky))
+            testCases: finalTestCases(initial.testCases, remaining: remaining, flaky: flaky, attempts: attempts)
+        ).unifyingFlaky()
         try writeTestReportIfNeeded(report, to: options.reportPath)
         if let root = context.testEvidence?.root { try writeJSON(report, to: root.appendingPathComponent("report.json")) }
         if !remaining.isEmpty || executionError {
@@ -969,7 +970,9 @@ public struct TestAction: Action {
                 let report = TestRunReport(
                     runner: .gradle, buildSystem: .kmp, source: parsedRun.source, destinations: parsedRun.destinations,
                     attempts: [.init(attemptNumber: 1, reason: "initial", summary: parsedRun.summary, failedTests: failures)],
-                    initialFailedTests: failures, persistentFailedTests: failures, summary: parsedRun.summary)
+                    initialFailedTests: failures, persistentFailedTests: failures, summary: parsedRun.summary,
+                    testCases: parsedRun.testCases
+                ).unifyingFlaky()
                 try self.writeTestReportIfNeeded(report, to: options.reportPath)
                 let named = self.legacyNamedResults(from: parsedRun)
                 return Result(
@@ -1069,6 +1072,7 @@ public struct TestAction: Action {
         var attempts = [
             TestAttempt(
                 attemptNumber: 1,
+                reason: "initial",
                 summary: initialSnapshot.summary,
                 failedTests: initialSnapshot.failedParsedTests,
                 source: effectiveResultBundlePath
@@ -1102,6 +1106,7 @@ public struct TestAction: Action {
                 attempts.append(
                     TestAttempt(
                         attemptNumber: attemptNumber,
+                        reason: "failed_tests",
                         summary: rerunSnapshot.summary,
                         failedTests: rerunSnapshot.failedParsedTests,
                         source: effectiveResultBundlePath
@@ -1510,6 +1515,7 @@ public struct TestAction: Action {
             var attempts = [
                 TestAttempt(
                     attemptNumber: 1,
+                    reason: "initial",
                     summary: initialSnapshot.summary,
                     failedTests: initialSnapshot.failedParsedTests,
                     source: task.name
@@ -1541,6 +1547,7 @@ public struct TestAction: Action {
                     attempts.append(
                         TestAttempt(
                             attemptNumber: attemptNumber,
+                            reason: "failed_tests",
                             summary: rerunSnapshot.summary,
                             failedTests: rerunSnapshot.failedParsedTests,
                             source: task.name
@@ -1581,9 +1588,9 @@ public struct TestAction: Action {
                     errored: persistentFailedTests.filter { $0.status == .errored }.count
                 ),
                 testCases: initialSnapshot.parsedRun.map {
-                    finalTestCases($0.testCases, remaining: persistentFailedTests, flaky: flakyTests)
+                    finalTestCases($0.testCases, remaining: persistentFailedTests, flaky: flakyTests, attempts: attempts)
                 }
-            )
+            ).unifyingFlaky()
 
             try writeTestReportIfNeeded(report, to: options.reportPath)
             if let root = context.testEvidence?.root { try writeJSON(report, to: root.appendingPathComponent("report.json")) }
@@ -2104,6 +2111,8 @@ public struct TestAction: Action {
         for line in output.components(separatedBy: "\n") {
             let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !trimmed.isEmpty else { continue }
+            // `> Task :compileTestJava FAILED` is a build step failing before any test ran, not a failed test.
+            guard !trimmed.hasPrefix("> Task "), !trimmed.hasPrefix("BUILD ") else { continue }
 
             if trimmed.hasSuffix(" FAILED") {
                 failedTests.append(String(trimmed.dropLast(" FAILED".count)))

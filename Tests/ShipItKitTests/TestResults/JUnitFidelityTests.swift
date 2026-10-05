@@ -241,9 +241,16 @@ struct JUnitFidelityTests {
         let restored = try await ResultInspection(shell: .init()).read(moved.path)
         #expect(restored.testCases.first?.stackTrace == "trace")
 
-        let reconciled = finalTestCases(run.testCases, remaining: [], flaky: run.testCases)
-        #expect(reconciled.first?.stackTrace == "trace")
-        #expect(reconciled.first?.attempts == 1)
-        #expect(reconciled.first?.status == .passed)
+        // A failure that persists keeps its stack trace through reconciliation...
+        let persistent = finalTestCases(run.testCases, remaining: run.testCases, flaky: [])
+        #expect(persistent.first?.stackTrace == "trace")
+        #expect(persistent.first?.status == .failed)
+        // ...while a test a rerun recovered carries no failure, and keeps why it first failed as context.
+        let recovered = finalTestCases(run.testCases, remaining: [], flaky: run.testCases)
+        #expect(recovered.first?.status == .passed)
+        #expect(recovered.first?.stackTrace == nil)
+        #expect(recovered.first?.message == nil)
+        #expect(recovered.first?.metadata?["first_failure"] == "boom")
+        #expect(recovered.first?.attempts == 1, "no recorded attempts, so the parser's own count is kept")
     }
 }

@@ -1,0 +1,28 @@
+> Task :compileJava NO-SOURCE
+> Task :processResources NO-SOURCE
+> Task :classes UP-TO-DATE
+
+> Task :compileTestJava FAILED
+/project error: class, interface, enum, or record expected
+this is not valid java
+^
+1 error
+
+[Incubating] Problems report is available at: file:///project
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':compileTestJava' (registered by plugin class 'org.gradle.api.plugins.JavaBasePlugin').
+> Compilation failed; see the compiler output below.
+  /project error: class, interface, enum, or record expected
+  this is not valid java
+  ^
+  1 error
+
+* Try:
+> Check your code and dependencies to fix the compilation error(s)
+> Run with --scan to get full insights from a Build Scan (powered by Develocity).
+
+BUILD FAILED in 355ms
+1 actionable task: 1 executed

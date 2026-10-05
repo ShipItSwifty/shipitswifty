@@ -68,7 +68,7 @@ public struct FlutterMachineOutputParser: Sendable {
             ParsedTestCase(
                 stableID: "flutter-case:\(test.file ?? "unknown"):\(test.name)", name: test.name,
                 status: test.status, durationSeconds: test.duration, message: test.message, file: test.file,
-                rerunSelector: .flutter(name: test.name), destinationID: destination?.id)
+                rerunSelector: .flutter(name: test.name), attempts: 1, destinationID: destination?.id)
         }.sorted { $0.stableID < $1.stableID }
         return ParsedTestRun(
             runner: .flutterTest, buildSystem: .flutter, source: "machine-output",

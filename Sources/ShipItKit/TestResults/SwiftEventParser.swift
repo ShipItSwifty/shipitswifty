@@ -57,7 +57,7 @@ public struct SwiftEventParser: Sendable {
                 message: state.messages.isEmpty
                     ? (state.ended == nil && !state.skipped ? "Test did not finish" : nil) : state.messages.joined(separator: "\n"),
                 file: state.file, line: state.line, rerunSelector: .swiftTestFilter(selector),
-                destinationID: destination?.id)
+                attempts: 1, destinationID: destination?.id)
         }.sorted { $0.stableID < $1.stableID }
         return ParsedTestRun(
             runner: .swiftTest, buildSystem: .native, source: path, destinations: destination.map { [$0] } ?? [],

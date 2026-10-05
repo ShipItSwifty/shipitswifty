@@ -37,7 +37,9 @@ public struct JestJSONTestParser: Sendable {
                     message: assertion.failureMessages.joined(separator: "\n").nilIfEmpty,
                     file: suite.name,
                     line: nil,
-                    rerunSelector: .jest(file: suite.name, fullName: assertion.fullName)
+                    rerunSelector: .jest(file: suite.name, fullName: assertion.fullName),
+                    attempts: 1,
+                    destinationID: destination.id
                 )
             }
 
