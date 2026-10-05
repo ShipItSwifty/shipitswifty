@@ -1002,7 +1002,7 @@ public struct TestAction: Action {
     // MARK: - iOS Test (xcodebuild test)
 
     private func runIOS(options: Options, context: ActionContext) async throws -> Result {
-        if options.legacyCombinedTest != true { return try await NativeTestLane(action: self, context: context).run(options: options) }
+        if options.legacyCombinedTest != true { return try await NativeTestExecution(action: self, context: context).run(options: options) }
         let scheme = options.scheme ?? context.config.appScheme
         guard let scheme else {
             throw ShipItError.invalidConfiguration(

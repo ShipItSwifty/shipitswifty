@@ -53,7 +53,7 @@ Tests/IntegrationTests/Fixtures/react-native-app/android/.gradle/
 Tests/IntegrationTests/Fixtures/react-native-app/android/build/
 Tests/IntegrationTests/Fixtures/react-native-app/android/app/build/
 
-# Test lane evidence
+# Test workflow evidence
 /build/
 
 /default.profraw

@@ -17,10 +17,10 @@ struct CIExportCommand: AsyncParsableCommand {
     @Option(name: .long, help: "Write YAML to a new file instead of stdout") var exportPath: String?
     func run() async throws {
         let config = try await resolveRequiredConfig(global: global, cliOptions: .init())
-        guard let lane = config.workflows[workflow] else { throw ValidationError("Unknown workflow: \(workflow)") }
+        guard let workflowConfig = config.workflows[workflow] else { throw ValidationError("Unknown workflow: \(workflow)") }
         let provider = try CIProviderRegistry().provider(named: provider)
         let yaml = try provider.export(
-            workflow: workflow, config: lane,
+            workflow: workflow, config: workflowConfig,
             job: .init(runner: runner, setupCommands: setupCommands, executable: executable, shipfile: global.shipfile))
         if let path = exportPath {
             guard !FileManager.default.fileExists(atPath: path) else { throw ValidationError("Export path already exists: \(path)") }

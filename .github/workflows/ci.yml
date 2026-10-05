@@ -29,7 +29,7 @@ jobs:
       - name: Select Xcode
         run: sudo xcode-select -s /Applications/Xcode_26.4.app
 
-      - name: Build ShipIt and run format lane
+      - name: Build ShipIt and run format workflow
         working-directory: ShipItSwifty
         run: |
           swift build
@@ -155,7 +155,7 @@ jobs:
         working-directory: ShipItSwifty
         run: swift build
 
-      - name: Test cross-platform fixture lane
+      - name: Test cross-platform fixture workflow
         working-directory: ShipItSwifty
         run: |
           SHIPIT_BIN="$(swift build --show-bin-path)/shipit"

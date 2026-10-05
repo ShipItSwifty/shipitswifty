@@ -40,7 +40,7 @@ public struct Environment: Sendable {
         self.env = env
     }
 
-    /// `SHIPIT_TEST_WORKFLOW` — default named test lane.
+    /// `SHIPIT_TEST_WORKFLOW` — default named test workflow.
     public var testWorkflow: String? { env["SHIPIT_TEST_WORKFLOW"] }
 
     // MARK: - Platform

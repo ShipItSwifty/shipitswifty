@@ -299,7 +299,7 @@ jobs:
 
 Use macOS runners for Flutter iOS or React Native iOS distribution because both require Xcode and Apple signing tooling.
 
-## Exporting test lanes
+## Exporting test workflows
 
 `shipit ci export` translates a named workflow and its artifact declarations into runnable
 provider configuration. The built-in provider is GitHub Actions; other integrations implement
@@ -313,8 +313,8 @@ shipit ci export --provider github-actions --workflow tests --runner macos-26 \
 ```
 
 Choose the runner and toolchain/setup commands explicitly. Export does not execute setup,
-publish a workflow, or upload anything. The exported job runs the lane and uses
-`actions/upload-artifact` with `if: always()` for declared artifacts and lane evidence,
+publish a workflow, or upload anything. The exported job runs the workflow and uses
+`actions/upload-artifact` with `if: always()` for declared artifacts and workflow evidence,
 including failed attempts. Each step may declare `artifacts` with `name`, `paths` and
 `retention_days`; this also works for custom actions. Local runs stage the same files under
 `build/workflow-artifacts/<run-id>/` with manifests. `{{run_id}}` scopes output and artifact
