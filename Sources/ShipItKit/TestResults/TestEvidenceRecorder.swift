@@ -99,7 +99,8 @@ public actor TestEvidenceRecorder {
                     passed: initial.summary.passed + flaky.count, failed: remaining.filter { $0.status == .failed }.count,
                     skipped: initial.summary.skipped, flaky: flaky.count,
                     errored: remaining.filter { $0.status == .errored }.count + (incomplete ? 1 : 0)),
-                testCases: finalTestCases(initial.testCases, remaining: remaining, flaky: flaky))
+                testCases: finalTestCases(initial.testCases, remaining: remaining, flaky: flaky, attempts: attempts)
+            ).unifyingFlaky()
         } else {
             report = TestRunReport(
                 runner: .unknown, source: root.path, attempts: attempts, summary: .init(errored: 1))

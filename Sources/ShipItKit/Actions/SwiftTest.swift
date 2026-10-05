@@ -185,10 +185,18 @@ public struct SwiftTestAction: Action {
                         package: options.packagePath ?? ".", scratch: options.scratchPath
                     ).run()
                     let source = located.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
-                    if !source.isEmpty, FileManager.default.fileExists(atPath: source) {
+                    if !source.isEmpty {
+                        // SwiftPM writes no coverage JSON when a test fails, so this recomputes it from the raw
+                        // profiles. It must run now, before a rerun adds its own profiles. Coverage is evidence: failing
+                        // to save it is logged and never changes the test outcome.
                         let target = root.appendingPathComponent("coverage.json")
-                        try await saveSwiftPMCoverage(source: source, target: target, shell: context.shell)
-                        coveragePath = target.path
+                        do {
+                            try await saveSwiftPMCoverage(source: source, target: target, shell: context.shell)
+                            coveragePath = target.path
+                        } catch {
+                            if error is CancellationError { throw error }
+                            context.logger.warning("Coverage unavailable: \(error)")
+                        }
                     }
                 }
             } else {
@@ -214,7 +222,8 @@ public struct SwiftTestAction: Action {
                 passed: initial.summary.passed + flaky.count,
                 failed: remaining.filter { $0.status == .failed }.count, skipped: initial.summary.skipped, flaky: flaky.count,
                 errored: remaining.filter { $0.status == .errored }.count + (executionError ? 1 : 0)),
-            testCases: finalTestCases(initial.testCases, remaining: remaining, flaky: flaky))
+            testCases: finalTestCases(initial.testCases, remaining: remaining, flaky: flaky, attempts: attempts)
+        ).unifyingFlaky()
         saveEvidence("report", logger: context.logger) { try writeJSON(report, to: root.appendingPathComponent("report.json")) }
         if !remaining.isEmpty || executionError {
             throw ShipItError.testFailed(

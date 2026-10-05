@@ -71,6 +71,15 @@ struct RealFormatTests {
         #expect(!action.gradleTaskHadNothingToRun(failing, task: "test"))
     }
 
+    @Test("A real compile failure is not a failed test named after a Gradle task")
+    func gradleCompileFailureIsNotAFailedTest() throws {
+        let log = try Self.text("gradle-compile-failure.console.log")
+        #expect(log.contains("> Task :compileTestJava FAILED"), "the captured log really is a compile failure")
+        let parsed = TestAction().parseGradleCounts(from: log)
+        #expect(parsed.failedTests.isEmpty, "`> Task ... FAILED` is a build step, not a test: \(parsed.failedTests)")
+        #expect(parsed.fail == 0)
+    }
+
     // MARK: xcodebuild and xcresulttool
 
     #if os(macOS)
@@ -156,4 +165,96 @@ struct RealFormatTests {
         #expect(report.testCases?.allSatisfy { $0.destinationID == "ios:simulator:iPhone 17" } == true)
     }
     #endif
+}
+
+@Suite("SwiftPM coverage")
+struct SwiftPMCoverageTests {
+    /// A scratch `.build/.../Products/Debug` layout: `codecov/` with raw profiles, and a test binary beside it.
+    private func layout(
+        _ scratch: TemporaryDirectory, json: Bool, profiles: [String] = ["a.profraw", "b.profraw"], binaries: [String] = ["T.xctest"]
+    ) throws -> (codecov: URL, source: String, target: URL) {
+        let products = scratch.url.appendingPathComponent("Products")
+        let codecov = products.appendingPathComponent("codecov")
+        try FileManager.default.createDirectory(at: codecov, withIntermediateDirectories: true)
+        for name in profiles { try "raw".write(to: codecov.appendingPathComponent(name), atomically: true, encoding: .utf8) }
+        for name in binaries {
+            #if os(macOS)
+            let executable = products.appendingPathComponent("\(name)/Contents/MacOS/\(name.replacingOccurrences(of: ".xctest", with: ""))")
+            try FileManager.default.createDirectory(at: executable.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try "bin".write(to: executable, atomically: true, encoding: .utf8)
+            #else
+            try "bin".write(to: products.appendingPathComponent(name), atomically: true, encoding: .utf8)
+            #endif
+        }
+        if json {
+            try "{\"data\":[\"from-swiftpm\"]}".write(to: codecov.appendingPathComponent("Pkg.json"), atomically: true, encoding: .utf8)
+        }
+        let output = scratch.url.appendingPathComponent("out")
+        try FileManager.default.createDirectory(at: output, withIntermediateDirectories: true)
+        return (codecov, codecov.appendingPathComponent("Pkg.json").path, output.appendingPathComponent("coverage.json"))
+    }
+
+    /// Stands in for `llvm-profdata` and `llvm-cov`, reporting each call to `record`.
+    private func llvmTools(record: @escaping @Sendable ([String]) -> Void) -> MockExecutor {
+        MockExecutor { command, _ in
+            record(command.arguments)
+            return .init(stdout: command.arguments.contains("export") ? "{\"data\":[\"recomputed\"]}" : "", stderr: "", exitCode: 0)
+        }
+    }
+
+    @Test("When SwiftPM wrote no JSON (a test failed), coverage is recomputed from the raw profiles")
+    func recomputedFromRawProfiles() async throws {
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let paths = try layout(scratch, json: false)
+        let calls = Mutex([[String]]())
+        try await saveSwiftPMCoverage(
+            source: paths.source, target: paths.target,
+            shell: ShellContext(executor: llvmTools { args in calls.withLock { $0.append(args) } }))
+        #expect(try String(contentsOf: paths.target, encoding: .utf8).contains("recomputed"))
+        let recorded = calls.withLock { $0 }
+        let merge = try #require(recorded.first { $0.contains("merge") })
+        #expect(merge.contains { $0.hasSuffix("a.profraw") } && merge.contains { $0.hasSuffix("b.profraw") })
+        #expect(merge.last?.hasSuffix("initial.profdata") == true, "merged next to the saved coverage, not into SwiftPM's directory")
+        let export = try #require(recorded.first { $0.contains("export") })
+        #expect(export.contains { $0.hasSuffix("initial.profdata") })
+    }
+
+    @Test("When SwiftPM did write its JSON for a single test product, it is copied as is")
+    func existingJSONIsCopied() async throws {
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let paths = try layout(scratch, json: true)
+        let calls = Mutex([[String]]())
+        try await saveSwiftPMCoverage(
+            source: paths.source, target: paths.target,
+            shell: ShellContext(executor: llvmTools { args in calls.withLock { $0.append(args) } }))
+        #expect(try String(contentsOf: paths.target, encoding: .utf8).contains("from-swiftpm"))
+        #expect(calls.withLock { $0.isEmpty }, "no LLVM tools are needed")
+    }
+
+    @Test("With neither JSON nor profiles there is no coverage, and saying so is an error rather than an empty file")
+    func nothingToSave() async throws {
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let paths = try layout(scratch, json: false, profiles: [])
+        await #expect(throws: ShipItError.self) {
+            try await saveSwiftPMCoverage(
+                source: paths.source, target: paths.target, shell: ShellContext(executor: llvmTools { _ in }))
+        }
+        #expect(!FileManager.default.fileExists(atPath: paths.target.path))
+    }
+
+    @Test("Several test products are exported together")
+    func severalProductsExportedTogether() async throws {
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let paths = try layout(scratch, json: false, binaries: ["A.xctest", "B.xctest"])
+        let calls = Mutex([[String]]())
+        try await saveSwiftPMCoverage(
+            source: paths.source, target: paths.target,
+            shell: ShellContext(executor: llvmTools { args in calls.withLock { $0.append(args) } }))
+        let export = try #require(calls.withLock { $0 }.first { $0.contains("export") })
+        #expect(export.contains("-object"), "the second product is passed with -object")
+    }
 }

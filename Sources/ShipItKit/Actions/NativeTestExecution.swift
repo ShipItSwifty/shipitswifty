@@ -268,7 +268,8 @@ struct NativeTestExecution: Sendable {
                     failed: outstanding.filter { $0.status == .failed }.count,
                     skipped: initialCases.filter { $0.status == .skipped }.count, flaky: flaky.count,
                     errored: max(1, errored) + outstanding.filter { $0.status == .errored }.count),
-                testCases: finalTestCases(initialCases, remaining: outstanding, flaky: flaky))
+                testCases: finalTestCases(initialCases, remaining: outstanding, flaky: flaky, attempts: attempts)
+            ).unifyingFlaky()
             try? writeJSON(report, to: root.appendingPathComponent("report.json"))
             if let path = options.reportPath { try? writeJSON(report, to: URL(fileURLWithPath: path)) }
             throw error
@@ -281,7 +282,8 @@ struct NativeTestExecution: Sendable {
             summary: .init(
                 passed: passed + flaky.count, failed: remainingAll.filter { $0.status == .failed }.count,
                 skipped: skipped, flaky: flaky.count, errored: errored + remainingAll.filter { $0.status == .errored }.count),
-            testCases: finalTestCases(initialCases, remaining: remainingAll, flaky: flaky))
+            testCases: finalTestCases(initialCases, remaining: remainingAll, flaky: flaky, attempts: attempts)
+        ).unifyingFlaky()
         saveEvidence("report", logger: context.logger) { try writeJSON(report, to: root.appendingPathComponent("report.json")) }
         // A requested report path is part of the result: surface a write failure only when the tests passed, so it
         // can never hide a test failure.
