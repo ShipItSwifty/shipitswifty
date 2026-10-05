@@ -530,8 +530,8 @@ public struct ResolvedConfig: Sendable {
     ///
     /// Only non-nil values replace the resolved defaults, so a workflow that overrides just
     /// `app.scheme` keeps every other setting from the top-level Shipfile. The receiver is
-    /// never mutated — each workflow derives its own config, so a staging lane cannot leak
-    /// its settings into the production lane.
+    /// never mutated — each workflow derives its own config, so a staging workflow cannot leak
+    /// its settings into the production workflow.
     ///
     /// - Parameters:
     ///   - buildVariant: Gradle build variant override (Android).

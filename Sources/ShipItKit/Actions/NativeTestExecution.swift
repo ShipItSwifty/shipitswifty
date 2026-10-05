@@ -3,7 +3,7 @@ import Foundation
 import SwiftyShell
 
 /// Sequential native test orchestration. The products survive every execution attempt.
-struct NativeTestLane: Sendable {
+struct NativeTestExecution: Sendable {
     let action: TestAction
     let context: ActionContext
 

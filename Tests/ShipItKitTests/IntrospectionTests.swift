@@ -399,7 +399,7 @@ struct IntrospectionTests {
     }
     #endif
 
-    @Test("Package generation and AI readiness select a test lane without app credentials")
+    @Test("Package generation and AI readiness select a test workflow without app credentials")
     func packageLaneGuidance() throws {
         let scratch = try TemporaryDirectory()
         defer { try? scratch.remove() }

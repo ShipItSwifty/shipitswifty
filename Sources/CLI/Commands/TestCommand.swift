@@ -5,11 +5,11 @@ extension TestKind: ExpressibleByArgument {}
 extension GradleTaskScope: ExpressibleByArgument {}
 extension TestDeviceStrategy: ExpressibleByArgument {}
 
-/// Run a named test lane or platform tests.
+/// Run a named test workflow or platform tests.
 struct TestCommand: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "test",
-        abstract: "Run a named test lane or platform unit/UI tests"
+        abstract: "Run a named test workflow or platform unit/UI tests"
     )
 
     @OptionGroup var global: GlobalOptions
@@ -123,10 +123,10 @@ struct TestCommand: AsyncParsableCommand {
             if workflow != nil && directOptions {
                 throw ShipItError.invalidConfiguration(reason: "--workflow cannot be mixed with direct test options")
             }
-            if let lane = workflow ?? (directOptions ? nil : config.testWorkflow) {
+            if let selected = workflow ?? (directOptions ? nil : config.testWorkflow) {
                 var run = RunCommand()
                 run.global = global
-                run.workflow = lane
+                run.workflow = selected
                 try await run.run()
                 return
             }

@@ -266,7 +266,7 @@ func retriesInfrastructureFailureAndRecovers() async throws {
 }
 ```
 
-## Test lanes and portable evidence
+## Test workflows and portable evidence
 
 This repository defines its checks in `Shipfile.yml`. After `swift build`, run
 `"$(swift build --show-bin-path)/shipit" test --workflow ci-macos` (or `ci-linux`).
@@ -274,7 +274,7 @@ The `format`, `fixtures`, and `integration-advisory` workflows preserve the prev
 formatting scopes, platform exclusions, fixture suites, and advisory integration policy.
 CI keeps the initial unit coverage snapshot separate from later integration runs for Codecov.
 
-For a library with an Xcode sample, compose ordinary actions in one named lane:
+For a library with an Xcode sample, compose ordinary actions in one named workflow:
 
 ```yaml
 test_workflow: tests
@@ -316,7 +316,7 @@ workflows:
 Workflows stop on failure by default. Use object syntax with `continue_on_failure: true`
 and `steps:` only when checks are independent; the overall exit status still fails.
 
-Native Xcode lanes build `.xctestproducts` once, then run each plan and destination with
+Native Xcode test workflows build `.xctestproducts` once, then run each plan and destination with
 `test-without-building`. Simulator/device mixtures and locally discoverable plans with
 incompatible target sets require separate steps. Xcode controls parallel workers. A
 classified clone failure switches that destination to serial once and reuses the products;

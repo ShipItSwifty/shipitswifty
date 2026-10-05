@@ -24,7 +24,7 @@ Android uses `versionName` (marketing) and `versionCode` (monotonic integer) —
 | `minor` | `1.2.3` → `1.3.0`, build resets to 1 | reset to 1 |
 | `major` | `1.2.3` → `2.0.0`, build resets to 1 | reset to 1 |
 
-For a beta lane that just needs a unique TestFlight build:
+For a beta workflow that just needs a unique TestFlight build:
 
 ```yaml
 workflows:

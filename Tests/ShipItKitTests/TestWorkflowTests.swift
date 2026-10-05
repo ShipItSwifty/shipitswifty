@@ -6,8 +6,8 @@ import Testing
 
 @testable import ShipItKit
 
-@Suite("Shared test lanes")
-struct TestLaneTests {
+@Suite("Shared test workflows")
+struct TestWorkflowTests {
     @Test("SwiftPM commands retain argument boundaries and strict format options")
     func swiftCommandArguments() {
         let tool = SwiftPMCLI()
@@ -101,12 +101,12 @@ struct TestLaneTests {
                 runJSON: { _, _ in
                     ActionResultEnvelope(action: "later", status: "success", payload: nil)
                 }))
-        let lane = Workflow(
+        let workflow = Workflow(
             "test",
             steps: [
                 .init(action: "broken", artifacts: [.init(name: "logs", paths: [file.path])]), .init(action: "later"),
             ], continueOnFailure: true)
-        let result = try await lane.run(
+        let result = try await workflow.run(
             context: .mock(executor: MockExecutor { _, _ in .init(stdout: "", stderr: "", exitCode: 0) }), registry: registry)
         #expect(!result.succeeded)
         #expect(result.stepResults.map(\.status) == ["failure", "success"])

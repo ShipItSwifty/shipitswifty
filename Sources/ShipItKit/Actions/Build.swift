@@ -32,7 +32,7 @@ import SwiftyShell
 /// ### Results
 /// - ``Result``
 public struct BuildAction: Action {
-    /// The registered name used in Shipfile lanes.
+    /// The registered name used in Shipfile workflows.
     public static let name = "build"
 
     /// Human-readable description for `--help` output.

@@ -133,7 +133,7 @@ A composite returns a single ``ActionResultEnvelope`` whose payload is an array 
 
 | Use a composite when… | Use a workflow when… |
 |---|---|
-| You want to reuse a sub-pipeline across multiple lanes | You want a single user-facing entry point (`shipit run release`) |
+| You want to reuse a sub-pipeline across multiple workflows | You want a single user-facing entry point (`shipit run release`) |
 | You want call-site parameterisation (`{{param.method}}`) | The pipeline is "complete" and not reused |
 | You want recursion (composite calling composite) | You don't need to reuse it |
 

@@ -1,4 +1,4 @@
-# ShipIt's own checks exercise the same lane contracts offered to package users.
+# ShipIt's own checks exercise the same workflow contracts offered to package users.
 test_workflow: ci-macos
 workflows:
   format:

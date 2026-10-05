@@ -20,7 +20,7 @@ struct CoverageActionTests {
         let scratch = try TemporaryDirectory()
         defer { try? scratch.remove() }
         let context = ActionContext.mock(executor: executor, config: ResolvedConfig(projectRoot: scratch.url.path))
-        // Discovery is scoped to this scratch project, independent of real lane artifacts.
+        // Discovery is scoped to this scratch project, independent of real workflow artifacts.
         let options = CoverageAction.Options()
 
         await #expect {

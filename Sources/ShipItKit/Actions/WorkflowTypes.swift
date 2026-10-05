@@ -239,8 +239,8 @@ public struct Workflow: Sendable {
         let startTime = Date()
 
         // Apply workflow-level overrides to the context config. This derives a new config
-        // rather than mutating the shared one, so a staging lane's scheme, configuration, and
-        // export method cannot bleed into the production lane running from the same Shipfile.
+        // rather than mutating the shared one, so a staging workflow's scheme, configuration, and
+        // export method cannot bleed into the production workflow running from the same Shipfile.
         var effectiveContext: ActionContext
         if hasOverrides {
             let overriddenConfig = context.config.overriding(

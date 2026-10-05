@@ -473,7 +473,7 @@ public enum BuiltInSchemaCatalog {
                         "New format: an object with a required `steps` array plus optional overrides and continue_on_failure.",
                         "Android overrides: `build_variant`, `flavor`.",
                         "iOS overrides: `app` (scheme, bundle_id, team_id, workspace, project), `build` (configuration, derived_data_path, xcargs), `archive` (export_method, output_path, include_symbols), `export` (archive_path, output_directory), and `code_signing`.",
-                        "Overrides apply only while that workflow runs, so a staging lane can coexist with production in one Shipfile without changing the top-level production defaults.",
+                        "Overrides apply only while that workflow runs, so a staging workflow can coexist with production in one Shipfile without changing the top-level production defaults.",
                     ]
                 )
             ),
@@ -937,7 +937,7 @@ public enum BuiltInSchemaCatalog {
             .boolean(
                 "enable_code_coverage",
                 description:
-                    "Collect coverage in each native result bundle. Default lanes save unique bundles under build/test-runs or the workflow evidence root.",
+                    "Collect coverage in each native result bundle. By default ShipIt saves unique bundles under build/test-runs or the workflow evidence root.",
                 example: .bool(true)),
             .string(
                 "result_bundle_path",

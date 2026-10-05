@@ -182,7 +182,7 @@ workflows:
 ### Staging alongside production (workflow-level overrides)
 
 A workflow can be written as an object with a `steps` array plus override groups, instead of a
-plain array. Overrides apply only while that workflow runs, so a staging lane can live in the
+plain array. Overrides apply only while that workflow runs, so a staging workflow can live in the
 same Shipfile as production without weakening the top-level production defaults or mutating
 them through environment variables.
 

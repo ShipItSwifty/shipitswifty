@@ -367,7 +367,7 @@ Migrating from `fastlane`? See the dedicated migration guide in [Walkthrough](wa
 
 Build progress remains live on stderr in JSON output mode; stdout contains the JSON result. Full child output remains captured for build and test parsing.
 
-## Shared test lanes
+## Shared test workflows
 
 Named test workflows compose Swift package checks and native sample UI plans. Native iOS builds
 once into `.xctestproducts`, saves one bundle per plan/destination/attempt, and falls back to
@@ -378,4 +378,4 @@ attachments and logs. Coverage adds SwiftPM LLVM JSON, Flutter LCOV and Kover JV
 
 Artifacts belong to any workflow/custom-action step. GitHub Actions export publishes declared
 artifacts and failure evidence with `always()`. Other providers implement the public `CIProvider`
-protocol. See [testing](testing.md#test-lanes-and-portable-evidence) for options and limits.
+protocol. See [testing](testing.md#test-workflows-and-portable-evidence) for options and limits.
