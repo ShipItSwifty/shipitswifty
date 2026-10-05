@@ -41,7 +41,8 @@ public struct ResultInspection: Sendable {
         case .flutter:
             run = try await FlutterMachineOutputParser().parse(machineOutput: String(contentsOfFile: path, encoding: .utf8))
         case .jest:
-            run = try await JestJSONTestParser().parse(jsonFilePath: path)
+            run = try await JestJSONTestParser().parse(
+                jsonFilePath: path, buildSystem: buildSystem, identityRoot: projectRoot(containing: path))
         case .swift:
             run = try SwiftEventParser().parse(path: path)
         case .manifest:
@@ -74,6 +75,17 @@ public struct ResultInspection: Sendable {
         return ParsedTestRun(
             runner: runner ?? run.runner, buildSystem: buildSystem ?? run.buildSystem, source: path, destinations: run.destinations,
             summary: run.summary, suites: run.suites, testCases: run.testCases, diagnostics: run.diagnostics)
+    }
+
+    /// The nearest enclosing JavaScript project (a directory with `package.json`), used so offline Jest identities match
+    /// the ones a live run computes relative to the project root. `nil` outside any project.
+    func projectRoot(containing path: String) -> String? {
+        var directory = URL(fileURLWithPath: path).standardizedFileURL.deletingLastPathComponent()
+        while directory.path != "/" {
+            if FileManager.default.fileExists(atPath: directory.appendingPathComponent("package.json").path) { return directory.path }
+            directory.deleteLastPathComponent()
+        }
+        return nil
     }
 
     /// The nearest enclosing Gradle project (a directory with `settings.gradle[.kts]` or `gradlew`), used so

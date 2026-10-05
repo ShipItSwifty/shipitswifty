@@ -968,7 +968,7 @@ public enum BuiltInSchemaCatalog {
             .object(
                 "rerun_failed_tests",
                 description:
-                    "Selectively rerun failed tests using saved identities (native iOS plan/destination/configuration, Android JVM, Flutter, and SwiftPM). Separate from infrastructure_retry and iOS retry_on_failure.",
+                    "Selectively rerun failed tests using saved identities (native iOS plan/destination/configuration, Android JVM, Flutter, React Native Jest, and SwiftPM). Separate from infrastructure_retry and iOS retry_on_failure.",
                 properties: [
                     .boolean(
                         "enabled",

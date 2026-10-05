@@ -161,7 +161,7 @@ struct NativeTestExecution: Sendable {
                             }
                             return test.copy(
                                 stableID: "plan-\(planIndex + 1):destination-\(destinationIndex + 1):" + test.stableID,
-                                metadata: metadata, destinationID: placed.id)
+                                metadata: metadata, destinationID: placed.id, attempts: .some(test.attempts ?? 1))
                         }
                         let failures = scopedCases.filter { $0.status == .failed || $0.status == .errored }
                         attempts.append(
