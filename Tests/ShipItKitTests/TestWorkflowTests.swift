@@ -197,6 +197,11 @@ struct TestWorkflowTests {
         #expect(recorded.filter { $0.contains("build-for-testing") }.count == 1)
         let tests = recorded.filter { $0.contains("test-without-building") }
         #expect(tests.count == 3)
+        #expect(
+            tests.allSatisfy { arguments in
+                arguments.firstIndex(of: "-collect-test-diagnostics").map { arguments[$0 + 1] } == "never"
+            },
+            "a failing test must not trigger xcodebuild's 600s simulator sysdiagnose: \(tests)")
         #expect(!tests[0].contains("-parallel-testing-enabled"))
         #expect(tests[1].contains("NO"))
         #expect(tests[2].contains("NO"))

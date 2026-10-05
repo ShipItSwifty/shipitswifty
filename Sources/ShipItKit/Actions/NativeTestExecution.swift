@@ -53,13 +53,14 @@ struct NativeTestExecution: Sendable {
         var reportDestinations: [TestDestination] = destinations.flatMap { destination in
             plans.map { TestDestination.xcode(specifier: destination, plan: $0) }
         }
-        let build = try await capture(
+        let (build, buildSeconds) = try await capture(
             base.option(.destination(destinations[0])).option(.testProductsPath(products)).buildForTesting(),
             directory: root.appendingPathComponent("build"))
+        context.logger.info("Built the tests once in \(Self.format(buildSeconds)); every plan and attempt reuses the products")
         if build.exitCode != 0 {
             let failure = TestRunReport(
                 runner: .xcodebuild, buildSystem: context.config.iosBuildSystem, source: root.path,
-                destinations: reportDestinations,
+                destinations: reportDestinations, buildSeconds: buildSeconds,
                 attempts: [.init(attemptNumber: 1, reason: "build", summary: .init(errored: 1), failedTests: [], source: root.path)],
                 summary: .init(errored: 1))
             saveEvidence("build failure report", logger: context.logger) {
@@ -129,6 +130,10 @@ struct NativeTestExecution: Sendable {
                         }
                         var command = context.streamingXcodeBuild().option(.destination(destination)).option(.testProductsPath(products))
                             .option(.resultBundlePath(resultPath)).testWithoutBuilding()
+                        // On a failing test xcodebuild otherwise gathers a simulator sysdiagnose, which can hang for its
+                        // full 600s timeout after the tests finished in under a second. ShipIt keeps its own device log,
+                        // screenshot and result-bundle attachments for every attempt, so the sysdiagnose adds nothing.
+                        command = command.option(.collectTestDiagnostics("never"))
                         if let plan { command = command.option(.testPlan(plan)) }
                         let serial = options.serial == true || serialDestinations.contains(destination)
                         if serial { command = command.option(.parallelTestingEnabled("NO")) }
@@ -137,7 +142,8 @@ struct NativeTestExecution: Sendable {
                         for config in configurations { command = command.option(.onlyTestConfiguration(config)) }
                         if options.retryOnFailure == true { command = command.option(.retryTestsOnFailure) }
                         try await action.resetIOSAppInstallationIfNeeded(scheme: scheme, destination: destination, context: context)
-                        let output = try await capture(command, directory: directory)
+                        let attemptStarted = Date()
+                        let (output, testSeconds) = try await capture(command, directory: directory)
                         let log = output.stdout + output.stderr
                         let run = try await readResults(resultPath)
                         // A UDID-only specifier names the device by an identifier that differs per machine; the result
@@ -164,14 +170,20 @@ struct NativeTestExecution: Sendable {
                                 metadata: metadata, destinationID: placed.id, attempts: .some(test.attempts ?? 1))
                         }
                         let failures = scopedCases.filter { $0.status == .failed || $0.status == .errored }
+                        // Time in the test command itself, and everything around it (reinstalling the app, reading the
+                        // result bundle), so a slow attempt can be told apart from a slow test.
+                        let overheadSeconds = max(0, Date().timeIntervalSince(attemptStarted) - testSeconds)
+                        context.logger.info(
+                            "Attempt \(number) of plan \(plan ?? "default"): tests \(Self.format(testSeconds)), overhead \(Self.format(overheadSeconds))"
+                        )
                         attempts.append(
                             .init(
                                 attemptNumber: number, reason: reason,
                                 metadata: [
                                     "plan": plan ?? "default", "destination": destination, "serial": String(serial),
-                                    "exit_code": String(output.exitCode),
+                                    "exit_code": String(output.exitCode), "overhead_seconds": String(format: "%.1f", overheadSeconds),
                                 ],
-                                summary: run.summary, failedTests: failures, source: resultPath))
+                                summary: run.summary, failedTests: failures, durationSeconds: testSeconds, source: resultPath))
                         resultPaths.append(resultPath)
                         saveEvidence("attempt results", logger: context.logger) {
                             try writeJSON(run, to: directory.appendingPathComponent("results.json"))
@@ -261,6 +273,7 @@ struct NativeTestExecution: Sendable {
             }
             let report = TestRunReport(
                 runner: .xcodebuild, buildSystem: context.config.iosBuildSystem, source: root.path, destinations: reportDestinations,
+                buildSeconds: buildSeconds,
                 attempts: attempts, initialFailedTests: initialFailures,
                 flakyTests: flaky, persistentFailedTests: outstanding,
                 summary: .init(
@@ -278,6 +291,7 @@ struct NativeTestExecution: Sendable {
         leases.forEach { $0.release() }
         let report = TestRunReport(
             runner: .xcodebuild, buildSystem: context.config.iosBuildSystem, source: root.path, destinations: reportDestinations,
+            buildSeconds: buildSeconds,
             attempts: attempts, initialFailedTests: initialFailures, flakyTests: flaky, persistentFailedTests: remainingAll,
             summary: .init(
                 passed: passed + flaky.count, failed: remainingAll.filter { $0.status == .failed }.count,
@@ -375,21 +389,31 @@ struct NativeTestExecution: Sendable {
         }
     }
 
-    private func capture(_ command: XcodeBuild, directory: URL) async throws -> ShellOutput {
+    /// Runs `command`, keeps its logs, and returns its output with how long it ran.
+    private func capture(_ command: XcodeBuild, directory: URL) async throws -> (ShellOutput, TimeInterval) {
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let started = Date()
         let output: ShellOutput
         do { output = try await command.run() } catch let ShellError.exitFailure(_, captured) { output = captured } catch {
             try? saveInterruptedTestOutput(error, directory: directory)
             throw error
         }
+        let seconds = Date().timeIntervalSince(started)
         saveEvidence("attempt logs", logger: context.logger) {
             try output.stdout.write(to: directory.appendingPathComponent("stdout.log"), atomically: true, encoding: .utf8)
             try output.stderr.write(to: directory.appendingPathComponent("stderr.log"), atomically: true, encoding: .utf8)
             try writeJSON(
-                ["arguments": command.command().arguments, "exit_code": [String(output.exitCode)]],
-                to: directory.appendingPathComponent("command.json"))
+                CommandRecord(
+                    arguments: command.command().arguments, exitCode: [String(output.exitCode)], startedAt: started,
+                    durationSeconds: seconds), to: directory.appendingPathComponent("command.json"))
         }
-        return output
+        return (output, seconds)
+    }
+
+    private static func format(_ seconds: TimeInterval) -> String {
+        seconds >= 60
+            ? String(format: "%.0fm %02.0fs", (seconds / 60).rounded(.down), seconds.truncatingRemainder(dividingBy: 60))
+            : String(format: "%.1fs", seconds)
     }
     private func simulatorState(_ udid: String) async throws -> String? {
         let output = try await Simctl(context: context.shell).list(.devices, json: true).run()

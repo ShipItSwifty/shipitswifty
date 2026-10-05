@@ -349,6 +349,9 @@ public struct TestRunReport: Codable, Sendable {
     public let source: String
     /// Where the tests ran; ``ParsedTestCase/destinationID`` refers to these.
     public let destinations: [TestDestination]
+    /// How long the shared build took, for runners that build once and test many times (native iOS). `nil` when the
+    /// build is part of each test command (SwiftPM, Gradle). Attempts carry their own `durationSeconds`.
+    public let buildSeconds: Double?
     public let attempts: [TestAttempt]
     public let initialFailedTests: [ParsedTestCase]
     public let flakyTests: [ParsedTestCase]
@@ -367,6 +370,7 @@ public struct TestRunReport: Codable, Sendable {
         buildSystem: BuildSystem? = nil,
         source: String,
         destinations: [TestDestination] = [],
+        buildSeconds: Double? = nil,
         attempts: [TestAttempt] = [],
         initialFailedTests: [ParsedTestCase] = [],
         flakyTests: [ParsedTestCase] = [],
@@ -380,6 +384,7 @@ public struct TestRunReport: Codable, Sendable {
         self.buildSystem = buildSystem
         self.source = source
         self.destinations = destinations
+        self.buildSeconds = buildSeconds
         self.attempts = attempts
         self.initialFailedTests = initialFailedTests
         self.flakyTests = flakyTests
@@ -399,7 +404,7 @@ extension TestRunReport {
         let recovered = testCases.filter { $0.status == .passed && $0.metadata?["flaky"] == "true" }
         return TestRunReport(
             schemaVersion: schemaVersion, runner: runner, buildSystem: buildSystem, source: source, destinations: destinations,
-            attempts: attempts, initialFailedTests: initialFailedTests, flakyTests: recovered,
+            buildSeconds: buildSeconds, attempts: attempts, initialFailedTests: initialFailedTests, flakyTests: recovered,
             persistentFailedTests: persistentFailedTests,
             summary: .init(
                 passed: summary.passed, failed: summary.failed, skipped: summary.skipped, flaky: recovered.count,

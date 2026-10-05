@@ -117,13 +117,15 @@ public struct JSScriptRunner: Sendable {
     /// - Parameters:
     ///   - script: The script name (e.g. `"test"`, `"lint"`).
     ///   - arguments: Arguments forwarded to the script after `--`.
+    ///   - evidence: Records this run as an attempt (logs, command and Jest JSON) when supplied.
+    ///   - reason: Why this attempt ran (`initial`, `failed_tests`), recorded with the evidence.
+    ///   - failOnNonZeroExit: `false` returns the output of a script that exited non-zero instead of throwing, for
+    ///     callers (a test run) whose non-zero exit is a result to interpret, not a build failure.
     /// - Returns: Shell output from the script run.
     /// - Throws: ``ShipItError/invalidConfiguration(reason:)`` if the script is not
     ///   declared in `package.json`.
     ///   ``ShipItError/buildFailed(exitCode:log:)`` if the script exits non-zero.
     @discardableResult
-    ///   - failOnNonZeroExit: `false` returns the output of a script that exited non-zero instead of throwing, for
-    ///     callers (a test run) whose non-zero exit is a result to interpret, not a build failure.
     public func run(
         script: String, arguments: [String] = [], evidence: TestEvidenceRecorder? = nil, reason: String = "initial",
         failOnNonZeroExit: Bool = true
