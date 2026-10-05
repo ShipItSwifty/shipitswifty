@@ -3,7 +3,7 @@ import Foundation
 /// The top-level structure of a `Shipfile.yml` configuration file.
 ///
 /// A `Shipfile` defines app metadata, build settings, code signing configuration,
-/// distribution targets, and named workflow lanes. It is decoded from YAML using Yams.
+/// distribution targets, and named workflows. It is decoded from YAML using Yams.
 ///
 /// ## Example
 /// ```yaml
@@ -760,7 +760,7 @@ public struct SlackConfig: Codable, Sendable {
 /// ## iOS overrides
 /// The `app`, `build`, `archive`, `export`, and `code_signing` groups accept the same keys as
 /// their top-level Shipfile counterparts and are applied only while this workflow runs. This
-/// lets a staging lane coexist with production in one Shipfile without weakening the
+/// lets a staging workflow coexist with production in one Shipfile without weakening the
 /// production defaults or mutating them through environment variables:
 ///
 /// ```yaml

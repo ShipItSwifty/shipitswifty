@@ -7,7 +7,7 @@ public enum TestInputFormat: String, Codable, Sendable {
     case xcresult, junit, flutter, jest, swift, shipit, manifest
 }
 
-/// Shared reader used by offline inspection and test lanes.
+/// Shared reader used by offline inspection and test workflows.
 ///
 /// ## Usage
 /// ```swift

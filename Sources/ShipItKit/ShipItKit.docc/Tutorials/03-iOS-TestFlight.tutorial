@@ -37,7 +37,7 @@
 
     @Section(title: "Run the workflow") {
         @ContentAndMedia {
-            With ASC credentials in your environment, run the beta lane.
+            With ASC credentials in your environment, run the beta workflow.
         }
 
         @Steps {

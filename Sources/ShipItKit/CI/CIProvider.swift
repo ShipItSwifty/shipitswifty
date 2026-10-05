@@ -15,7 +15,7 @@ public struct CIJobConfiguration: Sendable {
     }
 }
 
-/// Statically registered provider plugins translate lane and artifact contracts to native CI configuration.
+/// Statically registered provider plugins translate workflow and artifact contracts to native CI configuration.
 public protocol CIProvider: Sendable {
     var name: String { get }
     func export(workflow: String, config: WorkflowConfig, job: CIJobConfiguration) throws -> String
@@ -52,7 +52,7 @@ public struct GitHubActionsProvider: CIProvider {
         }
         // Includes automatically discovered outputs, composite outputs, and failure manifests.
         steps.append([
-            "name": "Publish lane evidence", "if": "always()", "uses": "actions/upload-artifact@v7",
+            "name": "Publish workflow evidence", "if": "always()", "uses": "actions/upload-artifact@v7",
             "with": [
                 "name": "\(safe(workflow))-evidence", "path": "build/workflow-artifacts/", "if-no-files-found": "warn",
                 "retention-days": config.steps.flatMap { $0.artifacts ?? [] }.compactMap(\.retentionDays).min() ?? 14,
