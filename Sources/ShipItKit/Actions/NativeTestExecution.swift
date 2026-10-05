@@ -49,13 +49,17 @@ struct NativeTestExecution: Sendable {
         for (key, value) in context.config.xcargs { base = base.buildSetting(key, value) }
         if options.skipMacroValidation == true { base = base.option(.skipMacroValidation) }
         if options.enableCodeCoverage == true { base = base.option(.enableCodeCoverage("YES")) }
+        // Known before anything runs, so a report written by an early failure still says where the tests were headed.
+        var reportDestinations: [TestDestination] = destinations.flatMap { destination in
+            plans.map { TestDestination.xcode(specifier: destination, plan: $0) }
+        }
         let build = try await capture(
             base.option(.destination(destinations[0])).option(.testProductsPath(products)).buildForTesting(),
             directory: root.appendingPathComponent("build"))
         if build.exitCode != 0 {
             let failure = TestRunReport(
                 runner: .xcodebuild, buildSystem: context.config.iosBuildSystem, source: root.path,
-                destinations: destinations.map { TestDestination.xcode(specifier: $0) },
+                destinations: reportDestinations,
                 attempts: [.init(attemptNumber: 1, reason: "build", summary: .init(errored: 1), failedTests: [], source: root.path)],
                 summary: .init(errored: 1))
             saveEvidence("build failure report", logger: context.logger) {
@@ -65,7 +69,6 @@ struct NativeTestExecution: Sendable {
         }
         var serialDestinations = Set<String>()
         var attempts: [TestAttempt] = []
-        var reportDestinations: [TestDestination] = []
         var initialFailures: [ParsedTestCase] = []
         var initialCases: [ParsedTestCase] = []
         var remainingAll: [ParsedTestCase] = []
@@ -99,8 +102,8 @@ struct NativeTestExecution: Sendable {
                 for (planIndex, plan) in plans.enumerated() {
                     let planConfigurations = try planSettings(plan)
                     // One destination per plan on each Xcode destination: the environment plus the plan it ran.
-                    let placed = TestDestination.xcode(specifier: destination, plan: plan)
-                    if !reportDestinations.contains(placed) { reportDestinations.append(placed) }
+                    var placed = TestDestination.xcode(specifier: destination, plan: plan)
+                    var resolvedName: String?
                     var number = 1
                     var infrastructureAttempts = 1
                     var rerunAttempts = 1
@@ -137,6 +140,14 @@ struct NativeTestExecution: Sendable {
                         let output = try await capture(command, directory: directory)
                         let log = output.stdout + output.stderr
                         let run = try await readResults(resultPath)
+                        // A UDID-only specifier names the device by an identifier that differs per machine; the result
+                        // bundle knows its real name, so use that and keep IDs stable across machines.
+                        if resolvedName == nil, run.destinations.count == 1, let name = run.destinations[0].name {
+                            resolvedName = name
+                            let renamed = TestDestination.xcode(specifier: destination, plan: plan, resolvedName: name)
+                            if let index = reportDestinations.firstIndex(of: placed) { reportDestinations[index] = renamed }
+                            placed = renamed
+                        }
                         let scopedCases = run.testCases.map { test in
                             var metadata = test.metadata ?? [:]
                             metadata["plan"] = plan ?? "default"

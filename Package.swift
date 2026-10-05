@@ -149,7 +149,8 @@ let package = Package(
                 .product(name: "GooglePlayKit", package: "google-play-store-mcp"),
                 .product(name: "Logging", package: "swift-log"),
                 .product(name: "TestCommons", package: "SwiftTestCommons"),
-            ]
+            ],
+            exclude: ["Fixtures"]
         ),
         .testTarget(
             name: "CLITests",
