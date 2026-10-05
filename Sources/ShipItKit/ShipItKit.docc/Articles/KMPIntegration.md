@@ -47,6 +47,15 @@ Custom key names are supported via `versioning.marketing_key` and `versioning.bu
 
 For KMP iOS tests, ``TestAction`` dispatches to `gradlew :shared:iosSimulatorArm64Test` rather than `xcodebuild test`. Override it with `ios.kmp_test_task` and `ios.kmp_shared_module` when needed. The Android side reuses the native test path — set `kind: unit` for JVM tests or `kind: instrumented` for on-device tests, with `scope` and `devices` controlling task qualification and device provisioning.
 
+### Reading KMP results
+
+A KMP run is `runner: gradle` with `buildSystem: kmp`, and its tests are spread across destinations taken from the
+Gradle task that wrote them: `iosSimulatorArm64Test` is an iOS simulator, `testDebugUnitTest` is Android on the
+host JVM, `jvmTest` is the JVM. Each test refers to its destination, so the same test running on iOS and on the
+JVM stays two tests and you can see which target failed. Gradle's `--tests` filter cannot select Kotlin/Native
+tests, so a rerun for them is reported as unsupported. To inspect saved XML outside a Shipfile, pass
+`--runner gradle --build-system kmp` to `shipit test-results`. See <doc:TestResults>.
+
 ## Minimal Shipfile
 
 ```yaml

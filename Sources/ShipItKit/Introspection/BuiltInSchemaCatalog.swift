@@ -473,7 +473,7 @@ public enum BuiltInSchemaCatalog {
                         "New format: an object with a required `steps` array plus optional overrides and continue_on_failure.",
                         "Android overrides: `build_variant`, `flavor`.",
                         "iOS overrides: `app` (scheme, bundle_id, team_id, workspace, project), `build` (configuration, derived_data_path, xcargs), `archive` (export_method, output_path, include_symbols), `export` (archive_path, output_directory), and `code_signing`.",
-                        "Overrides apply only while that workflow runs, so a staging lane can coexist with production in one Shipfile without changing the top-level production defaults.",
+                        "Overrides apply only while that workflow runs, so a staging workflow can coexist with production in one Shipfile without changing the top-level production defaults.",
                     ]
                 )
             ),
@@ -937,7 +937,7 @@ public enum BuiltInSchemaCatalog {
             .boolean(
                 "enable_code_coverage",
                 description:
-                    "Collect coverage in each native result bundle. Default lanes save unique bundles under build/test-runs or the workflow evidence root.",
+                    "Collect coverage in each native result bundle. By default ShipIt saves unique bundles under build/test-runs or the workflow evidence root.",
                 example: .bool(true)),
             .string(
                 "result_bundle_path",
@@ -968,7 +968,7 @@ public enum BuiltInSchemaCatalog {
             .object(
                 "rerun_failed_tests",
                 description:
-                    "Selectively rerun failed tests using saved identities (native iOS plan/destination/configuration, Android JVM, Flutter, and SwiftPM). Separate from infrastructure_retry and iOS retry_on_failure.",
+                    "Selectively rerun failed tests using saved identities (native iOS plan/destination/configuration, Android JVM, Flutter, React Native Jest, and SwiftPM). Separate from infrastructure_retry and iOS retry_on_failure.",
                 properties: [
                     .boolean(
                         "enabled",
@@ -1429,7 +1429,16 @@ public enum BuiltInSchemaCatalog {
             .string(
                 "input_format", description: "Result encoding independent of platform",
                 allowedValues: ["xcresult", "junit", "flutter", "jest", "swift", "shipit", "manifest"]),
-            .string("runner", description: "Runner identity, including kmp or swift-test"),
+            .string(
+                "runner",
+                description:
+                    "Tool that produced the results: xcodebuild, gradle, swift-test, flutter-test or jest. Needed for JUnit XML, which Gradle and `swift test` both write; other artifacts say so themselves."
+            ),
+            .string(
+                "build_system",
+                description:
+                    "Project build system for results read outside a Shipfile, since a bare result file does not say.",
+                allowedValues: ["native", "kmp", "flutter", "react_native"]),
             .array(
                 "coverage_inputs", description: "Coverage artifacts retained independently",
                 items: .string("path", description: "Coverage path")),

@@ -13,7 +13,7 @@ struct ReportReconciliationTests {
     private func run(_ cases: [ParsedTestCase]) -> ParsedTestRun {
         func count(_ status: TestCaseStatus) -> Int { cases.filter { $0.status == status }.count }
         return ParsedTestRun(
-            platform: "android", runner: "gradle", source: "gradle",
+            runner: .gradle, buildSystem: .native, source: "gradle",
             summary: .init(passed: count(.passed), failed: count(.failed), skipped: count(.skipped), errored: count(.errored)),
             testCases: cases)
     }
@@ -89,7 +89,7 @@ struct ReportReconciliationTests {
         defer { try? scratch.remove() }
         let recorder = TestEvidenceRecorder(root: scratch.url.appendingPathComponent("evidence"))
         try await record(recorder, run([test("a", .failed)]), reason: "initial")
-        let final = TestRunReport(platform: "android", runner: "gradle", source: "final", summary: .init(passed: 9))
+        let final = TestRunReport(runner: .gradle, source: "final", summary: .init(passed: 9))
         try writeJSON(final, to: recorder.root.appendingPathComponent("report.json"))
         try await recorder.writeProvisionalReport(executionError: true)
         #expect(try report(recorder).source == "final")
@@ -235,5 +235,93 @@ struct ReportReconciliationTests {
         #expect(action.gradleTaskHadNothingToRun(log, task: "testDebugUnitTest"))
         #expect(!action.gradleTaskHadNothingToRun(log, task: ":app:testDebugUnitTest"))
         #expect(!action.gradleTaskHadNothingToRun("> Task :app:testDebugUnitTest FAILED\n", task: ":app:testDebugUnitTest"))
+    }
+}
+
+@Suite("Attempt counts across reruns")
+struct AttemptCountTests {
+    private func failing(_ id: String, attempts: Int? = nil) -> ParsedTestCase {
+        .init(stableID: id, name: id, status: .failed, message: "boom \(id)", attempts: attempts)
+    }
+
+    private func attempt(_ number: Int, failed: [ParsedTestCase]) -> TestAttempt {
+        .init(attemptNumber: number, summary: .init(failed: failed.count), failedTests: failed)
+    }
+
+    @Test("A test recovered by a rerun reports every execution, and a persistent failure counts its failures")
+    func executionsAcrossReruns() {
+        let flaky = failing("flaky")
+        let stubborn = failing("stubborn")
+        let steady = ParsedTestCase(stableID: "steady", name: "steady", status: .passed, attempts: 1)
+        let attempts = [
+            attempt(1, failed: [flaky, stubborn]),  // initial
+            attempt(2, failed: [stubborn]),  // first rerun: flaky passes
+            attempt(3, failed: [stubborn]),  // second rerun
+        ]
+        let cases = finalTestCases([flaky, stubborn, steady], remaining: [stubborn], flaky: [flaky], attempts: attempts)
+        func find(_ id: String) -> ParsedTestCase? { cases.first { $0.stableID == id } }
+        #expect(find("flaky")?.status == .passed)
+        #expect(find("flaky")?.attempts == 2, "failed once, then passed")
+        #expect(find("flaky")?.metadata?["flaky"] == "true")
+        #expect(find("stubborn")?.status == .failed)
+        #expect(find("stubborn")?.attempts == 3, "failed on all three attempts")
+        #expect(find("steady")?.attempts == 1)
+    }
+
+    @Test("Retries a runner made inside the first execution are added to the workflow's reruns")
+    func pluginRetriesAddUp() {
+        // The retry plugin already ran this test 3 times in attempt 1 (failed twice, then... still failed), and the
+        // workflow's rerun then passed it.
+        let test = failing("flaky", attempts: 3)
+        let cases = finalTestCases([test], remaining: [], flaky: [test], attempts: [attempt(1, failed: [test])])
+        #expect(cases.first?.attempts == 4)
+    }
+
+    @Test("A recovered test carries no failure, but remembers why it first failed")
+    func recoveredTestKeepsContextNotFailure() {
+        let test = failing("flaky")
+        let recovered = finalTestCases([test], remaining: [], flaky: [test], attempts: [attempt(1, failed: [test])]).first
+        #expect(recovered?.message == nil)
+        #expect(recovered?.stackTrace == nil)
+        #expect(recovered?.metadata?["first_failure"] == "boom flaky")
+    }
+
+    @Test("Without recorded attempts nothing changes")
+    func noAttemptsNoChange() {
+        let test = failing("t", attempts: 1)
+        #expect(finalTestCases([test], remaining: [test], flaky: []).first?.attempts == 1)
+    }
+    @Test("Retries a runner makes inside every workflow attempt are all counted")
+    func pluginRetriesInEveryAttempt() {
+        // A retry plugin ran the test 3 times in attempt 1 and 3 more times in the rerun, and it never passed.
+        let first = failing("stubborn", attempts: 3)
+        let second = failing("stubborn", attempts: 3)
+        let cases = finalTestCases(
+            [first], remaining: [second], flaky: [], attempts: [attempt(1, failed: [first]), attempt(2, failed: [second])])
+        #expect(cases.first?.attempts == 6)
+    }
+
+    @Test("Flaky tests are counted whoever retried them: the runner inside one run, or the workflow's reruns")
+    func flakyFromEverySource() {
+        func passed(_ id: String, flaky: Bool, attempts: Int) -> ParsedTestCase {
+            .init(
+                stableID: id, name: id, status: .passed, metadata: flaky ? ["flaky": "true"] : nil, attempts: attempts)
+        }
+        let report = TestRunReport(
+            runner: .gradle, source: "s", flakyTests: [failing("by-workflow")],
+            summary: .init(passed: 3, flaky: 1),
+            testCases: [
+                passed("by-runner", flaky: true, attempts: 2), passed("by-workflow", flaky: true, attempts: 2),
+                passed("steady", flaky: false, attempts: 1),
+            ])
+        let unified = report.unifyingFlaky()
+        #expect(unified.summary.flaky == 2)
+        #expect(unified.flakyTests.map(\.stableID) == ["by-runner", "by-workflow"])
+        #expect(unified.flakyTests.allSatisfy { $0.status == .passed }, "the final instances, not the failed first ones")
+        #expect(unified.summary.passed == 3, "nothing else changes")
+        // Without test cases there is nothing to unify.
+        #expect(
+            TestRunReport(runner: .gradle, source: "s", flakyTests: [failing("x")], summary: .init(flaky: 1)).unifyingFlaky().summary.flaky
+                == 1)
     }
 }

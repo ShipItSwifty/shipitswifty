@@ -56,7 +56,7 @@ public struct SwiftTestAction: Action {
             if !FileManager.default.fileExists(atPath: root.appendingPathComponent("report.json").path) {
                 try? writeJSON(
                     TestRunReport(
-                        platform: "swift", runner: "swift-test", source: root.path,
+                        runner: .swiftTest, buildSystem: .native, source: root.path,
                         attempts: [], summary: .init(errored: 1)), to: root.appendingPathComponent("report.json"))
             }
             throw error
@@ -64,6 +64,8 @@ public struct SwiftTestAction: Action {
     }
     private func execute(options: Options, context: ActionContext, root: URL) async throws -> Result {
         let maxAttempts = options.rerunFailedTests?.enabled == true ? max(1, options.rerunFailedTests?.maxAttempts ?? 2) : 1
+        // `swift test` runs on this machine.
+        let destination = TestDestination.host()
         var attempts: [TestAttempt] = []
         var initial: ParsedTestRun?
         var remaining: [ParsedTestCase] = []
@@ -107,12 +109,20 @@ public struct SwiftTestAction: Action {
                 junit: directory.appendingPathComponent("xctest.xml").path)
             for (key, value) in options.environment ?? [:] { command = command.env(key, value) }
             let output: ShellOutput
+            let started = Date()
             do { output = try await command.run() } catch let ShellError.exitFailure(_, captured) { output = captured } catch {
                 try? saveInterruptedTestOutput(error, directory: directory)
                 throw error
             }
-            try output.stdout.write(to: directory.appendingPathComponent("stdout.log"), atomically: true, encoding: .utf8)
-            try output.stderr.write(to: directory.appendingPathComponent("stderr.log"), atomically: true, encoding: .utf8)
+            let duration = Date().timeIntervalSince(started)
+            saveEvidence("attempt logs", logger: context.logger) {
+                try output.stdout.write(to: directory.appendingPathComponent("stdout.log"), atomically: true, encoding: .utf8)
+                try output.stderr.write(to: directory.appendingPathComponent("stderr.log"), atomically: true, encoding: .utf8)
+                try writeJSON(
+                    CommandRecord(
+                        arguments: command.command().arguments, exitCode: [String(output.exitCode)], startedAt: started,
+                        durationSeconds: duration), to: directory.appendingPathComponent("command.json"))
+            }
             lastOutput = output
             if output.exitCode != 0, SwiftPMInfrastructureClassifier().isRetryable(log: output.stdout + output.stderr),
                 let policy = options.infrastructureRetry, infrastructureAttempts < policy.resolvedMaxAttempts
@@ -120,6 +130,7 @@ public struct SwiftTestAction: Action {
                 attempts.append(
                     .init(
                         attemptNumber: number, reason: reason, metadata: ["exit_code": String(output.exitCode)], summary: .init(errored: 1),
+                        durationSeconds: duration,
                         source: directory.path))
                 infrastructureAttempts += 1
                 number += 1
@@ -132,9 +143,10 @@ public struct SwiftTestAction: Action {
                 continue
             }
             selectedRuns += 1
-            let swiftRun = try? SwiftEventParser().parse(path: events.path)
+            let swiftRun = try? SwiftEventParser().parse(path: events.path, destination: destination)
             let legacyRun = try? await AndroidJUnitTestParser().parse(
-                reportDirectory: directory.appendingPathComponent("xctest.xml").path, platform: "swift", runner: "swift-test")
+                reportDirectory: directory.appendingPathComponent("xctest.xml").path, runner: .swiftTest, buildSystem: .native,
+                destination: destination)
             let cases = (swiftRun?.testCases ?? []) + (legacyRun?.testCases ?? [])
             guard !cases.isEmpty else {
                 if initial != nil {
@@ -151,7 +163,8 @@ public struct SwiftTestAction: Action {
                     try writeJSON(attempts, to: root.appendingPathComponent("attempts.json"))
                     try writeJSON(
                         TestRunReport(
-                            platform: "swift", runner: "swift-test", source: root.path, attempts: attempts, summary: .init(errored: 1)),
+                            runner: .swiftTest, buildSystem: .native, source: root.path, destinations: [destination], attempts: attempts,
+                            summary: .init(errored: 1)),
                         to: root.appendingPathComponent("report.json"))
                 }
                 throw ShipItError.testFailed(
@@ -159,7 +172,7 @@ public struct SwiftTestAction: Action {
                     log: "Swift Testing results unavailable or empty. Logs: \(directory.path)\n" + output.stdout + output.stderr)
             }
             let parsed = ParsedTestRun(
-                platform: "swift", runner: "swift-test", source: directory.path,
+                runner: .swiftTest, buildSystem: .native, source: directory.path, destinations: [destination],
                 summary: .init(
                     passed: cases.filter { $0.status == .passed }.count,
                     failed: cases.filter { $0.status == .failed }.count, skipped: cases.filter { $0.status == .skipped }.count,
@@ -172,7 +185,7 @@ public struct SwiftTestAction: Action {
             attempts.append(
                 .init(
                     attemptNumber: number, reason: reason, summary: parsed.summary,
-                    failedTests: failures, source: events.path))
+                    failedTests: failures, durationSeconds: duration, source: events.path))
             if initial == nil {
                 initial = parsed
                 remaining = failures
@@ -181,10 +194,18 @@ public struct SwiftTestAction: Action {
                         package: options.packagePath ?? ".", scratch: options.scratchPath
                     ).run()
                     let source = located.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
-                    if !source.isEmpty, FileManager.default.fileExists(atPath: source) {
+                    if !source.isEmpty {
+                        // SwiftPM writes no coverage JSON when a test fails, so this recomputes it from the raw
+                        // profiles. It must run now, before a rerun adds its own profiles. Coverage is evidence: failing
+                        // to save it is logged and never changes the test outcome.
                         let target = root.appendingPathComponent("coverage.json")
-                        try await saveSwiftPMCoverage(source: source, target: target, shell: context.shell)
-                        coveragePath = target.path
+                        do {
+                            try await saveSwiftPMCoverage(source: source, target: target, shell: context.shell)
+                            coveragePath = target.path
+                        } catch {
+                            if error is CancellationError { throw error }
+                            context.logger.warning("Coverage unavailable: \(error)")
+                        }
                     }
                 }
             } else {
@@ -203,14 +224,15 @@ public struct SwiftTestAction: Action {
         guard let initial else { throw ShipItError.invalidConfiguration(reason: "Swift tests produced no initial results") }
         let executionError = remaining.isEmpty && lastOutput?.exitCode != 0
         let report = TestRunReport(
-            platform: "swift", runner: "swift-test", source: root.path, attempts: attempts,
+            runner: .swiftTest, buildSystem: .native, source: root.path, destinations: [destination], attempts: attempts,
             initialFailedTests: initial.testCases.filter { $0.status == .failed || $0.status == .errored }, flakyTests: flaky,
             persistentFailedTests: remaining,
             summary: .init(
                 passed: initial.summary.passed + flaky.count,
                 failed: remaining.filter { $0.status == .failed }.count, skipped: initial.summary.skipped, flaky: flaky.count,
                 errored: remaining.filter { $0.status == .errored }.count + (executionError ? 1 : 0)),
-            testCases: finalTestCases(initial.testCases, remaining: remaining, flaky: flaky))
+            testCases: finalTestCases(initial.testCases, remaining: remaining, flaky: flaky, attempts: attempts)
+        ).unifyingFlaky()
         saveEvidence("report", logger: context.logger) { try writeJSON(report, to: root.appendingPathComponent("report.json")) }
         if !remaining.isEmpty || executionError {
             throw ShipItError.testFailed(

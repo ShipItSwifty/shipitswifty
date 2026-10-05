@@ -9,16 +9,33 @@ public struct JestJSONTestParser: Sendable {
         self.logger = logger
     }
 
-    public func parse(jsonFilePath: String) async throws -> ParsedTestRun {
+    /// - Parameters:
+    ///   - jsonFilePath: Path to Jest's `--json` results file.
+    ///   - buildSystem: The project's build system when the caller knows it (`.reactNative` for a React Native app).
+    ///   - destination: Where Jest ran. Jest always executes in Node on the host, so that is the default.
+    ///   - identityRoot: Directory test identities are made relative to. Jest reports absolute paths, which differ on
+    ///     every machine, so identities use the path from the project root instead. Defaults to the directory holding
+    ///     the results file, which is where ShipIt writes it (the project root).
+    public func parse(
+        jsonFilePath: String, buildSystem: BuildSystem? = nil,
+        destination: TestDestination = TestDestination(platform: .js, kind: .host), identityRoot: String? = nil
+    ) async throws -> ParsedTestRun {
         let url = URL(fileURLWithPath: jsonFilePath)
         let data = try Data(contentsOf: url)
+        let base = identityRoot.map { URL(fileURLWithPath: $0) } ?? url.deletingLastPathComponent()
+        // Jest reports real paths (`/private/var/…`) where the caller may hold the symlinked spelling (`/var/…`).
+        let prefixes = Set([base.standardizedFileURL.path, base.resolvingSymlinksInPath().path, "/private" + base.standardizedFileURL.path])
+        func relative(_ path: String) -> String {
+            for prefix in prefixes where path.hasPrefix(prefix + "/") { return String(path.dropFirst(prefix.count + 1)) }
+            return path
+        }
         let root = try JSONDecoder().decode(JestJSONRoot.self, from: data)
 
         var suites: [ParsedTestSuite] = []
         var testCases: [ParsedTestCase] = []
 
         for suite in root.testResults {
-            let suiteName = suite.name
+            let suiteName = relative(suite.name)
             let suiteID = "jest-suite:\(suiteName)"
             let cases = suite.assertionResults.map { assertion -> ParsedTestCase in
                 let stableID = "jest-case:\(suiteName)::\(assertion.fullName)"
@@ -29,9 +46,11 @@ public struct JestJSONTestParser: Sendable {
                     status: status(from: assertion.status),
                     durationSeconds: nil,
                     message: assertion.failureMessages.joined(separator: "\n").nilIfEmpty,
-                    file: suite.name,
+                    file: suiteName,
                     line: nil,
-                    rerunSelector: .jest(file: suite.name, fullName: assertion.fullName)
+                    rerunSelector: .jest(file: suiteName, fullName: assertion.fullName),
+                    attempts: 1,
+                    destinationID: destination.id
                 )
             }
 
@@ -39,7 +58,7 @@ public struct JestJSONTestParser: Sendable {
                 ParsedTestSuite(
                     name: suiteName,
                     stableID: suiteID,
-                    file: suite.name,
+                    file: suiteName,
                     testCaseIDs: cases.map(\.stableID)
                 )
             )
@@ -49,9 +68,10 @@ public struct JestJSONTestParser: Sendable {
         logger.info("Parsed Jest JSON test results from \(jsonFilePath)")
 
         return ParsedTestRun(
-            platform: "react_native",
-            runner: "jest",
+            runner: .jest,
+            buildSystem: buildSystem,
             source: jsonFilePath,
+            destinations: [destination],
             summary: TestSummary(
                 passed: root.numPassedTests,
                 failed: root.numFailedTests,
@@ -59,7 +79,7 @@ public struct JestJSONTestParser: Sendable {
                 errored: root.numRuntimeErrorTestSuites
             ),
             suites: suites,
-            testCases: testCases,
+            testCases: testCases.map { $0.copy(destinationID: destination.id) },
             diagnostics: []
         )
     }

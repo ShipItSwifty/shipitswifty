@@ -5,7 +5,11 @@ import Logging
 public struct FlutterMachineOutputParser: Sendable {
     private let logger: Logger
     public init(logger: Logger = Logger.forType(subsystem: "ShipItSwifty", FlutterMachineOutputParser.self)) { self.logger = logger }
-    public func parse(machineOutput: String) async throws -> ParsedTestRun {
+    /// - Parameters:
+    ///   - machineOutput: The saved `flutter test --machine` output, one JSON event per line.
+    ///   - destination: Where the tests ran, when the caller knows. Saved machine events do not say, so
+    ///     offline inspection leaves it unset rather than guessing.
+    public func parse(machineOutput: String, destination: TestDestination? = nil) async throws -> ParsedTestRun {
         struct Pending {
             var name: String
             var file: String?
@@ -66,10 +70,11 @@ public struct FlutterMachineOutputParser: Sendable {
             ParsedTestCase(
                 stableID: "flutter-case:\(test.file ?? "unknown"):\(test.name)", name: test.name,
                 status: test.status, durationSeconds: test.duration, message: test.message, file: test.file,
-                rerunSelector: .flutter(name: test.name))
+                rerunSelector: .flutter(name: test.name), attempts: 1, destinationID: destination?.id)
         }.sorted { $0.stableID < $1.stableID }
         return ParsedTestRun(
-            platform: "flutter", runner: "flutter-test", source: "machine-output",
+            runner: .flutterTest, buildSystem: .flutter, source: "machine-output",
+            destinations: destination.map { [$0] } ?? [],
             summary: TestSummary(
                 passed: cases.filter { $0.status == .passed }.count, failed: cases.filter { $0.status == .failed }.count,
                 skipped: cases.filter { $0.status == .skipped }.count, errored: cases.filter { $0.status == .errored }.count),

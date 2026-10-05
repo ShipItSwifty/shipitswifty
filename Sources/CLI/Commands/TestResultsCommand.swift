@@ -15,8 +15,17 @@ struct TestResultsCommand: AsyncParsableCommand {
     var inputs: [String] = []
     @Option(name: .long, help: "Input format: xcresult | junit | swift | flutter | jest | shipit | manifest")
     var inputFormat: String?
-    @Option(name: .long, help: "Runner identity, e.g. kmp, gradle, flutter-test, swift-test")
+    @Option(
+        name: .long,
+        help:
+            "Tool that produced the results: xcodebuild | gradle | swift-test | flutter-test | jest. Needed for JUnit XML, which Gradle and `swift test` both write."
+    )
     var runner: String?
+    @Option(
+        name: .long,
+        help: "Project build system, since a bare result file does not say: native | kmp | flutter | react_native"
+    )
+    var buildSystem: String?
     @Option(name: .customLong("coverage-input"), help: "Coverage artifact (repeatable)")
     var coverageInputs: [String] = []
     @Option(name: .long, help: "Coverage format: lcov | swift | jacoco | kover")
@@ -45,6 +54,9 @@ struct TestResultsCommand: AsyncParsableCommand {
     var reportPath: String?
 
     mutating func validate() throws {
+        if let buildSystem, BuildSystem(rawValue: buildSystem) == nil {
+            throw ValidationError("Unknown build system: \(buildSystem). Use native, kmp, flutter or react_native.")
+        }
         if let inputFormat, TestInputFormat(rawValue: inputFormat) == nil { throw ValidationError("Unknown input format: \(inputFormat)") }
         if let coverageFormat, CoverageInputFormat(rawValue: coverageFormat) == nil {
             throw ValidationError("Unknown coverage format: \(coverageFormat)")
@@ -84,7 +96,9 @@ struct TestResultsCommand: AsyncParsableCommand {
 
             let resolvedFormat = resolvedFormat()
             let options = TestResultsAction.Options(
-                inputs: inputs.isEmpty ? nil : inputs, inputFormat: inputFormat.flatMap(TestInputFormat.init(rawValue:)), runner: runner,
+                inputs: inputs.isEmpty ? nil : inputs, inputFormat: inputFormat.flatMap(TestInputFormat.init(rawValue:)),
+                runner: runner.map(TestRunner.init(rawValue:)),
+                buildSystem: buildSystem.flatMap(BuildSystem.init(rawValue:)),
                 coverageInputs: coverageInputs, coverageFormat: coverageFormat.flatMap(CoverageInputFormat.init(rawValue:)),
                 evidencePaths: evidencePaths, exportDirectory: exportDirectory,
                 format: resolvedFormat,

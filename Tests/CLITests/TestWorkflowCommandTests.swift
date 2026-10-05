@@ -3,8 +3,8 @@ import Testing
 
 @testable import ShipItCLI
 
-@Suite("Test lane commands")
-struct TestLaneCommandTests {
+@Suite("Test workflow commands")
+struct TestWorkflowCommandTests {
     @Test("Swift package command accepts evidence, environment and retry options")
     func swiftCommand() throws {
         let command =

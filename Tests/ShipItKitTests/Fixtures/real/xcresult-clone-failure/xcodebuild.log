@@ -1,0 +1,19 @@
+Command line invocation:
+    /Applications/Xcode2.app/Contents/Developer/usr/bin/xcodebuild -destination "platform=iOS Simulator,id=91D4F57C-42BF-4630-8799-32B377B67A02" -testProductsPath /tmp/scratch -resultBundlePath /tmp/scratch test-without-building
+
+Writing result bundle at path:
+	/tmp/scratch
+
+
+Test session results, code coverage, and logs:
+	/tmp/claude-501/-Users-dev-Developer-manman-ShipItSwifty/c3609392-ae86-4f23-bfed-f166ad052de3/scratchpad/ios-probe/build/test-runs/xcode-796A2265-8C6F-44FD-9B03-9BBA0E688FC3/plan-1/destination-1/attempt-1/results.xcresult
+
+Testing started
+2026-10-04 22:23:35.571 xcodebuild[70444:100553677] [MT] IDETestOperationsObserverDebug: 3.430 elapsed -- Testing started completed.
+2026-10-04 22:23:35.571 xcodebuild[70444:100553677] [MT] IDETestOperationsObserverDebug: 0.000 sec, +0.000 sec -- start
+2026-10-04 22:23:35.571 xcodebuild[70444:100553677] [MT] IDETestOperationsObserverDebug: 3.430 sec, +3.430 sec -- end
+Testing failed:
+	Test target ios-sampleTests encountered an error (Failed to clone device named 'iPhone 17'. (Underlying Error: The operation couldn’t be completed. Internal error: device remained in Creating state after fixup completed even though it is available.  Check CoreSimulator.log and please file a Radar.))
+
+** TEST EXECUTE FAILED **
+

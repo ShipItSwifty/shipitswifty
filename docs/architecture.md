@@ -730,5 +730,5 @@ creates portable manifests with relative evidence links and optional extraction 
 `ArtifactDeclaration` belongs to `WorkflowStep`, including custom steps. Workflow execution
 stages outputs after success/failure and records manifests before propagating errors. Independent
 checks can opt into continuation while preserving a failed final status. `CIProvider` translates
-these lane contracts into provider jobs; `GitHubActionsProvider` is built in, while consumers may
+these workflow contracts into provider jobs; `GitHubActionsProvider` is built in, while consumers may
 statically register additional providers with `CIProviderRegistry`.

@@ -20,7 +20,7 @@ struct CoverageActionTests {
         let scratch = try TemporaryDirectory()
         defer { try? scratch.remove() }
         let context = ActionContext.mock(executor: executor, config: ResolvedConfig(projectRoot: scratch.url.path))
-        // Discovery is scoped to this scratch project, independent of real lane artifacts.
+        // Discovery is scoped to this scratch project, independent of real workflow artifacts.
         let options = CoverageAction.Options()
 
         await #expect {
@@ -85,7 +85,8 @@ struct CoverageActionTests {
 
         let result = try await CoverageAction().run(with: options, context: context)
 
-        #expect(result.platform == "ios")
+        #expect(result.platform == .ios)
+        #expect(result.runner == .xcodebuild)
         #expect(result.source == "/tmp/fake.xcresult")
         #expect(result.firstPartyOnly == true)
 
@@ -626,7 +627,8 @@ struct AndroidCoverageParserTests {
         let options = CoverageAction.Options(firstPartyOnly: false, reportPath: tempURL.path)
         let result = try await CoverageAction().run(with: options, context: context)
 
-        #expect(result.platform == "android")
+        #expect(result.platform == .android)
+        #expect(result.runner == .gradle)
         // featureA: 60/100, featureB: 80/100 → total: 140/200 = 70%
         #expect(result.coveredLines == 140)
         #expect(result.executableLines == 200)

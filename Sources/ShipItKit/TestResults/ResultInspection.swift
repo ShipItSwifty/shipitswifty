@@ -7,7 +7,7 @@ public enum TestInputFormat: String, Codable, Sendable {
     case xcresult, junit, flutter, jest, swift, shipit, manifest
 }
 
-/// Shared reader used by offline inspection and test lanes.
+/// Shared reader used by offline inspection and test workflows.
 ///
 /// ## Usage
 /// ```swift
@@ -17,7 +17,16 @@ public struct ResultInspection: Sendable {
     public let shell: ShellContext
     public init(shell: ShellContext) { self.shell = shell }
 
-    public func read(_ path: String, format: TestInputFormat? = nil, runner: String? = nil) async throws -> ParsedTestRun {
+    /// - Parameters:
+    ///   - path: The result artifact: an `.xcresult` bundle, JUnit XML file or directory, or a saved event or JSON file.
+    ///   - format: The artifact's format; detected from `path` when `nil`.
+    ///   - runner: Overrides the runner when the artifact alone cannot say (JUnit XML comes from Gradle and from
+    ///     `swift test` alike).
+    ///   - buildSystem: The project's build system, for runs read outside a Shipfile (`.kmp` for Kotlin
+    ///     Multiplatform), since a bare result file does not say.
+    public func read(
+        _ path: String, format: TestInputFormat? = nil, runner: TestRunner? = nil, buildSystem: BuildSystem? = nil
+    ) async throws -> ParsedTestRun {
         let kind = try format ?? detect(path)
         let run: ParsedTestRun
         switch kind {
@@ -29,13 +38,13 @@ public struct ResultInspection: Sendable {
             #endif
         case .junit:
             run = try await AndroidJUnitTestParser().parse(
-                reportDirectory: path,
-                platform: runner == "kmp" ? "kmp" : runner == "swift-test" ? "swift" : "android", runner: runner ?? "gradle",
+                reportDirectory: path, runner: runner ?? .gradle, buildSystem: buildSystem,
                 identityRoot: gradleProjectRoot(containing: path))
         case .flutter:
             run = try await FlutterMachineOutputParser().parse(machineOutput: String(contentsOfFile: path, encoding: .utf8))
         case .jest:
-            run = try await JestJSONTestParser().parse(jsonFilePath: path)
+            run = try await JestJSONTestParser().parse(
+                jsonFilePath: path, buildSystem: buildSystem, identityRoot: projectRoot(containing: path))
         case .swift:
             run = try SwiftEventParser().parse(path: path)
         case .manifest:
@@ -46,15 +55,7 @@ public struct ResultInspection: Sendable {
             let data = try Data(contentsOf: root.appendingPathComponent("results.json"))
             let runs = try JSONDecoder().decode(ExportedResults.self, from: data).runs
             guard !runs.isEmpty else { throw ShipItError.invalidConfiguration(reason: "Export contains no normalized results") }
-            return ParsedTestRun(
-                platform: runs.count == 1 ? runs[0].platform : "mixed", runner: runs.count == 1 ? runs[0].runner : "multiple", source: path,
-                summary: .init(
-                    passed: runs.reduce(0) { $0 + $1.summary.passed }, failed: runs.reduce(0) { $0 + $1.summary.failed },
-                    skipped: runs.reduce(0) { $0 + $1.summary.skipped }, flaky: runs.reduce(0) { $0 + $1.summary.flaky },
-                    errored: runs.reduce(0) { $0 + $1.summary.errored }),
-                testCases: runs.enumerated().flatMap { index, run in
-                    run.testCases.map { $0.copy(stableID: "input-\(index + 1):" + $0.stableID) }
-                }, diagnostics: runs.flatMap(\.diagnostics))
+            return ParsedTestRun.merging(runs, source: path)
         case .shipit:
             var file = URL(fileURLWithPath: path)
             if (try? file.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true {
@@ -65,8 +66,8 @@ public struct ResultInspection: Sendable {
             if let run = try? JSONDecoder().decode(ParsedTestRun.self, from: Data(contentsOf: file)) { return run }
             let report = try JSONDecoder().decode(TestRunReport.self, from: Data(contentsOf: file))
             return ParsedTestRun(
-                platform: report.platform, runner: report.runner, source: path, summary: report.summary,
-                testCases: report.testCases ?? (report.persistentFailedTests + report.flakyTests))
+                runner: report.runner, buildSystem: report.buildSystem, source: path, destinations: report.destinations,
+                summary: report.summary, testCases: report.testCases ?? (report.persistentFailedTests + report.flakyTests))
         }
         // Parsed artifacts must report at least one outcome. An empty or unreadable run is an error here, not a
         // successful zero-test run.
@@ -75,8 +76,19 @@ public struct ResultInspection: Sendable {
                 reason: "No test results found in '\(path)'" + (run.diagnostics.first.map { ": \($0.message)" } ?? "."))
         }
         return ParsedTestRun(
-            platform: run.platform, runner: runner ?? run.runner, source: path, summary: run.summary,
-            suites: run.suites, testCases: run.testCases, diagnostics: run.diagnostics)
+            runner: runner ?? run.runner, buildSystem: buildSystem ?? run.buildSystem, source: path, destinations: run.destinations,
+            summary: run.summary, suites: run.suites, testCases: run.testCases, diagnostics: run.diagnostics)
+    }
+
+    /// The nearest enclosing JavaScript project (a directory with `package.json`), used so offline Jest identities match
+    /// the ones a live run computes relative to the project root. `nil` outside any project.
+    func projectRoot(containing path: String) -> String? {
+        var directory = URL(fileURLWithPath: path).standardizedFileURL.deletingLastPathComponent()
+        while directory.path != "/" {
+            if FileManager.default.fileExists(atPath: directory.appendingPathComponent("package.json").path) { return directory.path }
+            directory.deleteLastPathComponent()
+        }
+        return nil
     }
 
     /// The nearest enclosing Gradle project (a directory with `settings.gradle[.kts]` or `gradlew`), used so
@@ -150,7 +162,7 @@ public struct PortableCoverageReader: Sendable {
             guard targets.reduce(0, { $0 + $1.executableLines }) > 0 else {
                 throw ShipItError.invalidConfiguration(reason: "No executable coverage lines found in \(path)")
             }
-            return result(path: path, platform: "jvm", targets: targets)
+            return result(path: path, platform: .jvm, runner: .gradle, targets: targets)
         }
         var lines: [String: [Int: Int]] = [:]
         if format == .lcov {
@@ -241,13 +253,15 @@ public struct PortableCoverageReader: Sendable {
         let target = CoverageTarget(
             name: format == .swift ? "package" : "flutter", lineCoverage: Double(covered) * 100 / Double(executable), coveredLines: covered,
             executableLines: executable, files: files)
-        return result(path: path, platform: format == .swift ? "swift" : "flutter", targets: [target])
+        // Neither a SwiftPM LLVM file nor LCOV records where the tests ran, so the platform is unknown.
+        return result(path: path, platform: .unknown, runner: format == .swift ? .swiftTest : .flutterTest, targets: [target])
     }
-    private func result(path: String, platform: String, targets: [CoverageTarget]) -> CoverageAction.Result {
+    private func result(path: String, platform: TestPlatform, runner: TestRunner, targets: [CoverageTarget]) -> CoverageAction.Result {
         let covered = targets.reduce(0) { $0 + $1.coveredLines }
         let total = targets.reduce(0) { $0 + $1.executableLines }
         return .init(
-            platform: platform, source: path, overallLineCoverage: total == 0 ? 0 : Double(covered) * 100 / Double(total), targets: targets,
+            platform: platform, runner: runner, source: path, overallLineCoverage: total == 0 ? 0 : Double(covered) * 100 / Double(total),
+            targets: targets,
             coveredLines: covered, executableLines: total, firstPartyOnly: false)
     }
 }

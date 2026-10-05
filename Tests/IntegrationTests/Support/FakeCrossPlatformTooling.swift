@@ -105,7 +105,26 @@ private let fakeFlutterScript = """
     }
 
     if [ "${1:-}" = "test" ]; then
-      printf '00:01 +3: All tests passed!\n'
+      case " $* " in
+        *" --machine "*)
+          # What real `flutter test --machine` writes: text before the events, JSON arrays (VM-service events),
+          # a hidden `loading <file>` test, then one testStart/testDone pair per test.
+          printf 'Resolving dependencies...\n'
+          printf '%s\n' '[{"event":"service.extension","params":{"isolateId":"x"}}]'
+          printf '%s\n' '{"protocolVersion":"0.1.1","runnerVersion":null,"pid":1,"type":"start","time":0}'
+          printf '%s\n' '{"suite":{"id":0,"platform":"vm","path":"/project/test/widget_test.dart"},"type":"suite","time":0}'
+          printf '%s\n' '{"test":{"id":1,"name":"loading /project/test/widget_test.dart","suiteID":0,"groupIDs":[],"metadata":{"skip":false,"skipReason":null}},"type":"testStart","time":1}'
+          printf '%s\n' '{"testID":1,"result":"success","skipped":false,"hidden":true,"type":"testDone","time":90}'
+          for n in 2 3 4; do
+            printf '%s\n' '{"test":{"id":'"$n"',"name":"Counter test '"$n"'","suiteID":0,"groupIDs":[],"metadata":{"skip":false,"skipReason":null}},"type":"testStart","time":100}'
+            printf '%s\n' '{"testID":'"$n"',"result":"success","skipped":false,"hidden":false,"type":"testDone","time":120}'
+          done
+          printf '%s\n' '{"success":true,"type":"done","time":200}'
+          ;;
+        *)
+          printf '00:01 +3: All tests passed!\n'
+          ;;
+      esac
       exit 0
     fi
 
@@ -465,6 +484,23 @@ private let fakeKMPGradlewScript = """
       trap - EXIT
     }
 
+    # Writes the JUnit XML a real Gradle test task leaves behind. Real Gradle prints no per-run counts on
+    # success; the XML is the result.
+    write_junit() {
+      dir="$1"; class="$2"; count="$3"
+      mkdir -p "$dir"
+      {
+        printf '<?xml version="1.0" encoding="UTF-8"?>\n'
+        printf '<testsuite name="%s" tests="%s" skipped="0" failures="0" errors="0" time="0.1">\n' "$class" "$count"
+        i=1
+        while [ "$i" -le "$count" ]; do
+          printf '  <testcase name="test%s" classname="%s" time="0.01"/>\n' "$i" "$class"
+          i=$((i+1))
+        done
+        printf '</testsuite>\n'
+      } > "$dir/TEST-$class.xml"
+    }
+
     write_aab() {
       path="$1"
       tmpdir=$(mktemp -d)
@@ -510,11 +546,13 @@ private let fakeKMPGradlewScript = """
           exit 0
           ;;
         *iosSimulatorArm64Test)
-          printf '4 tests completed, 0 failed, 0 skipped\n'
+          write_junit "shared/build/test-results/iosSimulatorArm64Test" "shared.GreeterTest" 4
+          printf 'BUILD SUCCESSFUL\n'
           exit 0
           ;;
         *testDebugUnitTest|*testReleaseUnitTest)
-          printf '6 tests completed, 0 failed, 0 skipped\n'
+          write_junit "androidApp/build/test-results/${arg##*:}" "androidApp.MainTest" 6
+          printf 'BUILD SUCCESSFUL\n'
           exit 0
           ;;
       esac

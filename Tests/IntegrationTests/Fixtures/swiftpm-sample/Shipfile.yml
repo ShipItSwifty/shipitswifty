@@ -1,0 +1,8 @@
+# Package tests through ShipIt's own workflow, exactly as a library author would configure them.
+test_workflow: tests
+workflows:
+  tests:
+    - action: swift-test
+      options:
+        enable_code_coverage: true
+        rerun_failed_tests: { enabled: true, max_attempts: 2 }

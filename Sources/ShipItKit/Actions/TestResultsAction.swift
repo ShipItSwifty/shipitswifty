@@ -29,7 +29,8 @@ public struct TestResultsAction: Action {
     public struct Options: Codable, Sendable {
         public var inputs: [String]?
         public var inputFormat: TestInputFormat?
-        public var runner: String?
+        public var runner: TestRunner?
+        public var buildSystem: BuildSystem?
         public var coverageInputs: [String]?
         public var coverageFormat: CoverageInputFormat?
         public var evidencePaths: [String]?
@@ -45,7 +46,8 @@ public struct TestResultsAction: Action {
         public init(
             inputs: [String]? = nil,
             inputFormat: TestInputFormat? = nil,
-            runner: String? = nil,
+            runner: TestRunner? = nil,
+            buildSystem: BuildSystem? = nil,
             coverageInputs: [String]? = nil,
             coverageFormat: CoverageInputFormat? = nil,
             evidencePaths: [String]? = nil,
@@ -61,6 +63,7 @@ public struct TestResultsAction: Action {
             self.inputs = inputs
             self.inputFormat = inputFormat
             self.runner = runner
+            self.buildSystem = buildSystem
             self.coverageInputs = coverageInputs
             self.coverageFormat = coverageFormat
             self.evidencePaths = evidencePaths
@@ -118,22 +121,11 @@ public struct TestResultsAction: Action {
         }
         var runs: [ParsedTestRun] = []
         for path in paths {
-            runs.append(try await ResultInspection(shell: context.shell).read(path, format: options.inputFormat, runner: options.runner))
+            runs.append(
+                try await ResultInspection(shell: context.shell).read(
+                    path, format: options.inputFormat, runner: options.runner, buildSystem: options.buildSystem))
         }
-        let parsedRun: ParsedTestRun
-        if runs.count == 1 {
-            parsedRun = runs[0]
-        } else {
-            let cases = runs.enumerated().flatMap { index, run in
-                run.testCases.map { $0.copy(stableID: "input-\(index + 1):" + $0.stableID) }
-            }
-            parsedRun = ParsedTestRun(
-                platform: "multiple", runner: options.runner ?? "multiple", source: paths.joined(separator: ", "),
-                summary: TestSummary(
-                    passed: runs.reduce(0) { $0 + $1.summary.passed }, failed: runs.reduce(0) { $0 + $1.summary.failed },
-                    skipped: runs.reduce(0) { $0 + $1.summary.skipped }, errored: runs.reduce(0) { $0 + $1.summary.errored }),
-                testCases: cases, diagnostics: runs.flatMap(\.diagnostics))
-        }
+        let parsedRun = ParsedTestRun.merging(runs, source: paths.joined(separator: ", "))
         var coverage: [CoverageAction.Result] = []
         for path in options.coverageInputs ?? [] {
             guard let format = options.coverageFormat else {
@@ -153,9 +145,10 @@ public struct TestResultsAction: Action {
         let filteredRun = filter(parsedRun: parsedRun, options: options)
         let failedTests = filteredRun.testCases.filter { $0.status == .failed || $0.status == .errored }
         let report = TestRunReport(
-            platform: filteredRun.platform,
             runner: filteredRun.runner,
+            buildSystem: filteredRun.buildSystem,
             source: filteredRun.source,
+            destinations: filteredRun.destinations,
             attempts: [
                 TestAttempt(
                     attemptNumber: 1,
@@ -195,9 +188,10 @@ public struct TestResultsAction: Action {
         let filteredSuites = parsedRun.suites.filter { !filteredCaseIDs.isDisjoint(with: $0.testCaseIDs) }
 
         return ParsedTestRun(
-            platform: parsedRun.platform,
             runner: parsedRun.runner,
+            buildSystem: parsedRun.buildSystem,
             source: parsedRun.source,
+            destinations: parsedRun.destinations,
             summary: parsedRun.summary,
             suites: filteredSuites,
             testCases: filteredCases,

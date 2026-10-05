@@ -20,7 +20,9 @@ shipit schema --action build --output json
 |---|:-:|:-:|:-:|---|
 | ``BuildAction`` | ✅ | ✅ | ✅ | `xcodebuild build` / `gradlew :<module>:assemble<Variant>`; KMP iOS links the shared framework via Gradle first |
 | ``TestAction`` | ✅ | ✅ | ✅ | Multi-destination on iOS; unit/instrumented/e2e on Android with device strategy support; KMP iOS dispatches to `gradlew :shared:iosSimulatorArm64Test`. Cross-platform infrastructure retry available via `infrastructure_retry` config — see <doc:ConfigurationReference> |
-| ``TestResultsAction`` | ✅ | ✅ | ⚠️ | Parses `.xcresult` or Gradle JUnit XML into `ParsedTestRun` / `TestRunReport` for CI inspection and selective rerun planning. |
+| ``SwiftTestAction`` | — | — | — | SwiftPM tests (Swift Testing and XCTest) with selective reruns that reuse built products, per-attempt evidence and coverage. Platform-independent; see <doc:TestWorkflows> |
+| ``SwiftFormatAction`` | — | — | — | Strict, non-mutating `swift format lint` |
+| ``TestResultsAction`` | ✅ | ✅ | ✅ | Reads xcresult, JUnit XML, Swift Testing events, Flutter events and Jest JSON into `ParsedTestRun` / `TestRunReport` without running tests, and can export portable evidence. See <doc:TestResults>. |
 | ``ArchiveAction`` | ✅ | ✅ | ✅ | KMP iOS links the device framework target before `xcodebuild archive`; Android uses `gradlew :<module>:bundle<Variant>` |
 | ``CoverageAction`` | ✅ | ✅ | ⚠️ | Reads `.xcresult` / JaCoCo XML. KMP support inherits per-target behaviour — see <doc:Coverage> |
 | ``LintAction`` | ✅ | ✅ | ✅ | `xcodebuild analyze` / `gradlew lint` |
