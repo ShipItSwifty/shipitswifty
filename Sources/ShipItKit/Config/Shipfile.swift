@@ -925,6 +925,7 @@ public struct WorkflowStepConfig: Codable, Sendable {
     ///   - action: The registered action name to execute.
     ///   - options: Optional JSON options passed to the action.
     ///   - when: Optional truthy-token condition; when falsy the step is skipped.
+    ///   - artifacts: Evidence to collect after the step, even when it fails.
     public init(action: String, options: JSONValue? = nil, when: String? = nil, artifacts: [ArtifactDeclaration]? = nil) {
         self.artifacts = artifacts
         self.action = action

@@ -18,6 +18,8 @@ public struct ResultInspection: Sendable {
     public init(shell: ShellContext) { self.shell = shell }
 
     /// - Parameters:
+    ///   - path: The result artifact: an `.xcresult` bundle, JUnit XML file or directory, or a saved event or JSON file.
+    ///   - format: The artifact's format; detected from `path` when `nil`.
     ///   - runner: Overrides the runner when the artifact alone cannot say (JUnit XML comes from Gradle and from
     ///     `swift test` alike).
     ///   - buildSystem: The project's build system, for runs read outside a Shipfile (`.kmp` for Kotlin

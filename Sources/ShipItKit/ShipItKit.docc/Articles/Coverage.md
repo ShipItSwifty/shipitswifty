@@ -100,6 +100,25 @@ if (( $(echo "$ACTUAL < $THRESHOLD" | bc -l) )); then
 fi
 ```
 
+## Saved reports and portable formats
+
+`shipit coverage --input-format <format> --report <path>` reads a saved report without a Shipfile:
+
+| Format | Source | Reported `runner` |
+|---|---|---|
+| `swift` | SwiftPM LLVM JSON | `swift-test` |
+| `lcov` | Flutter LCOV | `flutter-test` |
+| `jacoco`, `kover` | JaCoCo-compatible XML (including Kover) | `gradle` |
+
+Results carry a typed `platform` (``TestPlatform``) and the `runner` whose format they are. A SwiftPM or LCOV
+file does not say where the tests ran, so its platform is `unknown`. `--source-root` restricts what counts,
+`--exclude-previews` drops SwiftUI preview regions, and `--minimum-coverage` fails below a percentage. Zero
+executable lines fail a gate rather than passing it. Reports from different runs are never summed.
+
+SwiftPM writes no coverage file when a test fails. ``SwiftTestAction`` recomputes it from the raw profiles right
+after the first attempt, so a flaky first attempt still yields full-suite coverage, not the rerun's subset.
+Kotlin/Native and JavaScript coverage are unavailable through these formats.
+
 ## See also
 
 - ``CoverageAction``

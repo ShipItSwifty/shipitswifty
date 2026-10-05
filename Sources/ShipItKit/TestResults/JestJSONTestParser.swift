@@ -10,6 +10,7 @@ public struct JestJSONTestParser: Sendable {
     }
 
     /// - Parameters:
+    ///   - jsonFilePath: Path to Jest's `--json` results file.
     ///   - buildSystem: The project's build system when the caller knows it (`.reactNative` for a React Native app).
     ///   - destination: Where Jest ran. Jest always executes in Node on the host, so that is the default.
     ///   - identityRoot: Directory test identities are made relative to. Jest reports absolute paths, which differ on

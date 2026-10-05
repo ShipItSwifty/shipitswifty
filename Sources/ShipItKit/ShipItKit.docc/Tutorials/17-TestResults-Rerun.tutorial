@@ -1,6 +1,6 @@
 @Tutorial(time: 5) {
     @Intro(title: "Understand the structured rerun report") {
-        Use ShipIt's normalized report to capture initial failures, flaky outcomes, and persistent failures in a stable JSON contract.
+        Use ShipIt's normalized report to capture initial failures, flaky outcomes, persistent failures, where the tests ran, and how long each attempt took, in a stable JSON contract.
 
         @Image(source: tutorial-ios-testflight.png, alt: "Structured rerun report")
     }
@@ -19,7 +19,7 @@
             }
 
             @Step {
-                Inspect the fields that callers should persist: `attempts`, `initialFailedTests`, `flakyTests`, and `persistentFailedTests`.
+                Inspect the fields that callers should persist: `runner`, `destinations`, `attempts` (with each one's `reason` and `durationSeconds`), `initialFailedTests`, `flakyTests` (tests that passed only after a retry) and `persistentFailedTests`. Each test carries its `attempts` and `destinationID`.
 
                 @Code(name: "report.json", file: 32-test-results-rerun.json)
             }

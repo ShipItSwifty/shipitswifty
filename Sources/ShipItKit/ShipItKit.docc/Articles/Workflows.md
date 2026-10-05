@@ -75,6 +75,14 @@ Workflows are **strictly sequential** and **fail-fast**. There is no parallelism
 
 This is intentional: release workflows are mostly write operations against external services (TestFlight, Play, ASC) and recovery semantics are domain-specific. For conditional behaviour use a step `when:` (above), composite actions (<doc:CompositeActions>), or split into multiple workflows.
 
+## Artifacts and continuing past failures
+
+Any step, including a custom action's, can declare `artifacts` (`name`, `paths` or globs, `retention_days`).
+Evidence is collected after a failed step too and staged under `build/workflow-artifacts/<run-id>/`. A workflow
+can opt in to `continue_on_failure: true` so independent checks all run; it still fails if any of them does.
+`{{run_id}}` scopes a step's output and artifact paths to one run. `test_workflow` selects the default workflow
+for `shipit test`. See <doc:TestWorkflows>.
+
 ## Dry-run mode
 
 Preview the resolved step list without executing anything:

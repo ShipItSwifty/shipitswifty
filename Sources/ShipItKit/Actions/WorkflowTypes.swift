@@ -27,6 +27,7 @@ public struct WorkflowStep: Codable, Sendable {
     ///   - action: The registered action name to execute.
     ///   - options: Optional JSON options forwarded to the action.
     ///   - when: Optional truthy-token condition; when falsy the step is skipped.
+    ///   - artifacts: Evidence to collect after the step, even when it fails.
     public init(action: String, options: JSONValue? = nil, when: String? = nil, artifacts: [ArtifactDeclaration]? = nil) {
         self.artifacts = artifacts
         self.action = action
@@ -152,6 +153,7 @@ public struct Workflow: Sendable {
     /// - Parameters:
     ///   - name: The workflow identifier.
     ///   - steps: Array of steps to execute in order.
+    ///   - continueOnFailure: When `true`, later steps still run after a step fails, and the workflow still fails.
     ///   - buildVariant: Optional build variant override for all steps.
     ///   - flavor: Optional product flavor override for all steps.
     ///   - app: Optional app identity override for all steps.
@@ -194,6 +196,7 @@ public struct Workflow: Sendable {
     ///   - archive: Optional archive override for all steps.
     ///   - export: Optional export override for all steps.
     ///   - codeSigning: Optional code-signing override for all steps.
+    ///   - continueOnFailure: When `true`, later steps still run after a step fails, and the workflow still fails.
     ///   - builder: A result builder closure producing workflow steps.
     public init(
         _ name: String,
@@ -440,6 +443,7 @@ public struct WorkflowResult: Codable, Sendable {
     ///   - workflowName: The name of the workflow that was executed.
     ///   - stepResults: Ordered results for each step.
     ///   - duration: Total wall-clock execution time in seconds.
+    ///   - artifactDirectory: Where this run's evidence was staged, when it was collected.
     public init(workflowName: String, stepResults: [ActionResultEnvelope], duration: TimeInterval, artifactDirectory: String? = nil) {
         self.artifactDirectory = artifactDirectory
         self.workflowName = workflowName
