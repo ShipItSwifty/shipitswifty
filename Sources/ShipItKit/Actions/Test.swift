@@ -694,98 +694,123 @@ public struct TestAction: Action {
         let projectRoot = context.config.projectRoot
         logger.info("Running React Native tests via JS package manager")
         let runner = JSScriptRunner(context: context.shell, projectRoot: projectRoot)
-        logger.info(
-            "Detected package manager: \(runner.resolvedPackageManager.rawValue)"
-        )
+        logger.info("Detected package manager: \(runner.resolvedPackageManager.rawValue)")
+        // Jest runs in Node on this machine.
+        let destination = TestDestination(platform: .js, kind: .host)
+        let outputFile = URL(fileURLWithPath: projectRoot).appendingPathComponent(".shipit-jest-results.json")
+        let usesJest = runner.scriptUsesJest("test")
+        // Selective reruns need Jest's `--testNamePattern`, so a `test` script that is not Jest cannot be rerun.
+        let limit = usesJest && options.rerunFailedTests?.enabled == true ? max(1, options.rerunFailedTests?.maxAttempts ?? 2) : 1
+        var attempts: [TestAttempt] = []
+        var initial: ParsedTestRun?
+        var remaining: [ParsedTestCase] = []
+        var flaky: [ParsedTestCase] = []
+        var lastOutput: ShellOutput?
+        for number in 1...limit {
+            var arguments = usesJest ? ["--json", "--outputFile", outputFile.path] : []
+            if number > 1 {
+                let selected = remaining.compactMap { test -> (file: String, name: String)? in
+                    guard case .jest(let file?, let fullName) = test.rerunSelector else { return nil }
+                    return (file, fullName)
+                }
+                // Nothing selectable (a failure recovered from console output only): the failures stay as they are.
+                guard !selected.isEmpty else { break }
+                arguments += ["--runTestsByPath"] + Array(Set(selected.map(\.file))).sorted()
+                arguments += [
+                    "--testNamePattern",
+                    "^(?:" + selected.map { NSRegularExpression.escapedPattern(for: $0.name) }.joined(separator: "|") + ")$",
+                ]
+            }
+            let runArguments = arguments
+            let output = try await InfrastructureRetryScheduler.executeIfConfigured(
+                options: options.infrastructureRetry,
+                classifier: ReactNativeInfrastructureClassifier(),
+                label: "npm test"
+            ) {
+                // A previous run's results must never be mistaken for this run's if Jest dies before writing its own.
+                try? FileManager.default.removeItem(at: outputFile)
+                // Failing tests are a result, not a build failure, so a non-zero exit is not thrown here.
+                let output = try await runner.run(
+                    script: "test", arguments: runArguments, evidence: context.testEvidence,
+                    reason: number == 1 ? "initial" : "failed_tests", failOnNonZeroExit: false)
+                if output.exitCode != 0, ReactNativeInfrastructureClassifier().isRetryable(log: output.stdout + output.stderr) {
+                    throw ShipItError.testFailed(exitCode: Int(output.exitCode), failureCount: 0, log: output.stdout + output.stderr)
+                }
+                return output
+            } extractContext: { error in
+                if let shipItError = error as? ShipItError, case .testFailed(_, _, let log) = shipItError { return .init(log: log) }
+                return .init(log: error.localizedDescription)
+            }
+            lastOutput = output
 
-        return try await InfrastructureRetryScheduler.executeIfConfigured(
-            options: options.infrastructureRetry,
-            classifier: ReactNativeInfrastructureClassifier(),
-            label: "npm test"
-        ) {
-            let outputFile = URL(fileURLWithPath: projectRoot).appendingPathComponent(".shipit-jest-results.json")
-            let arguments =
-                runner.scriptUsesJest("test")
-                ? ["--json", "--outputFile", outputFile.path]
-                : []
-            let output = try await runner.run(
-                script: "test",
-                arguments: arguments,
-                evidence: context.testEvidence
-            )
-
-            if FileManager.default.fileExists(atPath: outputFile.path),
-                let parsedRun = try? await JestJSONTestParser(logger: logger).parse(
-                    jsonFilePath: outputFile.path, buildSystem: .reactNative)
+            let run: ParsedTestRun
+            if usesJest, FileManager.default.fileExists(atPath: outputFile.path),
+                let parsed = try? await JestJSONTestParser(logger: logger).parse(jsonFilePath: outputFile.path, buildSystem: .reactNative),
+                parsed.hasResults
             {
-                let named = legacyNamedResults(from: parsedRun)
+                run = parsed
+            } else {
+                let counts = parseJSTestCounts(from: output.stdout + output.stderr)
+                run = ParsedTestRun(
+                    runner: .jest, buildSystem: .reactNative, source: "stdout", destinations: [destination],
+                    summary: .init(passed: counts.pass, failed: counts.fail, skipped: counts.skip),
+                    testCases: counts.failedTests.map {
+                        .init(
+                            stableID: $0, name: $0, status: .failed, rerunSelector: .unsupported(rawIdentifier: $0), attempts: 1,
+                            destinationID: destination.id)
+                    })
+            }
+            // An initial run that reported no outcomes is an execution failure, never a passing zero-test run.
+            if initial == nil && !run.hasResults {
                 let report = TestRunReport(
-                    runner: .jest,
-                    buildSystem: .reactNative,
-                    source: outputFile.path,
-                    destinations: parsedRun.destinations,
-                    attempts: [
-                        TestAttempt(
-                            attemptNumber: 1, summary: parsedRun.summary,
-                            failedTests: parsedRun.testCases.filter { $0.status == .failed || $0.status == .errored })
-                    ],
-                    initialFailedTests: parsedRun.testCases.filter { $0.status == .failed || $0.status == .errored },
-                    flakyTests: [],
-                    persistentFailedTests: parsedRun.testCases.filter { $0.status == .failed || $0.status == .errored },
-                    summary: parsedRun.summary
-                )
+                    runner: .jest, buildSystem: .reactNative, source: context.testEvidence?.root.path ?? projectRoot,
+                    destinations: [destination], attempts: attempts, summary: .init(errored: 1))
                 try writeTestReportIfNeeded(report, to: options.reportPath)
-                self.logger.info(
-                    "React Native tests complete — pass: \(parsedRun.summary.passed), fail: \(parsedRun.summary.failed), skip: \(parsedRun.summary.skipped)"
-                )
-                return Result(
-                    passCount: parsedRun.summary.passed,
-                    failCount: parsedRun.summary.failed,
-                    skipCount: parsedRun.summary.skipped,
-                    passedTests: named.passedTests,
-                    failedTests: named.failedTests,
-                    report: report
-                )
+                throw ShipItError.testFailed(
+                    exitCode: Int(output.exitCode == 0 ? 1 : output.exitCode), failureCount: 0,
+                    log: "Jest produced no test results.\n" + output.stdout + output.stderr)
             }
-
-            let parsed = self.parseJSTestCounts(from: output.stdout + output.stderr)
-            let report = TestRunReport(
-                runner: .jest,
-                buildSystem: .reactNative,
-                source: "stdout",
-                destinations: [TestDestination(platform: .js, kind: .host)],
-                attempts: [
-                    TestAttempt(attemptNumber: 1, summary: TestSummary(passed: parsed.pass, failed: parsed.fail, skipped: parsed.skip))
-                ],
-                initialFailedTests: parsed.failedTests.map {
-                    ParsedTestCase(stableID: $0, name: $0, status: .failed, rerunSelector: .unsupported(rawIdentifier: $0))
-                },
-                flakyTests: [],
-                persistentFailedTests: parsed.failedTests.map {
-                    ParsedTestCase(stableID: $0, name: $0, status: .failed, rerunSelector: .unsupported(rawIdentifier: $0))
-                },
-                summary: TestSummary(passed: parsed.pass, failed: parsed.fail, skipped: parsed.skip)
-            )
-            try writeTestReportIfNeeded(report, to: options.reportPath)
-            self.logger.info("React Native tests complete — pass: \(parsed.pass), fail: \(parsed.fail), skip: \(parsed.skip)")
-            return Result(
-                passCount: parsed.pass,
-                failCount: parsed.fail,
-                skipCount: parsed.skip,
-                passedTests: parsed.passedTests,
-                failedTests: parsed.failedTests,
-                report: report
-            )
-        } extractContext: { error in
-            // JSScriptRunner throws ShipItError.testFailed or generic errors
-            if let shipItError = error as? ShipItError,
-                case .testFailed(_, _, let log) = shipItError
-            {
-                return .init(log: log)
+            let failures = run.testCases.filter { $0.status == .failed || $0.status == .errored }
+            attempts.append(
+                .init(
+                    attemptNumber: number, reason: number == 1 ? "initial" : "failed_tests", summary: run.summary, failedTests: failures))
+            if initial == nil {
+                initial = run
+                remaining = failures
+            } else {
+                let passedIDs = Set(run.testCases.filter { $0.status == .passed }.map(\.stableID))
+                flaky += remaining.filter { passedIDs.contains($0.stableID) }
+                remaining = remaining.filter { !passedIDs.contains($0.stableID) }
+                for test in failures where !remaining.contains(where: { $0.stableID == test.stableID }) { remaining.append(test) }
             }
-            // For non-ShipItError throws, try to extract message
-            return .init(log: error.localizedDescription)
+            if remaining.isEmpty { break }
         }
+        guard let initial else { throw ShipItError.invalidConfiguration(reason: "Jest produced no results") }
+        let executionError = remaining.isEmpty && lastOutput?.exitCode != 0
+        let report = TestRunReport(
+            runner: .jest, buildSystem: .reactNative, source: context.testEvidence?.root.path ?? outputFile.path,
+            destinations: [destination], attempts: attempts,
+            initialFailedTests: initial.testCases.filter { $0.status == .failed || $0.status == .errored },
+            flakyTests: flaky, persistentFailedTests: remaining,
+            summary: .init(
+                passed: initial.summary.passed + flaky.count, failed: remaining.filter { $0.status == .failed }.count,
+                skipped: initial.summary.skipped, flaky: flaky.count,
+                errored: remaining.filter { $0.status == .errored }.count + (executionError ? 1 : 0)),
+            testCases: finalTestCases(initial.testCases, remaining: remaining, flaky: flaky, attempts: attempts)
+        ).unifyingFlaky()
+        try writeTestReportIfNeeded(report, to: options.reportPath)
+        logger.info(
+            "React Native tests complete — pass: \(report.summary.passed), fail: \(report.summary.failed), skip: \(report.summary.skipped)")
+        if !remaining.isEmpty || executionError {
+            throw ShipItError.testFailed(
+                exitCode: Int(lastOutput?.exitCode ?? 1),
+                failureCount: max(1, remaining.count, initial.summary.failed + initial.summary.errored),
+                log: lastOutput.map { $0.stdout + $0.stderr } ?? "React Native tests failed")
+        }
+        let named = legacyNamedResults(from: initial)
+        return Result(
+            passCount: report.summary.passed, failCount: 0, skipCount: report.summary.skipped, passedTests: named.passedTests,
+            failedTests: [], report: report)
     }
 
     // MARK: - Flutter / RN parse helpers
