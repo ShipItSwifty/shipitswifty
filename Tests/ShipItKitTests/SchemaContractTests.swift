@@ -9,6 +9,8 @@ import FoundationNetworking
 @Suite("Schema contract")
 struct SchemaContractTests {
     private let builtInActionNames: Set<String> = [
+        SwiftTestAction.name,
+        SwiftFormatAction.name,
         ArchiveAction.name,
         AndroidCLIVersionAction.name,
         AndroidCreateAction.name,

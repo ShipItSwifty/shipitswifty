@@ -15,6 +15,9 @@ public protocol InfrastructureFailureClassifier: Sendable {
     func isRetryable(log: String) -> Bool
 }
 
+/// Recovery category for native simulator failures.
+public enum IOSFailureKind: String, Codable, Sendable { case clone, transient, missingRuntime, permanent }
+
 // MARK: - iOS Classifier
 
 /// Classifies iOS/macOS xcodebuild infrastructure failures.
@@ -57,6 +60,24 @@ public struct IOSInfrastructureClassifier: InfrastructureFailureClassifier {
         "the scheme",
         "xcodebuild: error: unable to find a",
     ]
+
+    public func failureKind(log: String) -> IOSFailureKind {
+        let normalized = log.lowercased()
+        if normalized.contains("simulator runtime is not available")
+            || (normalized.contains("download the ios") && normalized.contains("simulator runtime"))
+        {
+            return .missingRuntime
+        }
+        if normalized.contains("compile error") || normalized.contains("linker command failed")
+            || normalized.contains("no signing certificate")
+        {
+            return .permanent
+        }
+        if normalized.contains("failed to clone device") || normalized.contains("device remained in creating state after fixup") {
+            return .clone
+        }
+        return isRetryable(log: log) ? .transient : .permanent
+    }
 
     public func isRetryable(log: String) -> Bool {
         let normalized = log.lowercased()
@@ -327,5 +348,21 @@ public struct KMPInfrastructureClassifier: InfrastructureFailureClassifier {
         // Delegate to iOS classifier (for simulator patterns) and Android (for Gradle daemon)
         return iosClassifier.isRetryable(log: log)
             || androidClassifier.isRetryable(log: log)
+    }
+}
+
+/// Conservative SwiftPM infrastructure classification; compiler and assertion failures remain terminal.
+public struct SwiftPMInfrastructureClassifier: InfrastructureFailureClassifier {
+    public let platformName = "swift"
+    public init() {}
+    public func isRetryable(log: String) -> Bool {
+        let text = log.lowercased()
+        if text.contains("expectation failed") || text.contains("error: emit-module") || text.contains("compilation failed") {
+            return false
+        }
+        return [
+            "could not resolve host", "connection timed out", "connection reset by peer", "failed to spawn process",
+            "resource temporarily unavailable",
+        ].contains { text.contains($0) }
     }
 }

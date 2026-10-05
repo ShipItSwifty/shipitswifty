@@ -6,10 +6,25 @@ import ShipItKit
 struct TestResultsCommand: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "test-results",
-        abstract: "Read and normalize test-result artifacts (iOS: xcresult, Android: JUnit XML)"
+        abstract: "Inspect and export saved test results across supported runners"
     )
 
     @OptionGroup var global: GlobalOptions
+
+    @Option(name: .customLong("input"), help: "Result artifact path (repeatable); works without a Shipfile")
+    var inputs: [String] = []
+    @Option(name: .long, help: "Input format: xcresult | junit | swift | flutter | jest | shipit | manifest")
+    var inputFormat: String?
+    @Option(name: .long, help: "Runner identity, e.g. kmp, gradle, flutter-test, swift-test")
+    var runner: String?
+    @Option(name: .customLong("coverage-input"), help: "Coverage artifact (repeatable)")
+    var coverageInputs: [String] = []
+    @Option(name: .long, help: "Coverage format: lcov | swift | jacoco | kover")
+    var coverageFormat: String?
+    @Option(name: .customLong("evidence"), help: "Additional screenshots, logs, or attachment paths (repeatable)")
+    var evidencePaths: [String] = []
+    @Option(name: .long, help: "New directory for portable results and evidence")
+    var exportDirectory: String?
 
     @Option(name: .customLong("xcresult"), help: "Explicit path to .xcresult bundle (iOS). Auto-discovered when omitted.")
     var xcresultPath: String?
@@ -30,6 +45,12 @@ struct TestResultsCommand: AsyncParsableCommand {
     var reportPath: String?
 
     mutating func validate() throws {
+        if let inputFormat, TestInputFormat(rawValue: inputFormat) == nil { throw ValidationError("Unknown input format: \(inputFormat)") }
+        if let coverageFormat, CoverageInputFormat(rawValue: coverageFormat) == nil {
+            throw ValidationError("Unknown coverage format: \(coverageFormat)")
+        }
+        if !coverageInputs.isEmpty, coverageFormat == nil { throw ValidationError("--coverage-format is required with --coverage-input") }
+        if !inputs.isEmpty, xcresultPath != nil || report != nil { throw ValidationError("Use --input or a legacy source flag, not both") }
         if xcresultPath != nil, report != nil {
             throw ValidationError("Specify either --xcresult or --report, not both.")
         }
@@ -49,7 +70,7 @@ struct TestResultsCommand: AsyncParsableCommand {
 
     func run() async throws {
         do {
-            let hasExplicitArtifact = xcresultPath != nil || report != nil
+            let hasExplicitArtifact = !inputs.isEmpty || xcresultPath != nil || report != nil
             let context: ActionContext
             if hasExplicitArtifact, !FileManager.default.fileExists(atPath: configuredShipfilePath(from: global)) {
                 context = try await buildFallbackActionContext(platform: inferredPlatform(), verbose: global.verbose)
@@ -63,6 +84,9 @@ struct TestResultsCommand: AsyncParsableCommand {
 
             let resolvedFormat = resolvedFormat()
             let options = TestResultsAction.Options(
+                inputs: inputs.isEmpty ? nil : inputs, inputFormat: inputFormat.flatMap(TestInputFormat.init(rawValue:)), runner: runner,
+                coverageInputs: coverageInputs, coverageFormat: coverageFormat.flatMap(CoverageInputFormat.init(rawValue:)),
+                evidencePaths: evidencePaths, exportDirectory: exportDirectory,
                 format: resolvedFormat,
                 platform: inferredPlatform().rawValue,
                 xcresultPath: xcresultPath,

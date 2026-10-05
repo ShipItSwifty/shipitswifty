@@ -122,7 +122,7 @@ public struct JSScriptRunner: Sendable {
     ///   declared in `package.json`.
     ///   ``ShipItError/buildFailed(exitCode:log:)`` if the script exits non-zero.
     @discardableResult
-    public func run(script: String, arguments: [String] = []) async throws -> ShellOutput {
+    public func run(script: String, arguments: [String] = [], evidence: TestEvidenceRecorder? = nil) async throws -> ShellOutput {
         try await ensureInstalled()
 
         // Validate that the script exists in package.json before invoking
@@ -144,15 +144,18 @@ public struct JSScriptRunner: Sendable {
             .stderr(.capture)
 
         let output: ShellOutput
-        do {
-            output = try await command.run(in: shell)
-        } catch let ShellError.exitFailure(_, shellOutput) {
-            throw ShipItError.buildFailed(
-                exitCode: Int(shellOutput.exitCode),
-                log: [shellOutput.stdout, shellOutput.stderr]
-                    .filter { !$0.isEmpty }
-                    .joined(separator: "\n")
-            )
+        do { output = try await command.run(in: shell) } catch let ShellError.exitFailure(_, captured) { output = captured }
+        if let evidence {
+            let (index, directory) = try await evidence.allocate()
+            let path = arguments.firstIndex(of: "--outputFile").flatMap { index in index + 1 < arguments.count ? arguments[index + 1] : nil
+            }
+            let run: ParsedTestRun?
+            if let path { run = try? await JestJSONTestParser().parse(jsonFilePath: path) } else { run = nil }
+            try await evidence.record(
+                run, index: index, directory: directory, output: output, arguments: command.arguments, reason: "initial")
+            if let path, FileManager.default.fileExists(atPath: path) {
+                try FileManager.default.copyItem(atPath: path, toPath: directory.appendingPathComponent("jest.json").path)
+            }
         }
 
         if output.exitCode != 0 {

@@ -718,3 +718,17 @@ Test targets are split so that `swift test` on Linux automatically skips macOS-o
 ## Future: service package
 
 ShipItSwifty does not ship with a built-in server. If a hosted service becomes necessary (central credential management, webhooks, dashboards), it should be a separate package/repo built on top of `ShipItKit` — not part of this package.
+
+## Test evidence and CI providers
+
+`ResultInspection` dispatches artifact formats independently from release `Platform` and
+`BuildSystem`. Normalized test cases retain typed rerun selectors and optional dimensions.
+`TestEvidenceRecorder` serializes attempt allocation/writes; native Xcode orchestration retains
+shared build products and performs sequential plan/destination execution. `EvidenceExporter`
+creates portable manifests with relative evidence links and optional extraction diagnostics.
+
+`ArtifactDeclaration` belongs to `WorkflowStep`, including custom steps. Workflow execution
+stages outputs after success/failure and records manifests before propagating errors. Independent
+checks can opt into continuation while preserving a failed final status. `CIProvider` translates
+these lane contracts into provider jobs; `GitHubActionsProvider` is built in, while consumers may
+statically register additional providers with `CIProviderRegistry`.

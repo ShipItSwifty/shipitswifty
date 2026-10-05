@@ -76,9 +76,19 @@ struct CoverageCommand: AsyncParsableCommand {
     @Option(name: .long, help: "Explicit path to JaCoCo XML report (Android). Auto-discovered when omitted.")
     var report: String?
 
+    @Option(name: .long, help: "File format: lcov | swift | jacoco | kover")
+    var inputFormat: String?
+    @Option(name: .customLong("source-root"), help: "Included source directory (repeatable)")
+    var sourceRoots: [String] = []
+    @Flag(name: .long, help: "Exclude Swift preview regions from file coverage")
+    var excludePreviews: Bool = false
+    @Option(name: .long, help: "Required line coverage percentage")
+    var minimumCoverage: Double?
+
     // MARK: - Run
 
     mutating func validate() throws {
+        if let inputFormat, CoverageInputFormat(rawValue: inputFormat) == nil { throw ValidationError("Unknown coverage input format") }
         guard let format else { return }
         guard CoverageFormat(rawValue: format) != nil else {
             throw ValidationError("Invalid --format '\(format)'. Use text, json, or markdown.")
@@ -90,19 +100,21 @@ struct CoverageCommand: AsyncParsableCommand {
 
     func run() async throws {
         do {
-            let config = try await resolveRequiredConfig(
-                global: global,
-                cliOptions: CLIOptions(
-                    ci: global.ci,
-                    dryRun: global.dryRun,
-                    platform: global.platform
-                )
-            )
-            let context = try await buildActionContext(config: config, verbose: global.verbose)
+            let context: ActionContext
+            if report != nil, inputFormat != nil, !FileManager.default.fileExists(atPath: configuredShipfilePath(from: global)) {
+                context = try await buildFallbackActionContext(platform: global.platform ?? .android, verbose: global.verbose)
+            } else {
+                let config = try await resolveRequiredConfig(
+                    global: global,
+                    cliOptions: CLIOptions(ci: global.ci, dryRun: global.dryRun, platform: global.platform))
+                context = try await buildActionContext(config: config, verbose: global.verbose)
+            }
 
             let coverageFormat = resolvedCoverageFormat()
 
             let options = CoverageAction.Options(
+                inputFormat: inputFormat.flatMap(CoverageInputFormat.init(rawValue:)), sourceRoots: sourceRoots,
+                excludePreviews: excludePreviews, minimumCoverage: minimumCoverage,
                 format: coverageFormat,
                 firstPartyOnly: firstPartyOnly ? true : nil,
                 summary: summary ? true : nil,

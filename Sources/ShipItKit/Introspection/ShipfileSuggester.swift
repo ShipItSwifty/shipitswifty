@@ -12,6 +12,41 @@ public struct ShipfileSuggester: Sendable {
     )
         -> SuggestedShipfile
     {
+        if goal == .local, inspection.detectedBuildSystem == nil || inspection.detectedBuildSystem == .native,
+            FileManager.default.fileExists(atPath: URL(fileURLWithPath: inspection.rootPath).appendingPathComponent("Package.swift").path)
+        {
+            var yaml = """
+                test_workflow: tests
+                workflows:
+                  tests:
+                    - action: swift-test
+                      options:
+                        enable_code_coverage: true
+                        rerun_failed_tests: { enabled: true, max_attempts: 2 }
+                        infrastructure_retry: { max_attempts: 3, initial_delay_seconds: 2, max_delay_seconds: 30 }
+                      artifacts:
+                        - name: test-evidence
+                          paths: ["build/workflow-artifacts/{{run_id}}/test-runs"]
+                          retention_days: 14
+                """
+            let app = inspection.suggestedAppConfig
+            var missing: [SuggestedShipfile.MissingValue] = []
+            if let container = app.workspace ?? app.project {
+                let key = app.workspace == nil ? "project" : "workspace"
+                yaml = "platform: ios\napp:\n  \(key): \(container)\n  scheme: \(app.scheme ?? "${SHIPIT_APP__SCHEME}")\n" + yaml
+                yaml +=
+                    "\n    - action: test\n      options:\n        infrastructure_retry: { max_attempts: 3, initial_delay_seconds: 2, max_delay_seconds: 30 }\n"
+                if let plan = suggestedTestPlan(from: inspection) { yaml += "        test_plan: \(plan)\n" }
+                if inspection.testPlans.count > 1 {
+                    missing.append(
+                        .init(
+                            keyPath: "workflows.tests[test].options.test_plan",
+                            reason: "Choose a detected test plan or explicitly select compatible plans with test_plans."))
+                }
+                if app.scheme == nil { missing.append(.init(keyPath: "app.scheme", reason: "Choose the sample's test scheme.")) }
+            }
+            return SuggestedShipfile(goal: goal, inspection: inspection, missingValues: missing, warnings: inspection.warnings, yaml: yaml)
+        }
         switch platform {
         case .ios:
             switch inspection.detectedBuildSystem {
@@ -554,7 +589,7 @@ public struct ShipfileSuggester: Sendable {
                     "    # Test step: set destinations to the simulators/devices you want to run on.",
                     "    # Run `xcodebuild -showdestinations -scheme <scheme>` to list valid values,",
                     "    # or use `shipit ai session --goal local` which discovers them automatically.",
-                    "    # Remove this step (or leave destinations empty) to skip tests.",
+                    "    # Remove this step to skip tests. With no explicit destination ShipIt discovers an available simulator.",
                     "    - action: test",
                     "      options:",
                     testPlan.map { "        test_plan: \"\($0)\"" },

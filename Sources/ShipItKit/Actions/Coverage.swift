@@ -48,6 +48,10 @@ public struct CoverageAction: Action {
         // MARK: Shared options
 
         /// Output format. Defaults to `.text`.
+        public var inputFormat: CoverageInputFormat?
+        public var sourceRoots: [String]?
+        public var excludePreviews: Bool?
+        public var minimumCoverage: Double?
         public var format: CoverageFormat?
 
         /// Only include first-party targets/modules. Suppresses test bundles,
@@ -92,6 +96,10 @@ public struct CoverageAction: Action {
         public var reportPath: String?
 
         public init(
+            inputFormat: CoverageInputFormat? = nil,
+            sourceRoots: [String]? = nil,
+            excludePreviews: Bool? = nil,
+            minimumCoverage: Double? = nil,
             format: CoverageFormat? = nil,
             firstPartyOnly: Bool? = nil,
             summary: Bool? = nil,
@@ -105,6 +113,10 @@ public struct CoverageAction: Action {
             xcresultPath: String? = nil,
             reportPath: String? = nil
         ) {
+            self.inputFormat = inputFormat
+            self.sourceRoots = sourceRoots
+            self.excludePreviews = excludePreviews
+            self.minimumCoverage = minimumCoverage
             self.format = format
             self.firstPartyOnly = firstPartyOnly
             self.summary = summary
@@ -167,16 +179,43 @@ public struct CoverageAction: Action {
     // MARK: - Run
 
     public func run(with options: Options, context: ActionContext) async throws -> Result {
+        if let inputFormat = options.inputFormat {
+            guard let path = options.reportPath else {
+                throw ShipItError.invalidConfiguration(reason: "Coverage input_format requires report_path")
+            }
+            let result = try await PortableCoverageReader().read(
+                path, format: inputFormat,
+                sourceRoots: options.sourceRoots ?? [], excludePreviews: options.excludePreviews ?? false)
+            if let minimum = options.minimumCoverage {
+                guard minimum.isFinite, (0...100).contains(minimum) else {
+                    throw ShipItError.invalidConfiguration(reason: "minimum_coverage must be between 0 and 100")
+                }
+                guard result.executableLines > 0, result.overallLineCoverage >= minimum else {
+                    throw ShipItError.invalidConfiguration(reason: "Coverage \(result.overallLineCoverage)% is below required \(minimum)%")
+                }
+            }
+            return result
+        }
+        let result: Result
         switch context.platform {
         case .ios:
             #if os(macOS)
-            return try await runIOS(options: options, context: context)
+            result = try await runIOS(options: options, context: context)
             #else
             throw ShipItError.invalidConfiguration(reason: "iOS coverage requires macOS.")
             #endif
         case .android:
-            return try await runAndroid(options: options, context: context)
+            result = try await runAndroid(options: options, context: context)
         }
+        if let minimum = options.minimumCoverage {
+            guard minimum.isFinite, (0...100).contains(minimum) else {
+                throw ShipItError.invalidConfiguration(reason: "minimum_coverage must be between 0 and 100")
+            }
+            guard result.executableLines > 0, result.overallLineCoverage >= minimum else {
+                throw ShipItError.invalidConfiguration(reason: "Coverage \(result.overallLineCoverage)% is below required \(minimum)%")
+            }
+        }
+        return result
     }
 
     // MARK: - iOS
@@ -278,14 +317,14 @@ public struct CoverageAction: Action {
         //    (matches the auto-derived path that TestAction uses when
         //     enable_code_coverage: true and result_bundle_path is unset)
         if let scheme = config.appScheme {
-            let defaultPath = "./build/\(scheme)-tests.xcresult"
+            let defaultPath = URL(fileURLWithPath: config.projectRoot).appendingPathComponent("build/\(scheme)-tests.xcresult").path
             if FileManager.default.fileExists(atPath: defaultPath) {
                 return defaultPath
             }
         }
 
         // 3. Glob ./build/ for any .xcresult (catches user-specified paths)
-        if let found = firstXCResult(in: "./build") { return found }
+        if let found = firstXCResult(in: URL(fileURLWithPath: config.projectRoot).appendingPathComponent("build").path) { return found }
 
         return nil
     }

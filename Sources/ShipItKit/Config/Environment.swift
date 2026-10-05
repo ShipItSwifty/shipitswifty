@@ -40,6 +40,9 @@ public struct Environment: Sendable {
         self.env = env
     }
 
+    /// `SHIPIT_TEST_WORKFLOW` — default named test lane.
+    public var testWorkflow: String? { env["SHIPIT_TEST_WORKFLOW"] }
+
     // MARK: - Platform
 
     /// `SHIPIT_PLATFORM` — overrides platform auto-detection. Accepts `ios` or `android`.

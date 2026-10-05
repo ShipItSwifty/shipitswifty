@@ -17,8 +17,10 @@ struct CoverageActionTests {
     @Test("iOS: throws invalidConfiguration when no xcresult found and no scheme")
     func iosNoXCResultNoScheme() async throws {
         let executor = MockExecutor { _, _ in ShellOutput(stdout: "", stderr: "", exitCode: 0) }
-        let context = ActionContext.mock(executor: executor)
-        // Default mock context has no appScheme; ./build/ won't exist in test sandbox
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let context = ActionContext.mock(executor: executor, config: ResolvedConfig(projectRoot: scratch.url.path))
+        // Discovery is scoped to this scratch project, independent of real lane artifacts.
         let options = CoverageAction.Options()
 
         await #expect {
