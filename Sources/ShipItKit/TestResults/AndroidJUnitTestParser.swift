@@ -60,25 +60,31 @@ public struct AndroidJUnitTestParser: Sendable {
             } else {
                 scope = root.pathExtension == "xml" ? file.lastPathComponent : String(file.path.dropFirst(root.path.count + 1))
             }
-            // A name that repeats inside one file (a retry plugin's attempts, repeated parameterized names) keeps
-            // every occurrence under its own ID: the first keeps the plain ID so a selective rerun, which sees
-            // only one occurrence, still lines up with it, and later ones get `#<n>`.
-            var totals: [String: Int] = [:]
-            for item in delegate.cases { totals[item.selector, default: 0] += 1 }
-            var seen: [String: Int] = [:]
-            var occurrences: [Int] = []
+            // Retries show up as a repeated name: a retry plugin writes one `testcase` per attempt. A repeat only
+            // means a retry when an attempt failed (retries follow failures), so those are folded into one test
+            // that keeps its attempt count. Repeats that all passed are genuine duplicates and stay separate: the
+            // first keeps the plain ID so a one-test rerun still lines up, later ones get `#<n>`.
+            let folded = Self.fold(delegate.cases)
             var ids: [String] = []
-            for item in delegate.cases {
-                let occurrence = (seen[item.selector] ?? 0) + 1
-                seen[item.selector] = occurrence
-                occurrences.append(occurrence)
-                ids.append("junit-case:\(scope):\(item.selector)" + (occurrence > 1 ? "#\(occurrence)" : ""))
+            for entry in folded {
+                ids.append(
+                    "junit-case:\(scope):\(entry.item.selector)"
+                        + ((entry.occurrence?.index ?? 1) > 1 ? "#\(entry.occurrence?.index ?? 1)" : ""))
             }
-            for (offset, item) in delegate.cases.enumerated() {
+            // Declared totals count every attempt; restate them for the folded view so a recovered test is not
+            // still counted as a failure.
+            let rawCounts = Self.counts(delegate.cases.map(\.status))
+            let foldedCounts = Self.counts(folded.map(\.item.status))
+            declaredPassed += foldedCounts.passed - rawCounts.passed
+            declaredFailed += foldedCounts.failed - rawCounts.failed
+            declaredErrors += foldedCounts.errored - rawCounts.errored
+            declaredSkipped += foldedCounts.skipped - rawCounts.skipped
+            for (offset, entry) in folded.enumerated() {
+                let item = entry.item
                 let suiteID = "junit-suite:\(scope):\(item.suite ?? "tests")"
                 let selector = item.selector
                 var metadata = Self.metadata(scope: scope, item: item)
-                if let total = totals[selector], total > 1 { metadata["occurrence"] = "\(occurrences[offset])/\(total)" }
+                if let occurrence = entry.occurrence { metadata["occurrence"] = "\(occurrence.index)/\(occurrence.total)" }
                 cases.append(
                     ParsedTestCase(
                         stableID: ids[offset], suite: item.suite,
@@ -88,12 +94,13 @@ public struct AndroidJUnitTestParser: Sendable {
                             ? .swiftTestFilter(
                                 selector.replacingOccurrences(of: ".", with: "/", range: selector.range(of: ".", options: .backwards)))
                             : runner == "kmp-native" ? .unsupported(rawIdentifier: selector) : .gradleTestFilter(selector),
-                        metadata: metadata, stackTrace: item.stack))
+                        metadata: metadata, stackTrace: item.stack, attempts: 1 + item.retries,
+                        totalDurationSeconds: item.retries > 0 ? item.totalDuration : nil))
                 if !suites.contains(where: { $0.stableID == suiteID }) {
                     suites.append(
                         ParsedTestSuite(
                             name: item.suite ?? "tests", stableID: suiteID, file: file.path,
-                            testCaseIDs: delegate.cases.enumerated().filter { $0.element.suite == item.suite }.map { ids[$0.offset] }))
+                            testCaseIDs: folded.enumerated().filter { $0.element.item.suite == item.suite }.map { ids[$0.offset] }))
                 }
             }
             if !delegate.output.isEmpty { diagnostics.append(.init(severity: .info, message: delegate.output, source: file.path)) }
@@ -121,6 +128,48 @@ public struct AndroidJUnitTestParser: Sendable {
     }
 }
 extension AndroidJUnitTestParser {
+    /// Folds the attempts a retry plugin wrote as separate `testcase` entries into one result per test.
+    ///
+    /// The deciding attempt is the last one. The folded test keeps how many executions it took (`retries`), the
+    /// time they cost, and why the first attempt failed. It is flaky when it passed after an earlier failure.
+    fileprivate static func fold(
+        _ raw: [JUnitResultDelegate.Case]
+    ) -> [(item: JUnitResultDelegate.Case, occurrence: (index: Int, total: Int)?)] {
+        var order: [String] = []
+        var groups: [String: [JUnitResultDelegate.Case]] = [:]
+        for item in raw {
+            if groups[item.selector] == nil { order.append(item.selector) }
+            groups[item.selector, default: []].append(item)
+        }
+        func failed(_ item: JUnitResultDelegate.Case) -> Bool { item.status == .failed || item.status == .errored }
+        var result: [(item: JUnitResultDelegate.Case, occurrence: (index: Int, total: Int)?)] = []
+        for selector in order {
+            guard let group = groups[selector], let last = group.last else { continue }
+            guard group.count > 1, group.contains(where: failed) else {
+                for (index, item) in group.enumerated() { result.append((item, group.count > 1 ? (index + 1, group.count) : nil)) }
+                continue
+            }
+            var folded = last
+            folded.retries = group.reduce(0) { $0 + 1 + $1.retries } - 1
+            let durations = group.compactMap(\.duration)
+            folded.totalDuration = durations.isEmpty ? nil : durations.reduce(0, +)
+            let earlier = group.dropLast()
+            folded.flaky = last.status == .passed && (earlier.contains(where: failed) || group.contains { $0.flaky })
+            if let first = earlier.first(where: failed), let message = first.message ?? first.stack {
+                folded.firstFailure = String(message.prefix(500))
+            }
+            result.append((folded, nil))
+        }
+        return result
+    }
+
+    fileprivate static func counts(_ statuses: [TestCaseStatus]) -> (passed: Int, failed: Int, errored: Int, skipped: Int) {
+        (
+            statuses.filter { $0 == .passed }.count, statuses.filter { $0 == .failed }.count,
+            statuses.filter { $0 == .errored }.count, statuses.filter { $0 == .skipped }.count
+        )
+    }
+
     /// Where a result came from, derived from the report's location and the properties AGP writes for
     /// connected runs. Only evidence that is actually present is recorded.
     fileprivate static func metadata(scope: String, item: JUnitResultDelegate.Case) -> [String: String] {
@@ -136,8 +185,8 @@ extension AndroidJUnitTestParser {
             if let value = item.properties[key], !value.isEmpty { metadata[key] = value }
         }
         if let type = item.failureType, !type.isEmpty { metadata["failure_type"] = type }
-        if item.retries > 0 { metadata["retries"] = String(item.retries) }
         if item.flaky { metadata["flaky"] = "true" }
+        if let firstFailure = item.firstFailure { metadata["first_failure"] = firstFailure }
         return metadata
     }
 }
@@ -160,8 +209,13 @@ private final class JUnitResultDelegate: NSObject, XMLParserDelegate {
         var line: Int?
         /// Surefire `flaky*` elements: the test failed, then passed on a retry.
         var flaky = false
-        /// Number of retried executions recorded for this test (`flaky*` / `rerun*` elements).
+        /// Executions beyond the first: Surefire `flaky*` / `rerun*` elements, plus attempts folded from a retry
+        /// plugin's repeated `testcase` entries.
         var retries = 0
+        /// Time across all attempts, set when attempts were folded.
+        var totalDuration: Double?
+        /// Why the first failed attempt failed, kept when attempts were folded.
+        var firstFailure: String?
         var properties: [String: String] = [:]
     }
     var passed = 0

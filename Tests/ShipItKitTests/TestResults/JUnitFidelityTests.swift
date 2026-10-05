@@ -56,31 +56,104 @@ struct JUnitFidelityTests {
         let recovers = try #require(run.testCases.first { $0.name == "recovers" })
         #expect(recovers.status == .passed)
         #expect(recovers.metadata?["flaky"] == "true")
-        #expect(recovers.metadata?["retries"] == "1")
+        #expect(recovers.attempts == 2, "one failed attempt plus the passing one")
         let stays = try #require(run.testCases.first { $0.name == "stays" })
         #expect(stays.status == .failed)
         #expect(stays.message == "boom", "a retry's message must not replace the final failure")
-        #expect(stays.metadata?["retries"] == "1")
+        #expect(stays.attempts == 2)
         #expect(run.summary.flaky == 1)
         #expect(run.diagnostics.allSatisfy { !$0.message.contains("earlier output") }, "retry output is not suite output")
     }
 
-    @Test("Repeated names in one file keep every occurrence under a distinct ID")
-    func duplicateNames() async throws {
+    // MARK: Retry plugins (one testcase per attempt)
+
+    @Test("A test that failed then passed is one flaky test that keeps its attempt count")
+    func retryThenPassIsFlaky() async throws {
         let run = try await parse(
             """
-            <testsuite name="S" tests="3" failures="1"><testcase classname="C" name="m"><failure message="attempt 1"/></testcase><testcase classname="C" name="m"/><testcase classname="C" name="other"/></testsuite>
+            <testsuite name="S" tests="2" failures="1"><testcase classname="C" name="m" time="0.5"><failure message="timeout waiting for element">at C.m(C.kt:7)</failure></testcase><testcase classname="C" name="m" time="0.25"/></testsuite>
+            """)
+        #expect(run.testCases.count == 1)
+        let test = try #require(run.testCases.first)
+        #expect(test.status == .passed)
+        #expect(test.attempts == 2)
+        #expect(test.metadata?["flaky"] == "true")
+        #expect(test.metadata?["first_failure"] == "timeout waiting for element")
+        #expect(test.durationSeconds == 0.25, "the deciding attempt")
+        #expect(test.totalDurationSeconds == 0.75, "what the retries cost is visible")
+        #expect(test.message == nil, "a recovered test carries no failure")
+        #expect(test.stableID.hasSuffix("C.m"), "the plain ID, so a one-test rerun still lines up")
+        #expect(run.summary.passed == 1)
+        #expect(run.summary.failed == 0, "declared totals count attempts; the folded view must not")
+        #expect(run.summary.flaky == 1)
+        #expect(!run.diagnostics.contains { $0.message.contains("declare") })
+    }
+
+    @Test("A test that fails on every attempt is one failure with its attempt count")
+    func retriesExhausted() async throws {
+        let run = try await parse(
+            """
+            <testsuite name="S" tests="3" failures="3"><testcase classname="C" name="m" time="1"><failure message="a"/></testcase><testcase classname="C" name="m" time="1"><failure message="b"/></testcase><testcase classname="C" name="m" time="1"><failure message="c"/></testcase></testsuite>
+            """)
+        let test = try #require(run.testCases.first)
+        #expect(run.testCases.count == 1)
+        #expect(test.status == .failed)
+        #expect(test.attempts == 3)
+        #expect(test.message == "c", "the deciding attempt's failure")
+        #expect(test.metadata?["first_failure"] == "a")
+        #expect(test.metadata?["flaky"] == nil)
+        #expect(test.totalDurationSeconds == 3)
+        #expect(run.summary.failed == 1)
+        #expect(run.summary.flaky == 0)
+    }
+
+    @Test("Several failed attempts before a pass are counted")
+    func manyAttemptsThenPass() async throws {
+        let run = try await parse(
+            """
+            <testsuite name="S" tests="3" failures="1" errors="1"><testcase classname="C" name="m"><failure message="a"/></testcase><testcase classname="C" name="m"><error message="b"/></testcase><testcase classname="C" name="m"/></testsuite>
+            """)
+        #expect(run.testCases.first?.attempts == 3)
+        #expect(run.testCases.first?.status == .passed)
+        #expect(run.summary.passed == 1)
+        #expect(run.summary.failed == 0)
+        #expect(run.summary.errored == 0)
+    }
+
+    @Test("Only the retried test is folded; others in the file are untouched")
+    func foldingIsPerTest() async throws {
+        let run = try await parse(
+            """
+            <testsuite name="S" tests="3" failures="1"><testcase classname="C" name="stable"/><testcase classname="C" name="flaky"><failure message="x"/></testcase><testcase classname="C" name="flaky"/></testsuite>
+            """)
+        #expect(run.testCases.map(\.name) == ["stable", "flaky"])
+        #expect(run.testCases.map(\.attempts) == [1, 2])
+        #expect(Set(run.suites.flatMap(\.testCaseIDs)) == Set(run.testCases.map(\.stableID)))
+    }
+
+    @Test("A name that repeats with every occurrence passing is a duplicate, not a retry")
+    func passingDuplicatesStaySeparate() async throws {
+        let run = try await parse(
+            """
+            <testsuite name="S" tests="3"><testcase classname="C" name="m"/><testcase classname="C" name="m"/><testcase classname="C" name="other"/></testsuite>
             """)
         let ids = run.testCases.map(\.stableID)
+        #expect(run.testCases.count == 3)
         #expect(Set(ids).count == 3)
-        #expect(ids[0].hasSuffix("C.m"), "the first occurrence keeps the plain ID so a one-test rerun still lines up")
+        #expect(ids[0].hasSuffix("C.m"))
         #expect(ids[1].hasSuffix("C.m#2"))
         #expect(run.testCases[0].metadata?["occurrence"] == "1/2")
         #expect(run.testCases[1].metadata?["occurrence"] == "2/2")
-        #expect(run.testCases[2].metadata?["occurrence"] == nil)
-        #expect(Set(run.suites.flatMap(\.testCaseIDs)) == Set(ids), "suite membership uses the same IDs")
-        #expect(run.summary.failed == 1)
-        #expect(run.summary.passed == 2)
+        #expect(run.testCases.allSatisfy { $0.attempts == 1 })
+        #expect(run.summary.flaky == 0)
+        #expect(run.summary.passed == 3)
+    }
+
+    @Test("Every test reports how many times it ran")
+    func singleRunReportsOneAttempt() async throws {
+        let run = try await parse("<testsuite name=\"S\" tests=\"1\"><testcase classname=\"C\" name=\"m\" time=\"0.1\"/></testsuite>")
+        #expect(run.testCases.first?.attempts == 1)
+        #expect(run.testCases.first?.totalDurationSeconds == nil, "no retries, nothing extra to report")
     }
 
     // MARK: Where a result came from
@@ -170,6 +243,7 @@ struct JUnitFidelityTests {
 
         let reconciled = finalTestCases(run.testCases, remaining: [], flaky: run.testCases)
         #expect(reconciled.first?.stackTrace == "trace")
+        #expect(reconciled.first?.attempts == 1)
         #expect(reconciled.first?.status == .passed)
     }
 }

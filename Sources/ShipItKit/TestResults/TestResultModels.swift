@@ -121,6 +121,15 @@ public struct ParsedTestCase: Codable, Sendable, Hashable {
     /// Stack trace or longer failure detail, kept apart from `message` when the runner reports them separately.
     public let stackTrace: String?
 
+    /// How many times the runner executed this test to reach its result, retries included. `nil` when the
+    /// runner does not report executions; `1` means it ran once. A passing test with more than one attempt
+    /// is flaky: it failed, then passed.
+    public let attempts: Int?
+
+    /// Time spent across every attempt, in seconds, when the test ran more than once. `durationSeconds` is the
+    /// deciding attempt alone, so the difference is what retries cost.
+    public let totalDurationSeconds: Double?
+
     /// Source file reported by the runner when available.
     public let file: String?
 
@@ -141,10 +150,14 @@ public struct ParsedTestCase: Codable, Sendable, Hashable {
         line: Int? = nil,
         rerunSelector: TestRerunSelector? = nil,
         metadata: [String: String]? = nil,
-        stackTrace: String? = nil
+        stackTrace: String? = nil,
+        attempts: Int? = nil,
+        totalDurationSeconds: Double? = nil
     ) {
         self.metadata = metadata
         self.stackTrace = stackTrace
+        self.attempts = attempts
+        self.totalDurationSeconds = totalDurationSeconds
         self.stableID = stableID
         self.suite = suite
         self.name = name
@@ -164,7 +177,8 @@ extension ParsedTestCase {
         ParsedTestCase(
             stableID: stableID ?? self.stableID, suite: suite, name: name, status: status ?? self.status,
             durationSeconds: durationSeconds, message: message, file: file, line: line, rerunSelector: rerunSelector,
-            metadata: metadata ?? self.metadata, stackTrace: stackTrace)
+            metadata: metadata ?? self.metadata, stackTrace: stackTrace,
+            attempts: attempts, totalDurationSeconds: totalDurationSeconds)
     }
 }
 
