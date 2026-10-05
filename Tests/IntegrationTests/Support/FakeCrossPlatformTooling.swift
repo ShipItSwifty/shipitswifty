@@ -105,7 +105,26 @@ private let fakeFlutterScript = """
     }
 
     if [ "${1:-}" = "test" ]; then
-      printf '00:01 +3: All tests passed!\n'
+      case " $* " in
+        *" --machine "*)
+          # What real `flutter test --machine` writes: text before the events, JSON arrays (VM-service events),
+          # a hidden `loading <file>` test, then one testStart/testDone pair per test.
+          printf 'Resolving dependencies...\n'
+          printf '%s\n' '[{"event":"service.extension","params":{"isolateId":"x"}}]'
+          printf '%s\n' '{"protocolVersion":"0.1.1","runnerVersion":null,"pid":1,"type":"start","time":0}'
+          printf '%s\n' '{"suite":{"id":0,"platform":"vm","path":"/project/test/widget_test.dart"},"type":"suite","time":0}'
+          printf '%s\n' '{"test":{"id":1,"name":"loading /project/test/widget_test.dart","suiteID":0,"groupIDs":[],"metadata":{"skip":false,"skipReason":null}},"type":"testStart","time":1}'
+          printf '%s\n' '{"testID":1,"result":"success","skipped":false,"hidden":true,"type":"testDone","time":90}'
+          for n in 2 3 4; do
+            printf '%s\n' '{"test":{"id":'"$n"',"name":"Counter test '"$n"'","suiteID":0,"groupIDs":[],"metadata":{"skip":false,"skipReason":null}},"type":"testStart","time":100}'
+            printf '%s\n' '{"testID":'"$n"',"result":"success","skipped":false,"hidden":false,"type":"testDone","time":120}'
+          done
+          printf '%s\n' '{"success":true,"type":"done","time":200}'
+          ;;
+        *)
+          printf '00:01 +3: All tests passed!\n'
+          ;;
+      esac
       exit 0
     fi
 
