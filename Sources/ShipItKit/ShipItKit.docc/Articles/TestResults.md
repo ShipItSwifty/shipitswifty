@@ -39,9 +39,10 @@ let iosParser = IOSXCResultTestParser(shell: context.shell)
 let run = try await iosParser.parse(xcresultPath: "./build/MyApp-tests.xcresult")
 
 let report = TestRunReport(
-    platform: run.platform,
     runner: run.runner,
+    buildSystem: run.buildSystem,
     source: run.source,
+    destinations: run.destinations,
     summary: run.summary
 )
 ```

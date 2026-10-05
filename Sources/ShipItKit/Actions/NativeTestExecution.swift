@@ -54,7 +54,8 @@ struct NativeTestExecution: Sendable {
             directory: root.appendingPathComponent("build"))
         if build.exitCode != 0 {
             let failure = TestRunReport(
-                platform: "ios", runner: "xcodebuild", source: root.path,
+                runner: .xcodebuild, buildSystem: context.config.iosBuildSystem, source: root.path,
+                destinations: destinations.map { TestDestination.xcode(specifier: $0) },
                 attempts: [.init(attemptNumber: 1, reason: "build", summary: .init(errored: 1), failedTests: [], source: root.path)],
                 summary: .init(errored: 1))
             saveEvidence("build failure report", logger: context.logger) {
@@ -64,6 +65,7 @@ struct NativeTestExecution: Sendable {
         }
         var serialDestinations = Set<String>()
         var attempts: [TestAttempt] = []
+        var reportDestinations: [TestDestination] = []
         var initialFailures: [ParsedTestCase] = []
         var initialCases: [ParsedTestCase] = []
         var remainingAll: [ParsedTestCase] = []
@@ -96,6 +98,9 @@ struct NativeTestExecution: Sendable {
                 }
                 for (planIndex, plan) in plans.enumerated() {
                     let planConfigurations = try planSettings(plan)
+                    // One destination per plan on each Xcode destination: the environment plus the plan it ran.
+                    let placed = TestDestination.xcode(specifier: destination, plan: plan)
+                    if !reportDestinations.contains(placed) { reportDestinations.append(placed) }
                     var number = 1
                     var infrastructureAttempts = 1
                     var rerunAttempts = 1
@@ -145,7 +150,7 @@ struct NativeTestExecution: Sendable {
                             }
                             return test.copy(
                                 stableID: "plan-\(planIndex + 1):destination-\(destinationIndex + 1):" + test.stableID,
-                                metadata: metadata)
+                                metadata: metadata, destinationID: placed.id)
                         }
                         let failures = scopedCases.filter { $0.status == .failed || $0.status == .errored }
                         attempts.append(
@@ -244,7 +249,8 @@ struct NativeTestExecution: Sendable {
                 outstanding.append(failure)
             }
             let report = TestRunReport(
-                platform: "ios", runner: "xcodebuild", source: root.path, attempts: attempts, initialFailedTests: initialFailures,
+                runner: .xcodebuild, buildSystem: context.config.iosBuildSystem, source: root.path, destinations: reportDestinations,
+                attempts: attempts, initialFailedTests: initialFailures,
                 flakyTests: flaky, persistentFailedTests: outstanding,
                 summary: .init(
                     passed: initialCases.filter { $0.status == .passed }.count + flaky.count,
@@ -259,8 +265,8 @@ struct NativeTestExecution: Sendable {
         await teardown(owned)
         leases.forEach { $0.release() }
         let report = TestRunReport(
-            platform: "ios", runner: "xcodebuild", source: root.path, attempts: attempts,
-            initialFailedTests: initialFailures, flakyTests: flaky, persistentFailedTests: remainingAll,
+            runner: .xcodebuild, buildSystem: context.config.iosBuildSystem, source: root.path, destinations: reportDestinations,
+            attempts: attempts, initialFailedTests: initialFailures, flakyTests: flaky, persistentFailedTests: remainingAll,
             summary: .init(
                 passed: passed + flaky.count, failed: remainingAll.filter { $0.status == .failed }.count,
                 skipped: skipped, flaky: flaky.count, errored: errored + remainingAll.filter { $0.status == .errored }.count),
@@ -294,7 +300,7 @@ struct NativeTestExecution: Sendable {
             }
         }
         return ParsedTestRun(
-            platform: "ios", runner: "xcodebuild", source: path, summary: .init(errored: 1),
+            runner: .xcodebuild, buildSystem: context.config.iosBuildSystem, source: path, summary: .init(errored: 1),
             diagnostics: [.init(severity: .error, message: errorMessage)])
     }
 

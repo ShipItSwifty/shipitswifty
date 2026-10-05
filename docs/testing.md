@@ -345,7 +345,7 @@ Inspect saved results without running tests or requiring a Shipfile:
 ```bash
 shipit test-results --input results.xcresult --export-directory artifacts/ios
 shipit test-results --input app/build/test-results/testDebugUnitTest --runner gradle
-shipit test-results --input shared/build/test-results/iosSimulatorArm64Test --runner kmp
+shipit test-results --input shared/build/test-results --runner gradle --build-system kmp
 shipit test-results --input flutter-events.jsonl --input-format flutter
 shipit test-results --input swift-events.jsonl --input-format swift
 shipit test-results --input artifacts/ios/manifest.json --format markdown
@@ -379,6 +379,21 @@ reported `NO-SOURCE` or `SKIPPED` for that exact test task. Saving evidence is b
 write logs, snapshots or reports is logged and never replaces or hides the test outcome; an unreadable
 SwiftPM rerun keeps the original failures as persistent.
 
+Every result says **who ran it, where, and on what framework** as three separate things rather than one
+overloaded label. `runner` is the tool (`xcodebuild`, `gradle`, `swift-test`, `flutter-test`, `jest`);
+`buildSystem` is the project's framework (`native`, `kmp`, `flutter`, `react_native`) when known; and
+`destinations` lists where tests ran, each with a `platform` (`ios`, `android`, `macos`, `linux`,
+`windows`, `jvm`, `js`, or `unknown`), a `kind` (`simulator`, `emulator`, `device`, `host`), an optional
+device `name`, and the `scope` it ran (a Gradle task or an Xcode test plan). Tests refer to their
+destination by `destinationID`, so one Gradle run can span `ios`, `android` and `jvm` and every test still
+knows which. Destinations come from evidence: the Gradle task name and the device AGP records, the
+devices an `.xcresult` lists, the `xcodebuild -destination` used, or the host for `swift test`, Flutter and
+Jest; a result that does not say (saved Flutter events, an LCOV file) has none rather than a guess. The
+vocabularies are closed for built-in values but keep unknown ones (`other`), so a result from a plugin or a
+newer ShipIt still reads. `TestRunReport` is schema version 2. Coverage results carry the same typed
+`platform` and the `runner` whose format they are. Reading Gradle JUnit XML for a Kotlin Multiplatform
+project needs `--build-system kmp`, and a bare `swift test` report needs `--runner swift-test`.
+
 JUnit XML keeps a failure's `message` and `stackTrace` apart (a body-only failure uses its first line
 as the message), plus the `failure_type`. Every test reports `attempts`, how many times the runner
 executed it, so a test that passes after retrying is visible rather than looking like an ordinary pass.
@@ -391,7 +406,7 @@ counted the same way, and a retry's own message and output never replace the fin
 repeats with every occurrence passing is a genuine duplicate, not a retry: each keeps its own ID (the
 first the plain ID, later ones `#<n>`, with an `occurrence` of `n/total`). Each case records its
 `report` location and, from the Gradle layout and the properties AGP writes for connected runs, its
-`module`, `task`, `device`, `flavor` and `project`, so the same test on two devices stays distinct. When
+`module`, `gradle_task`, `device`, `flavor` and `project`, so the same test on two devices stays distinct. When
 the suites' declared totals (restated for folded attempts) disagree with the listed test cases a
 warning diagnostic says so.
 

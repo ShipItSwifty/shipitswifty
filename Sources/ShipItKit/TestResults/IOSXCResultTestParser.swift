@@ -40,9 +40,10 @@ public struct IOSXCResultTestParser: Sendable {
         let extracted = extractor.extract(fromTestsJSON: testsJSON, summaryJSON: summaryJSON)
 
         return ParsedTestRun(
-            platform: "ios",
-            runner: "xcodebuild",
+            runner: .xcodebuild,
+            buildSystem: .native,
             source: xcresultPath,
+            destinations: extracted.destinations,
             summary: extracted.summary,
             suites: extracted.suites,
             testCases: extracted.testCases,
@@ -117,6 +118,16 @@ private struct XCResultTestExtractor: Sendable {
         var testCasesByID: [String: ParsedTestCase] = [:]
         var diagnostics: [ParsingDiagnostic] = []
 
+        // Each device the result bundle lists is a destination; tests refer to theirs by device ID or name.
+        var destinations: [TestDestination] = []
+        var destinationByDevice: [String: TestDestination] = [:]
+        for device in testsJSON.objectValue?.array(for: "devices") ?? [] {
+            guard let device = device.objectValue else { continue }
+            let destination = TestDestination.xcode(platformName: device.string(for: "platform"), name: device.string(for: "deviceName"))
+            if !destinations.contains(destination) { destinations.append(destination) }
+            if let id = device.string(for: "deviceId") { destinationByDevice[id] = destination }
+            if let name = device.string(for: "deviceName") { destinationByDevice[name] = destination }
+        }
         var dimensions: [String: JSONValue] = [:]
         if let devices = testsJSON.objectValue?.array(for: "devices"), devices.count == 1, let device = devices.first?.objectValue {
             dimensions["_device"] = device["deviceName"]
@@ -203,7 +214,9 @@ private struct XCResultTestExtractor: Sendable {
                 metadata: [
                     "configuration": node.string(for: "_configuration"), "device": node.string(for: "_device"),
                     "device_id": node.string(for: "_deviceID"), "runtime": node.string(for: "_runtime"),
-                ].compactMapValues { $0 }
+                ].compactMapValues { $0 },
+                destinationID: (node.string(for: "_deviceID").flatMap { destinationByDevice[$0] }
+                    ?? node.string(for: "_device").flatMap { destinationByDevice[$0] })?.id
             )
         }
 
@@ -220,7 +233,7 @@ private struct XCResultTestExtractor: Sendable {
         let suites = suitesByID.values.sorted { $0.name < $1.name }
         let testCases = testCasesByID.values.sorted { $0.stableID < $1.stableID }
 
-        return ExtractedRun(summary: summary, suites: suites, testCases: testCases, diagnostics: diagnostics)
+        return ExtractedRun(summary: summary, suites: suites, testCases: testCases, diagnostics: diagnostics, destinations: destinations)
     }
 
     private func summarize(testCases: [ParsedTestCase], summaryJSON: JSONValue) -> TestSummary {
@@ -332,6 +345,7 @@ private struct ExtractedRun: Sendable {
     let suites: [ParsedTestSuite]
     let testCases: [ParsedTestCase]
     let diagnostics: [ParsingDiagnostic]
+    let destinations: [TestDestination]
 }
 
 extension Dictionary where Key == String, Value == JSONValue {

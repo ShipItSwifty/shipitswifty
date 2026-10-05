@@ -1429,7 +1429,16 @@ public enum BuiltInSchemaCatalog {
             .string(
                 "input_format", description: "Result encoding independent of platform",
                 allowedValues: ["xcresult", "junit", "flutter", "jest", "swift", "shipit", "manifest"]),
-            .string("runner", description: "Runner identity, including kmp or swift-test"),
+            .string(
+                "runner",
+                description:
+                    "Tool that produced the results: xcodebuild, gradle, swift-test, flutter-test or jest. Needed for JUnit XML, which Gradle and `swift test` both write; other artifacts say so themselves."
+            ),
+            .string(
+                "build_system",
+                description:
+                    "Project build system for results read outside a Shipfile, since a bare result file does not say.",
+                allowedValues: ["native", "kmp", "flutter", "react_native"]),
             .array(
                 "coverage_inputs", description: "Coverage artifacts retained independently",
                 items: .string("path", description: "Coverage path")),

@@ -7,7 +7,7 @@ import Testing
 
 @Suite("JUnit fidelity")
 struct JUnitFidelityTests {
-    private func parse(_ xml: String, runner: String = "gradle", file: String = "TEST-S.xml") async throws -> ParsedTestRun {
+    private func parse(_ xml: String, runner: TestRunner = .gradle, file: String = "TEST-S.xml") async throws -> ParsedTestRun {
         let scratch = try TemporaryDirectory()
         defer { try? scratch.remove() }
         let url = scratch.url.appendingPathComponent(file)
@@ -165,7 +165,7 @@ struct JUnitFidelityTests {
             file: "feature/home/build/test-results/testDebugUnitTest/TEST-C.xml")
         let metadata = try #require(run.testCases.first?.metadata)
         #expect(metadata["module"] == "feature/home")
-        #expect(metadata["task"] == "testDebugUnitTest")
+        #expect(metadata["gradle_task"] == "testDebugUnitTest")
         #expect(metadata["report"] == "feature/home/build/test-results/testDebugUnitTest/TEST-C.xml")
     }
 
@@ -179,7 +179,7 @@ struct JUnitFidelityTests {
         #expect(metadata["device"] == "Pixel_6(AVD) - 13")
         #expect(metadata["flavor"] == "prod")
         #expect(metadata["project"] == ":app")
-        #expect(metadata["task"] == "connected")
+        #expect(metadata["gradle_task"] == "connected")
         #expect(metadata["module"] == "app")
     }
 

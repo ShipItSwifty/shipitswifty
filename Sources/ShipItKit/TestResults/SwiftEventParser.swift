@@ -3,7 +3,8 @@ import Foundation
 /// Reads Swift Testing's saved event stream without interpreting human console output.
 public struct SwiftEventParser: Sendable {
     public init() {}
-    public func parse(path: String) throws -> ParsedTestRun {
+    /// - Parameter destination: Where the tests ran, when the caller knows. A saved event stream does not say.
+    public func parse(path: String, destination: TestDestination? = nil) throws -> ParsedTestRun {
         struct State {
             var id: String
             var name: String
@@ -55,10 +56,11 @@ public struct SwiftEventParser: Sendable {
                 durationSeconds: state.ended.flatMap { end in state.started.map { max(0, end - $0) } },
                 message: state.messages.isEmpty
                     ? (state.ended == nil && !state.skipped ? "Test did not finish" : nil) : state.messages.joined(separator: "\n"),
-                file: state.file, line: state.line, rerunSelector: .swiftTestFilter(selector))
+                file: state.file, line: state.line, rerunSelector: .swiftTestFilter(selector),
+                destinationID: destination?.id)
         }.sorted { $0.stableID < $1.stableID }
         return ParsedTestRun(
-            platform: "swift", runner: "swift-test", source: path,
+            runner: .swiftTest, buildSystem: .native, source: path, destinations: destination.map { [$0] } ?? [],
             summary: .init(
                 passed: cases.filter { $0.status == .passed }.count, failed: cases.filter { $0.status == .failed }.count,
                 skipped: cases.filter { $0.status == .skipped }.count, errored: cases.filter { $0.status == .errored }.count),

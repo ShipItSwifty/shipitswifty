@@ -562,6 +562,8 @@ public struct TestAction: Action {
 
     /// Runs `flutter test` for Flutter projects (both iOS and Android platforms).
     private func runFlutterTests(options: Options, context: ActionContext) async throws -> Result {
+        // `flutter test` runs in the Dart VM on this machine.
+        let destination = TestDestination.host()
         let limit = options.rerunFailedTests?.enabled == true ? max(1, options.rerunFailedTests?.maxAttempts ?? 2) : 1
         var attempts: [TestAttempt] = []
         var initial: ParsedTestRun?
@@ -586,7 +588,8 @@ public struct TestAction: Action {
             ) {
                 let output = try await executeRecordedTest(
                     command, context: context, reason: number == 1 ? "initial" : "failed_tests",
-                    parse: { output in try await FlutterMachineOutputParser().parse(machineOutput: output.stdout) },
+                    parse: { output in try await FlutterMachineOutputParser().parse(machineOutput: output.stdout, destination: destination)
+                    },
                     sources: {
                         options.enableCodeCoverage == true && number == 1
                             ? [URL(fileURLWithPath: context.config.projectRoot).appendingPathComponent("coverage/lcov.info")] : []
@@ -601,21 +604,25 @@ public struct TestAction: Action {
             }
             lastOutput = output
             let run: ParsedTestRun
-            if let parsed = try? await FlutterMachineOutputParser().parse(machineOutput: output.stdout), !parsed.testCases.isEmpty {
+            if let parsed = try? await FlutterMachineOutputParser().parse(machineOutput: output.stdout, destination: destination),
+                !parsed.testCases.isEmpty
+            {
                 run = parsed
             } else {
                 let counts = parseFlutterCounts(from: output.stdout)
                 run = ParsedTestRun(
-                    platform: "flutter", runner: "flutter-test", source: "stdout",
+                    runner: .flutterTest, buildSystem: .flutter, source: "stdout", destinations: [destination],
                     summary: .init(passed: counts.pass, failed: counts.fail, skipped: counts.skip),
-                    testCases: counts.failedTests.map { .init(stableID: $0, name: $0, status: .failed, rerunSelector: .flutter(name: $0)) })
+                    testCases: counts.failedTests.map {
+                        .init(stableID: $0, name: $0, status: .failed, rerunSelector: .flutter(name: $0), destinationID: destination.id)
+                    })
             }
             // An initial run that reported no outcomes is an execution failure, never a passing zero-test run.
             // (A selective rerun that matches nothing keeps the original failures instead.)
             if initial == nil && !run.hasResults {
                 let report = TestRunReport(
-                    platform: "flutter", runner: "flutter-test", source: context.testEvidence?.root.path ?? "flutter",
-                    attempts: attempts, summary: .init(errored: 1))
+                    runner: .flutterTest, buildSystem: .flutter, source: context.testEvidence?.root.path ?? "flutter",
+                    destinations: [destination], attempts: attempts, summary: .init(errored: 1))
                 try writeTestReportIfNeeded(report, to: options.reportPath)
                 if let root = context.testEvidence?.root { try writeJSON(report, to: root.appendingPathComponent("report.json")) }
                 throw ShipItError.testFailed(
@@ -639,8 +646,9 @@ public struct TestAction: Action {
         guard let initial else { throw ShipItError.invalidConfiguration(reason: "Flutter produced no results") }
         let executionError = remaining.isEmpty && lastOutput?.exitCode != 0
         let report = TestRunReport(
-            platform: "flutter", runner: "flutter-test", source: context.testEvidence?.root.path ?? "flutter",
-            attempts: attempts, initialFailedTests: initial.testCases.filter { $0.status == .failed || $0.status == .errored },
+            runner: .flutterTest, buildSystem: .flutter, source: context.testEvidence?.root.path ?? "flutter",
+            destinations: [destination], attempts: attempts,
+            initialFailedTests: initial.testCases.filter { $0.status == .failed || $0.status == .errored },
             flakyTests: flaky, persistentFailedTests: remaining,
             summary: .init(
                 passed: initial.summary.passed + flaky.count,
@@ -706,13 +714,15 @@ public struct TestAction: Action {
             )
 
             if FileManager.default.fileExists(atPath: outputFile.path),
-                let parsedRun = try? await JestJSONTestParser(logger: logger).parse(jsonFilePath: outputFile.path)
+                let parsedRun = try? await JestJSONTestParser(logger: logger).parse(
+                    jsonFilePath: outputFile.path, buildSystem: .reactNative)
             {
                 let named = legacyNamedResults(from: parsedRun)
                 let report = TestRunReport(
-                    platform: "react_native",
-                    runner: "jest",
+                    runner: .jest,
+                    buildSystem: .reactNative,
                     source: outputFile.path,
+                    destinations: parsedRun.destinations,
                     attempts: [
                         TestAttempt(
                             attemptNumber: 1, summary: parsedRun.summary,
@@ -739,9 +749,10 @@ public struct TestAction: Action {
 
             let parsed = self.parseJSTestCounts(from: output.stdout + output.stderr)
             let report = TestRunReport(
-                platform: "react_native",
-                runner: "jest",
+                runner: .jest,
+                buildSystem: .reactNative,
                 source: "stdout",
+                destinations: [TestDestination(platform: .js, kind: .host)],
                 attempts: [
                     TestAttempt(attemptNumber: 1, summary: TestSummary(passed: parsed.pass, failed: parsed.fail, skipped: parsed.skip))
                 ],
@@ -924,8 +935,8 @@ public struct TestAction: Action {
                 output = try await executeRecordedTest(
                     gradle, context: context,
                     parse: { output in
-                        try await self.parseJUnitReports(projectDir: context.config.gradleProjectDir, task: task.name, platform: "kmp")
-                            ?? self.noSourceRun(output, platform: "kmp", task: task.name)
+                        try await self.parseJUnitReports(projectDir: context.config.gradleProjectDir, task: task.name, buildSystem: .kmp)
+                            ?? self.noSourceRun(output, buildSystem: .kmp, task: task.name)
                     }, sources: { junitReportDirectories(projectDir: context.config.gradleProjectDir, task: task.name) },
                     staleResults: { junitReportDirectories(projectDir: context.config.gradleProjectDir, task: task.name) })
             } catch let ShellError.exitFailure(_, shellOutput) {
@@ -952,11 +963,11 @@ public struct TestAction: Action {
             }
 
             if let parsedRun = try await self.parseJUnitReports(
-                projectDir: context.config.gradleProjectDir, task: task.name, platform: "kmp")
+                projectDir: context.config.gradleProjectDir, task: task.name, buildSystem: .kmp)
             {
                 let failures = parsedRun.testCases.filter { $0.status == .failed || $0.status == .errored }
                 let report = TestRunReport(
-                    platform: "kmp", runner: "kmp-native", source: parsedRun.source,
+                    runner: .gradle, buildSystem: .kmp, source: parsedRun.source, destinations: parsedRun.destinations,
                     attempts: [.init(attemptNumber: 1, reason: "initial", summary: parsedRun.summary, failedTests: failures)],
                     initialFailedTests: failures, persistentFailedTests: failures, summary: parsedRun.summary)
                 try self.writeTestReportIfNeeded(report, to: options.reportPath)
@@ -973,7 +984,7 @@ public struct TestAction: Action {
             // legitimate exception because no test source exists for the target.
             guard pass + fail + skip > 0 || self.gradleTaskHadNothingToRun(output.stdout + "\n" + output.stderr, task: task.name) else {
                 let report = TestRunReport(
-                    platform: "kmp", runner: "kmp-native", source: context.config.gradleProjectDir, summary: .init(errored: 1))
+                    runner: .gradle, buildSystem: .kmp, source: context.config.gradleProjectDir, summary: .init(errored: 1))
                 try self.writeTestReportIfNeeded(report, to: options.reportPath)
                 if let root = context.testEvidence?.root { try writeJSON(report, to: root.appendingPathComponent("report.json")) }
                 throw ShipItError.testFailed(
@@ -1116,9 +1127,10 @@ public struct TestAction: Action {
         let finalFailCount = persistentFailedTests.count
 
         let report = TestRunReport(
-            platform: "ios",
-            runner: "xcodebuild",
+            runner: .xcodebuild,
+            buildSystem: context.config.iosBuildSystem,
             source: effectiveResultBundlePath ?? scheme,
+            destinations: initialSnapshot.parsedRun?.destinations ?? [],
             attempts: attempts,
             initialFailedTests: initialSnapshot.failedParsedTests,
             flakyTests: flakyTests,
@@ -1553,9 +1565,10 @@ public struct TestAction: Action {
                 : initialSnapshot.summary.passed
             let finalFailCount = persistentFailedTests.count
             let report = TestRunReport(
-                platform: "android",
-                runner: "gradle",
+                runner: .gradle,
+                buildSystem: context.config.androidBuildSystem,
                 source: task.name,
+                destinations: initialSnapshot.parsedRun?.destinations ?? [],
                 attempts: attempts,
                 initialFailedTests: initialSnapshot.failedParsedTests,
                 flakyTests: flakyTests,
@@ -1612,7 +1625,7 @@ public struct TestAction: Action {
                 gradle, context: context, reason: testFilters == nil ? "initial" : "failed_tests",
                 parse: { output in
                     try await self.parseJUnitReports(projectDir: context.config.gradleProjectDir, task: baseTask.name)
-                        ?? self.noSourceRun(output, platform: "android", task: baseTask.name)
+                        ?? self.noSourceRun(output, buildSystem: context.config.androidBuildSystem, task: baseTask.name)
                 }, sources: { junitReportDirectories(projectDir: context.config.gradleProjectDir, task: baseTask.name) },
                 staleResults: { junitReportDirectories(projectDir: context.config.gradleProjectDir, task: baseTask.name) })
         } catch let ShellError.exitFailure(_, shellOutput) {
@@ -2029,11 +2042,12 @@ public struct TestAction: Action {
     /// Reads the Gradle JUnit XML for `task`. Identities are relative to `projectDir`, matching what
     /// `ResultInspection` produces offline for the same files, so live and saved runs agree on every test ID.
     func parseJUnitReports(
-        projectDir: String, task: String, platform: String = "android", runner: String = "gradle"
+        projectDir: String, task: String, buildSystem: BuildSystem? = nil, runner: TestRunner = .gradle
     ) async throws -> ParsedTestRun? {
         let directories = junitReportDirectories(projectDir: projectDir, task: task)
         var suites: [ParsedTestSuite] = []
         var cases: [ParsedTestCase] = []
+        var destinations: [TestDestination] = []
         var diagnostics: [ParsingDiagnostic] = []
         var passed = 0
         var failed = 0
@@ -2042,7 +2056,7 @@ public struct TestAction: Action {
         var found = false
         for directory in directories where FileManager.default.fileExists(atPath: directory.path) {
             let run = try await AndroidJUnitTestParser(logger: logger).parse(
-                reportDirectory: directory.path, platform: platform, runner: runner, identityRoot: projectDir)
+                reportDirectory: directory.path, runner: runner, buildSystem: buildSystem, identityRoot: projectDir)
             found = true
             passed += run.summary.passed
             failed += run.summary.failed
@@ -2051,10 +2065,11 @@ public struct TestAction: Action {
             suites += run.suites
             cases += run.testCases
             diagnostics += run.diagnostics
+            for destination in run.destinations where !destinations.contains(destination) { destinations.append(destination) }
         }
         guard found else { return nil }
         return ParsedTestRun(
-            platform: platform, runner: runner, source: projectDir,
+            runner: runner, buildSystem: buildSystem, source: projectDir, destinations: destinations,
             summary: TestSummary(passed: passed, failed: failed, skipped: skipped, errored: errored),
             suites: suites, testCases: cases, diagnostics: diagnostics)
     }
@@ -2075,10 +2090,10 @@ public struct TestAction: Action {
 
     /// An explicit empty run for a task Gradle reported as having nothing to run, so it is recorded as such
     /// rather than as missing results.
-    func noSourceRun(_ output: ShellOutput, platform: String, task: String) -> ParsedTestRun? {
+    func noSourceRun(_ output: ShellOutput, buildSystem: BuildSystem?, task: String) -> ParsedTestRun? {
         guard output.exitCode == 0, gradleTaskHadNothingToRun(output.stdout + "\n" + output.stderr, task: task) else { return nil }
         return ParsedTestRun(
-            platform: platform, runner: "gradle", source: "gradle", summary: .init(),
+            runner: .gradle, buildSystem: buildSystem, source: "gradle", summary: .init(),
             diagnostics: [.init(severity: .info, message: "Gradle reported NO-SOURCE/SKIPPED: the test task had no tests to run")])
     }
 

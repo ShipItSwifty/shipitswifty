@@ -50,6 +50,7 @@ JSON example (truncated):
   "payload": {
     "overallLineCoverage": 78.4,
     "platform": "ios",
+    "runner": "xcodebuild",
     "modules": [
       { "name": "MyAppKit", "lineCoverage": 84.1, "lines": 4210, "covered": 3540 },
       { "name": "MyApp",    "lineCoverage": 67.2, "lines": 1880, "covered": 1264 }

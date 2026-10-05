@@ -13,7 +13,7 @@ struct ReportReconciliationTests {
     private func run(_ cases: [ParsedTestCase]) -> ParsedTestRun {
         func count(_ status: TestCaseStatus) -> Int { cases.filter { $0.status == status }.count }
         return ParsedTestRun(
-            platform: "android", runner: "gradle", source: "gradle",
+            runner: .gradle, buildSystem: .native, source: "gradle",
             summary: .init(passed: count(.passed), failed: count(.failed), skipped: count(.skipped), errored: count(.errored)),
             testCases: cases)
     }
@@ -89,7 +89,7 @@ struct ReportReconciliationTests {
         defer { try? scratch.remove() }
         let recorder = TestEvidenceRecorder(root: scratch.url.appendingPathComponent("evidence"))
         try await record(recorder, run([test("a", .failed)]), reason: "initial")
-        let final = TestRunReport(platform: "android", runner: "gradle", source: "final", summary: .init(passed: 9))
+        let final = TestRunReport(runner: .gradle, source: "final", summary: .init(passed: 9))
         try writeJSON(final, to: recorder.root.appendingPathComponent("report.json"))
         try await recorder.writeProvisionalReport(executionError: true)
         #expect(try report(recorder).source == "final")

@@ -20,8 +20,16 @@ public struct AndroidJUnitTestParser: Sendable {
     /// - Parameter identityRoot: Directory that test identities are made relative to, normally the Gradle
     ///   project root. Live runs and offline inspection must pass the same root so a test keeps one
     ///   `stableID` on every machine; without it identities are relative to `reportDirectory` itself.
+    ///
+    /// - Parameters:
+    ///   - runner: The tool that produced the XML. It decides the rerun selector: `swift test` filters differ
+    ///     from Gradle's `--tests`.
+    ///   - buildSystem: The project's build system when known (`.kmp` makes native targets unsupported for reruns).
+    ///   - destination: Where the tests ran, for runners that run on the host (`swift test`). Gradle results derive
+    ///     it from the task that wrote them (and, for connected tests, the device AGP records), so none is needed.
     public func parse(
-        reportDirectory: String, platform: String = "android", runner: String = "gradle", identityRoot: String? = nil
+        reportDirectory: String, runner: TestRunner = .gradle, buildSystem: BuildSystem? = nil, identityRoot: String? = nil,
+        destination: TestDestination? = nil
     ) async throws -> ParsedTestRun {
         let root = URL(fileURLWithPath: reportDirectory)
         let identityBase = identityRoot.map { URL(fileURLWithPath: $0).standardizedFileURL.path }
@@ -34,6 +42,7 @@ public struct AndroidJUnitTestParser: Sendable {
         }
         guard !files.isEmpty else { throw ShipItError.invalidConfiguration(reason: "No JUnit XML files found at \(reportDirectory).") }
         var cases: [ParsedTestCase] = []
+        var destinations: [TestDestination] = []
         var suites: [ParsedTestSuite] = []
         var diagnostics: [ParsingDiagnostic] = []
         var declaredPassed = 0
@@ -84,18 +93,20 @@ public struct AndroidJUnitTestParser: Sendable {
                 let suiteID = "junit-suite:\(scope):\(item.suite ?? "tests")"
                 let selector = item.selector
                 var metadata = Self.metadata(scope: scope, item: item)
+                // Where it ran: given by the caller, or read from the Gradle task and device that wrote the report.
+                let placed: TestDestination? =
+                    destination
+                    ?? metadata["gradle_task"].map { TestDestination.gradle(task: $0, device: metadata["device"]) }
+                if let placed, !destinations.contains(placed) { destinations.append(placed) }
                 if let occurrence = entry.occurrence { metadata["occurrence"] = "\(occurrence.index)/\(occurrence.total)" }
                 cases.append(
                     ParsedTestCase(
                         stableID: ids[offset], suite: item.suite,
                         name: item.name, status: item.status, durationSeconds: item.duration,
                         message: item.message, file: item.file, line: item.line,
-                        rerunSelector: runner == "swift-test"
-                            ? .swiftTestFilter(
-                                selector.replacingOccurrences(of: ".", with: "/", range: selector.range(of: ".", options: .backwards)))
-                            : runner == "kmp-native" ? .unsupported(rawIdentifier: selector) : .gradleTestFilter(selector),
+                        rerunSelector: Self.rerunSelector(selector, runner: runner, buildSystem: buildSystem, destination: placed),
                         metadata: metadata, stackTrace: item.stack, attempts: 1 + item.retries,
-                        totalDurationSeconds: item.retries > 0 ? item.totalDuration : nil))
+                        totalDurationSeconds: item.retries > 0 ? item.totalDuration : nil, destinationID: placed?.id))
                 if !suites.contains(where: { $0.stableID == suiteID }) {
                     suites.append(
                         ParsedTestSuite(
@@ -123,7 +134,7 @@ public struct AndroidJUnitTestParser: Sendable {
                     source: reportDirectory))
         }
         return ParsedTestRun(
-            platform: platform, runner: runner, source: reportDirectory, summary: summary,
+            runner: runner, buildSystem: buildSystem, source: reportDirectory, destinations: destinations, summary: summary,
             suites: suites, testCases: cases, diagnostics: diagnostics)
     }
 }
@@ -163,6 +174,20 @@ extension AndroidJUnitTestParser {
         return result
     }
 
+    /// Kotlin/Native targets cannot be selected by Gradle's `--tests` filter, so a rerun for them is reported as
+    /// unsupported instead of being attempted.
+    fileprivate static func rerunSelector(
+        _ selector: String, runner: TestRunner, buildSystem: BuildSystem?, destination: TestDestination?
+    ) -> TestRerunSelector {
+        if runner == .swiftTest {
+            return .swiftTestFilter(selector.replacingOccurrences(of: ".", with: "/", range: selector.range(of: ".", options: .backwards)))
+        }
+        if buildSystem == .kmp, let platform = destination?.platform, platform != .jvm, platform != .android {
+            return .unsupported(rawIdentifier: selector)
+        }
+        return .gradleTestFilter(selector)
+    }
+
     fileprivate static func counts(_ statuses: [TestCaseStatus]) -> (passed: Int, failed: Int, errored: Int, skipped: Int) {
         (
             statuses.filter { $0 == .passed }.count, statuses.filter { $0 == .failed }.count,
@@ -177,9 +202,9 @@ extension AndroidJUnitTestParser {
         let parts = scope.split(separator: "/").map(String.init)
         if let build = parts.firstIndex(of: "build"), build > 0 { metadata["module"] = parts[..<build].joined(separator: "/") }
         if let results = parts.firstIndex(of: "test-results"), results + 2 < parts.count {
-            metadata["task"] = parts[results + 1]
+            metadata["gradle_task"] = parts[results + 1]
         } else if parts.contains("androidTest-results") {
-            metadata["task"] = "connected"
+            metadata["gradle_task"] = "connected"
         }
         for key in ["device", "flavor", "project"] {
             if let value = item.properties[key], !value.isEmpty { metadata[key] = value }

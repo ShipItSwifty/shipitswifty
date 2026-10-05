@@ -9,7 +9,13 @@ public struct JestJSONTestParser: Sendable {
         self.logger = logger
     }
 
-    public func parse(jsonFilePath: String) async throws -> ParsedTestRun {
+    /// - Parameters:
+    ///   - buildSystem: The project's build system when the caller knows it (`.reactNative` for a React Native app).
+    ///   - destination: Where Jest ran. Jest always executes in Node on the host, so that is the default.
+    public func parse(
+        jsonFilePath: String, buildSystem: BuildSystem? = nil,
+        destination: TestDestination = TestDestination(platform: .js, kind: .host)
+    ) async throws -> ParsedTestRun {
         let url = URL(fileURLWithPath: jsonFilePath)
         let data = try Data(contentsOf: url)
         let root = try JSONDecoder().decode(JestJSONRoot.self, from: data)
@@ -49,9 +55,10 @@ public struct JestJSONTestParser: Sendable {
         logger.info("Parsed Jest JSON test results from \(jsonFilePath)")
 
         return ParsedTestRun(
-            platform: "react_native",
-            runner: "jest",
+            runner: .jest,
+            buildSystem: buildSystem,
             source: jsonFilePath,
+            destinations: [destination],
             summary: TestSummary(
                 passed: root.numPassedTests,
                 failed: root.numFailedTests,
@@ -59,7 +66,7 @@ public struct JestJSONTestParser: Sendable {
                 errored: root.numRuntimeErrorTestSuites
             ),
             suites: suites,
-            testCases: testCases,
+            testCases: testCases.map { $0.copy(destinationID: destination.id) },
             diagnostics: []
         )
     }

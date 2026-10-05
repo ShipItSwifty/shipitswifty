@@ -3,9 +3,12 @@
   "status": "success",
   "payload": {
     "parsedRun": {
-      "platform": "ios",
       "runner": "xcodebuild",
+      "buildSystem": "native",
       "source": "./build/MyApp-tests.xcresult",
+      "destinations": [
+        { "id": "ios:simulator:iPhone 16", "platform": "ios", "kind": "simulator", "name": "iPhone 16" }
+      ],
       "summary": {
         "passed": 42,
         "failed": 1,

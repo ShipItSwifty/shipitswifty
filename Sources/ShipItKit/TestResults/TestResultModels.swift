@@ -7,14 +7,19 @@ import Foundation
 /// reporting, selective reruns, and flaky-test classification without forcing a
 /// single universal test identifier format across every toolchain.
 public struct ParsedTestRun: Codable, Sendable {
-    /// Target platform that produced the result, such as `"ios"` or `"android"`.
-    public let platform: String
+    /// The tool that executed the tests.
+    public let runner: TestRunner
 
-    /// Runner that produced the result, such as `"xcodebuild"`, `"gradle"`, or `"jest"`.
-    public let runner: String
+    /// The project's build system (native, Kotlin Multiplatform, Flutter, React Native) when known. Reading a
+    /// bare result file offline cannot tell, so this is `nil` rather than a guess.
+    public let buildSystem: BuildSystem?
 
     /// Artifact path or other source identifier used to parse this run.
     public let source: String
+
+    /// Where the tests ran. Tests refer to these by ``ParsedTestCase/destinationID``; a runner that reports no
+    /// environment leaves this empty instead of inventing one.
+    public let destinations: [TestDestination]
 
     /// Aggregate counts for this parsed run.
     public let summary: TestSummary
@@ -29,25 +34,65 @@ public struct ParsedTestRun: Codable, Sendable {
     public let diagnostics: [ParsingDiagnostic]
 
     public init(
-        platform: String,
-        runner: String,
+        runner: TestRunner,
+        buildSystem: BuildSystem? = nil,
         source: String,
+        destinations: [TestDestination] = [],
         summary: TestSummary,
         suites: [ParsedTestSuite] = [],
         testCases: [ParsedTestCase] = [],
         diagnostics: [ParsingDiagnostic] = []
     ) {
-        self.platform = platform
         self.runner = runner
+        self.buildSystem = buildSystem
         self.source = source
+        self.destinations = destinations
         self.summary = summary
         self.suites = suites
         self.testCases = testCases
         self.diagnostics = diagnostics
     }
+
+    /// The distinct platforms the tests ran on, in destination order.
+    public var platforms: [TestPlatform] {
+        var seen: [TestPlatform] = []
+        for destination in destinations where !seen.contains(destination.platform) { seen.append(destination.platform) }
+        return seen
+    }
 }
 
 extension ParsedTestRun {
+    /// One run assembled from several inputs.
+    ///
+    /// With more than one input, test and suite IDs are prefixed with the input's position so identical names
+    /// from different inputs stay distinct. Destinations are united: the same environment seen by two inputs is
+    /// one destination. The runner and build system are kept only when every input agrees.
+    static func merging(_ runs: [ParsedTestRun], source: String) -> ParsedTestRun {
+        guard runs.count > 1 else { return runs.first ?? ParsedTestRun(runner: .unknown, source: source, summary: .init()) }
+        func prefixed(_ id: String, _ index: Int) -> String { "input-\(index + 1):" + id }
+        var destinations: [TestDestination] = []
+        for destination in runs.flatMap(\.destinations) where !destinations.contains(destination) { destinations.append(destination) }
+        let runners = Set(runs.map(\.runner))
+        let buildSystems = Set(runs.map(\.buildSystem))
+        return ParsedTestRun(
+            runner: runners.count == 1 ? runs[0].runner : .multiple,
+            buildSystem: buildSystems.count == 1 ? runs[0].buildSystem : nil,
+            source: source, destinations: destinations,
+            summary: .init(
+                passed: runs.reduce(0) { $0 + $1.summary.passed }, failed: runs.reduce(0) { $0 + $1.summary.failed },
+                skipped: runs.reduce(0) { $0 + $1.summary.skipped }, flaky: runs.reduce(0) { $0 + $1.summary.flaky },
+                errored: runs.reduce(0) { $0 + $1.summary.errored }),
+            suites: runs.enumerated().flatMap { index, run in
+                run.suites.map {
+                    ParsedTestSuite(
+                        name: $0.name, stableID: prefixed($0.stableID, index), file: $0.file,
+                        testCaseIDs: $0.testCaseIDs.map { prefixed($0, index) })
+                }
+            },
+            testCases: runs.enumerated().flatMap { index, run in run.testCases.map { $0.copy(stableID: prefixed($0.stableID, index)) } },
+            diagnostics: runs.flatMap(\.diagnostics))
+    }
+
     /// `true` when at least one test reported an outcome.
     ///
     /// A run without outcomes (an unparsable file, a crashed runner, an empty directory) must never be
@@ -130,6 +175,9 @@ public struct ParsedTestCase: Codable, Sendable, Hashable {
     /// deciding attempt alone, so the difference is what retries cost.
     public let totalDurationSeconds: Double?
 
+    /// The ``TestDestination/id`` of where this test ran, when the runner reported it.
+    public let destinationID: String?
+
     /// Source file reported by the runner when available.
     public let file: String?
 
@@ -152,12 +200,14 @@ public struct ParsedTestCase: Codable, Sendable, Hashable {
         metadata: [String: String]? = nil,
         stackTrace: String? = nil,
         attempts: Int? = nil,
-        totalDurationSeconds: Double? = nil
+        totalDurationSeconds: Double? = nil,
+        destinationID: String? = nil
     ) {
         self.metadata = metadata
         self.stackTrace = stackTrace
         self.attempts = attempts
         self.totalDurationSeconds = totalDurationSeconds
+        self.destinationID = destinationID
         self.stableID = stableID
         self.suite = suite
         self.name = name
@@ -173,12 +223,14 @@ public struct ParsedTestCase: Codable, Sendable, Hashable {
 extension ParsedTestCase {
     /// A copy with selected fields replaced. Everything else, including fields added later, is carried over, so
     /// call sites never have to re-list (and silently drop) the rest.
-    func copy(stableID: String? = nil, status: TestCaseStatus? = nil, metadata: [String: String]?? = nil) -> ParsedTestCase {
+    func copy(
+        stableID: String? = nil, status: TestCaseStatus? = nil, metadata: [String: String]?? = nil, destinationID: String?? = nil
+    ) -> ParsedTestCase {
         ParsedTestCase(
             stableID: stableID ?? self.stableID, suite: suite, name: name, status: status ?? self.status,
             durationSeconds: durationSeconds, message: message, file: file, line: line, rerunSelector: rerunSelector,
             metadata: metadata ?? self.metadata, stackTrace: stackTrace,
-            attempts: attempts, totalDurationSeconds: totalDurationSeconds)
+            attempts: attempts, totalDurationSeconds: totalDurationSeconds, destinationID: destinationID ?? self.destinationID)
     }
 }
 
@@ -290,9 +342,11 @@ public struct TestRunReport: Codable, Sendable {
     /// Increment this when the JSON contract changes incompatibly.
     public let schemaVersion: Int
 
-    public let platform: String
-    public let runner: String
+    public let runner: TestRunner
+    public let buildSystem: BuildSystem?
     public let source: String
+    /// Where the tests ran; ``ParsedTestCase/destinationID`` refers to these.
+    public let destinations: [TestDestination]
     public let attempts: [TestAttempt]
     public let initialFailedTests: [ParsedTestCase]
     public let flakyTests: [ParsedTestCase]
@@ -301,11 +355,16 @@ public struct TestRunReport: Codable, Sendable {
     public let testCases: [ParsedTestCase]?
     public let generatedAt: Date
 
+    /// The current contract. Version 2 replaced the string `platform` with typed `destinations`, and the string
+    /// `runner` with ``TestRunner``.
+    public static let currentSchemaVersion = 2
+
     public init(
-        schemaVersion: Int = 1,
-        platform: String,
-        runner: String,
+        schemaVersion: Int = TestRunReport.currentSchemaVersion,
+        runner: TestRunner,
+        buildSystem: BuildSystem? = nil,
         source: String,
+        destinations: [TestDestination] = [],
         attempts: [TestAttempt] = [],
         initialFailedTests: [ParsedTestCase] = [],
         flakyTests: [ParsedTestCase] = [],
@@ -315,9 +374,10 @@ public struct TestRunReport: Codable, Sendable {
         testCases: [ParsedTestCase]? = nil
     ) {
         self.schemaVersion = schemaVersion
-        self.platform = platform
         self.runner = runner
+        self.buildSystem = buildSystem
         self.source = source
+        self.destinations = destinations
         self.attempts = attempts
         self.initialFailedTests = initialFailedTests
         self.flakyTests = flakyTests

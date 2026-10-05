@@ -38,7 +38,7 @@ public actor TestEvidenceRecorder {
         let effectiveRun =
             run
             ?? ParsedTestRun(
-                platform: "unknown", runner: "unknown", source: directory.path,
+                runner: .unknown, source: directory.path,
                 summary: .init(errored: parseFailure != nil || output.exitCode != 0 ? 1 : 0),
                 diagnostics: [
                     .init(
@@ -46,7 +46,7 @@ public actor TestEvidenceRecorder {
                         message: parseFailure.map { "Structured result unavailable: \($0). See captured logs." }
                             ?? "Structured result unavailable; see captured logs")
                 ])
-        if effectiveRun.runner == "flutter-test" {
+        if effectiveRun.runner == .flutterTest {
             try output.stdout.write(to: directory.appendingPathComponent("events.jsonl"), atomically: true, encoding: .utf8)
         }
         try writeJSON(effectiveRun, to: directory.appendingPathComponent("results.json"))
@@ -91,7 +91,8 @@ public actor TestEvidenceRecorder {
         let report: TestRunReport
         if let initial {
             report = TestRunReport(
-                platform: initial.platform, runner: initial.runner, source: root.path, attempts: attempts,
+                runner: initial.runner, buildSystem: initial.buildSystem, source: root.path, destinations: initial.destinations,
+                attempts: attempts,
                 initialFailedTests: initial.testCases.filter { $0.status == .failed || $0.status == .errored },
                 flakyTests: flaky, persistentFailedTests: remaining,
                 summary: .init(
@@ -101,7 +102,7 @@ public actor TestEvidenceRecorder {
                 testCases: finalTestCases(initial.testCases, remaining: remaining, flaky: flaky))
         } else {
             report = TestRunReport(
-                platform: "unknown", runner: "unknown", source: root.path, attempts: attempts, summary: .init(errored: 1))
+                runner: .unknown, source: root.path, attempts: attempts, summary: .init(errored: 1))
         }
         try writeJSON(report, to: url)
     }
