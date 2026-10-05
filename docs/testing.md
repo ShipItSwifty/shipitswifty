@@ -418,3 +418,34 @@ Original artifacts preserve additional runner metrics beyond the normalized line
 Test steps expose `{{test_output_directory}}`, `{{test_report_path}}`, and
 `{{test_result_bundle}}` when produced. SwiftPM steps also expose `{{coverage_path}}`.
 Use these paths in later steps or artifact declarations instead of guessing output names.
+
+## Verifying against real projects
+
+Mocks and hand-written XML prove a parser handles what we *thought* a tool writes. Anything that changes how
+results are parsed, counted or reported is also checked against sample projects that real tools run, and against
+artifacts captured from real runs. Running the real thing has found bugs mocks could not: coverage silently
+dropped when a test fails, a UDID used as a device name, a compile failure reported as a failed test, and a
+fake `gradlew` that printed counts real Gradle never prints.
+
+| Layer | What it runs | Proves | Needs | Runs |
+|---|---|---|---|---|
+| Real captures (`Tests/ShipItKitTests/Fixtures/real/`) | Artifacts from Gradle 9.8 + `test-retry`, `xcodebuild` and `xcresulttool` | Parsers, classifiers and the native workflow handle what the tools actually write, including a real simulator clone failure | nothing | every `swift test` |
+| SwiftPM sample (`Fixtures/swiftpm-sample`) | The real `shipit` binary, real `swift test` (Swift Testing and XCTest) | Selective reruns, attempt counts, flaky recovery, persistent failures, evidence per attempt, coverage when a test fails, live = offline, export relocation, CI export | Swift | every `swift test`, macOS and Linux CI |
+| KMP, Flutter, React Native fixtures | The real binary with scripted tool stand-ins that write realistic output | Dispatch, typed report, destinations, Kotlin/Native rerun rule | nothing | every `swift test`, CI fixtures job |
+| JVM sample (`Fixtures/jvm-retry-sample`) | The real binary, real Gradle, the real `org.gradle.test-retry` plugin | Plugin retries and workflow reruns add up (2/4/6 attempts), one flaky count, stale results not reused after a compile failure, `NO-SOURCE`, live = offline | JDK, network, `SHIPIT_E2E=1` | CI fixtures job |
+| Real simulator | `shipit test` on an iOS simulator | Destination naming, serial clone fallback, simulator leases | Xcode, a free simulator | by hand (see below) |
+
+Sample projects give their tests **scripted** outcomes (pass, fail, skip, flake) through environment variables, so
+one project plays every role and assertions are exact. Add a scripted outcome to a sample when a behavior has no
+real coverage, rather than mocking it.
+
+```bash
+swift test --filter SwiftPMFixtureIntegrationTests                     # needs only Swift
+SHIPIT_E2E=1 swift test --filter JVMFixtureIntegrationTests            # real Gradle
+# By hand, on a simulator nothing else is using:
+shipit test --shipfile Tests/IntegrationTests/Fixtures/ios-sample/Shipfile.yml \
+  --destination "platform=iOS Simulator,id=<udid>"
+```
+
+Refresh a capture by re-running the tool and replacing the file (local paths scrubbed); the tests state what each
+artifact must produce, and `Fixtures/real/README.md` records how each was made.
