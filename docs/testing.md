@@ -323,6 +323,12 @@ classified clone failure switches that destination to serial once and reuses the
 assertion failures do not trigger this fallback. `serial: true` forces serial execution.
 `legacy_combined_test: true` preserves the previous `xcodebuild test` invocation.
 
+Every `test-without-building` passes `-collect-test-diagnostics never`. Without it a failing test makes `xcodebuild` gather a simulator
+sysdiagnose, which was observed hanging for its full 600 s timeout after the tests had finished in under a second (Xcode 27, each rerun attempt
+cost 10 minutes). ShipIt keeps its own device log, screenshot and result-bundle attachments for every attempt. The run logs
+`Built the tests once in <t>` and `Attempt N of plan P: tests <t>, overhead <t>`, and `report.json` carries `buildSeconds` and per-attempt durations,
+so a slow run can be attributed to the build, the tests or ShipIt's own overhead.
+
 Each attempt retains commands, stdout/stderr, results and native evidence before another
 attempt can overwrite it. SwiftPM reruns use `--skip-build`; SwiftPM, Flutter, React Native
 (Jest), Android JVM, and Xcode reruns use normalized selectors. `max_attempts` includes the initial assertion

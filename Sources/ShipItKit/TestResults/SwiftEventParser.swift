@@ -3,7 +3,9 @@ import Foundation
 /// Reads Swift Testing's saved event stream without interpreting human console output.
 public struct SwiftEventParser: Sendable {
     public init() {}
-    /// - Parameter destination: Where the tests ran, when the caller knows. A saved event stream does not say.
+    /// - Parameters:
+    ///   - path: Path to the saved Swift Testing event stream.
+    ///   - destination: Where the tests ran, when the caller knows. A saved event stream does not say.
     public func parse(path: String, destination: TestDestination? = nil) throws -> ParsedTestRun {
         struct State {
             var id: String

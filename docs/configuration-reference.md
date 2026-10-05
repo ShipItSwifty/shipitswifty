@@ -368,6 +368,8 @@ The `test` action is configured inline in a workflow step. It does **not** have 
 
 `retry_on_failure`, `rerun_failed_tests`, and `infrastructure_retry` solve different problems. Use `retry_on_failure` for xcodebuild's built-in one-pass iOS retry behavior. Use `rerun_failed_tests` when you want ShipIt to collect the initial failures, rerun those specific tests once, and emit flaky/persistent failure information in `TestRunReport`. Use `infrastructure_retry` for whole-run failures such as simulator launch crashes, Android emulator disconnects, Flutter tool crashes, or JS worker failures.
 
+Every test run writes a `TestRunReport` (schema version 2) that separates three things: the `runner` (the tool that ran the tests), the `buildSystem` (how the project is built) and `destinations` (where the tests ran: `platform`, `kind`, `name`, `scope`). Each test points at one destination by `destinationID` and carries `attempts`; a test that failed and then passed has `attempts > 1` and is counted as flaky. Each attempt keeps its logs and native artifacts under `build/test-runs/`, with a `command.json` recording the exact command and its duration; the report's `buildSeconds` and per-attempt `durationSeconds` / `overhead_seconds` show where the time went. See the Test Workflows and Test Results articles in the DocC documentation.
+
 `shipit generate` enables this retry policy on generated test steps by default; interactive generation lets users opt out. `shipit ai session` preserves that default in its prompt rather than asking agents to recreate it.
 
 ## `test-results` action options
@@ -378,7 +380,8 @@ Use `test-results` to parse xcresult, JUnit (Android/KMP), Swift Testing events,
 |---|---|---|---|
 | `inputs` | list | — | Explicit artifact inputs; CLI `--input` is repeatable. |
 | `input_format` | string | detect | `xcresult`, `junit`, `swift`, `flutter`, `jest`, `shipit`, `manifest`. Ambiguous input requires an override. |
-| `runner` | string | source default | Runner identity, e.g. `kmp`, `gradle`, `swift-test`. |
+| `runner` | string | from the artifact | Tool that produced the results: `xcodebuild`, `gradle`, `swift-test`, `flutter-test` or `jest`. Needed only for JUnit XML, which Gradle and `swift test` both write. |
+| `build_system` | string | from the Shipfile | `native`, `kmp`, `flutter` or `react_native`, for results read outside a Shipfile. A framework is a build system, never a platform. |
 | `coverage_inputs` / `coverage_format` | list / string | — | Preserve coverage separately; format is `swift`, `lcov`, `jacoco`, or `kover`. |
 | `evidence_paths` | list | — | Additional screenshots, videos, logs and native artifacts to copy. |
 | `export_directory` | string | — | Create a new portable export with originals, extracted evidence, manifest and relative index links. |

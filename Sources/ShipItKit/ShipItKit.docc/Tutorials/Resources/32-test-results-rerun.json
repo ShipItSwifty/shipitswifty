@@ -1,30 +1,53 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
+  "runner": "xcodebuild",
+  "buildSystem": "native",
+  "source": "./build/test-runs/xcode-4F2A",
+  "buildSeconds": 41.2,
+  "destinations": [
+    { "id": "ios:simulator:iPhone 17", "platform": "ios", "kind": "simulator", "name": "iPhone 17" }
+  ],
   "attempts": [
     {
       "attemptNumber": 1,
+      "reason": "initial",
+      "durationSeconds": 26.1,
       "failedTests": [
-        {
-          "stableID": "xcresult-case:MyAppTests/LoginTests/testFailedLogin()",
-          "name": "testFailedLogin()",
-          "status": "failed"
-        }
+        { "stableID": "xcresult-case:MyAppTests/LoginTests/testFailedLogin()", "name": "testFailedLogin()", "status": "failed" },
+        { "stableID": "xcresult-case:MyAppTests/CartTests/testCheckout()", "name": "testCheckout()", "status": "failed" }
+      ]
+    },
+    {
+      "attemptNumber": 2,
+      "reason": "failed_tests",
+      "durationSeconds": 9.4,
+      "failedTests": [
+        { "stableID": "xcresult-case:MyAppTests/LoginTests/testFailedLogin()", "name": "testFailedLogin()", "status": "failed" }
       ]
     }
   ],
   "initialFailedTests": [
+    { "stableID": "xcresult-case:MyAppTests/LoginTests/testFailedLogin()", "name": "testFailedLogin()", "status": "failed" },
+    { "stableID": "xcresult-case:MyAppTests/CartTests/testCheckout()", "name": "testCheckout()", "status": "failed" }
+  ],
+  "flakyTests": [
     {
-      "stableID": "xcresult-case:MyAppTests/LoginTests/testFailedLogin()",
-      "name": "testFailedLogin()",
-      "status": "failed"
+      "stableID": "xcresult-case:MyAppTests/CartTests/testCheckout()",
+      "name": "testCheckout()",
+      "status": "passed",
+      "attempts": 2,
+      "destinationID": "ios:simulator:iPhone 17",
+      "metadata": { "flaky": "true", "first_failure": "XCTAssertEqual failed: (\"3\") is not equal to (\"2\")" }
     }
   ],
-  "flakyTests": [],
   "persistentFailedTests": [
     {
       "stableID": "xcresult-case:MyAppTests/LoginTests/testFailedLogin()",
       "name": "testFailedLogin()",
-      "status": "failed"
+      "status": "failed",
+      "attempts": 2,
+      "destinationID": "ios:simulator:iPhone 17"
     }
-  ]
+  ],
+  "summary": { "passed": 41, "failed": 1, "skipped": 0, "flaky": 1, "errored": 0 }
 }

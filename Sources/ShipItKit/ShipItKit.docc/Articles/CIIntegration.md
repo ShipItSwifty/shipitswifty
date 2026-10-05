@@ -103,6 +103,13 @@ jobs:
       || { echo "::error::Coverage $ACTUAL% < $THRESHOLD%"; exit 1; }
 ```
 
+### Exporting a workflow as a job
+
+`shipit ci export --provider github-actions --workflow tests --runner macos-26 --setup-command "swift build"`
+writes a runnable job that executes the workflow and publishes its artifacts and evidence with `if: always()`,
+so a failing run still uploads what you need to investigate it. Setup is explicit and nothing runs during export.
+Other providers implement ``CIProvider``. See <doc:TestWorkflows>.
+
 ## GitLab CI
 
 ```yaml

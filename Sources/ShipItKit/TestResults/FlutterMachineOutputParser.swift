@@ -5,8 +5,10 @@ import Logging
 public struct FlutterMachineOutputParser: Sendable {
     private let logger: Logger
     public init(logger: Logger = Logger.forType(subsystem: "ShipItSwifty", FlutterMachineOutputParser.self)) { self.logger = logger }
-    /// - Parameter destination: Where the tests ran, when the caller knows. Saved machine events do not say, so
-    ///   offline inspection leaves it unset rather than guessing.
+    /// - Parameters:
+    ///   - machineOutput: The saved `flutter test --machine` output, one JSON event per line.
+    ///   - destination: Where the tests ran, when the caller knows. Saved machine events do not say, so
+    ///     offline inspection leaves it unset rather than guessing.
     public func parse(machineOutput: String, destination: TestDestination? = nil) async throws -> ParsedTestRun {
         struct Pending {
             var name: String

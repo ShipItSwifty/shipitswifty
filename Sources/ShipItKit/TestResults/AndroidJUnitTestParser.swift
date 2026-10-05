@@ -17,16 +17,16 @@ public struct AndroidJUnitTestParser: Sendable {
 
     /// Parses JUnit XML at `reportDirectory`.
     ///
-    /// - Parameter identityRoot: Directory that test identities are made relative to, normally the Gradle
-    ///   project root. Live runs and offline inspection must pass the same root so a test keeps one
-    ///   `stableID` on every machine; without it identities are relative to `reportDirectory` itself.
-    ///
     /// - Parameters:
+    ///   - reportDirectory: Directory searched recursively for JUnit XML files.
     ///   - runner: The tool that produced the XML. It decides the rerun selector: `swift test` filters differ
     ///     from Gradle's `--tests`.
     ///   - buildSystem: The project's build system when known (`.kmp` makes native targets unsupported for reruns).
     ///   - destination: Where the tests ran, for runners that run on the host (`swift test`). Gradle results derive
     ///     it from the task that wrote them (and, for connected tests, the device AGP records), so none is needed.
+    ///   - identityRoot: Directory that test identities are made relative to, normally the Gradle
+    ///     project root. Live runs and offline inspection must pass the same root so a test keeps one
+    ///     `stableID` on every machine; without it identities are relative to `reportDirectory` itself.
     public func parse(
         reportDirectory: String, runner: TestRunner = .gradle, buildSystem: BuildSystem? = nil, identityRoot: String? = nil,
         destination: TestDestination? = nil
