@@ -38,6 +38,9 @@ public enum ShipItError: Error, Sendable {
     /// App Store Connect API returned an unexpected HTTP status.
     case apiError(statusCode: Int, body: String)
 
+    /// App Store Connect returned a response that could not be decoded.
+    case apiDecodingFailed(path: String, type: String, underlying: any Error)
+
     /// JWT generation failed (bad key, missing fields, etc.).
     case jwtGenerationFailed(underlying: any Error)
 
@@ -85,6 +88,8 @@ extension ShipItError: LocalizedError {
             return "Keychain error: \(underlying.localizedDescription)"
         case .apiError(let statusCode, let body):
             return "App Store Connect API error (\(statusCode)): \(body)"
+        case .apiDecodingFailed(let path, let type, let underlying):
+            return "App Store Connect response decoding failed for \(path) as \(type): \(underlying.localizedDescription)"
         case .jwtGenerationFailed(let underlying):
             return "JWT generation failed: \(underlying.localizedDescription)"
         case .uploadFailed(let asset, let reason):
@@ -111,7 +116,7 @@ extension ShipItError: LocalizedError {
         case .testFailed: return 11
         case .archiveFailed: return 12
         case .signingResourceNotFound, .keychainError: return 20
-        case .apiError, .jwtGenerationFailed, .uploadFailed: return 30
+        case .apiError, .apiDecodingFailed, .jwtGenerationFailed, .uploadFailed: return 30
         case .screenshotCaptureFailed: return 40
         case .precheckFailed: return 50
         case .validateArchiveFailed: return 50

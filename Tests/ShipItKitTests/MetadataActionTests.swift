@@ -280,23 +280,9 @@ struct MetadataActionTests {
             .json([
                 "data": [
                     [
-                        "id": "app-1",
-                        "attributes": ["bundleId": "com.example.app", "name": "Example"],
-                    ]
-                ]
-            ]),
-            .json([
-                "data": [
-                    [
                         "id": "version-1",
                         "attributes": ["versionString": "1.2.3"],
                     ]
-                ]
-            ]),
-            .json([
-                "data": [
-                    "id": "version-1",
-                    "attributes": ["versionString": "1.2.3"],
                 ]
             ]),
             .json([
@@ -334,6 +320,9 @@ struct MetadataActionTests {
 
         #expect(result.operation == "push")
         #expect(result.localesProcessed == 1)
+        #expect(stub.requests.filter { $0.url?.path == "/v1/apps" }.count == 1)
+        #expect(stub.requests.last?.url?.path == "/v1/reviewSubmissions")
+        #expect(stub.requests.last?.httpMethod == "POST")
     }
 }
 
