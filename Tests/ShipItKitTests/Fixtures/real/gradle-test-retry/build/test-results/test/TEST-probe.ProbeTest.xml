@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="probe.ProbeTest" tests="7" skipped="1" failures="4" errors="0" timestamp="2026-10-05T02:20:16.500Z" hostname="localhost" time="0.553">
+  <properties/>
+  <testcase name="alwaysFails()" classname="probe.ProbeTest" time="0.008">
+    <failure message="org.opentest4j.AssertionFailedError: always fails" type="org.opentest4j.AssertionFailedError">org.opentest4j.AssertionFailedError: always fails
+	at org.junit.jupiter.api.Assertions.fail(Assertions.java:142)
+	at probe.ProbeTest.alwaysFails(ProbeTest.java:8)
+</failure>
+  </testcase>
+  <testcase name="passes()" classname="probe.ProbeTest" time="0.001"/>
+  <testcase name="flaky()" classname="probe.ProbeTest" time="0.001">
+    <failure message="org.opentest4j.AssertionFailedError: flaky first attempt" type="org.opentest4j.AssertionFailedError">org.opentest4j.AssertionFailedError: flaky first attempt
+	at org.junit.jupiter.api.Assertions.fail(Assertions.java:142)
+	at probe.ProbeTest.flaky(ProbeTest.java:13)
+</failure>
+  </testcase>
+  <testcase name="skipped()" classname="probe.ProbeTest" time="0.0">
+    <skipped/>
+  </testcase>
+  <testcase name="alwaysFails()" classname="probe.ProbeTest" time="0.007">
+    <failure message="org.opentest4j.AssertionFailedError: always fails" type="org.opentest4j.AssertionFailedError">org.opentest4j.AssertionFailedError: always fails
+	at org.junit.jupiter.api.Assertions.fail(Assertions.java:142)
+	at probe.ProbeTest.alwaysFails(ProbeTest.java:8)
+</failure>
+  </testcase>
+  <testcase name="flaky()" classname="probe.ProbeTest" time="0.003"/>
+  <testcase name="alwaysFails()" classname="probe.ProbeTest" time="0.007">
+    <failure message="org.opentest4j.AssertionFailedError: always fails" type="org.opentest4j.AssertionFailedError">org.opentest4j.AssertionFailedError: always fails
+	at org.junit.jupiter.api.Assertions.fail(Assertions.java:142)
+	at probe.ProbeTest.alwaysFails(ProbeTest.java:8)
+</failure>
+  </testcase>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

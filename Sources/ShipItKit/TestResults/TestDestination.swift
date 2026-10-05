@@ -199,14 +199,19 @@ extension TestDestination {
 
     /// The destination an `xcodebuild -destination` specifier names, such as
     /// `platform=iOS Simulator,name=iPhone 16,OS=18.2`.
-    static func xcode(specifier: String, plan: String? = nil) -> TestDestination {
+    ///
+    /// - Parameter resolvedName: The human device name from a result bundle. A specifier that identifies the
+    ///   device only by UDID (`id=`) would otherwise name it by that UDID, which differs on every machine.
+    static func xcode(specifier: String, plan: String? = nil, resolvedName: String? = nil) -> TestDestination {
         var fields: [String: String] = [:]
         for part in specifier.split(separator: ",") {
             let pair = part.split(separator: "=", maxSplits: 1).map { $0.trimmingCharacters(in: .whitespaces) }
             if pair.count == 2 { fields[pair[0].lowercased()] = pair[1] }
         }
         // `generic/platform=iOS Simulator` is the same specifier without a device.
-        return xcode(platformName: fields["platform"] ?? fields["generic/platform"], name: fields["name"] ?? fields["id"], plan: plan)
+        return xcode(
+            platformName: fields["platform"] ?? fields["generic/platform"], name: fields["name"] ?? resolvedName ?? fields["id"],
+            plan: plan)
     }
 
     /// The destination for an Xcode platform name (`iOS Simulator`, `macOS`, `tvOS`) as `xcodebuild` and
