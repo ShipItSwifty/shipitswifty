@@ -43,7 +43,8 @@ public struct ResultInspection: Sendable {
             let root =
                 url.hasDirectoryPath || (try? url.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true
                 ? url : url.deletingLastPathComponent()
-            let runs = try JSONDecoder().decode([ParsedTestRun].self, from: Data(contentsOf: root.appendingPathComponent("results.json")))
+            let data = try Data(contentsOf: root.appendingPathComponent("results.json"))
+            let runs = try JSONDecoder().decode(ExportedResults.self, from: data).runs
             guard !runs.isEmpty else { throw ShipItError.invalidConfiguration(reason: "Export contains no normalized results") }
             return ParsedTestRun(
                 platform: runs.count == 1 ? runs[0].platform : "mixed", runner: runs.count == 1 ? runs[0].runner : "multiple", source: path,
@@ -130,7 +131,7 @@ public struct ResultInspection: Sendable {
             if xml { return .junit }
         }
         if let data = try? Data(contentsOf: url), let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
-            if object["entries"] != nil, object["schemaVersion"] != nil { return .manifest }
+            if object["entries"] != nil || object["runs"] != nil, object["schemaVersion"] != nil { return .manifest }
             if object["testCases"] != nil, object["summary"] != nil { return .shipit }
             if object["testResults"] != nil { return .jest }
             if object["attempts"] != nil, object["schemaVersion"] != nil { return .shipit }
