@@ -142,6 +142,16 @@ let json = try JSONReporter().encodeAny(payload)
 print(json)
 ```
 
+## Test results guidance
+
+The `agentPrompt` teaches the host agent to read test runs from their structured results instead of console
+output: the typed `report.json` and per-attempt evidence under `build/test-runs/`, the `runner`, `buildSystem`
+and `destinations` model, `attempts` and flakiness, how to triage a failed run (`summary.errored`, then
+`persistentFailedTests`, `flakyTests`, then `attempts`), and how to inspect saved artifacts with
+`shipit test-results` and `shipit coverage`. Two built-in playbooks, `test-workflows` and
+`investigate-test-failures`, are available through `shipit ai skills`. `shipit ai instructions` states the rules:
+read structured results, never edit a report, never treat zero results as passing.
+
 ## Versioning
 
 The contract version is at ``AISessionBuilder/contractVersion``. A bump means any of:

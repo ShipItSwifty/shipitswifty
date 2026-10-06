@@ -59,7 +59,11 @@ ShipItKit auto-detects the JS package manager from lockfiles:
 
 The `test` and `lint` actions run `<pm> run test` / `<pm> run lint`. When the `test`
 script supports Jest CLI passthrough, ShipIt also collects Jest JSON via `--json --outputFile`
-so `TestRunReport` can include named failures and rerun selectors. If the script is absent
+so `TestRunReport` can include named failures and rerun selectors. Failing tests are a test failure (not a
+build failure), `rerun_failed_tests` reruns only the failures with `--runTestsByPath` and `--testNamePattern`,
+and results from a previous run are cleared first so a Jest run that dies early is never mistaken for the last
+one. Test identities are relative to the project root, so they match between machines. Flutter reruns select by
+test name from `flutter test --machine` events. If the script is absent
 from `package.json`, the action throws ``ShipItError/invalidConfiguration(reason:)`` with a
 clear message rather than silently invoking the package manager.
 

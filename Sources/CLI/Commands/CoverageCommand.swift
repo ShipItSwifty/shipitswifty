@@ -190,7 +190,7 @@ struct CoverageCommand: AsyncParsableCommand {
         let sorted = sortedTargets(result.targets, by: options.sort ?? .coverage)
         let limited = applyLimit(sorted, limit: options.limit)
 
-        let platformLabel = result.platform == "ios" ? "iOS" : "Android"
+        let platformLabel = result.platform.displayName
         let filterNote = result.firstPartyOnly ? " (first-party only)" : ""
 
         formatter.printSuccess("\(platformLabel) Coverage Summary\(filterNote)")
@@ -202,7 +202,7 @@ struct CoverageCommand: AsyncParsableCommand {
         if limited.isEmpty { return }
 
         formatter.print("")
-        let header = result.platform == "ios" ? "Target" : "Module"
+        let header = result.platform == .ios ? "Target" : "Module"
         formatter.print(String(format: "%-48@  %8@  %8@", header as NSString, "Coverage" as NSString, "Lines" as NSString))
         formatter.print(String(repeating: "-", count: 70))
 
@@ -237,7 +237,7 @@ struct CoverageCommand: AsyncParsableCommand {
     private func printMarkdown(result: CoverageAction.Result, options: CoverageAction.Options) {
         let sorted = sortedTargets(result.targets, by: options.sort ?? .coverage)
         let limited = applyLimit(sorted, limit: options.limit)
-        let platformLabel = result.platform == "ios" ? "iOS" : "Android"
+        let platformLabel = result.platform.displayName
         let filterNote = result.firstPartyOnly ? " *(first-party only)*" : ""
 
         print("## \(platformLabel) Coverage\(filterNote)")
@@ -251,7 +251,7 @@ struct CoverageCommand: AsyncParsableCommand {
         if options.summary == true { return }
         if limited.isEmpty { return }
 
-        let colHeader = result.platform == "ios" ? "Target" : "Module"
+        let colHeader = result.platform == .ios ? "Target" : "Module"
         print("| \(colHeader) | Coverage | Lines |")
         print("|---|---:|---:|")
 

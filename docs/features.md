@@ -82,7 +82,7 @@ This document covers the planned feature surface, current v1 scope, the long-ter
 | **Structured test artifact parsing** | Implemented | `shipit test-results` and `TestResultsAction` parse native `.xcresult` and Gradle JUnit XML artifacts into `ParsedTestRun` and `TestRunReport`, with optional JSON report export for CI artifacts. |
 | **Test Plans** | Implemented | `--test-plan` selects a named `.xctestplan` |
 | **Retry on Failure** | Implemented | `retry_on_failure: true` passes `-retry-tests-on-failure` to xcodebuild |
-| **Selective failed-test reruns** | Implemented | `rerun_failed_tests: { enabled: true, max_attempts: 2 }` reruns failing native iOS tests by plan, destination, and configuration, Android JVM tests, Flutter tests, and SwiftPM tests up to `max_attempts` total attempts (including the initial run), stopping early on recovery, then reports flaky vs persistent failures in `TestRunReport`. Failed tests are read back from the xcresult / JUnit XML (console log fallback) after the runner exits non-zero; root-scoped Android runs collect reports across modules, while module-scoped runs ignore unrelated reports. Newly reported rerun failures remain failures; the step still fails if any test fails again, and passes (with `flakyTests` populated) if every failure passes on rerun. |
+| **Selective failed-test reruns** | Implemented | `rerun_failed_tests: { enabled: true, max_attempts: 2 }` reruns failing native iOS tests by plan, destination, and configuration, Android JVM tests, Flutter tests, React Native (Jest) tests, and SwiftPM tests up to `max_attempts` total attempts (including the initial run), stopping early on recovery, then reports flaky vs persistent failures in `TestRunReport`. Failed tests are read back from the xcresult / JUnit XML (console log fallback) after the runner exits non-zero; root-scoped Android runs collect reports across modules, while module-scoped runs ignore unrelated reports. Newly reported rerun failures remain failures; the step still fails if any test fails again, and passes (with `flakyTests` populated) if every failure passes on rerun. |
 
 ### Coverage Reporting
 
@@ -371,7 +371,7 @@ Build progress remains live on stderr in JSON output mode; stdout contains the J
 
 Named test workflows compose Swift package checks and native sample UI plans. Native iOS builds
 once into `.xctestproducts`, saves one bundle per plan/destination/attempt, and falls back to
-serial after a classified clone failure. SwiftPM, Flutter, Android JVM and Xcode selective
+serial after a classified clone failure. SwiftPM, Flutter, React Native (Jest), Android JVM and Xcode selective
 reruns share normalized identities and flaky reporting. Android/KMP JUnit, Flutter/Jest events,
 Swift Testing streams and xcresult can be inspected/exported offline with originals, screenshots,
 attachments and logs. Coverage adds SwiftPM LLVM JSON, Flutter LCOV and Kover JVM XML.

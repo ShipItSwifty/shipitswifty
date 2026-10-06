@@ -71,11 +71,14 @@ These constraints are enforced throughout the codebase:
 
 - <doc:ActionsCatalog>
 - <doc:Coverage>
+- <doc:TestWorkflows>
 - <doc:TestResults>
 - <doc:Validation>
 - <doc:OutputFormats>
 - ``BuildAction``
 - ``TestAction``
+- ``SwiftTestAction``
+- ``SwiftFormatAction``
 - ``ArchiveAction``
 - ``ExportAction``
 - ``UploadAction``
@@ -160,11 +163,18 @@ These constraints are enforced throughout the codebase:
 ### Testing
 
 - <doc:TestingWithMocks>
+- <doc:TestWorkflows>
 - <doc:TestResults>
 - ``ActionContext/mock(executor:versioningSource:platform:)``
 
 ### Test result parsing
 
+- ``ResultInspection``
+- ``TestRunner``
+- ``TestPlatform``
+- ``TestDestination``
+- ``TestDestinationKind``
+- ``EvidenceExporter``
 - ``ParsedTestRun``
 - ``TestSummary``
 - ``ParsedTestSuite``

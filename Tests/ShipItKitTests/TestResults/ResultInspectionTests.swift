@@ -15,9 +15,10 @@ struct ResultInspectionTests {
         try """
         <testsuite name="Suite"><testcase classname="C" name="method" time="1.25"><error message="boom">stack</error></testcase><system-out>console</system-out></testsuite>
         """.write(to: path, atomically: true, encoding: .utf8)
-        let run = try await ResultInspection(shell: .init()).read(path.path, runner: "kmp")
+        let run = try await ResultInspection(shell: .init()).read(path.path, runner: .gradle, buildSystem: .kmp)
         let test = try #require(run.testCases.first)
-        #expect(run.platform == "kmp")
+        #expect(run.runner == .gradle)
+        #expect(run.buildSystem == .kmp)
         #expect(run.summary.errored == 1)
         #expect(run.summary.failed == 0)
         #expect(test.durationSeconds == 1.25)
@@ -112,7 +113,7 @@ struct ResultInspectionTests {
         let scratch = try TemporaryDirectory()
         defer { try? scratch.remove() }
         let report = ParsedTestRun(
-            platform: "flutter", runner: "flutter-test", source: "events.jsonl", summary: .init(passed: 1),
+            runner: .flutterTest, buildSystem: .flutter, source: "events.jsonl", summary: .init(passed: 1),
             testCases: [.init(stableID: "case", name: "test", status: .passed)])
         let output = scratch.url.appendingPathComponent("export")
         _ = try await EvidenceExporter(shell: .init()).export(runs: [report], sources: [], to: output.path)
@@ -265,8 +266,9 @@ struct ResultIntegrityTests {
                 to: reports.appendingPathComponent("TEST-Same.xml"), atomically: true, encoding: .utf8)
         }
         let live = try #require(
-            await TestAction().parseJUnitReports(projectDir: scratch.url.path, task: "testDebugUnitTest", platform: "kmp"))
-        #expect(live.platform == "kmp")
+            await TestAction().parseJUnitReports(projectDir: scratch.url.path, task: "testDebugUnitTest", buildSystem: .kmp))
+        #expect(live.buildSystem == .kmp)
+        #expect(live.destinations.map(\.platform) == [.android], "a unit-test task is Android on the host JVM")
         let liveIDs = live.testCases.map(\.stableID)
         #expect(Set(liveIDs).count == 2, "the same test in two modules must stay distinct")
         #expect(!liveIDs.contains { $0.contains(scratch.url.lastPathComponent) }, "IDs must not embed machine-specific paths")

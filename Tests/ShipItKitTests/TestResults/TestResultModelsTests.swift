@@ -8,10 +8,12 @@ struct TestResultModelsTests {
 
     @Test("ParsedTestRun round-trips through JSON")
     func parsedTestRunRoundTrips() throws {
+        let phone = TestDestination(platform: .ios, kind: .simulator, name: "iPhone 16")
         let run = ParsedTestRun(
-            platform: "ios",
-            runner: "xcodebuild",
+            runner: .xcodebuild,
+            buildSystem: .native,
             source: "/tmp/Tests.xcresult",
+            destinations: [phone],
             summary: TestSummary(passed: 8, failed: 1, skipped: 1),
             suites: [
                 ParsedTestSuite(
@@ -31,7 +33,8 @@ struct TestResultModelsTests {
                     message: "Expected status 200",
                     file: "LoginTests.swift",
                     line: 42,
-                    rerunSelector: .xcodeOnlyTesting("MyAppTests/LoginTests/testLoginSuccess")
+                    rerunSelector: .xcodeOnlyTesting("MyAppTests/LoginTests/testLoginSuccess"),
+                    destinationID: phone.id
                 )
             ],
             diagnostics: [
@@ -46,8 +49,11 @@ struct TestResultModelsTests {
         let data = try JSONEncoder().encode(run)
         let decoded = try JSONDecoder().decode(ParsedTestRun.self, from: data)
 
-        #expect(decoded.platform == "ios")
-        #expect(decoded.runner == "xcodebuild")
+        #expect(decoded.runner == .xcodebuild)
+        #expect(decoded.buildSystem == .native)
+        #expect(decoded.destinations == [phone])
+        #expect(decoded.platforms == [.ios])
+        #expect(decoded.testCases.first?.destinationID == phone.id)
         #expect(decoded.summary.failed == 1)
         #expect(decoded.suites.first?.testCaseIDs == ["case:login-success"])
         #expect(decoded.testCases.first?.rerunSelector == .xcodeOnlyTesting("MyAppTests/LoginTests/testLoginSuccess"))
@@ -65,9 +71,10 @@ struct TestResultModelsTests {
         )
 
         let report = TestRunReport(
-            platform: "android",
-            runner: "gradle",
+            runner: .gradle,
+            buildSystem: .native,
             source: "app/build/test-results/testDebugUnitTest",
+            destinations: [TestDestination(platform: .android, kind: .host, scope: "testDebugUnitTest")],
             attempts: [
                 TestAttempt(
                     attemptNumber: 1,
@@ -94,7 +101,7 @@ struct TestResultModelsTests {
         let data = try JSONEncoder().encode(report)
         let decoded = try JSONDecoder().decode(TestRunReport.self, from: data)
 
-        #expect(decoded.schemaVersion == 1)
+        #expect(decoded.schemaVersion == TestRunReport.currentSchemaVersion)
         #expect(decoded.attempts.count == 2)
         #expect(decoded.flakyTests == [failedTest])
         #expect(decoded.persistentFailedTests.isEmpty)

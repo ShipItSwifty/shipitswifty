@@ -7,14 +7,19 @@ import Foundation
 /// reporting, selective reruns, and flaky-test classification without forcing a
 /// single universal test identifier format across every toolchain.
 public struct ParsedTestRun: Codable, Sendable {
-    /// Target platform that produced the result, such as `"ios"` or `"android"`.
-    public let platform: String
+    /// The tool that executed the tests.
+    public let runner: TestRunner
 
-    /// Runner that produced the result, such as `"xcodebuild"`, `"gradle"`, or `"jest"`.
-    public let runner: String
+    /// The project's build system (native, Kotlin Multiplatform, Flutter, React Native) when known. Reading a
+    /// bare result file offline cannot tell, so this is `nil` rather than a guess.
+    public let buildSystem: BuildSystem?
 
     /// Artifact path or other source identifier used to parse this run.
     public let source: String
+
+    /// Where the tests ran. Tests refer to these by ``ParsedTestCase/destinationID``; a runner that reports no
+    /// environment leaves this empty instead of inventing one.
+    public let destinations: [TestDestination]
 
     /// Aggregate counts for this parsed run.
     public let summary: TestSummary
@@ -29,25 +34,65 @@ public struct ParsedTestRun: Codable, Sendable {
     public let diagnostics: [ParsingDiagnostic]
 
     public init(
-        platform: String,
-        runner: String,
+        runner: TestRunner,
+        buildSystem: BuildSystem? = nil,
         source: String,
+        destinations: [TestDestination] = [],
         summary: TestSummary,
         suites: [ParsedTestSuite] = [],
         testCases: [ParsedTestCase] = [],
         diagnostics: [ParsingDiagnostic] = []
     ) {
-        self.platform = platform
         self.runner = runner
+        self.buildSystem = buildSystem
         self.source = source
+        self.destinations = destinations
         self.summary = summary
         self.suites = suites
         self.testCases = testCases
         self.diagnostics = diagnostics
     }
+
+    /// The distinct platforms the tests ran on, in destination order.
+    public var platforms: [TestPlatform] {
+        var seen: [TestPlatform] = []
+        for destination in destinations where !seen.contains(destination.platform) { seen.append(destination.platform) }
+        return seen
+    }
 }
 
 extension ParsedTestRun {
+    /// One run assembled from several inputs.
+    ///
+    /// With more than one input, test and suite IDs are prefixed with the input's position so identical names
+    /// from different inputs stay distinct. Destinations are united: the same environment seen by two inputs is
+    /// one destination. The runner and build system are kept only when every input agrees.
+    static func merging(_ runs: [ParsedTestRun], source: String) -> ParsedTestRun {
+        guard runs.count > 1 else { return runs.first ?? ParsedTestRun(runner: .unknown, source: source, summary: .init()) }
+        func prefixed(_ id: String, _ index: Int) -> String { "input-\(index + 1):" + id }
+        var destinations: [TestDestination] = []
+        for destination in runs.flatMap(\.destinations) where !destinations.contains(destination) { destinations.append(destination) }
+        let runners = Set(runs.map(\.runner))
+        let buildSystems = Set(runs.map(\.buildSystem))
+        return ParsedTestRun(
+            runner: runners.count == 1 ? runs[0].runner : .multiple,
+            buildSystem: buildSystems.count == 1 ? runs[0].buildSystem : nil,
+            source: source, destinations: destinations,
+            summary: .init(
+                passed: runs.reduce(0) { $0 + $1.summary.passed }, failed: runs.reduce(0) { $0 + $1.summary.failed },
+                skipped: runs.reduce(0) { $0 + $1.summary.skipped }, flaky: runs.reduce(0) { $0 + $1.summary.flaky },
+                errored: runs.reduce(0) { $0 + $1.summary.errored }),
+            suites: runs.enumerated().flatMap { index, run in
+                run.suites.map {
+                    ParsedTestSuite(
+                        name: $0.name, stableID: prefixed($0.stableID, index), file: $0.file,
+                        testCaseIDs: $0.testCaseIDs.map { prefixed($0, index) })
+                }
+            },
+            testCases: runs.enumerated().flatMap { index, run in run.testCases.map { $0.copy(stableID: prefixed($0.stableID, index)) } },
+            diagnostics: runs.flatMap(\.diagnostics))
+    }
+
     /// `true` when at least one test reported an outcome.
     ///
     /// A run without outcomes (an unparsable file, a crashed runner, an empty directory) must never be
@@ -130,6 +175,9 @@ public struct ParsedTestCase: Codable, Sendable, Hashable {
     /// deciding attempt alone, so the difference is what retries cost.
     public let totalDurationSeconds: Double?
 
+    /// The ``TestDestination/id`` of where this test ran, when the runner reported it.
+    public let destinationID: String?
+
     /// Source file reported by the runner when available.
     public let file: String?
 
@@ -152,12 +200,14 @@ public struct ParsedTestCase: Codable, Sendable, Hashable {
         metadata: [String: String]? = nil,
         stackTrace: String? = nil,
         attempts: Int? = nil,
-        totalDurationSeconds: Double? = nil
+        totalDurationSeconds: Double? = nil,
+        destinationID: String? = nil
     ) {
         self.metadata = metadata
         self.stackTrace = stackTrace
         self.attempts = attempts
         self.totalDurationSeconds = totalDurationSeconds
+        self.destinationID = destinationID
         self.stableID = stableID
         self.suite = suite
         self.name = name
@@ -173,12 +223,16 @@ public struct ParsedTestCase: Codable, Sendable, Hashable {
 extension ParsedTestCase {
     /// A copy with selected fields replaced. Everything else, including fields added later, is carried over, so
     /// call sites never have to re-list (and silently drop) the rest.
-    func copy(stableID: String? = nil, status: TestCaseStatus? = nil, metadata: [String: String]?? = nil) -> ParsedTestCase {
+    func copy(
+        stableID: String? = nil, status: TestCaseStatus? = nil, metadata: [String: String]?? = nil, destinationID: String?? = nil,
+        attempts: Int?? = nil, message: String?? = nil, stackTrace: String?? = nil
+    ) -> ParsedTestCase {
         ParsedTestCase(
             stableID: stableID ?? self.stableID, suite: suite, name: name, status: status ?? self.status,
-            durationSeconds: durationSeconds, message: message, file: file, line: line, rerunSelector: rerunSelector,
-            metadata: metadata ?? self.metadata, stackTrace: stackTrace,
-            attempts: attempts, totalDurationSeconds: totalDurationSeconds)
+            durationSeconds: durationSeconds, message: message ?? self.message, file: file, line: line, rerunSelector: rerunSelector,
+            metadata: metadata ?? self.metadata, stackTrace: stackTrace ?? self.stackTrace,
+            attempts: attempts ?? self.attempts, totalDurationSeconds: totalDurationSeconds,
+            destinationID: destinationID ?? self.destinationID)
     }
 }
 
@@ -290,9 +344,14 @@ public struct TestRunReport: Codable, Sendable {
     /// Increment this when the JSON contract changes incompatibly.
     public let schemaVersion: Int
 
-    public let platform: String
-    public let runner: String
+    public let runner: TestRunner
+    public let buildSystem: BuildSystem?
     public let source: String
+    /// Where the tests ran; ``ParsedTestCase/destinationID`` refers to these.
+    public let destinations: [TestDestination]
+    /// How long the shared build took, for runners that build once and test many times (native iOS). `nil` when the
+    /// build is part of each test command (SwiftPM, Gradle). Attempts carry their own `durationSeconds`.
+    public let buildSeconds: Double?
     public let attempts: [TestAttempt]
     public let initialFailedTests: [ParsedTestCase]
     public let flakyTests: [ParsedTestCase]
@@ -301,11 +360,17 @@ public struct TestRunReport: Codable, Sendable {
     public let testCases: [ParsedTestCase]?
     public let generatedAt: Date
 
+    /// The current contract. Version 2 replaced the string `platform` with typed `destinations`, and the string
+    /// `runner` with ``TestRunner``.
+    public static let currentSchemaVersion = 2
+
     public init(
-        schemaVersion: Int = 1,
-        platform: String,
-        runner: String,
+        schemaVersion: Int = TestRunReport.currentSchemaVersion,
+        runner: TestRunner,
+        buildSystem: BuildSystem? = nil,
         source: String,
+        destinations: [TestDestination] = [],
+        buildSeconds: Double? = nil,
         attempts: [TestAttempt] = [],
         initialFailedTests: [ParsedTestCase] = [],
         flakyTests: [ParsedTestCase] = [],
@@ -315,9 +380,11 @@ public struct TestRunReport: Codable, Sendable {
         testCases: [ParsedTestCase]? = nil
     ) {
         self.schemaVersion = schemaVersion
-        self.platform = platform
         self.runner = runner
+        self.buildSystem = buildSystem
         self.source = source
+        self.destinations = destinations
+        self.buildSeconds = buildSeconds
         self.attempts = attempts
         self.initialFailedTests = initialFailedTests
         self.flakyTests = flakyTests
@@ -325,6 +392,24 @@ public struct TestRunReport: Codable, Sendable {
         self.summary = summary
         self.generatedAt = generatedAt
         self.testCases = testCases
+    }
+}
+
+extension TestRunReport {
+    /// The report with `flakyTests` and `summary.flaky` taken from every test that passed only after a retry, whoever
+    /// retried it: the workflow's own reruns, or the runner inside one execution (a retry plugin). Counting only the
+    /// first would hide flakiness the runner already absorbed.
+    func unifyingFlaky() -> TestRunReport {
+        guard let testCases else { return self }
+        let recovered = testCases.filter { $0.status == .passed && $0.metadata?["flaky"] == "true" }
+        return TestRunReport(
+            schemaVersion: schemaVersion, runner: runner, buildSystem: buildSystem, source: source, destinations: destinations,
+            buildSeconds: buildSeconds, attempts: attempts, initialFailedTests: initialFailedTests, flakyTests: recovered,
+            persistentFailedTests: persistentFailedTests,
+            summary: .init(
+                passed: summary.passed, failed: summary.failed, skipped: summary.skipped, flaky: recovered.count,
+                errored: summary.errored),
+            generatedAt: generatedAt, testCases: testCases)
     }
 }
 
@@ -358,14 +443,39 @@ public struct TestAttempt: Codable, Sendable, Hashable {
 }
 
 /// Preserve all case identities in final reports while replacing outcomes resolved by reruns.
-func finalTestCases(_ initial: [ParsedTestCase], remaining: [ParsedTestCase], flaky: [ParsedTestCase]) -> [ParsedTestCase] {
+///
+/// - Parameter attempts: Every attempt the workflow made. A test's executions are the executions of each attempt
+///   it failed in (each failed instance already counts the retries a runner made inside that attempt, such as a
+///   retry plugin's) plus the one that passed, so a test recovered by a rerun reports 2 or more instead of the 1 its
+///   first execution recorded.
+func finalTestCases(
+    _ initial: [ParsedTestCase], remaining: [ParsedTestCase], flaky: [ParsedTestCase], attempts: [TestAttempt] = []
+) -> [ParsedTestCase] {
     let recovered = Set(flaky.map(\.stableID))
+    var failedExecutions: [String: Int] = [:]
+    for attempt in attempts {
+        for failed in attempt.failedTests { failedExecutions[failed.stableID, default: 0] += failed.attempts ?? 1 }
+    }
+    func executions(of test: ParsedTestCase, passed: Bool) -> Int? {
+        guard let failed = failedExecutions[test.stableID] else { return nil }
+        let total = failed + (passed ? 1 : 0)
+        return total > (test.attempts ?? 1) ? total : nil
+    }
     var cases = initial.map { test in
-        if let persistent = remaining.first(where: { $0.stableID == test.stableID }) { return persistent }
+        if let persistent = remaining.first(where: { $0.stableID == test.stableID }) {
+            guard let count = executions(of: test, passed: false) else { return persistent }
+            return persistent.copy(attempts: .some(count))
+        }
         guard recovered.contains(test.stableID) else { return test }
         var metadata = test.metadata ?? [:]
         metadata["flaky"] = "true"
-        return test.copy(status: .passed, metadata: metadata)
+        // A recovered test carries no failure; why it first failed is kept as context, as when a retry plugin folds attempts.
+        if metadata["first_failure"] == nil, let why = test.message ?? test.stackTrace {
+            metadata["first_failure"] = String(why.prefix(500))
+        }
+        var final = test.copy(status: .passed, metadata: metadata, message: .some(nil), stackTrace: .some(nil))
+        if let count = executions(of: test, passed: true) { final = final.copy(attempts: .some(count)) }
+        return final
     }
     for test in remaining where !cases.contains(where: { $0.stableID == test.stableID }) { cases.append(test) }
     return cases

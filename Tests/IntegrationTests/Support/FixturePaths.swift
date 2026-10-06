@@ -26,6 +26,13 @@ enum FixturePaths {
     /// Minimal KMP-shaped project used for cross-platform integration tests.
     static let kmpSample: URL = fixturesRoot.appendingPathComponent("kmp-sample")
 
+    /// A tiny SwiftPM package whose tests have scripted outcomes (pass, fail, skip, flake), for running the real
+    /// `shipit` binary through `swift-test` and asserting exactly what it reports.
+    static let swiftPMSample: URL = fixturesRoot.appendingPathComponent("swiftpm-sample")
+
+    /// A plain JVM Gradle project with the real `org.gradle.test-retry` plugin and scripted test outcomes.
+    static let jvmRetrySample: URL = fixturesRoot.appendingPathComponent("jvm-retry-sample")
+
     /// Full real Flutter app vendored in-repo for end-to-end tests.
     ///
     /// Source-only: `.dart_tool/`, `build/`, and the android Gradle caches are
