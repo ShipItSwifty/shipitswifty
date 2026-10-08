@@ -11,7 +11,7 @@ struct EvidenceExportTests {
 
     private func run() -> ParsedTestRun {
         ParsedTestRun(
-            platform: "flutter", runner: "flutter-test", source: "events.jsonl", summary: .init(passed: 1),
+            runner: .flutterTest, buildSystem: .flutter, source: "events.jsonl", summary: .init(passed: 1),
             testCases: [.init(stableID: "case", name: "test", status: .passed)])
     }
 
@@ -177,8 +177,8 @@ struct EvidenceExportTests {
         _ = try await exporter.export(runs: [], sources: [], coverage: reports, to: destination.path)
         let index = try String(contentsOf: destination.appendingPathComponent("index.md"), encoding: .utf8)
         #expect(index.contains("## Coverage"))
-        #expect(index.contains("unit.info (flutter): 50.0%, 1 of 2 lines"))
-        #expect(index.contains("ui.info (flutter): 75.0%, 3 of 4 lines"))
+        #expect(index.contains("unit.info (unknown): 50.0%, 1 of 2 lines"))
+        #expect(index.contains("ui.info (unknown): 75.0%, 3 of 4 lines"))
         #expect(index.contains("never summed"))
     }
 
