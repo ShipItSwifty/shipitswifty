@@ -27,11 +27,12 @@ public struct ProjectInspector: Sendable {
         let detectedBuildSystem = BuildSystem.autoDetect(in: rootPath, fileManager: fileManager)
         let buildSystemFiles = discoverBuildSystemFiles(
             for: detectedBuildSystem, fileManager: fileManager)
+        let swiftPackage = inspectSwiftPackage(fileManager: fileManager)
 
         var warnings: [String] = []
-        if containers.isEmpty && gradleFiles.isEmpty && detectedBuildSystem == nil {
+        if containers.isEmpty && gradleFiles.isEmpty && detectedBuildSystem == nil && swiftPackage == nil {
             warnings.append("No .xcworkspace, .xcodeproj, Gradle, or cross-platform project files were found under the selected path.")
-        } else if containers.isEmpty && detectedPlatform == .ios && detectedBuildSystem == nil {
+        } else if containers.isEmpty && detectedPlatform == .ios && detectedBuildSystem == nil && swiftPackage == nil {
             warnings.append("No .xcworkspace or .xcodeproj files were found under the selected path.")
         }
         if !containers.isEmpty && schemes.isEmpty {
@@ -42,6 +43,11 @@ public struct ProjectInspector: Sendable {
         }
         if testPlans.count > 1 {
             warnings.append("Multiple .xctestplan files were found. Confirm which plan the generated test workflow should use.")
+        }
+        if let swiftPackage, !swiftPackage.isHostTestable {
+            warnings.append(
+                "Package sources import frameworks this machine cannot build (\(swiftPackage.hostIncompatibleSources.prefix(3).joined(separator: ", "))), so `swift test` cannot run them; test the package with xcodebuild on a simulator."
+            )
         }
         if let detectedBuildSystem {
             warnings.append(
@@ -66,8 +72,53 @@ public struct ProjectInspector: Sendable {
             detectedPlatform: detectedPlatform,
             gradleFiles: gradleFiles,
             detectedBuildSystem: detectedBuildSystem,
-            buildSystemFiles: buildSystemFiles
+            buildSystemFiles: buildSystemFiles,
+            swiftPackage: swiftPackage
         )
+    }
+
+    /// Frameworks a package can import that the host machine does not have, so `swift test` cannot build them.
+    private static let deviceOnlyFrameworks = ["UIKit", "WatchKit", "ARKit", "CarPlay"]
+
+    /// Reads a root `Package.swift` and the package's Swift sources without building or resolving anything.
+    ///
+    /// A source counts as host-incompatible when it imports a device-only framework and has no `canImport` or
+    /// `os(...)` guard; a guarded import builds on the host too.
+    private func inspectSwiftPackage(fileManager: FileManager) -> SwiftPackageSummary? {
+        let root = URL(fileURLWithPath: rootPath)
+        guard let manifest = try? String(contentsOf: root.appendingPathComponent("Package.swift"), encoding: .utf8) else { return nil }
+        let name = Self.firstCapture(of: #"Package\s*\(\s*name:\s*"([^"]+)""#, in: manifest)
+        let productCount =
+            (try? NSRegularExpression(pattern: #"\.(?:library|executable)\(\s*name:"#))
+            .map { $0.numberOfMatches(in: manifest, range: NSRange(manifest.startIndex..., in: manifest)) } ?? 0
+        let imports = try? NSRegularExpression(
+            pattern: #"^\s*(?:@[A-Za-z_]+\s+)*import\s+(?:"# + Self.deviceOnlyFrameworks.joined(separator: "|") + #")\b"#,
+            options: .anchorsMatchLines)
+        var incompatible: [String] = []
+        for directory in ["Sources", "Tests"] {
+            let enumerator = fileManager.enumerator(
+                at: root.appendingPathComponent(directory), includingPropertiesForKeys: nil, options: [.skipsHiddenFiles])
+            while let url = enumerator?.nextObject() as? URL {
+                if shouldSkip(url: url) {
+                    enumerator?.skipDescendants()
+                    continue
+                }
+                guard url.pathExtension == "swift", let source = try? String(contentsOf: url, encoding: .utf8),
+                    let imports, imports.firstMatch(in: source, range: NSRange(source.startIndex..., in: source)) != nil,
+                    !source.contains("canImport("), !source.contains("#if os(")
+                else { continue }
+                incompatible.append(relativePath(for: url.path))
+            }
+        }
+        return SwiftPackageSummary(name: name, productCount: productCount, hostIncompatibleSources: incompatible.sorted())
+    }
+
+    private static func firstCapture(of pattern: String, in text: String) -> String? {
+        guard let regex = try? NSRegularExpression(pattern: pattern),
+            let match = regex.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)),
+            let range = Range(match.range(at: 1), in: text)
+        else { return nil }
+        return String(text[range])
     }
 
     /// Returns the marker files that drove the detection of `buildSystem`.

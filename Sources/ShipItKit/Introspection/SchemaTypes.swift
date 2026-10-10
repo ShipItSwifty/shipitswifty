@@ -294,6 +294,35 @@ public struct ValidationReport: Codable, Sendable, Hashable {
     }
 }
 
+/// What a root `Package.swift` says about how its tests can run, read from the manifest and sources without
+/// building anything.
+public struct SwiftPackageSummary: Codable, Sendable, Hashable {
+    /// `Package(name:)`, when the manifest states it as a literal.
+    public let name: String?
+    /// Number of library and executable products. Xcode names the scheme that tests a package after the package
+    /// when it has at most one product, and `<name>-Package` when it has several.
+    public let productCount: Int
+    /// Package sources (relative paths) that import a framework the host cannot build, such as UIKit, without a
+    /// `canImport` or `os(...)` guard. When non-empty `swift test` cannot build the package on this machine, so its
+    /// tests run through `xcodebuild` on a simulator instead.
+    public let hostIncompatibleSources: [String]
+
+    public init(name: String?, productCount: Int, hostIncompatibleSources: [String]) {
+        self.name = name
+        self.productCount = productCount
+        self.hostIncompatibleSources = hostIncompatibleSources
+    }
+
+    /// Whether `swift test` can build and run the package on this machine.
+    public var isHostTestable: Bool { hostIncompatibleSources.isEmpty }
+
+    /// The scheme Xcode generates for a package directory, or `nil` when the manifest does not name the package.
+    public var testScheme: String? {
+        guard let name else { return nil }
+        return productCount > 1 ? "\(name)-Package" : name
+    }
+}
+
 public struct ProjectInspection: Codable, Sendable, Hashable {
     public struct XcodeContainer: Codable, Sendable, Hashable {
         public let kind: String
@@ -362,6 +391,8 @@ public struct ProjectInspection: Codable, Sendable, Hashable {
     /// Build-system marker files found under the root path (e.g. `pubspec.yaml`, `package.json`).
     /// Empty for native projects.
     public let buildSystemFiles: [String]
+    /// The root Swift package, when `Package.swift` sits at the root path.
+    public let swiftPackage: SwiftPackageSummary?
 
     public init(
         rootPath: String,
@@ -378,7 +409,8 @@ public struct ProjectInspection: Codable, Sendable, Hashable {
         detectedPlatform: Platform = .ios,
         gradleFiles: [String] = [],
         detectedBuildSystem: BuildSystem? = nil,
-        buildSystemFiles: [String] = []
+        buildSystemFiles: [String] = [],
+        swiftPackage: SwiftPackageSummary? = nil
     ) {
         self.rootPath = rootPath
         self.xcodeContainers = xcodeContainers
@@ -395,6 +427,7 @@ public struct ProjectInspection: Codable, Sendable, Hashable {
         self.gradleFiles = gradleFiles
         self.detectedBuildSystem = detectedBuildSystem
         self.buildSystemFiles = buildSystemFiles
+        self.swiftPackage = swiftPackage
     }
 }
 
@@ -421,7 +454,16 @@ public struct SuggestedShipfile: Codable, Sendable, Hashable {
         }
     }
 
+    /// What the suggestion sets up.
+    public enum Kind: String, Codable, Sendable, Hashable {
+        /// An app's build, test and distribution workflows.
+        case app
+        /// A Swift package's test workflow, selected by `test_workflow`; it needs no app identity or signing.
+        case swiftPackage = "swift_package"
+    }
+
     public let goal: SuggestionGoal
+    public let kind: Kind
     public let inspection: ProjectInspection
     public let missingValues: [MissingValue]
     public let warnings: [String]
@@ -429,12 +471,14 @@ public struct SuggestedShipfile: Codable, Sendable, Hashable {
 
     public init(
         goal: SuggestionGoal,
+        kind: Kind = .app,
         inspection: ProjectInspection,
         missingValues: [MissingValue],
         warnings: [String],
         yaml: String
     ) {
         self.goal = goal
+        self.kind = kind
         self.inspection = inspection
         self.missingValues = missingValues
         self.warnings = warnings

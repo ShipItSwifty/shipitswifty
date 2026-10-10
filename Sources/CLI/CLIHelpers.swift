@@ -282,6 +282,15 @@ func projectInspectionJSON(_ inspection: ProjectInspection) -> JSONValue {
                 ])
             }),
         "testPlans": .array(inspection.testPlans.map(JSONValue.string)),
+        "swiftPackage": inspection.swiftPackage.map { package in
+            .object([
+                "name": package.name.map(JSONValue.string) ?? .null,
+                "productCount": .int(package.productCount),
+                "hostTestable": .bool(package.isHostTestable),
+                "hostIncompatibleSources": .array(package.hostIncompatibleSources.map(JSONValue.string)),
+                "testScheme": package.testScheme.map(JSONValue.string) ?? .null,
+            ])
+        } ?? .null,
         "suggestedAppConfig": .object([
             "workspace": inspection.suggestedAppConfig.workspace.map(JSONValue.string) ?? .null,
             "project": inspection.suggestedAppConfig.project.map(JSONValue.string) ?? .null,

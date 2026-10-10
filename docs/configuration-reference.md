@@ -850,6 +850,15 @@ with direct test options. `swift-test` and `swift-format` are ordinary workflow 
 stdout/stderr and a final report, and snapshots full-run coverage before selective reruns.
 `swift-format` accepts `paths`, `configuration`, and `report_path`; it lints without rewriting.
 
+`shipit generate --goal local` (and `shipit ai session --goal local`) on a directory with a root
+`Package.swift` suggest a `tests` workflow selected by `test_workflow`. A package the host can build
+gets a `swift-test` step. A package whose sources import a framework the host lacks (such as UIKit)
+without a `canImport`/`os(...)` guard cannot run under `swift test`, so it gets a `test` step with
+the scheme Xcode generates for the package directory instead: the package name when it has at most
+one product, `<name>-Package` when it has several. That step runs `xcodebuild` on a simulator with
+no `app.project`/`app.workspace`. `shipit inspect project --output json` reports what was detected
+under `swiftPackage`.
+
 `coverage` accepts `input_format: swift|lcov|jacoco|kover` with `report_path`. Swift/LCOV inputs
 support `source_roots` and `exclude_previews`; `minimum_coverage` applies to every format and
 rejects empty coverage. Kotlin Native/JS coverage is unavailable through these formats.
