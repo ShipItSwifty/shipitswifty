@@ -54,7 +54,7 @@ struct SnapshotCommand: AsyncParsableCommand {
             let result = try await SnapshotAction().run(with: options, context: context)
             outputResult(action: "snapshot", result: result, format: global.output, colorMode: global.effectiveColorMode)
         } catch let error as ShipItError {
-            outputError(error: error, format: global.output, colorMode: global.effectiveColorMode)
+            outputError(action: "snapshot", error: error, format: global.output, colorMode: global.effectiveColorMode)
             throw ExitCode(error.exitCode)
         }
     }

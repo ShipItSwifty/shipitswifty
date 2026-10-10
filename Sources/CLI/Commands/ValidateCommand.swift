@@ -173,10 +173,10 @@ struct ValidateMetadataCommand: AsyncParsableCommand {
                                 ])
                             )))
                 } else {
-                    outputError(error: error, format: global.output, colorMode: global.effectiveColorMode)
+                    outputError(action: "validate metadata", error: error, format: global.output, colorMode: global.effectiveColorMode)
                 }
             case .human:
-                outputError(error: error, format: global.output, colorMode: global.effectiveColorMode)
+                outputError(action: "validate metadata", error: error, format: global.output, colorMode: global.effectiveColorMode)
             }
             throw ExitCode(error.exitCode)
         }
@@ -267,10 +267,10 @@ struct ValidateArchiveCommand: AsyncParsableCommand {
                                 ])
                             )))
                 } else {
-                    outputError(error: error, format: global.output, colorMode: global.effectiveColorMode)
+                    outputError(action: "validate archive", error: error, format: global.output, colorMode: global.effectiveColorMode)
                 }
             case .human:
-                outputError(error: error, format: global.output, colorMode: global.effectiveColorMode)
+                outputError(action: "validate archive", error: error, format: global.output, colorMode: global.effectiveColorMode)
             }
             throw ExitCode(error.exitCode)
         }
@@ -345,7 +345,7 @@ struct ValidateBundleCommand: AsyncParsableCommand {
                 }
             }
         } catch let error as ShipItError {
-            outputError(error: error, format: global.output, colorMode: global.effectiveColorMode)
+            outputError(action: "validate bundle", error: error, format: global.output, colorMode: global.effectiveColorMode)
             throw ExitCode(error.exitCode)
         }
     }
@@ -455,7 +455,7 @@ struct ValidateAllCommand: AsyncParsableCommand {
                             ])
                         )))
             case .human:
-                outputError(error: error, format: global.output, colorMode: global.effectiveColorMode)
+                outputError(action: "validate all", error: error, format: global.output, colorMode: global.effectiveColorMode)
             }
             throw ExitCode(error.exitCode)
         }

@@ -81,7 +81,7 @@ struct BuildCommand: AsyncParsableCommand {
             let result = try await BuildAction().run(with: options, context: context)
             outputResult(action: "build", result: result, format: global.output, colorMode: global.effectiveColorMode)
         } catch let error as ShipItError {
-            outputError(error: error, format: global.output, colorMode: global.effectiveColorMode)
+            outputError(action: "build", error: error, format: global.output, colorMode: global.effectiveColorMode)
             throw ExitCode(error.exitCode)
         }
     }

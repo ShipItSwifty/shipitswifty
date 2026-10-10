@@ -42,7 +42,7 @@ struct SwiftTestCommand: AsyncParsableCommand {
                 context: context)
             outputResult(action: "swift-test", result: result, format: global.output, colorMode: global.effectiveColorMode)
         } catch let error as ShipItError {
-            outputError(error: error, format: global.output, colorMode: global.effectiveColorMode)
+            outputError(action: "swift-test", error: error, format: global.output, colorMode: global.effectiveColorMode)
             throw ExitCode(error.exitCode)
         }
     }

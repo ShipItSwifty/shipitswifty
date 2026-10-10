@@ -145,7 +145,7 @@ struct DoctorCommand: AsyncParsableCommand {
                 throw ExitCode(2)
             }
         } catch let error as ShipItError {
-            outputError(error: error, format: global.output, colorMode: global.effectiveColorMode)
+            outputError(action: "doctor", error: error, format: global.output, colorMode: global.effectiveColorMode)
             throw ExitCode(error.exitCode)
         }
     }
