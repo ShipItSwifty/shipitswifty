@@ -125,6 +125,20 @@ struct TestWorkflowTests {
         #expect(yaml.contains("step-1/results"))
     }
 
+    @Test("An exported upload names declared evidence that stays in the run's own directory")
+    func providerExportInPlaceEvidence() throws {
+        let yaml = try GitHubActionsProvider().export(
+            workflow: "tests",
+            config: .init(steps: [
+                .init(
+                    action: "swift-test",
+                    artifacts: [.init(name: "runs", paths: ["build/workflow-artifacts/{{run_id}}/test-runs", "build/extra.log"])])
+            ]), job: .init(runner: "macos-26", setupCommands: []))
+        #expect(yaml.contains("build/workflow-artifacts/*/step-1/runs/"))
+        #expect(yaml.contains("build/workflow-artifacts/*/test-runs"))
+        #expect(!yaml.contains("build/workflow-artifacts/*/build/extra.log"))
+    }
+
     #if os(macOS)
     @Test("An unreadable native rerun retains the original failures and passing counts")
     func unreadableNativeRerun() async throws {

@@ -34,8 +34,9 @@ func collectWorkflowArtifacts(
     var diagnostics: [ParsingDiagnostic] = []
     let directory = URL(fileURLWithPath: root).appendingPathComponent(step)
     try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    let rootPath = URL(fileURLWithPath: root).standardizedFileURL.path
     var declared = declarations
-    let automatic = artifactPaths(payload, excluding: URL(fileURLWithPath: root).standardizedFileURL.path)
+    let automatic = artifactPaths(payload, excluding: rootPath)
     if !automatic.isEmpty { declared.append(.init(name: "outputs", paths: automatic)) }
     for declaration in declared {
         guard !declaration.name.isEmpty, declaration.name.range(of: "^[A-Za-z0-9_-]+$", options: .regularExpression) != nil else {
@@ -48,6 +49,14 @@ func collectWorkflowArtifacts(
             let matches = try artifactMatches(pattern)
             if matches.isEmpty { diagnostics.append(.init(severity: .warning, message: "No files match artifact path", source: pattern)) }
             for (index, source) in matches.enumerated() {
+                // Evidence already under this workflow's root (test runs write there) is referenced in place:
+                // copying it would store every result bundle twice.
+                let sourcePath = source.standardizedFileURL.path
+                if sourcePath.hasPrefix(rootPath + "/") {
+                    entries.append(
+                        .init(kind: declaration.name, path: "../" + sourcePath.dropFirst(rootPath.count + 1), source: sourcePath))
+                    continue
+                }
                 let relative = "\(declaration.name)/\(patternIndex + 1)-\(index + 1)/\(source.lastPathComponent)"
                 let target = directory.appendingPathComponent(relative)
                 guard !target.standardizedFileURL.path.hasPrefix(source.standardizedFileURL.path + "/") else {
@@ -132,16 +141,18 @@ func artifactMatches(_ pattern: String) throws -> [URL] {
         .replacingOccurrences(of: "\\*", with: "[^/]*")
         .replacingOccurrences(of: "\\?", with: "[^/]") + "$"
     let regex = try NSRegularExpression(pattern: regexText)
-    guard let walker = FileManager.default.enumerator(at: ancestor, includingPropertiesForKeys: nil) else { return [] }
+    guard let walker = FileManager.default.enumerator(at: ancestor, includingPropertiesForKeys: [.isDirectoryKey]) else {
+        return []
+    }
     var relatives: [String] = []
     while let url = walker.nextObject() as? URL {
         // `level` is the depth below `ancestor`, so the last `level` components are the relative path whatever
         // spelling (`/var` or `/private/var`) the enumerator reports for the prefix.
         let relative = url.pathComponents.suffix(walker.level).joined(separator: "/")
-        if regex.firstMatch(in: relative, range: NSRange(relative.startIndex..., in: relative)) != nil { relatives.append(relative) }
+        guard regex.firstMatch(in: relative, range: NSRange(relative.startIndex..., in: relative)) != nil else { continue }
+        relatives.append(relative)
+        // A directory match already contains its descendants, so there is no need to walk them.
+        if (try? url.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true { walker.skipDescendants() }
     }
-    relatives.sort()
-    // A directory match already contains its descendants.
-    return relatives.filter { candidate in !relatives.contains { $0 != candidate && candidate.hasPrefix($0 + "/") } }
-        .map { ancestor.appendingPathComponent($0) }
+    return relatives.sorted().map { ancestor.appendingPathComponent($0) }
 }

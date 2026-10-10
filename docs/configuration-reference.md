@@ -867,6 +867,8 @@ Workflow object syntax accepts `continue_on_failure: true` for independent check
 remains fail-fast and any failed step makes the whole workflow fail. Every step, including custom
 action steps, may declare `artifacts: [{ name: results, paths: [build/results], retention_days: 14 }]`.
 Names use letters/numbers/underscore/hyphen; retention is 1–90 days. Missing optional matches
-become diagnostics. `{{run_id}}` resolves in top-level step options and artifact paths to keep
+become diagnostics. Test runs already keep their evidence under
+`build/workflow-artifacts/<run_id>/`, which is staged and uploaded as a whole; a declared path inside it
+is referenced in place in the step manifest instead of being copied. `{{run_id}}` resolves in top-level step options and artifact paths to keep
 attempts and exports separate. See [test workflow examples](testing.md#test-workflows-and-portable-evidence)
 and [CI export](ci-setup.md#exporting-test-workflows).
