@@ -255,10 +255,11 @@ public enum WorkflowBuilder {
 
 ```swift
 public enum ShipItError: Error, Sendable {
-    // Build/Archive/Export — exit 10–12
+    // Build/Test/Archive/Lint — exit 10–13
     case buildFailed(exitCode: Int, log: String)
     case testFailed(exitCode: Int, failureCount: Int, log: String)
     case archiveFailed(exitCode: Int, log: String)
+    case lintFailed(exitCode: Int, log: String)
 
     // Code Signing — exit 20
     case signingResourceNotFound(description: String)
@@ -356,6 +357,7 @@ GLOBAL OPTIONS:
 | `10` | Build failed |
 | `11` | Test failed |
 | `12` | Archive/export failed |
+| `13` | Lint or formatting check failed (`lint`, `swift-format`) |
 | `20` | Code signing error |
 | `30` | Upload / API error |
 | `40` | Screenshot capture failed |

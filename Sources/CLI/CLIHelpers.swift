@@ -433,6 +433,11 @@ func errorSuggestions(for error: ShipItError) -> [String] {
             "Run shipit validate archive to see the full list of issues with severity codes.",
             "Fix all errors before attempting to upload — warnings are advisory.",
         ]
+    case .lintFailed:
+        [
+            "The log lists each violation with its file and line.",
+            "For swift-format, `swift format --in-place --recursive <paths>` applies the formatting it checks for.",
+        ]
     default:
         []
     }

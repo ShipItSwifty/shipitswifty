@@ -32,6 +32,17 @@ struct TestWorkflowTests {
             ])
     }
 
+    @Test("Formatting violations fail as a lint failure, not a build failure")
+    func swiftFormatViolationIsLintFailure() async throws {
+        let executor = MockExecutor { _, _ in .init(stdout: "", stderr: "Sources/A.swift:1:1: warning: [Indentation]", exitCode: 1) }
+        await #expect {
+            _ = try await SwiftFormatAction().run(with: .init(paths: ["Sources"]), context: .mock(executor: executor))
+        } throws: { error in
+            guard case ShipItError.lintFailed(let exitCode, let log) = error else { return false }
+            return exitCode == 1 && log.contains("[Indentation]") && (error as? ShipItError)?.exitCode == 13
+        }
+    }
+
     @Test("Interrupted Swift tests preserve partial logs and an error report")
     func interruptedSwiftEvidence() async throws {
         let scratch = try TemporaryDirectory()

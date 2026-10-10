@@ -126,7 +126,7 @@ public struct LintAction: Action {
     ///   - options: Lint configuration options.
     ///   - context: Shared execution context.
     /// - Returns: Lint result with issue counts and report path.
-    /// - Throws: ``ShipItError/buildFailed(exitCode:log:)`` if lint exits non-zero and `failOnError` is true.
+    /// - Throws: ``ShipItError/lintFailed(exitCode:log:)`` if lint exits non-zero and `failOnError` is true.
     public func run(with options: Options, context: ActionContext) async throws -> Result {
         let buildSystem: BuildSystem =
             context.platform == .ios
@@ -163,7 +163,7 @@ public struct LintAction: Action {
             let issues = countFlutterIssues(in: combinedLog)
             logger.error("Flutter analyze failed — \(issues) issue(s)")
             if options.failOnError ?? true {
-                throw ShipItError.buildFailed(
+                throw ShipItError.lintFailed(
                     exitCode: Int(shellOutput.exitCode),
                     log: combinedLog
                 )
@@ -237,7 +237,7 @@ public struct LintAction: Action {
             output = try await xcodeBuild.run()
         } catch let ShellError.exitFailure(_, shellOutput) {
             logger.error("iOS analyze failed with exit code \(shellOutput.exitCode)")
-            throw ShipItError.buildFailed(
+            throw ShipItError.lintFailed(
                 exitCode: Int(shellOutput.exitCode),
                 log: [shellOutput.stdout, shellOutput.stderr]
                     .filter { !$0.isEmpty }
@@ -247,7 +247,7 @@ public struct LintAction: Action {
 
         if output.exitCode != 0 {
             logger.error("iOS analyze failed with exit code \(output.exitCode)")
-            throw ShipItError.buildFailed(exitCode: Int(output.exitCode), log: output.stderr)
+            throw ShipItError.lintFailed(exitCode: Int(output.exitCode), log: output.stderr)
         }
 
         let warnings = countWarnings(in: output.stdout)
@@ -299,7 +299,7 @@ public struct LintAction: Action {
             logger.error("Android lint failed — \(issueCount) issue(s)")
 
             if failOnError {
-                throw ShipItError.buildFailed(
+                throw ShipItError.lintFailed(
                     exitCode: Int(shellOutput.exitCode),
                     log: combinedLog
                 )
