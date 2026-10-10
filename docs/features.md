@@ -370,7 +370,8 @@ Build progress remains live on stderr in JSON output mode; stdout contains the J
 ## Shared test workflows
 
 Named test workflows compose Swift package checks and native sample UI plans. Packages that import
-UIKit are detected and tested through `xcodebuild` on a simulator instead of `swift test`. Native iOS builds
+UIKit are detected and tested through `xcodebuild` on a simulator instead of `swift test`.
+`swift-test` caps XCTest worker processes with `parallel_workers` for suites that share state. Native iOS builds
 once into `.xctestproducts`, saves one bundle per plan/destination/attempt, and falls back to
 serial after a classified clone failure. SwiftPM, Flutter, React Native (Jest), Android JVM and Xcode selective
 reruns share normalized identities and flaky reporting. Android/KMP JUnit, Flutter/Jest events,

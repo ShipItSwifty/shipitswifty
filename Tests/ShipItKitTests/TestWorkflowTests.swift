@@ -23,6 +23,10 @@ struct TestWorkflowTests {
                 "Integration",
             ])
         #expect(
+            tool.test(package: ".", events: "events.jsonl", workers: 1).command().arguments == [
+                "test", "--package-path", ".", "--parallel", "--num-workers", "1", "--event-stream-output-path", "events.jsonl",
+            ], "--parallel stays: without it SwiftPM writes no XCTest results")
+        #expect(
             tool.formatLint(paths: ["Sources"], configuration: ".swift-format").command().arguments == [
                 "format", "lint", "--recursive", "--strict", "--configuration", ".swift-format", "Sources",
             ])

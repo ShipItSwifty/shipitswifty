@@ -846,7 +846,9 @@ with direct test options. `swift-test` and `swift-format` are ordinary workflow 
 
 `swift-test` options: `package_path` (default `.`), `scratch_path`, `filter`, `skip`,
 `environment` (string map), `enable_code_coverage`, `output_directory` (must be new),
-`rerun_failed_tests` and `infrastructure_retry`. It saves Swift Testing events, attachments,
+`rerun_failed_tests`, `infrastructure_retry` and `parallel_workers` (maximum XCTest worker
+processes; `1` runs XCTest cases one at a time for suites that share state — Swift Testing
+parallelism is set in code with `.serialized`). It saves Swift Testing events, attachments,
 stdout/stderr and a final report, and snapshots full-run coverage before selective reruns.
 `swift-format` accepts `paths`, `configuration`, and `report_path`; it lints without rewriting.
 
