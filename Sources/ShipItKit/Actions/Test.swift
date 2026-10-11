@@ -2176,17 +2176,38 @@ public struct TestAction: Action {
     ///   - context: Action context providing shell and config.
     /// - Returns: A destination string suitable for `-destination`.
     /// - Throws: `ShipItError.invalidConfiguration` when no suitable simulator is found.
-    func autoDiscoverDestination(scheme: String, context: ActionContext) async throws -> String {
+    /// - Parameter retryDelay: Wait before the first re-query when no iPhone simulator is listed; doubles each time.
+    func autoDiscoverDestination(
+        scheme: String, context: ActionContext, retryDelay: Duration = .seconds(2)
+    ) async throws -> String {
         let discoverer = DestinationDiscovery(shell: context.shell)
-        let allDestinations = try await discoverer.availableDestinations(
-            scheme: scheme,
-            workspace: context.config.appWorkspace,
-            project: context.config.appProject
-        )
-
-        // Filter to iPhone simulators only
-        let iPhoneSimulators = allDestinations.filter {
-            $0.isSimulator && $0.name.contains("iPhone")
+        let maxAttempts = 3
+        var allDestinations: [XcodebuildDestination] = []
+        var iPhoneSimulators: [XcodebuildDestination] = []
+        var delay = retryDelay
+        // On a machine whose CoreSimulator has not loaded its devices yet (a fresh CI runner, observed on
+        // macos-26), `-showdestinations` lists only the "Any iOS Simulator Device" placeholder. Listing the devices
+        // loads them, so ask again before concluding there is no simulator. A list with real simulators but no
+        // iPhone is final.
+        for attempt in 1...maxAttempts {
+            allDestinations = try await discoverer.availableDestinations(
+                scheme: scheme,
+                workspace: context.config.appWorkspace,
+                project: context.config.appProject
+            )
+            iPhoneSimulators = allDestinations.filter { $0.isSimulator && $0.name.contains("iPhone") }
+            // Placeholders carry no OS version. Only a list with a simulator placeholder and no real simulator is
+            // the cold-CoreSimulator answer; anything else is final.
+            let onlyPlaceholders =
+                allDestinations.contains { $0.isSimulator && $0.os == nil }
+                && !allDestinations.contains { $0.isSimulator && $0.os != nil }
+            if !iPhoneSimulators.isEmpty || !onlyPlaceholders || attempt == maxAttempts { break }
+            logger.warning(
+                "No iPhone simulator listed for scheme '\(scheme)' (attempt \(attempt) of \(maxAttempts), \(allDestinations.count) destination(s)); loading simulators and asking again"
+            )
+            _ = try? await Simctl(context: context.shell).list(.devices, json: true).run()
+            try await Task.sleep(for: delay)
+            delay *= 2
         }
 
         guard !iPhoneSimulators.isEmpty else {
