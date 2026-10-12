@@ -131,7 +131,8 @@ public struct TestResultsAction: Action {
             guard let format = options.coverageFormat else {
                 throw ShipItError.invalidConfiguration(reason: "coverage_format is required with coverage_inputs")
             }
-            coverage.append(try await PortableCoverageReader().read(path, format: format))
+            // The runner named for the results also wrote their LCOV coverage.
+            coverage.append(try await PortableCoverageReader().read(path, format: format, runner: options.runner))
         }
         let manifest: EvidenceManifest?
         if let directory = options.exportDirectory {

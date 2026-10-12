@@ -177,9 +177,9 @@ struct EvidenceExportTests {
         _ = try await exporter.export(runs: [], sources: [], coverage: reports, to: destination.path)
         let index = try String(contentsOf: destination.appendingPathComponent("index.md"), encoding: .utf8)
         #expect(index.contains("## Coverage"))
-        #expect(index.contains("- unit.info (flutter-test): 50.0%, 1 of 2 lines"))
-        #expect(index.contains("- ui.info (flutter-test): 75.0%, 3 of 4 lines"))
-        #expect(!index.contains("unknown"), "an LCOV file does not say where tests ran, so no platform is shown")
+        #expect(index.contains("- unit.info: 50.0%, 1 of 2 lines"), "an LCOV file names neither its runner nor its platform")
+        #expect(index.contains("- ui.info: 75.0%, 3 of 4 lines"))
+        #expect(!index.contains("unknown"))
         #expect(index.contains("never summed"))
     }
 

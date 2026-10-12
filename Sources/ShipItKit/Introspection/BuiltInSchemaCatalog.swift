@@ -1372,6 +1372,9 @@ public enum BuiltInSchemaCatalog {
     private static func coverageOptions() -> [SchemaField] {
         [
             .string("input_format", description: "Portable coverage encoding", allowedValues: ["swift", "lcov", "jacoco", "kover"]),
+            .string(
+                "runner", description: "Tool that wrote an lcov input; LCOV does not say. Ignored for other formats.",
+                allowedValues: ["flutter-test", "jest"]),
             .array("source_roots", description: "Included source directories", items: .string("path", description: "Source root")),
             .boolean("exclude_previews", description: "Exclude Swift preview regions"),
             .number("minimum_coverage", description: "Required line coverage percentage (0...100)"),

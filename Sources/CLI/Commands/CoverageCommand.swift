@@ -78,6 +78,8 @@ struct CoverageCommand: AsyncParsableCommand {
 
     @Option(name: .long, help: "File format: lcov | swift | jacoco | kover")
     var inputFormat: String?
+    @Option(name: .long, help: "Tool that wrote an LCOV file: flutter-test | jest (LCOV does not say)")
+    var runner: String?
     @Option(name: .customLong("source-root"), help: "Included source directory (repeatable)")
     var sourceRoots: [String] = []
     @Flag(name: .long, help: "Exclude Swift preview regions from file coverage")
@@ -113,7 +115,8 @@ struct CoverageCommand: AsyncParsableCommand {
             let coverageFormat = resolvedCoverageFormat()
 
             let options = CoverageAction.Options(
-                inputFormat: inputFormat.flatMap(CoverageInputFormat.init(rawValue:)), sourceRoots: sourceRoots,
+                inputFormat: inputFormat.flatMap(CoverageInputFormat.init(rawValue:)), runner: runner.map(TestRunner.init(rawValue:)),
+                sourceRoots: sourceRoots,
                 excludePreviews: excludePreviews, minimumCoverage: minimumCoverage,
                 format: coverageFormat,
                 firstPartyOnly: firstPartyOnly ? true : nil,
