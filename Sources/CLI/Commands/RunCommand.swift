@@ -26,104 +26,110 @@ struct RunCommand: AsyncParsableCommand {
                 global: global,
                 cliOptions: CLIOptions(ci: global.ci, dryRun: global.dryRun, platform: global.platform)
             )
-            let context = try await buildActionContext(
-                config: config, verbose: global.verbose, jsonOutput: global.output == .json)
+            try await execute(config: config)
+        } catch let error as ShipItError {
+            outputError(action: "run", error: error, format: global.output, colorMode: global.effectiveColorMode)
+            throw ExitCode(error.exitCode)
+        }
+    }
 
-            guard let workflowConfig = config.workflows[workflow] else {
-                throw ShipItError.invalidConfiguration(
-                    reason:
-                        "Workflow '\(workflow)' not found in Shipfile. Available workflows: \(config.workflows.keys.sorted().joined(separator: ", "))"
-                )
-            }
+    /// Runs the workflow with configuration that is already resolved, so a caller that has resolved it
+    /// (`shipit test` selecting `test_workflow`) does not read the Shipfile a second time.
+    func execute(config: ResolvedConfig) async throws {
+        let context = try await buildActionContext(
+            config: config, verbose: global.verbose, jsonOutput: global.output == .json)
 
-            let registry = ActionRegistry()
-            try await registerBuiltInActions(into: registry)
-            try await registry.registerCustomActions(config.customActions)
-            let formatter = makeHumanFormatter(global: global)
-
-            let steps = workflowConfig.steps.map {
-                WorkflowStep(action: $0.action, options: $0.options, when: $0.when, artifacts: $0.artifacts)
-            }
-            let workflowObj = Workflow(
-                workflow,
-                steps: steps,
-                continueOnFailure: workflowConfig.continueOnFailure ?? false,
-                buildVariant: workflowConfig.buildVariant,
-                flavor: workflowConfig.flavor,
-                app: workflowConfig.app,
-                build: workflowConfig.build,
-                archive: workflowConfig.archive,
-                export: workflowConfig.export,
-                codeSigning: workflowConfig.codeSigning
+        guard let workflowConfig = config.workflows[workflow] else {
+            throw ShipItError.invalidConfiguration(
+                reason:
+                    "Workflow '\(workflow)' not found in Shipfile. Available workflows: \(config.workflows.keys.sorted().joined(separator: ", "))"
             )
+        }
 
-            if global.dryRun {
-                switch global.output {
-                case .json:
-                    let reporter = JSONReporter()
-                    let envelope = ActionResultEnvelope(
-                        action: "run",
-                        status: "dry_run",
-                        payload: .object([
-                            "workflow": .string(workflow),
-                            "mode": .string("dry_run"),
-                            "stepCount": .int(steps.count),
-                            "steps": .array(dryRunStepValues(steps)),
-                        ])
-                    )
-                    print(try reporter.encode(envelope))
-                case .human:
-                    formatter.print("DRY RUN: Would execute workflow '\(workflow)' with \(steps.count) step(s):")
-                    for (i, step) in steps.enumerated() {
-                        formatter.print("  \(i + 1). \(step.action)")
-                    }
-                }
-                return
-            }
+        let registry = ActionRegistry()
+        try await registerBuiltInActions(into: registry)
+        try await registry.registerCustomActions(config.customActions)
+        let formatter = makeHumanFormatter(global: global)
 
-            let result = try await workflowObj.run(context: context, registry: registry)
+        let steps = workflowConfig.steps.map {
+            WorkflowStep(action: $0.action, options: $0.options, when: $0.when, artifacts: $0.artifacts)
+        }
+        let workflowObj = Workflow(
+            workflow,
+            steps: steps,
+            continueOnFailure: workflowConfig.continueOnFailure ?? false,
+            buildVariant: workflowConfig.buildVariant,
+            flavor: workflowConfig.flavor,
+            app: workflowConfig.app,
+            build: workflowConfig.build,
+            archive: workflowConfig.archive,
+            export: workflowConfig.export,
+            codeSigning: workflowConfig.codeSigning
+        )
 
+        if global.dryRun {
             switch global.output {
             case .json:
                 let reporter = JSONReporter()
                 let envelope = ActionResultEnvelope(
                     action: "run",
-                    status: result.succeeded ? "success" : "failure",
+                    status: "dry_run",
                     payload: .object([
                         "workflow": .string(workflow),
-                        "artifactDirectory": result.artifactDirectory.map(JSONValue.string) ?? .null,
-                        "steps": .int(result.stepResults.count),
-                        "duration": .double(result.duration),
-                        "stepTimings": .array(stepTimingValues(result.stepResults)),
+                        "mode": .string("dry_run"),
+                        "stepCount": .int(steps.count),
+                        "steps": .array(dryRunStepValues(steps)),
                     ])
                 )
                 print(try reporter.encode(envelope))
             case .human:
-                for (i, stepResult) in result.stepResults.enumerated() {
-                    let stepName = steps[i].action
-                    let summary = humanStepSummary(action: stepName, payload: stepResult.payload)
-                    let timing = stepResult.durationSeconds.map { " (\(formatDurationSeconds($0)))" } ?? ""
-                    if stepResult.status == "failure" {
-                        formatter.printError("  \(stepName): failed\(timing)")
-                    } else if stepResult.status == "skipped" {
-                        formatter.print("  \(stepName): skipped")
-                    } else if let summary {
-                        formatter.printSuccess("  \(stepName): \(summary)\(timing)")
-                    } else {
-                        formatter.printSuccess("  \(stepName)\(timing)")
-                    }
-                }
-                if !result.succeeded {
-                    formatter.printError("Workflow '\(workflow)' failed; evidence: \(result.artifactDirectory ?? "unavailable")")
-                } else {
-                    formatter.printSuccess("Workflow '\(workflow)' completed in \(formatDurationSeconds(result.duration))")
+                formatter.print("DRY RUN: Would execute workflow '\(workflow)' with \(steps.count) step(s):")
+                for (i, step) in steps.enumerated() {
+                    formatter.print("  \(i + 1). \(step.action)")
                 }
             }
-            if !result.succeeded { throw ExitCode(1) }
-        } catch let error as ShipItError {
-            outputError(action: "run", error: error, format: global.output, colorMode: global.effectiveColorMode)
-            throw ExitCode(error.exitCode)
+            return
         }
+
+        let result = try await workflowObj.run(context: context, registry: registry)
+
+        switch global.output {
+        case .json:
+            let reporter = JSONReporter()
+            let envelope = ActionResultEnvelope(
+                action: "run",
+                status: result.succeeded ? "success" : "failure",
+                payload: .object([
+                    "workflow": .string(workflow),
+                    "artifactDirectory": result.artifactDirectory.map(JSONValue.string) ?? .null,
+                    "steps": .int(result.stepResults.count),
+                    "duration": .double(result.duration),
+                    "stepTimings": .array(stepTimingValues(result.stepResults)),
+                ])
+            )
+            print(try reporter.encode(envelope))
+        case .human:
+            for (i, stepResult) in result.stepResults.enumerated() {
+                let stepName = steps[i].action
+                let summary = humanStepSummary(action: stepName, payload: stepResult.payload)
+                let timing = stepResult.durationSeconds.map { " (\(formatDurationSeconds($0)))" } ?? ""
+                if stepResult.status == "failure" {
+                    formatter.printError("  \(stepName): failed\(timing)")
+                } else if stepResult.status == "skipped" {
+                    formatter.print("  \(stepName): skipped")
+                } else if let summary {
+                    formatter.printSuccess("  \(stepName): \(summary)\(timing)")
+                } else {
+                    formatter.printSuccess("  \(stepName)\(timing)")
+                }
+            }
+            if !result.succeeded {
+                formatter.printError("Workflow '\(workflow)' failed; evidence: \(result.artifactDirectory ?? "unavailable")")
+            } else {
+                formatter.printSuccess("Workflow '\(workflow)' completed in \(formatDurationSeconds(result.duration))")
+            }
+        }
+        if !result.succeeded { throw ExitCode(1) }
     }
 }
 
