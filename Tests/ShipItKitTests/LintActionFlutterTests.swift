@@ -180,7 +180,7 @@ struct LintActionFlutterTests {
             _ = try await LintAction().run(with: LintAction.Options(failOnError: true), context: context)
         } throws: { error in
             if case ShipItError.invalidConfiguration = error { return true }
-            if case ShipItError.buildFailed = error { return true }
+            if case ShipItError.lintFailed = error { return true }
             return false
         }
     }

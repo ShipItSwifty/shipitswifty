@@ -75,7 +75,7 @@ struct VersionCommand: AsyncParsableCommand {
                 outputResult(action: "version", result: result, format: global.output, colorMode: global.effectiveColorMode)
             }
         } catch let error as ShipItError {
-            outputError(error: error, format: global.output, colorMode: global.effectiveColorMode)
+            outputError(action: "version", error: error, format: global.output, colorMode: global.effectiveColorMode)
             throw ExitCode(error.exitCode)
         }
     }

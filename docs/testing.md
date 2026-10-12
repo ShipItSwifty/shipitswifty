@@ -308,7 +308,7 @@ workflows:
         infrastructure_retry: { max_attempts: 3, initial_delay_seconds: 2, max_delay_seconds: 30 }
       artifacts:
         - name: test-evidence
-          paths: ["build/tests/{{run_id}}", "build/workflow-artifacts/{{run_id}}/test-runs"]
+          paths: ["build/tests/{{run_id}}"]
           retention_days: 14
 ```
 

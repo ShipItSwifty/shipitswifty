@@ -216,8 +216,9 @@ struct GenerateCommand: AsyncParsableCommand {
             formatter.printWarning(warning)
         }
 
+        // A package test workflow has no app identity or distribution settings to ask about.
         let overrides =
-            suggestion.yaml.contains("test_workflow:")
+            suggestion.kind == .swiftPackage
             ? [:]
             : collectOverrides(
                 suggestion: suggestion, platform: platform, formatter: formatter)

@@ -6,7 +6,7 @@ import Foundation
 /// error inside one of its cases. The CLI maps each case to a documented exit code (§7.2).
 ///
 /// ## Exit Codes
-/// - Build/Archive/Export (10–12)
+/// - Build/Test/Archive/Lint (10–13)
 /// - Code Signing (20)
 /// - API / Upload (30)
 /// - Screenshots (40)
@@ -14,7 +14,7 @@ import Foundation
 /// - Configuration / General (2)
 public enum ShipItError: Error, Sendable {
 
-    // MARK: - Build / Archive / Export (exit 10–12)
+    // MARK: - Build / Test / Archive / Lint (exit 10–13)
 
     /// `xcodebuild` exited with a non-zero code.
     case buildFailed(exitCode: Int, log: String)
@@ -24,6 +24,9 @@ public enum ShipItError: Error, Sendable {
 
     /// Archive or IPA export step failed.
     case archiveFailed(exitCode: Int, log: String)
+
+    /// A lint or formatting check (`lint`, `swift-format`) reported violations or could not run.
+    case lintFailed(exitCode: Int, log: String)
 
     // MARK: - Code Signing (exit 20)
 
@@ -82,6 +85,8 @@ extension ShipItError: LocalizedError {
             return "Tests failed with \(failureCount) failure(s) (exit code \(exitCode)).\n\(log)"
         case .archiveFailed(let exitCode, let log):
             return "Archive failed with exit code \(exitCode).\n\(log)"
+        case .lintFailed(let exitCode, let log):
+            return "Lint failed with exit code \(exitCode).\n\(log)"
         case .signingResourceNotFound(let description):
             return "Signing resource not found: \(description)"
         case .keychainError(let underlying):
@@ -115,6 +120,7 @@ extension ShipItError: LocalizedError {
         case .buildFailed: return 10
         case .testFailed: return 11
         case .archiveFailed: return 12
+        case .lintFailed: return 13
         case .signingResourceNotFound, .keychainError: return 20
         case .apiError, .apiDecodingFailed, .jwtGenerationFailed, .uploadFailed: return 30
         case .screenshotCaptureFailed: return 40

@@ -16,6 +16,7 @@ struct SwiftTestCommand: AsyncParsableCommand {
     @Option(name: .long) var maxRerunAttempts: Int = 2
     @Option(name: .customLong("env"), help: "Test environment KEY=VALUE (repeatable)") var environment: [String] = []
     @Option(name: .long, help: "Total infrastructure attempts; omit to disable") var infrastructureAttempts: Int?
+    @Option(name: .long, help: "Maximum XCTest worker processes; 1 runs XCTest cases one at a time") var parallelWorkers: Int?
     func run() async throws {
         var values: [String: String] = [:]
         for entry in environment {
@@ -25,6 +26,7 @@ struct SwiftTestCommand: AsyncParsableCommand {
             values[String(entry[..<separator])] = String(entry[entry.index(after: separator)...])
         }
         if let infrastructureAttempts, infrastructureAttempts < 1 { throw ValidationError("--infrastructure-attempts must be positive") }
+        if let parallelWorkers, parallelWorkers < 1 { throw ValidationError("--parallel-workers must be positive") }
         if global.dryRun {
             try outputDryRun(action: "swift-test", message: "Would test package \(packagePath)", global: global)
             return
@@ -36,10 +38,11 @@ struct SwiftTestCommand: AsyncParsableCommand {
                     packagePath: packagePath, scratchPath: scratchPath,
                     filter: filter, skip: skip, environment: values, enableCodeCoverage: codeCoverage, outputDirectory: outputDirectory,
                     rerunFailedTests: rerunFailedTests ? .init(enabled: true, maxAttempts: maxRerunAttempts) : nil,
-                    infrastructureRetry: infrastructureAttempts.map { .init(maxAttempts: $0) }), context: context)
+                    infrastructureRetry: infrastructureAttempts.map { .init(maxAttempts: $0) }, parallelWorkers: parallelWorkers),
+                context: context)
             outputResult(action: "swift-test", result: result, format: global.output, colorMode: global.effectiveColorMode)
         } catch let error as ShipItError {
-            outputError(error: error, format: global.output, colorMode: global.effectiveColorMode)
+            outputError(action: "swift-test", error: error, format: global.output, colorMode: global.effectiveColorMode)
             throw ExitCode(error.exitCode)
         }
     }

@@ -55,7 +55,7 @@ struct MetadataCommand: AsyncParsableCommand {
             let result = try await MetadataAction().run(with: options, context: context)
             outputResult(action: "metadata", result: result, format: global.output, colorMode: global.effectiveColorMode)
         } catch let error as ShipItError {
-            outputError(error: error, format: global.output, colorMode: global.effectiveColorMode)
+            outputError(action: "metadata", error: error, format: global.output, colorMode: global.effectiveColorMode)
             throw ExitCode(error.exitCode)
         }
     }

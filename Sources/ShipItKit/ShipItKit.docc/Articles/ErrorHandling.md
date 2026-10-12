@@ -14,6 +14,7 @@ ShipItKit uses a single error enum, ``ShipItError``, for every failure surface. 
 | **10** | `buildFailed` | Build |
 | **11** | `testFailed` | Test |
 | **12** | `archiveFailed` | Archive / export |
+| **13** | `lintFailed` | Lint / formatting |
 | **20** | `signingResourceNotFound`, `keychainError` | Code signing |
 | **30** | `apiError`, `jwtGenerationFailed`, `uploadFailed` | App Store Connect / Google Play |
 | **40** | `screenshotCaptureFailed` | Screenshots |

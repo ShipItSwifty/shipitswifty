@@ -37,7 +37,7 @@ public struct SwiftFormatAction: Action {
             try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
             try (output.stdout + output.stderr).write(to: url, atomically: true, encoding: .utf8)
         }
-        if output.exitCode != 0 { throw ShipItError.buildFailed(exitCode: Int(output.exitCode), log: output.stdout + output.stderr) }
+        if output.exitCode != 0 { throw ShipItError.lintFailed(exitCode: Int(output.exitCode), log: output.stdout + output.stderr) }
         return .init(exitCode: Int(output.exitCode), reportPath: options.reportPath)
     }
 }

@@ -127,6 +127,11 @@ make docker-test            # run tests inside local image
 make docker-shell           # interactive shell inside local image
 make help                   # list all Makefile targets
 
+# Swift package (library) tests
+swift run shipit swift-test --code-coverage --rerun-failed-tests
+swift run shipit swift-test --parallel-workers 1   # XCTest cases one at a time (suites sharing state)
+swift run shipit swift-format --configuration .swift-format
+
 # Run CLI
 swift run shipit --help
 swift run shipit build --scheme MyApp
@@ -553,7 +558,7 @@ Detailed reference material lives in `docs/`:
 ### Shared test workflow contracts
 
 - `test_workflow` selects the default named workflow for `shipit test`; `--workflow` selects explicitly.
-- Use `swift-test` for packages and `swift-format` for lint. Package `environment` supports snapshot controls.
+- Use `swift-test` for packages and `swift-format` for lint. Package `environment` supports snapshot controls. A package that imports UIKit (unguarded) cannot run under `swift test`; `ProjectInspector` detects it and the suggester emits a `test` step with the scheme Xcode generates for the package directory (package name, or `<name>-Package` with several products).
 - Native iOS defaults to build-for-testing once into `.xctestproducts`, then separate per-plan/destination result bundles. Use `test_plans` for compatible target sets; `legacy_combined_test` preserves older behavior.
 - Actual clone failures fall back serially once per destination, without rebuilding. Ordinary assertions never trigger this fallback.
 - Infrastructure and selective assertion retry budgets are separate. SwiftPM reruns skip building; recovered assertions pass and remain marked flaky.

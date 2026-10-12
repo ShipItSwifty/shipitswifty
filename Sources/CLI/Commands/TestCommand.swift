@@ -196,7 +196,7 @@ struct TestCommand: AsyncParsableCommand {
             let result = try await TestAction().run(with: options, context: context)
             outputResult(action: "test", result: result, format: global.output, colorMode: global.effectiveColorMode)
         } catch let error as ShipItError {
-            outputError(error: error, format: global.output, colorMode: global.effectiveColorMode)
+            outputError(action: "test", error: error, format: global.output, colorMode: global.effectiveColorMode)
             throw ExitCode(error.exitCode)
         }
     }

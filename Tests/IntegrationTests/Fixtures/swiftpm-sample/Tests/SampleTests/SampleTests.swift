@@ -36,6 +36,16 @@ struct SwiftTestingTests {
     @Test func alwaysFailsWhenAsked() { #expect(!Script.asked, "asked to fail") }
 }
 
+/// Two tests in one nested suite with different outcomes: they must keep separate identities, or the sibling that
+/// passes would hide the one that failed.
+@Suite struct Outer {
+    @Suite struct Inner {
+        @Test func nestedPasses() { #expect(Sample.add(0, 0) == 0) }
+
+        @Test func nestedFlaky() { #expect(!Script.firstAttempt("swift-testing-nested-flaky"), "fails on the first attempt only") }
+    }
+}
+
 final class XCTestCases: XCTestCase {
     func testPasses() { XCTAssertEqual(Sample.add(2, 2), 4) }
 

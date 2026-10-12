@@ -21,17 +21,17 @@ workflows:
         enable_code_coverage: true
         rerun_failed_tests: { enabled: true, max_attempts: 2 }
         infrastructure_retry: { max_attempts: 3, initial_delay_seconds: 2, max_delay_seconds: 30 }
-      artifacts:
-        - name: unit-tests
-          paths: ["build/test-runs"]
-          retention_days: 14
 ```
+
+Each run keeps its evidence under `build/workflow-artifacts/<run_id>/` without an `artifacts:` declaration;
+declare artifacts only for files a step writes elsewhere.
 
 ## Choosing the action
 
 | Project | Action | Runner |
 |---|---|---|
 | Swift package | ``SwiftTestAction`` (`swift-test`) and ``SwiftFormatAction`` (`swift-format`, strict and non-mutating) | `swift-test` |
+| Swift package that imports UIKit | ``TestAction`` with the package's scheme, run from the package directory | `xcodebuild` |
 | iOS app | ``TestAction`` | `xcodebuild` |
 | Android, KMP | ``TestAction`` | `gradle` |
 | Flutter | ``TestAction`` | `flutter-test` |

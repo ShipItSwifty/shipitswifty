@@ -178,8 +178,12 @@ public struct EvidenceExporter: Sendable {
             index += "\n## Coverage\n\n"
             for report in coverage {
                 let percent = String(format: "%.1f%%", report.overallLineCoverage)
+                // Name what is known: many formats (LCOV, SwiftPM JSON) do not say where tests ran, and an
+                // "(unknown)" label tells a reader nothing.
+                let origin = [report.runner.rawValue, report.platform.rawValue].filter { $0 != "unknown" }
+                let label = origin.isEmpty ? "" : " (\(origin.joined(separator: ", ")))"
                 index +=
-                    "- \(URL(fileURLWithPath: report.source).lastPathComponent) (\(report.platform)): \(percent), \(report.coveredLines) of \(report.executableLines) lines\n"
+                    "- \(URL(fileURLWithPath: report.source).lastPathComponent)\(label): \(percent), \(report.coveredLines) of \(report.executableLines) lines\n"
             }
             index += "\nReports are listed separately and never summed: overlapping or partial reports would overstate coverage.\n"
         }

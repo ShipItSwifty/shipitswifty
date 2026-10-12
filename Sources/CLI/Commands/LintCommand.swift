@@ -64,7 +64,7 @@ struct LintCommand: AsyncParsableCommand {
             let result = try await LintAction().run(with: options, context: context)
             outputResult(action: "lint", result: result, format: global.output, colorMode: global.effectiveColorMode)
         } catch let error as ShipItError {
-            outputError(error: error, format: global.output, colorMode: global.effectiveColorMode)
+            outputError(action: "lint", error: error, format: global.output, colorMode: global.effectiveColorMode)
             throw ExitCode(error.exitCode)
         }
     }

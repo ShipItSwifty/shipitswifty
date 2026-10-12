@@ -194,8 +194,9 @@ func outputDryRun(
     }
 }
 
-/// Output an error in the specified format.
-func outputError(error: ShipItError, format: OutputFormat, colorMode: ConsoleColorMode = .auto) {
+/// Output an error in the specified format. `action` names the command in the JSON envelope, matching what the
+/// command reports on success.
+func outputError(action: String, error: ShipItError, format: OutputFormat, colorMode: ConsoleColorMode = .auto) {
     let suggestions = errorSuggestions(for: error)
 
     switch format {
@@ -206,7 +207,7 @@ func outputError(error: ShipItError, format: OutputFormat, colorMode: ConsoleCol
             formatter.print("  Hint: \(suggestion)")
         }
     case .json:
-        JSONFormatter().printError(action: "unknown", error: error, suggestions: suggestions)
+        JSONFormatter().printError(action: action, error: error, suggestions: suggestions)
     }
 }
 
@@ -282,6 +283,15 @@ func projectInspectionJSON(_ inspection: ProjectInspection) -> JSONValue {
                 ])
             }),
         "testPlans": .array(inspection.testPlans.map(JSONValue.string)),
+        "swiftPackage": inspection.swiftPackage.map { package in
+            .object([
+                "name": package.name.map(JSONValue.string) ?? .null,
+                "productCount": .int(package.productCount),
+                "hostTestable": .bool(package.isHostTestable),
+                "hostIncompatibleSources": .array(package.hostIncompatibleSources.map(JSONValue.string)),
+                "testScheme": package.testScheme.map(JSONValue.string) ?? .null,
+            ])
+        } ?? .null,
         "suggestedAppConfig": .object([
             "workspace": inspection.suggestedAppConfig.workspace.map(JSONValue.string) ?? .null,
             "project": inspection.suggestedAppConfig.project.map(JSONValue.string) ?? .null,
@@ -423,6 +433,16 @@ func errorSuggestions(for error: ShipItError) -> [String] {
         [
             "Run shipit validate archive to see the full list of issues with severity codes.",
             "Fix all errors before attempting to upload — warnings are advisory.",
+        ]
+    case .testFailed:
+        [
+            "report.json (its path is in the error) lists persistentFailedTests with messages, flakyTests, and every attempt's logs.",
+            "Inspect saved results without rerunning: shipit test-results --input <report.json or result directory>.",
+        ]
+    case .lintFailed:
+        [
+            "The log lists each violation with its file and line.",
+            "For swift-format, `swift format --in-place --recursive <paths>` applies the formatting it checks for.",
         ]
     default:
         []

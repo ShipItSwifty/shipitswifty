@@ -868,6 +868,9 @@ public enum BuiltInSchemaCatalog {
                 "environment", description: "Additional test environment", allowsAdditionalProperties: true,
                 additionalProperties: .string("value", description: "Environment value")),
             .boolean("enable_code_coverage", description: "Collect initial full-suite coverage"),
+            .integer(
+                "parallel_workers",
+                description: "Maximum XCTest worker processes (swift test --num-workers); 1 runs XCTest cases one at a time"),
             .object(
                 "infrastructure_retry", description: "Retry transient SwiftPM execution failures",
                 properties: [

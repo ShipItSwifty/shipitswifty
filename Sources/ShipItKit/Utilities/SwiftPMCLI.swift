@@ -28,12 +28,18 @@ public struct SwiftPMCLI: RunnableCommandFamily {
     public func updatingConfiguration(_ update: (ToolConfiguration) -> ToolConfiguration) -> Self { copy(config: update(config)) }
     public func settingStdoutDestination(_ destination: OutputDestination) -> Self { copy(stdout: destination) }
     public func settingStderrDestination(_ destination: OutputDestination) -> Self { copy(stderr: destination) }
-    /// `swift test --event-stream-output-path …` — **Mutating**: build and run package tests.
+    /// `swift test --parallel [--num-workers <n>] --event-stream-output-path …` — **Mutating**: build and run package tests.
+    ///
+    /// `--parallel` is always passed: without it SwiftPM writes no XCTest results to `--xunit-output`. `workers`
+    /// caps the XCTest worker processes (`1` runs XCTest cases one at a time); Swift Testing schedules its own tests.
     public func test(
         package: String, scratch: String? = nil, events: String, attachments: String? = nil,
-        coverage: Bool = false, skipBuild: Bool = false, filter: String? = nil, skip: String? = nil, junit: String? = nil
+        coverage: Bool = false, skipBuild: Bool = false, filter: String? = nil, skip: String? = nil, junit: String? = nil,
+        workers: Int? = nil
     ) -> Self {
-        var args = ["test", "--package-path", package, "--parallel", "--event-stream-output-path", events]
+        var args = ["test", "--package-path", package, "--parallel"]
+        if let workers { args += ["--num-workers", String(workers)] }
+        args += ["--event-stream-output-path", events]
         if let junit { args += ["--xunit-output", junit] }
         if let scratch { args += ["--scratch-path", scratch] }
         if let attachments { args += ["--attachments-path", attachments] }

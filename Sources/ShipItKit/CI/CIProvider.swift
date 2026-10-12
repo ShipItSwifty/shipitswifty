@@ -37,9 +37,16 @@ public struct GitHubActionsProvider: CIProvider {
                 guard artifact.name.range(of: "^[A-Za-z0-9_-]+$", options: .regularExpression) != nil else {
                     throw ShipItError.invalidConfiguration(reason: "Invalid artifact name: \(artifact.name)")
                 }
+                // Paths inside the run's own evidence directory are referenced in place rather than copied into the
+                // step directory, so the upload names them directly.
+                let inPlace = artifact.paths.compactMap { path -> String? in
+                    guard path.hasPrefix(Self.evidencePrefix) else { return nil }
+                    return "build/workflow-artifacts/*/" + path.dropFirst(Self.evidencePrefix.count)
+                }
                 var settings: [String: Any] = [
                     "name": "\(safe(workflow))-step-\(index + 1)-\(artifact.name)",
-                    "path": "build/workflow-artifacts/*/step-\(index + 1)/\(artifact.name)/", "if-no-files-found": "warn",
+                    "path": (["build/workflow-artifacts/*/step-\(index + 1)/\(artifact.name)/"] + inPlace).joined(separator: "\n"),
+                    "if-no-files-found": "warn",
                 ]
                 if let days = artifact.retentionDays {
                     guard (1...90).contains(days) else {
@@ -63,6 +70,8 @@ public struct GitHubActionsProvider: CIProvider {
             "jobs": [safe(workflow): ["runs-on": job.runner, "steps": steps]],
         ])
     }
+    /// Where a workflow run keeps its evidence, as a Shipfile path spells it.
+    private static let evidencePrefix = "build/workflow-artifacts/{{run_id}}/"
     private func quote(_ value: String) -> String { "'" + value.replacingOccurrences(of: "'", with: "'\\''") + "'" }
     private func safe(_ value: String) -> String {
         value.replacingOccurrences(of: "[^A-Za-z0-9_-]", with: "-", options: .regularExpression)

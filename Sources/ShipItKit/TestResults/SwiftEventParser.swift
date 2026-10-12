@@ -51,7 +51,7 @@ public struct SwiftEventParser: Sendable {
         }
         guard recognized else { throw ShipItError.invalidConfiguration(reason: "No Swift Testing event records in \(path)") }
         let cases = states.values.filter { $0.started != nil || $0.skipped }.map { state in
-            let selector = state.id.split(separator: "/").prefix(2).joined(separator: "/")
+            let selector = Self.selector(forTestID: state.id)
             return ParsedTestCase(
                 stableID: "swift-case:" + selector, name: state.name,
                 status: state.skipped ? .skipped : state.failed ? .failed : state.ended == nil ? .errored : .passed,
@@ -67,5 +67,20 @@ public struct SwiftEventParser: Sendable {
                 passed: cases.filter { $0.status == .passed }.count, failed: cases.filter { $0.status == .failed }.count,
                 skipped: cases.filter { $0.status == .skipped }.count, errored: cases.filter { $0.status == .errored }.count),
             testCases: cases)
+    }
+
+    /// The stable identity and `swift test --filter` selector for a Swift Testing test ID.
+    ///
+    /// IDs are `<Module>.<Suite>/<Nested suite>/…/<function>()/<File>.swift:<line>:<column>`. The suite path can be
+    /// any depth, so every component is kept except the trailing source location: it moves whenever code above the
+    /// test changes, which would give the same test a new identity.
+    static func selector(forTestID id: String) -> String {
+        var components = id.split(separator: "/", omittingEmptySubsequences: false)
+        if components.count > 1, let last = components.last,
+            last.range(of: #"\.swift:\d+:\d+$"#, options: .regularExpression) != nil
+        {
+            components.removeLast()
+        }
+        return components.joined(separator: "/")
     }
 }

@@ -118,8 +118,10 @@ public struct ConfigResolver: Sendable {
             } ?? "."
 
         // Resolve platform: CLI flag > Shipfile > SHIPIT_PLATFORM env var > auto-detect from project files
-        let platform = resolvePlatform(cliOptions: cliOptions, shipfile: shipfile, detectionRoot: projectRoot)
-        logger.info("Resolved platform: \(platform.rawValue)")
+        let (platform, platformSource) = resolvePlatform(cliOptions: cliOptions, shipfile: shipfile, detectionRoot: projectRoot)
+        // Say where it came from: a package-only Shipfile has no platform and gets the iOS default, which only
+        // matters to app actions.
+        logger.info("Resolved platform: \(platform.rawValue) (\(platformSource))")
 
         // Resolve build system per platform: env var > Shipfile ios.build_system / android.build_system >
         // auto-detect from project files > .native.
@@ -378,18 +380,20 @@ public struct ConfigResolver: Sendable {
     /// Resolves the target platform.
     ///
     /// Priority: CLI flag > Shipfile > `SHIPIT_PLATFORM` env var > auto-detect from project files.
-    private func resolvePlatform(cliOptions: CLIOptions, shipfile: Shipfile?, detectionRoot: String) -> Platform {
+    private func resolvePlatform(
+        cliOptions: CLIOptions, shipfile: Shipfile?, detectionRoot: String
+    ) -> (platform: Platform, source: String) {
         // 1. CLI flag (highest priority)
-        if let platform = cliOptions.platform { return platform }
+        if let platform = cliOptions.platform { return (platform, "--platform") }
 
         // 2. Shipfile value
-        if let platform = shipfile?.platform { return platform }
+        if let platform = shipfile?.platform { return (platform, "Shipfile") }
 
         // 3. Environment variable
         if let rawValue = environment.platform,
             let platform = Platform(rawValue: rawValue.lowercased())
         {
-            return platform
+            return (platform, "SHIPIT_PLATFORM")
         }
 
         // 4. Auto-detect from file system
@@ -399,20 +403,20 @@ public struct ConfigResolver: Sendable {
             || fm.fileExists(atPath: root.appendingPathComponent("build.gradle.kts").path)
             || fm.fileExists(atPath: root.appendingPathComponent("build.gradle").path)
         {
-            return .android
+            return (.android, "detected Gradle project")
         }
 
         // Look for .xcworkspace or .xcodeproj in the resolved project root
         if let items = try? fm.contentsOfDirectory(atPath: root.path) {
             for item in items {
                 if item.hasSuffix(".xcworkspace") || item.hasSuffix(".xcodeproj") {
-                    return .ios
+                    return (.ios, "detected Xcode project")
                 }
             }
         }
 
         // 5. Default to iOS (existing behaviour)
-        return .ios
+        return (.ios, "default")
     }
 
     /// Resolves the build system for a given target platform.

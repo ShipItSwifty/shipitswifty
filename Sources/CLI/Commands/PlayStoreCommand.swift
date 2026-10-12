@@ -84,7 +84,7 @@ struct PlayStoreCommand: AsyncParsableCommand {
             let result = try await PlayStoreAction().run(with: options, context: context)
             outputResult(action: "play-store", result: result, format: global.output, colorMode: global.effectiveColorMode)
         } catch let error as ShipItError {
-            outputError(error: error, format: global.output, colorMode: global.effectiveColorMode)
+            outputError(action: "play-store", error: error, format: global.output, colorMode: global.effectiveColorMode)
             throw ExitCode(error.exitCode)
         }
     }

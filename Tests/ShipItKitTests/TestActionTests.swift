@@ -1268,6 +1268,51 @@ struct TestActionTests {
         #expect(result.failCount == 0)
     }
 
+    @Test("Auto-discovery asks again when only placeholder destinations are listed")
+    func autoDiscoveryRetriesPlaceholderOnlyList() async throws {
+        let queries = Mutex(0)
+        let (executor, commands) = makeCaptureExecutor { command, _ in
+            guard command.description.contains("-showdestinations") else {
+                return ShellOutput(stdout: "{}", stderr: "", exitCode: 0)
+            }
+            let query = queries.withLock { count in
+                count += 1
+                return count
+            }
+            // A cold CoreSimulator lists only placeholders the first time.
+            let simulators =
+                query == 1 ? "" : "        { platform:iOS Simulator, arch:arm64, id:SIM-1, OS:27.2, name:iPhone 18 Pro }\n"
+            return ShellOutput(
+                stdout: """
+                    \tDestinations compatible with the "MockApp" scheme:
+                    \t\t{ platform:iOS, id:dvtdevice-DVTiPhonePlaceholder-iphoneos:placeholder, name:Any iOS Device }
+                    \t\t{ platform:iOS Simulator, id:dvtdevice-DVTiOSDeviceSimulatorPlaceholder-iphonesimulator:placeholder, name:Any iOS Simulator Device }
+                    \(simulators)
+                    """,
+                stderr: "", exitCode: 0)
+        }
+        let destination = try await TestAction().autoDiscoverDestination(
+            scheme: "MockApp", context: .mock(executor: executor), retryDelay: .zero)
+        #expect(destination.contains("SIM-1") || destination.contains("iPhone 18 Pro"))
+        #expect(queries.withLock { $0 } == 2)
+        #expect(commands().contains { $0.contains("simctl") && $0.contains("list") }, "listing the devices loads them")
+    }
+
+    @Test("Auto-discovery gives up after three placeholder-only lists")
+    func autoDiscoveryGivesUp() async throws {
+        let queries = Mutex(0)
+        let executor = MockExecutor { command, _ in
+            if command.description.contains("-showdestinations") { queries.withLock { $0 += 1 } }
+            return ShellOutput(
+                stdout: "\t\t{ platform:iOS Simulator, id:dvtdevice-placeholder, name:Any iOS Simulator Device }\n", stderr: "",
+                exitCode: 0)
+        }
+        await #expect(throws: ShipItError.self) {
+            _ = try await TestAction().autoDiscoverDestination(scheme: "MockApp", context: .mock(executor: executor), retryDelay: .zero)
+        }
+        #expect(queries.withLock { $0 } == 3)
+    }
+
     @Test("Auto-discovery prefers highest OS version and Pro models")
     func autoDiscoveryPrefersBestSimulator() async throws {
         let (executor, commands) = makeCaptureExecutor { command, _ in
