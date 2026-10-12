@@ -49,6 +49,8 @@ public struct CoverageAction: Action {
 
         /// Output format. Defaults to `.text`.
         public var inputFormat: CoverageInputFormat?
+        /// The tool that wrote an `lcov` input (`flutter-test` or `jest`); LCOV does not say. Ignored for other formats.
+        public var runner: TestRunner?
         public var sourceRoots: [String]?
         public var excludePreviews: Bool?
         public var minimumCoverage: Double?
@@ -97,6 +99,7 @@ public struct CoverageAction: Action {
 
         public init(
             inputFormat: CoverageInputFormat? = nil,
+            runner: TestRunner? = nil,
             sourceRoots: [String]? = nil,
             excludePreviews: Bool? = nil,
             minimumCoverage: Double? = nil,
@@ -114,6 +117,7 @@ public struct CoverageAction: Action {
             reportPath: String? = nil
         ) {
             self.inputFormat = inputFormat
+            self.runner = runner
             self.sourceRoots = sourceRoots
             self.excludePreviews = excludePreviews
             self.minimumCoverage = minimumCoverage
@@ -192,7 +196,7 @@ public struct CoverageAction: Action {
             }
             let result = try await PortableCoverageReader().read(
                 path, format: inputFormat,
-                sourceRoots: options.sourceRoots ?? [], excludePreviews: options.excludePreviews ?? false)
+                sourceRoots: options.sourceRoots ?? [], excludePreviews: options.excludePreviews ?? false, runner: options.runner)
             if let minimum = options.minimumCoverage {
                 guard minimum.isFinite, (0...100).contains(minimum) else {
                     throw ShipItError.invalidConfiguration(reason: "minimum_coverage must be between 0 and 100")

@@ -376,7 +376,7 @@ once into `.xctestproducts`, saves one bundle per plan/destination/attempt, and 
 serial after a classified clone failure. SwiftPM, Flutter, React Native (Jest), Android JVM and Xcode selective
 reruns share normalized identities and flaky reporting. Android/KMP JUnit, Flutter/Jest events,
 Swift Testing streams and xcresult can be inspected/exported offline with originals, screenshots,
-attachments and logs. Coverage adds SwiftPM LLVM JSON, Flutter LCOV and Kover JVM XML.
+attachments and logs. Coverage adds SwiftPM LLVM JSON, LCOV (Flutter or Jest, labelled with `runner`) and Kover JVM XML.
 
 Artifacts belong to any workflow/custom-action step. GitHub Actions export publishes declared
 artifacts and failure evidence with `always()`. Other providers implement the public `CIProvider`

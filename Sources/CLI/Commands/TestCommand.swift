@@ -111,9 +111,6 @@ struct TestCommand: AsyncParsableCommand {
                 global: global,
                 cliOptions: CLIOptions(scheme: scheme, ci: global.ci, dryRun: global.dryRun, platform: global.platform)
             )
-            let context = try await buildActionContext(
-                config: config, verbose: global.verbose, jsonOutput: global.output == .json)
-
             let directOptions =
                 scheme != nil || destination != nil || configuration != nil || codeCoverage || resultBundlePath != nil
                 || !testPlans.isEmpty || testProductsPath != nil || legacyCombinedTest || serial || skipMacroValidation || eraseSimulator
@@ -127,9 +124,11 @@ struct TestCommand: AsyncParsableCommand {
                 var run = RunCommand()
                 run.global = global
                 run.workflow = selected
-                try await run.run()
+                try await run.execute(config: config)
                 return
             }
+            let context = try await buildActionContext(
+                config: config, verbose: global.verbose, jsonOutput: global.output == .json)
 
             // Build device config from CLI flags
             let devices: TestDeviceConfig?

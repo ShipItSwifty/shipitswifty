@@ -861,7 +861,9 @@ one product, `<name>-Package` when it has several. That step runs `xcodebuild` o
 no `app.project`/`app.workspace`. `shipit inspect project --output json` reports what was detected
 under `swiftPackage`.
 
-`coverage` accepts `input_format: swift|lcov|jacoco|kover` with `report_path`. Swift/LCOV inputs
+`coverage` accepts `input_format: swift|lcov|jacoco|kover` with `report_path`. LCOV comes from
+both `flutter test` and Jest and does not say which, so set `runner: flutter-test|jest` to label it;
+without it the runner is `unknown`. Swift/LCOV inputs
 support `source_roots` and `exclude_previews`; `minimum_coverage` applies to every format and
 rejects empty coverage. Kotlin Native/JS coverage is unavailable through these formats.
 
