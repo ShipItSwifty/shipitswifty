@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: Existing release tag to rebuild and publish
+        description: Version to publish (existing tags are rebuilt; new versions use the selected ref)
         required: true
         type: string
 
@@ -23,8 +23,41 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  prepare:
+    name: Resolve release commit
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    outputs:
+      commit: ${{ steps.resolve.outputs.commit }}
+    steps:
+      - name: Checkout selected ref
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Resolve version and source commit
+        id: resolve
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ ! "$RELEASE_VERSION" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+            echo "::error::Release version must be a plain semantic version, for example 0.7.0."
+            exit 1
+          fi
+          if git show-ref --verify --quiet "refs/tags/${RELEASE_VERSION}"; then
+            commit=$(git rev-parse "refs/tags/${RELEASE_VERSION}^{commit}")
+          else
+            commit=$(git rev-parse HEAD)
+          fi
+          echo "commit=$commit" >> "$GITHUB_OUTPUT"
+          echo "Release ${RELEASE_VERSION} will build commit ${commit}."
+
   build-macos:
     name: Build macOS Universal Binary
+    needs: prepare
     runs-on: macos-26
 
     steps:
@@ -32,7 +65,7 @@ jobs:
         uses: actions/checkout@v7
         with:
           persist-credentials: false
-          ref: ${{ env.RELEASE_VERSION }}
+          ref: ${{ needs.prepare.outputs.commit }}
 
       - name: Select Xcode
         run: sudo xcode-select -s /Applications/Xcode_26.4.app
@@ -100,6 +133,7 @@ jobs:
 
   build-linux:
     name: Build Linux Static Binary
+    needs: prepare
     runs-on: ubuntu-24.04
     # Mirrored via mirror-swift-image.yml instead of pulling swift:6.3.1-noble
     # from Docker Hub directly — avoids the anonymous-pull rate limit that broke
@@ -112,7 +146,7 @@ jobs:
         uses: actions/checkout@v7
         with:
           persist-credentials: false
-          ref: ${{ env.RELEASE_VERSION }}
+          ref: ${{ needs.prepare.outputs.commit }}
 
       - name: Stamp version from tag
         run: |
@@ -159,7 +193,7 @@ jobs:
 
   release:
     name: Create GitHub Release
-    needs: [build-macos, build-linux]
+    needs: [prepare, build-macos, build-linux]
     runs-on: ubuntu-24.04
     permissions:
       contents: write
@@ -172,7 +206,7 @@ jobs:
         uses: actions/checkout@v7
         with:
           persist-credentials: false
-          ref: ${{ env.RELEASE_VERSION }}
+          ref: ${{ needs.prepare.outputs.commit }}
 
       - name: Download macOS artifact
         uses: actions/download-artifact@v8
@@ -197,18 +231,20 @@ jobs:
       - name: Generate release notes
         env:
           GH_TOKEN: ${{ github.token }}
+          RELEASE_COMMIT: ${{ needs.prepare.outputs.commit }}
         run: |
           gh api \
             --method POST \
             "/repos/${{ github.repository }}/releases/generate-notes" \
             -f tag_name="${RELEASE_VERSION}" \
-            -f target_commitish=main \
+            -f target_commitish="${RELEASE_COMMIT}" \
             --jq '.body' > release_notes.md
 
       - name: Create release
         uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ env.RELEASE_VERSION }}
+          target_commitish: ${{ needs.prepare.outputs.commit }}
           body_path: release_notes.md
           files: |
             shipit-*-macos-universal.tar.gz

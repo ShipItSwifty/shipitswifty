@@ -9,7 +9,7 @@ Use this checklist when publishing `shipit` to the Homebrew tap.
 - `shipitswifty/shipitswifty` is public.
 - `maniramezan/SwiftyShell` is public or otherwise fetchable by SwiftPM consumers.
 - A tap repository exists, for example `shipitswifty/homebrew-tap`.
-- The release tag exists in this repository.
+- Choose a plain semantic version (for example `0.7.0`) and the commit to release.
 
 ## Pre-Tag Validation
 
@@ -42,6 +42,11 @@ ShipItSwifty uses plain semantic-version tags, not `v`-prefixed tags:
 git tag <version>
 git push origin <version>
 ```
+
+Alternatively, manually run the **Release** workflow on the desired branch or ref and enter
+the version. For a new version, the workflow builds the selected commit and creates its tag
+when publishing, after both builds succeed. For an existing tag, it rebuilds that tag's commit
+regardless of the selected branch. All jobs and release notes use the same resolved commit.
 
 ## Tap Update Is Automated
 
