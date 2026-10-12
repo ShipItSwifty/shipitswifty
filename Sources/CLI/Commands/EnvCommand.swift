@@ -90,7 +90,7 @@ struct EnvCommand: AsyncParsableCommand {
                 print(try reporter.encode(envelope))
             }
         } catch let error as ShipItError {
-            outputError(error: error, format: global.output, colorMode: global.effectiveColorMode)
+            outputError(action: "env", error: error, format: global.output, colorMode: global.effectiveColorMode)
             throw ExitCode(error.exitCode)
         }
     }

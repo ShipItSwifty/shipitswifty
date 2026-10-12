@@ -42,7 +42,7 @@ struct FrameCommand: AsyncParsableCommand {
             let result = try await FrameAction().run(with: options, context: context)
             outputResult(action: "frame", result: result, format: global.output, colorMode: global.effectiveColorMode)
         } catch let error as ShipItError {
-            outputError(error: error, format: global.output, colorMode: global.effectiveColorMode)
+            outputError(action: "frame", error: error, format: global.output, colorMode: global.effectiveColorMode)
             throw ExitCode(error.exitCode)
         }
     }

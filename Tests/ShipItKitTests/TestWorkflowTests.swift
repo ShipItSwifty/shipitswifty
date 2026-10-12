@@ -23,9 +23,24 @@ struct TestWorkflowTests {
                 "Integration",
             ])
         #expect(
+            tool.test(package: ".", events: "events.jsonl", workers: 1).command().arguments == [
+                "test", "--package-path", ".", "--parallel", "--num-workers", "1", "--event-stream-output-path", "events.jsonl",
+            ], "--parallel stays: without it SwiftPM writes no XCTest results")
+        #expect(
             tool.formatLint(paths: ["Sources"], configuration: ".swift-format").command().arguments == [
                 "format", "lint", "--recursive", "--strict", "--configuration", ".swift-format", "Sources",
             ])
+    }
+
+    @Test("Formatting violations fail as a lint failure, not a build failure")
+    func swiftFormatViolationIsLintFailure() async throws {
+        let executor = MockExecutor { _, _ in .init(stdout: "", stderr: "Sources/A.swift:1:1: warning: [Indentation]", exitCode: 1) }
+        await #expect {
+            _ = try await SwiftFormatAction().run(with: .init(paths: ["Sources"]), context: .mock(executor: executor))
+        } throws: { error in
+            guard case ShipItError.lintFailed(let exitCode, let log) = error else { return false }
+            return exitCode == 1 && log.contains("[Indentation]") && (error as? ShipItError)?.exitCode == 13
+        }
     }
 
     @Test("Interrupted Swift tests preserve partial logs and an error report")
@@ -123,6 +138,20 @@ struct TestWorkflowTests {
         #expect(yaml.contains("actions/upload-artifact@v7"))
         #expect(yaml.contains("retention-days: 7"))
         #expect(yaml.contains("step-1/results"))
+    }
+
+    @Test("An exported upload names declared evidence that stays in the run's own directory")
+    func providerExportInPlaceEvidence() throws {
+        let yaml = try GitHubActionsProvider().export(
+            workflow: "tests",
+            config: .init(steps: [
+                .init(
+                    action: "swift-test",
+                    artifacts: [.init(name: "runs", paths: ["build/workflow-artifacts/{{run_id}}/test-runs", "build/extra.log"])])
+            ]), job: .init(runner: "macos-26", setupCommands: []))
+        #expect(yaml.contains("build/workflow-artifacts/*/step-1/runs/"))
+        #expect(yaml.contains("build/workflow-artifacts/*/test-runs"))
+        #expect(!yaml.contains("build/workflow-artifacts/*/build/extra.log"))
     }
 
     #if os(macOS)

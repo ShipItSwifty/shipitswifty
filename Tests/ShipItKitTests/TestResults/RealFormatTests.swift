@@ -398,4 +398,41 @@ struct RealJestTests {
         #expect(run.testCases.contains { $0.stableID == "jest-case:__tests__/scripted.test.js::Scripted flaky" })
         #expect(run.testCases.allSatisfy { !$0.stableID.hasPrefix("jest-case:/") })
     }
+
+}
+
+@Suite("Real Swift Testing events")
+struct RealSwiftTestingTests {
+    private static let root = URL(fileURLWithPath: #filePath)
+        .deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent("Fixtures/real")
+
+    @Test("Tests in nested suites keep separate identities without their source location")
+    func swiftTestingNestedSuites() throws {
+        let run = try SwiftEventParser().parse(path: Self.root.appendingPathComponent("swift-testing-events/nested-suites.jsonl").path)
+        let ids = run.testCases.map(\.stableID)
+        #expect(
+            ids == [
+                "swift-case:LibTests.Outer/Inner/alpha()", "swift-case:LibTests.Outer/Inner/beta()",
+                "swift-case:LibTests.Outer/Inner/gamma()", "swift-case:LibTests.param(_:)", "swift-case:LibTests.topLevel()",
+            ])
+        #expect(Set(ids).count == ids.count, "every test has its own identity")
+        func status(_ name: String) -> TestCaseStatus? { run.testCases.first { $0.name == name }?.status }
+        #expect(status("alpha()") == .passed)
+        #expect(status("beta()") == .failed)
+        #expect(status("gamma()") == .failed)
+        #expect(status("param(_:)") == .failed, "one failing argument fails the parameterized test")
+        #expect(run.testCases.first { $0.name == "gamma()" }?.rerunSelector == .swiftTestFilter("LibTests.Outer/Inner/gamma()"))
+    }
+
+    @Test(
+        "A Swift Testing ID loses only its trailing source location",
+        arguments: [
+            ("M.S/t()/S.swift:3:4", "M.S/t()"),
+            ("M.Outer/Inner/Deeper/t()/S.swift:10:2", "M.Outer/Inner/Deeper/t()"),
+            ("M.free()/S.swift:1:1", "M.free()"),
+            ("M.S", "M.S"),
+        ])
+    func swiftTestingSelector(id: String, expected: String) {
+        #expect(SwiftEventParser.selector(forTestID: id) == expected)
+    }
 }

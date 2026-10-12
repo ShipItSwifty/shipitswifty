@@ -63,7 +63,7 @@ struct SwiftPMFixtureIntegrationTests {
             #expect(run.report.summary.failed == 0)
             #expect(run.report.summary.flaky == 0)
             #expect(run.report.summary.skipped == 1)
-            #expect(run.report.summary.passed == 7)
+            #expect(run.report.summary.passed == 9)
             #expect(run.report.testCases?.allSatisfy { $0.attempts == 1 && $0.destinationID == TestDestination.host().id } == true)
         }
     }
@@ -77,19 +77,20 @@ struct SwiftPMFixtureIntegrationTests {
             #expect(run.result.exitCode == 0, "recovered flakiness must not fail the workflow:\n\(run.result.output)")
             let report = run.report
             #expect(report.attempts.map(\.reason) == ["initial", "failed_tests"])
-            #expect(names(report.flakyTests) == ["flaky()", "testFlakyXCTest"])
+            #expect(names(report.flakyTests) == ["flaky()", "nestedFlaky()", "testFlakyXCTest"])
             #expect(report.persistentFailedTests.isEmpty)
             #expect(report.summary.failed == 0)
-            #expect(report.summary.flaky == 2)
-            #expect(report.summary.passed == 7)
+            #expect(report.summary.flaky == 3)
+            #expect(report.summary.passed == 9)
 
-            // The first attempt saw both fail; the rerun ran only those two, not the whole suite.
-            #expect(names(report.attempts[0].failedTests) == ["flaky()", "testFlakyXCTest"])
-            #expect(report.attempts[1].summary.passed == 2)
+            // The first attempt saw all three fail; the rerun ran only those, not the whole suite, and not
+            // `nestedPasses`, which shares a suite with `nestedFlaky`.
+            #expect(names(report.attempts[0].failedTests) == ["flaky()", "nestedFlaky()", "testFlakyXCTest"])
+            #expect(report.attempts[1].summary.passed == 3)
             #expect(report.attempts[1].summary.failed == 0)
 
             let cases = try #require(report.testCases)
-            for name in ["flaky()", "testFlakyXCTest"] {
+            for name in ["flaky()", "nestedFlaky()", "testFlakyXCTest"] {
                 let test = try #require(cases.first { $0.name == name })
                 #expect(test.status == .passed, "\(name) recovered")
                 #expect(test.attempts == 2, "\(name) failed once, then passed")
@@ -97,7 +98,8 @@ struct SwiftPMFixtureIntegrationTests {
                 #expect(test.metadata?["first_failure"] != nil, "why it first failed is kept")
                 #expect(test.message == nil, "a recovered test carries no failure")
             }
-            for test in cases where !["flaky()", "testFlakyXCTest"].contains(test.name) {
+            #expect(Set(cases.map(\.stableID)).count == cases.count, "every test keeps its own identity")
+            for test in cases where !["flaky()", "nestedFlaky()", "testFlakyXCTest"].contains(test.name) {
                 #expect(test.attempts == 1, "\(test.name) ran once")
             }
         }
@@ -137,11 +139,11 @@ struct SwiftPMFixtureIntegrationTests {
             #expect(run.result.exitCode != 0, "a persistent failure must fail the workflow")
             let report = run.report
             #expect(names(report.persistentFailedTests) == ["alwaysFailsWhenAsked()", "testAlwaysFailsWhenAsked"])
-            #expect(names(report.flakyTests) == ["flaky()", "testFlakyXCTest"], "recoveries are still reported alongside")
+            #expect(names(report.flakyTests) == ["flaky()", "nestedFlaky()", "testFlakyXCTest"], "recoveries are still reported alongside")
             #expect(report.summary.failed == 2)
-            #expect(report.summary.flaky == 2)
+            #expect(report.summary.flaky == 3)
             #expect(report.attempts.map(\.reason) == ["initial", "failed_tests"])
-            #expect(report.attempts.first?.failedTests.count == 4, "all four failed on the first attempt")
+            #expect(report.attempts.first?.failedTests.count == 5, "all five failed on the first attempt")
 
             let cases = try #require(report.testCases)
             for name in ["alwaysFailsWhenAsked()", "testAlwaysFailsWhenAsked"] {
@@ -214,9 +216,10 @@ struct SwiftPMFixtureIntegrationTests {
             let object = try #require(JSONSerialization.jsonObject(with: Data(reread.stdout.utf8)) as? [String: Any])
             let parsed = try #require((object["payload"] as? [String: Any])?["parsedRun"] as? [String: Any])
             let summary = try #require(parsed["summary"] as? [String: Int])
-            // Attempt 1's Swift Testing events: three pass, `flaky` fails, one is skipped (the XCTest cases are in xctest.xml).
-            #expect(summary["failed"] == 1)
-            #expect(summary["passed"] == 3)
+            // Attempt 1's Swift Testing events: four pass, `flaky` and `nestedFlaky` fail, one is skipped (the XCTest cases
+            // are in xctest.xml).
+            #expect(summary["failed"] == 2)
+            #expect(summary["passed"] == 4)
             #expect(summary["skipped"] == 1)
         }
     }

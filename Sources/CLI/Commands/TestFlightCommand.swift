@@ -50,7 +50,7 @@ struct TestFlightCommand: AsyncParsableCommand {
             let result = try await TestFlightAction().run(with: options, context: context)
             outputResult(action: "testflight", result: result, format: global.output, colorMode: global.effectiveColorMode)
         } catch let error as ShipItError {
-            outputError(error: error, format: global.output, colorMode: global.effectiveColorMode)
+            outputError(action: "testflight", error: error, format: global.output, colorMode: global.effectiveColorMode)
             throw ExitCode(error.exitCode)
         }
     }

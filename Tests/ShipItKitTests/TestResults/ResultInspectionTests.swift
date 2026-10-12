@@ -332,6 +332,25 @@ struct ResultIntegrityTests {
         #expect(manifest.entries.count == 1)
     }
 
+    @Test("A declared path inside the workflow's evidence directory is referenced in place, not copied")
+    func declaredEvidenceInsideRootIsNotCopied() throws {
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let evidence = scratch.url.appendingPathComponent("evidence")
+        let runs = evidence.appendingPathComponent("test-runs/swift-1")
+        try FileManager.default.createDirectory(at: runs, withIntermediateDirectories: true)
+        try "{}".write(to: runs.appendingPathComponent("report.json"), atomically: true, encoding: .utf8)
+        try collectWorkflowArtifacts(
+            step: "step-1", action: "swift-test",
+            declarations: [.init(name: "test-evidence", paths: [evidence.appendingPathComponent("test-runs").path])], payload: nil,
+            status: "success", root: evidence.path)
+        let manifest = try JSONDecoder().decode(
+            WorkflowArtifactRecord.self, from: Data(contentsOf: evidence.appendingPathComponent("step-1/manifest.json")))
+        #expect(manifest.entries.map(\.path) == ["../test-runs"])
+        #expect(manifest.diagnostics.isEmpty)
+        #expect(!FileManager.default.fileExists(atPath: evidence.appendingPathComponent("step-1/test-evidence").path))
+    }
+
     @Test("A glob walks only its literal directory prefix")
     func globSearchRoot() throws {
         #expect(artifactSearchRoot(for: "/work/proj/build/*.log").path == "/work/proj/build")
@@ -349,5 +368,10 @@ struct ResultIntegrityTests {
         #expect(direct.map(\.lastPathComponent) == ["a.log"])
         let recursive = try artifactMatches(scratch.url.appendingPathComponent("build/**/*.log").path)
         #expect(recursive.map(\.lastPathComponent).sorted() == ["a.log", "c.log"])
+        // A matched directory stands for everything inside it.
+        let children = try artifactMatches(scratch.url.appendingPathComponent("build/*").path)
+        #expect(children.map(\.lastPathComponent) == ["a.log", "b.txt", "nested"])
+        let everything = try artifactMatches(scratch.url.appendingPathComponent("**").path)
+        #expect(everything.map(\.lastPathComponent) == ["build", "other"])
     }
 }

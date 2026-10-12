@@ -69,7 +69,7 @@ struct ArchiveCommand: AsyncParsableCommand {
             let result = try await ArchiveAction().run(with: options, context: context)
             outputResult(action: "archive", result: result, format: global.output, colorMode: global.effectiveColorMode)
         } catch let error as ShipItError {
-            outputError(error: error, format: global.output, colorMode: global.effectiveColorMode)
+            outputError(action: "archive", error: error, format: global.output, colorMode: global.effectiveColorMode)
             throw ExitCode(error.exitCode)
         }
     }

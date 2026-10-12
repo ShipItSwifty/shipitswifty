@@ -46,7 +46,7 @@ struct ExportCommand: AsyncParsableCommand {
             let result = try await ExportAction().run(with: options, context: context)
             outputResult(action: "export", result: result, format: global.output, colorMode: global.effectiveColorMode)
         } catch let error as ShipItError {
-            outputError(error: error, format: global.output, colorMode: global.effectiveColorMode)
+            outputError(action: "export", error: error, format: global.output, colorMode: global.effectiveColorMode)
             throw ExitCode(error.exitCode)
         }
     }

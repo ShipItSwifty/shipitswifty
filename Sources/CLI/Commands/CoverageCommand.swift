@@ -152,7 +152,7 @@ struct CoverageCommand: AsyncParsableCommand {
                 printHuman(result: result, options: options, global: global)
             }
         } catch let error as ShipItError {
-            outputError(error: error, format: global.output, colorMode: global.effectiveColorMode)
+            outputError(action: CoverageAction.name, error: error, format: global.output, colorMode: global.effectiveColorMode)
             throw ExitCode(error.exitCode)
         }
     }

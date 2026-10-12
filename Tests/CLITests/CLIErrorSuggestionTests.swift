@@ -17,6 +17,19 @@ struct CLIErrorSuggestionTests {
         #expect(suggestions.contains { $0.contains("--shipfile") })
     }
 
+    @Test("A test failure points at report.json and offline inspection")
+    func testFailureSuggestions() {
+        let suggestions = errorSuggestions(for: .testFailed(exitCode: 1, failureCount: 2, log: "See build/test-runs/x/report.json"))
+        #expect(suggestions.contains { $0.contains("report.json") })
+        #expect(suggestions.contains { $0.contains("shipit test-results --input") })
+    }
+
+    @Test("A formatting failure points at swift format --in-place")
+    func lintFailureSuggestions() {
+        let suggestions = errorSuggestions(for: .lintFailed(exitCode: 1, log: "Sources/A.swift:1:1: warning"))
+        #expect(suggestions.contains { $0.contains("swift format --in-place") })
+    }
+
     @Test("Missing scheme suggests CLI flag or Shipfile config")
     func missingSchemeSuggestions() {
         let suggestions = errorSuggestions(

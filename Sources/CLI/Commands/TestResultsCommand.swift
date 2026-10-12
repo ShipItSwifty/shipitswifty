@@ -131,7 +131,7 @@ struct TestResultsCommand: AsyncParsableCommand {
                 printHuman(result: result)
             }
         } catch let error as ShipItError {
-            outputError(error: error, format: global.output, colorMode: global.effectiveColorMode)
+            outputError(action: TestResultsAction.name, error: error, format: global.output, colorMode: global.effectiveColorMode)
             throw ExitCode(error.exitCode)
         }
     }

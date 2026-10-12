@@ -13,39 +13,9 @@ public struct ShipfileSuggester: Sendable {
         -> SuggestedShipfile
     {
         if goal == .local, inspection.detectedBuildSystem == nil || inspection.detectedBuildSystem == .native,
-            FileManager.default.fileExists(atPath: URL(fileURLWithPath: inspection.rootPath).appendingPathComponent("Package.swift").path)
+            let package = inspection.swiftPackage
         {
-            var yaml = """
-                test_workflow: tests
-                workflows:
-                  tests:
-                    - action: swift-test
-                      options:
-                        enable_code_coverage: true
-                        rerun_failed_tests: { enabled: true, max_attempts: 2 }
-                        infrastructure_retry: { max_attempts: 3, initial_delay_seconds: 2, max_delay_seconds: 30 }
-                      artifacts:
-                        - name: test-evidence
-                          paths: ["build/workflow-artifacts/{{run_id}}/test-runs"]
-                          retention_days: 14
-                """
-            let app = inspection.suggestedAppConfig
-            var missing: [SuggestedShipfile.MissingValue] = []
-            if let container = app.workspace ?? app.project {
-                let key = app.workspace == nil ? "project" : "workspace"
-                yaml = "platform: ios\napp:\n  \(key): \(container)\n  scheme: \(app.scheme ?? "${SHIPIT_APP__SCHEME}")\n" + yaml
-                yaml +=
-                    "\n    - action: test\n      options:\n        infrastructure_retry: { max_attempts: 3, initial_delay_seconds: 2, max_delay_seconds: 30 }\n"
-                if let plan = suggestedTestPlan(from: inspection) { yaml += "        test_plan: \(plan)\n" }
-                if inspection.testPlans.count > 1 {
-                    missing.append(
-                        .init(
-                            keyPath: "workflows.tests[test].options.test_plan",
-                            reason: "Choose a detected test plan or explicitly select compatible plans with test_plans."))
-                }
-                if app.scheme == nil { missing.append(.init(keyPath: "app.scheme", reason: "Choose the sample's test scheme.")) }
-            }
-            return SuggestedShipfile(goal: goal, inspection: inspection, missingValues: missing, warnings: inspection.warnings, yaml: yaml)
+            return suggestSwiftPackage(goal: goal, package: package, from: inspection)
         }
         switch platform {
         case .ios:
@@ -471,6 +441,71 @@ public struct ShipfileSuggester: Sendable {
         }
 
         return lines.joined(separator: "\n") + "\n"
+    }
+
+    /// A test workflow for a Swift package. A package the host can build runs through `swift-test`; one that imports
+    /// device-only frameworks (UIKit) runs through `test`, which drives `xcodebuild` on a simulator from the package
+    /// directory. Test evidence is staged under the workflow's artifact root automatically, so no `artifacts:`
+    /// declaration is needed for it.
+    private func suggestSwiftPackage(
+        goal: SuggestionGoal, package: SwiftPackageSummary, from inspection: ProjectInspection
+    ) -> SuggestedShipfile {
+        let retry = "infrastructure_retry: { max_attempts: 3, initial_delay_seconds: 2, max_delay_seconds: 30 }"
+        var missing: [SuggestedShipfile.MissingValue] = []
+        var warnings = inspection.warnings
+        guard package.isHostTestable else {
+            if package.testScheme == nil {
+                missing.append(
+                    .init(
+                        keyPath: "workflows.tests[test].options.scheme",
+                        reason: "Choose the package's test scheme (`xcodebuild -list` in the package directory lists them)."))
+            }
+            if let container = inspection.preferredContainer {
+                warnings.append(
+                    "\(container.path) is not used: app.project/app.workspace would apply to the package test step too. Test it from a separate workflow with its own Shipfile."
+                )
+            }
+            let yaml = """
+                platform: ios
+                test_workflow: tests
+                workflows:
+                  tests:
+                    - action: test
+                      options:
+                        scheme: \(package.testScheme ?? "${SHIPIT_APP__SCHEME}")
+                        enable_code_coverage: true
+                        rerun_failed_tests: { enabled: true, max_attempts: 2 }
+                        \(retry)
+                """
+            return SuggestedShipfile(
+                goal: goal, kind: .swiftPackage, inspection: inspection, missingValues: missing, warnings: warnings, yaml: yaml)
+        }
+        var yaml = """
+            test_workflow: tests
+            workflows:
+              tests:
+                - action: swift-test
+                  options:
+                    enable_code_coverage: true
+                    rerun_failed_tests: { enabled: true, max_attempts: 2 }
+                    \(retry)
+            """
+        let app = inspection.suggestedAppConfig
+        if let container = app.workspace ?? app.project {
+            let key = app.workspace == nil ? "project" : "workspace"
+            yaml = "platform: ios\napp:\n  \(key): \(container)\n  scheme: \(app.scheme ?? "${SHIPIT_APP__SCHEME}")\n" + yaml
+            yaml += "\n    - action: test\n      options:\n        \(retry)\n"
+            if let plan = suggestedTestPlan(from: inspection) { yaml += "        test_plan: \(plan)\n" }
+            if inspection.testPlans.count > 1 {
+                missing.append(
+                    .init(
+                        keyPath: "workflows.tests[test].options.test_plan",
+                        reason: "Choose a detected test plan or explicitly select compatible plans with test_plans."))
+            }
+            if app.scheme == nil { missing.append(.init(keyPath: "app.scheme", reason: "Choose the sample's test scheme.")) }
+        }
+        return SuggestedShipfile(
+            goal: goal, kind: .swiftPackage, inspection: inspection, missingValues: missing, warnings: warnings, yaml: yaml)
     }
 
     private func suggestedTestPlan(from inspection: ProjectInspection) -> String? {

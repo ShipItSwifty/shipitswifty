@@ -21,11 +21,16 @@ public struct SwiftTestAction: Action {
         public var outputDirectory: String?
         public var infrastructureRetry: InfrastructureRetryScheduler.Options?
         public var rerunFailedTests: TestAction.FailedTestRerunOptions?
+        /// Maximum XCTest worker processes (`swift test --num-workers`); `1` runs XCTest cases one at a time for
+        /// suites that share state. Swift Testing parallelism is controlled in code with the `.serialized` trait.
+        public var parallelWorkers: Int?
         public init(
             packagePath: String? = nil, scratchPath: String? = nil, filter: String? = nil, skip: String? = nil,
             environment: [String: String]? = nil, enableCodeCoverage: Bool? = nil, outputDirectory: String? = nil,
-            rerunFailedTests: TestAction.FailedTestRerunOptions? = nil, infrastructureRetry: InfrastructureRetryScheduler.Options? = nil
+            rerunFailedTests: TestAction.FailedTestRerunOptions? = nil, infrastructureRetry: InfrastructureRetryScheduler.Options? = nil,
+            parallelWorkers: Int? = nil
         ) {
+            self.parallelWorkers = parallelWorkers
             self.infrastructureRetry = infrastructureRetry
             self.packagePath = packagePath
             self.scratchPath = scratchPath
@@ -44,6 +49,9 @@ public struct SwiftTestAction: Action {
         public var succeeded: Bool { report.summary.failed + report.summary.errored == 0 }
     }
     public func run(with options: Options, context: ActionContext) async throws -> Result {
+        if let workers = options.parallelWorkers, workers < 1 {
+            throw ShipItError.invalidConfiguration(reason: "swift-test parallel_workers must be at least 1")
+        }
         let root = URL(
             fileURLWithPath: options.outputDirectory ?? (context.evidenceRoot.map { $0 + "/test-runs/" } ?? "build/test-runs/")
                 + "swift-\(UUID().uuidString)"
@@ -106,7 +114,7 @@ public struct SwiftTestAction: Action {
                 package: options.packagePath ?? ".", scratch: options.scratchPath,
                 events: events.path, attachments: attachments.path, coverage: options.enableCodeCoverage ?? false,
                 skipBuild: selectedRuns > 0, filter: selector, skip: options.skip,
-                junit: directory.appendingPathComponent("xctest.xml").path)
+                junit: directory.appendingPathComponent("xctest.xml").path, workers: options.parallelWorkers)
             for (key, value) in options.environment ?? [:] { command = command.env(key, value) }
             let output: ShellOutput
             let started = Date()

@@ -400,22 +400,114 @@ struct IntrospectionTests {
     #endif
 
     @Test("Package generation and AI readiness select a test workflow without app credentials")
-    func packageLaneGuidance() throws {
-        let scratch = try TemporaryDirectory()
-        defer { try? scratch.remove() }
-        try "// swift-tools-version: 6.0".write(to: scratch.url.appendingPathComponent("Package.swift"), atomically: true, encoding: .utf8)
+    func packageTestWorkflowGuidance() throws {
         let inspection = ProjectInspection(
-            rootPath: scratch.url.path, xcodeContainers: [], preferredContainer: nil, schemes: [], suggestedAppConfig: .init(),
-            existingShipfiles: [], fastlaneFiles: [], ciFiles: [], warnings: [])
+            rootPath: "/package", xcodeContainers: [], preferredContainer: nil, schemes: [], suggestedAppConfig: .init(),
+            existingShipfiles: [], fastlaneFiles: [], ciFiles: [], warnings: [],
+            swiftPackage: .init(name: "Lib", productCount: 1, hostIncompatibleSources: []))
         let suggestion = ShipfileSuggester().suggest(goal: .local, from: inspection)
+        #expect(suggestion.kind == .swiftPackage)
         #expect(suggestion.yaml.contains("test_workflow: tests"))
         #expect(suggestion.yaml.contains("action: swift-test"))
         #expect(suggestion.yaml.contains("infrastructure_retry"))
+        #expect(!suggestion.yaml.contains("artifacts:"), "evidence is staged under the artifact root without a declaration")
         #expect(suggestion.missingValues.isEmpty)
         let session = AISessionBuilder().build(goal: .local, inspection: inspection, hasExistingShipfile: true)
         #expect(session.readiness.isReady)
         #expect(session.nextAction.command == "shipit test")
         #expect(session.nextQuestion == nil)
+    }
+
+    @Test("A package's agent prompt is about testing a library, not releasing an app")
+    func packagePromptHasNoAppReleaseGuidance() {
+        let inspection = ProjectInspection(
+            rootPath: "/package", xcodeContainers: [], preferredContainer: nil, schemes: [], suggestedAppConfig: .init(),
+            existingShipfiles: [], fastlaneFiles: [], ciFiles: [], warnings: [],
+            swiftPackage: .init(name: "Lib", productCount: 1, hostIncompatibleSources: []))
+        let prompt = AISessionBuilder().build(goal: .local, inspection: inspection, hasExistingShipfile: false).agentPrompt
+        #expect(prompt.contains("test a Swift package"))
+        #expect(prompt.contains("shipit test --output json"))
+        #expect(prompt.contains("swift-test"))
+        for appGuidance in [
+            "release pipeline", "shipit run local", "validate metadata", "validate archive", "xcodebuild -showdestinations",
+        ] {
+            #expect(!prompt.contains(appGuidance), "\(appGuidance)")
+        }
+    }
+
+    @Test("A package that imports UIKit is tested on a simulator through the scheme Xcode generates for it")
+    func deviceOnlyPackageUsesXcodeTest() {
+        let inspection = ProjectInspection(
+            rootPath: "/package", xcodeContainers: [], preferredContainer: nil, schemes: [], suggestedAppConfig: .init(),
+            existingShipfiles: [], fastlaneFiles: [], ciFiles: [], warnings: [],
+            swiftPackage: .init(name: "UIThing", productCount: 2, hostIncompatibleSources: ["Sources/UIThing/View.swift"]))
+        let suggestion = ShipfileSuggester().suggest(goal: .local, from: inspection)
+        #expect(suggestion.kind == .swiftPackage)
+        #expect(suggestion.yaml.contains("- action: test\n"))
+        #expect(suggestion.yaml.contains("scheme: UIThing-Package"))
+        #expect(!suggestion.yaml.contains("swift-test"))
+        #expect(suggestion.missingValues.isEmpty)
+        let session = AISessionBuilder().build(goal: .local, inspection: inspection, hasExistingShipfile: true)
+        #expect(session.nextAction.command == "shipit test")
+        #expect(session.agentPrompt.contains("cannot build"))
+        #expect(session.agentPrompt.contains("UIThing-Package"))
+        #expect(
+            session.appConfig.contains { $0.keyPath == "workflows.tests[test].options.scheme" && $0.value == .string("UIThing-Package") })
+    }
+
+    @Test(
+        "Xcode names a package's scheme after the package, adding -Package when it has several products",
+        arguments: [(1, "Lib"), (0, "Lib"), (2, "Lib-Package")])
+    func packageTestScheme(products: Int, scheme: String) {
+        #expect(SwiftPackageSummary(name: "Lib", productCount: products, hostIncompatibleSources: []).testScheme == scheme)
+    }
+
+    @Test("The inspector reads the package manifest and finds unguarded device-only imports")
+    func inspectorReadsSwiftPackage() async throws {
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let root = scratch.url
+        try """
+        // swift-tools-version: 6.0
+        import PackageDescription
+        let package = Package(
+            name: "UIThing",
+            platforms: [.iOS(.v17)],
+            products: [
+                .library(name: "UIThing", targets: ["UIThing"]),
+                .executable(name: "tool", targets: ["Tool"]),
+            ],
+            targets: [.target(name: "UIThing"), .executableTarget(name: "Tool"), .testTarget(name: "UIThingTests")]
+        )
+        """.write(to: root.appendingPathComponent("Package.swift"), atomically: true, encoding: .utf8)
+        let files = [
+            "Sources/UIThing/View.swift": "import UIKit\npublic final class V: UIView {}\n",
+            "Sources/UIThing/Guarded.swift": "#if canImport(UIKit)\nimport UIKit\n#endif\n",
+            "Sources/UIThing/Plain.swift": "import Foundation\n",
+            "Tests/UIThingTests/ViewTests.swift": "import Testing\n@preconcurrency import UIKit\n",
+        ]
+        for (path, text) in files {
+            let url = root.appendingPathComponent(path)
+            try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try text.write(to: url, atomically: true, encoding: .utf8)
+        }
+        let inspection = try await ProjectInspector(rootPath: root.path).inspect()
+        let package = try #require(inspection.swiftPackage)
+        #expect(package.name == "UIThing")
+        #expect(package.productCount == 2)
+        #expect(package.hostIncompatibleSources == ["Sources/UIThing/View.swift", "Tests/UIThingTests/ViewTests.swift"])
+        #expect(!package.isHostTestable)
+        #expect(package.testScheme == "UIThing-Package")
+        #expect(!inspection.warnings.contains { $0.contains("No .xcworkspace") }, "a package needs no Xcode project")
+        #expect(inspection.warnings.contains { $0.contains("cannot build") })
+    }
+
+    @Test("A directory without Package.swift has no package summary")
+    func inspectorWithoutPackage() async throws {
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let inspection = try await ProjectInspector(rootPath: scratch.url.path).inspect()
+        #expect(inspection.swiftPackage == nil)
     }
 
 }

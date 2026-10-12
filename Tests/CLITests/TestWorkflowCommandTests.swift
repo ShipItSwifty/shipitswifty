@@ -16,6 +16,11 @@ struct TestWorkflowCommandTests {
         #expect(command.environment == ["SNAPSHOT_RECORD_MODE=never"])
         #expect(command.infrastructureAttempts == 3)
     }
+    @Test("Swift package command caps XCTest workers")
+    func swiftCommandWorkers() throws {
+        let command = try SwiftTestCommand.parseAsRoot(["--parallel-workers", "1"]) as! SwiftTestCommand
+        #expect(command.parallelWorkers == 1)
+    }
     @Test("Native command accepts named plans and explicit serial execution")
     func nativeCommand() throws {
         let command =

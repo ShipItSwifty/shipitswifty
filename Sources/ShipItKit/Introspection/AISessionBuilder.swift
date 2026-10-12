@@ -36,21 +36,31 @@ public struct AISessionBuilder: Sendable {
     ) -> AISessionPayload {
         let suggestion = ShipfileSuggester().suggest(goal: goal, platform: platform, from: inspection)
         let app = inspection.suggestedAppConfig
-        let packageLane = suggestion.yaml.contains("test_workflow: tests")
-        let appConfig =
-            packageLane
-            ? [
+        let package = suggestion.kind == .swiftPackage ? inspection.swiftPackage : nil
+        let appConfig: [InferredConfigEntry]
+        if let package {
+            let step =
+                package.isHostTestable
+                ? InferredConfigEntry(
+                    keyPath: "workflows.tests[swift-test].options.package_path", value: .string("."), source: .detected,
+                    confidence: .high, why: "Found Package.swift")
+                : InferredConfigEntry(
+                    keyPath: "workflows.tests[test].options.scheme", value: package.testScheme.map(JSONValue.string) ?? .null,
+                    source: .detected, confidence: package.testScheme == nil ? .low : .medium,
+                    why: "The package imports device-only frameworks, so it is tested through the scheme Xcode generates for it")
+            appConfig = [
                 InferredConfigEntry(
                     keyPath: "test_workflow", value: .string("tests"), source: .detected, confidence: .high,
                     why: "Swift package test workflow"),
-                InferredConfigEntry(
-                    keyPath: "workflows.tests[swift-test].options.package_path", value: .string("."), source: .detected, confidence: .high,
-                    why: "Found Package.swift"),
-            ] : buildInferredConfig(app: app, inspection: inspection, goal: goal, platform: platform)
+                step,
+            ]
+        } else {
+            appConfig = buildInferredConfig(app: app, inspection: inspection, goal: goal, platform: platform)
+        }
         let ambiguities = buildAmbiguities(inspection: inspection, platform: platform)
         let requiredSecrets = buildSecretDescriptors(for: goal, platform: platform)
         let readiness =
-            packageLane
+            package != nil
             ? AIReadiness(
                 goal: goal.rawValue, isReady: suggestion.missingValues.isEmpty,
                 blockers: suggestion.missingValues.map(\.reason), missingSecrets: [], signingRisk: "not_applicable",
@@ -63,7 +73,7 @@ public struct AISessionBuilder: Sendable {
                 platform: platform
             )
         let nextAction =
-            packageLane && hasExistingShipfile && readiness.isReady && ambiguities.isEmpty
+            package != nil && hasExistingShipfile && readiness.isReady && ambiguities.isEmpty
             ? NextAction(action: "run_tests", command: "shipit test", reason: "Run the configured package test workflow")
             : buildNextAction(
                 goal: goal,
@@ -73,20 +83,24 @@ public struct AISessionBuilder: Sendable {
                 ambiguities: ambiguities,
                 platform: platform
             )
-        var agentPrompt = buildAgentPrompt(
-            goal: goal,
-            readiness: readiness,
-            platform: platform,
-            detectedBuildSystem: inspection.detectedBuildSystem,
-            testPlans: inspection.testPlans,
-            customActions: customActions
-        )
-        if packageLane {
-            agentPrompt +=
-                "\nThis project has a Swift package test workflow. Use shipit test; package tests need no app identity, signing credentials or simulator unless a sample test step is included. Resolve sample scheme/test-plan choices before running that step."
-        }
+        let agentPrompt =
+            if let package {
+                buildSwiftPackagePrompt(
+                    package: package, readiness: readiness,
+                    hasSampleTestStep: package.isHostTestable && (app.workspace ?? app.project) != nil,
+                    customActions: customActions)
+            } else {
+                buildAgentPrompt(
+                    goal: goal,
+                    readiness: readiness,
+                    platform: platform,
+                    detectedBuildSystem: inspection.detectedBuildSystem,
+                    testPlans: inspection.testPlans,
+                    customActions: customActions
+                )
+            }
         let nextQuestion =
-            packageLane && suggestion.missingValues.isEmpty && ambiguities.isEmpty
+            package != nil && suggestion.missingValues.isEmpty && ambiguities.isEmpty
             ? nil
             : buildNextQuestion(
                 goal: goal,
@@ -878,9 +892,81 @@ public struct AISessionBuilder: Sendable {
         lines += Self.testResultsGuidance
         lines.append("")
 
-        // Custom composite actions are first-class. Always mention the feature;
-        // enumerate concrete ones when the resolved Shipfile defines any.
+        lines += Self.customActionsGuidance(customActions)
+
+        return lines.joined(separator: "\n")
+    }
+
+    /// The prompt for a Swift package: a test workflow, with none of the app identity, signing or store guidance
+    /// an app release needs.
+    private func buildSwiftPackagePrompt(
+        package: SwiftPackageSummary, readiness: AIReadiness, hasSampleTestStep: Bool,
+        customActions: [String: CustomActionConfig]
+    ) -> String {
+        var lines = [
+            "You are helping a developer test a Swift package (a library) using ShipItSwifty.",
+            "There is no app to sign or ship: no bundle ID, team, signing credentials, App Store Connect or Google Play setup is needed.",
+            "",
+            "Key commands:",
+            "  shipit ai session --goal local                 # refresh this session state",
+            "  shipit generate --goal local                   # generate Shipfile.yml with the `tests` workflow",
+            "  shipit validate yml --output json              # check Shipfile structure and semantics",
+            "  shipit test --output json                      # run the workflow named by test_workflow (`tests`)",
+            "  shipit test --workflow <name> --output json    # run another test workflow",
+        ]
+        if package.isHostTestable {
+            lines += [
+                "  shipit swift-test --code-coverage --rerun-failed-tests  # run `swift test` directly, without a Shipfile",
+                "  shipit coverage --input-format swift --report <report-dir>/coverage.json --source-root Sources/<Target>",
+                "",
+                "The package builds on this machine, so the `tests` workflow runs `swift-test` (`swift test` with Swift Testing events,",
+                "per-attempt evidence and selective reruns of failed tests). Add `swift-format` for a formatting check and a `coverage`",
+                "step with `minimum_coverage` for a gate.",
+            ]
+            if hasSampleTestStep {
+                lines += [
+                    "The workflow also runs the sample app's Xcode tests through a `test` step; resolve its scheme and test plan before running it.",
+                    "That step needs a simulator; the package step does not.",
+                ]
+            }
+        } else {
+            lines += [
+                "  shipit coverage --xcresult <result bundle>     # summarize coverage from the test run",
+                "",
+                "The package imports frameworks this machine cannot build (\(package.hostIncompatibleSources.prefix(3).joined(separator: ", "))),",
+                "so `swift test` cannot run it. The `tests` workflow uses the `test` action instead, which runs `xcodebuild` from the",
+                "package directory on an iOS simulator with the scheme Xcode generates for the package",
+                "(`\(package.testScheme ?? "<scheme>")`; confirm with `xcodebuild -list` in the package directory).",
+                "With no `destinations`, ShipIt picks the newest iPhone simulator. Do not add app.project or app.workspace: they would",
+                "apply to the package test step too.",
+            ]
+        }
+        lines.append("")
+        if readiness.isReady {
+            lines.append("Current status: READY — all required config values are present.")
+        } else {
+            lines.append("Current status: NOT READY — \(readiness.blockers.count) blocker(s) must be resolved.")
+            lines.append("Blockers: \(readiness.blockers.joined(separator: "; "))")
+        }
         lines += [
+            "",
+            "When config is incomplete, ask one focused question at a time, starting with the highest-impact missing value.",
+            "Generated test steps enable `infrastructure_retry: { max_attempts: 3, initial_delay_seconds: 2, max_delay_seconds: 30 }` by default; preserve it unless the user opts out or supplies another policy.",
+            "`rerun_failed_tests: { enabled: true, max_attempts: 2 }` reruns only the failed tests once and reports recoveries as flaky. `max_attempts` includes the initial run.",
+            "Use continue_on_failure only for independent checks; the workflow still fails if any check fails. {{run_id}} provides a unique output directory per workflow run.",
+            "Test evidence is staged under build/workflow-artifacts/<run-id>/ automatically. Declare `artifacts:` only for files outside it.",
+            "shipit ci export --provider github-actions needs an explicit runner and setup commands and emits always-upload steps.",
+        ]
+        lines += Self.testResultsGuidance
+        lines.append("")
+        lines += Self.customActionsGuidance(customActions)
+        return lines.joined(separator: "\n")
+    }
+
+    /// Custom composite actions are first-class. Always mention the feature; enumerate concrete ones when the
+    /// resolved Shipfile defines any.
+    private static func customActionsGuidance(_ customActions: [String: CustomActionConfig]) -> [String] {
+        var lines = [
             "",
             "Custom actions:",
             "  Users can define reusable step sequences under `custom_actions:` in Shipfile.yml to avoid duplicating",
@@ -909,7 +995,7 @@ public struct AISessionBuilder: Sendable {
             )
         }
 
-        return lines.joined(separator: "\n")
+        return lines
     }
 
     /// What an agent needs to read test results and evidence correctly, in place of scraping console output.

@@ -846,9 +846,20 @@ with direct test options. `swift-test` and `swift-format` are ordinary workflow 
 
 `swift-test` options: `package_path` (default `.`), `scratch_path`, `filter`, `skip`,
 `environment` (string map), `enable_code_coverage`, `output_directory` (must be new),
-`rerun_failed_tests` and `infrastructure_retry`. It saves Swift Testing events, attachments,
+`rerun_failed_tests`, `infrastructure_retry` and `parallel_workers` (maximum XCTest worker
+processes; `1` runs XCTest cases one at a time for suites that share state — Swift Testing
+parallelism is set in code with `.serialized`). It saves Swift Testing events, attachments,
 stdout/stderr and a final report, and snapshots full-run coverage before selective reruns.
 `swift-format` accepts `paths`, `configuration`, and `report_path`; it lints without rewriting.
+
+`shipit generate --goal local` (and `shipit ai session --goal local`) on a directory with a root
+`Package.swift` suggest a `tests` workflow selected by `test_workflow`. A package the host can build
+gets a `swift-test` step. A package whose sources import a framework the host lacks (such as UIKit)
+without a `canImport`/`os(...)` guard cannot run under `swift test`, so it gets a `test` step with
+the scheme Xcode generates for the package directory instead: the package name when it has at most
+one product, `<name>-Package` when it has several. That step runs `xcodebuild` on a simulator with
+no `app.project`/`app.workspace`. `shipit inspect project --output json` reports what was detected
+under `swiftPackage`.
 
 `coverage` accepts `input_format: swift|lcov|jacoco|kover` with `report_path`. Swift/LCOV inputs
 support `source_roots` and `exclude_previews`; `minimum_coverage` applies to every format and
@@ -858,6 +869,8 @@ Workflow object syntax accepts `continue_on_failure: true` for independent check
 remains fail-fast and any failed step makes the whole workflow fail. Every step, including custom
 action steps, may declare `artifacts: [{ name: results, paths: [build/results], retention_days: 14 }]`.
 Names use letters/numbers/underscore/hyphen; retention is 1–90 days. Missing optional matches
-become diagnostics. `{{run_id}}` resolves in top-level step options and artifact paths to keep
+become diagnostics. Test runs already keep their evidence under
+`build/workflow-artifacts/<run_id>/`, which is staged and uploaded as a whole; a declared path inside it
+is referenced in place in the step manifest instead of being copied. `{{run_id}}` resolves in top-level step options and artifact paths to keep
 attempts and exports separate. See [test workflow examples](testing.md#test-workflows-and-portable-evidence)
 and [CI export](ci-setup.md#exporting-test-workflows).

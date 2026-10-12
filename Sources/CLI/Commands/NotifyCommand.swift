@@ -45,7 +45,7 @@ struct NotifyCommand: AsyncParsableCommand {
             let result = try await NotifyAction().run(with: options, context: context)
             outputResult(action: "notify", result: result, format: global.output, colorMode: global.effectiveColorMode)
         } catch let error as ShipItError {
-            outputError(error: error, format: global.output, colorMode: global.effectiveColorMode)
+            outputError(action: "notify", error: error, format: global.output, colorMode: global.effectiveColorMode)
             throw ExitCode(error.exitCode)
         }
     }

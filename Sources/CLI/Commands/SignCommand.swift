@@ -51,7 +51,7 @@ struct SignInitCommand: AsyncParsableCommand {
                 action: "sign init", result: result, format: global.output,
                 colorMode: global.effectiveColorMode)
         } catch let error as ShipItError {
-            outputError(error: error, format: global.output, colorMode: global.effectiveColorMode)
+            outputError(action: "sign init", error: error, format: global.output, colorMode: global.effectiveColorMode)
             throw ExitCode(error.exitCode)
         }
     }
@@ -93,7 +93,7 @@ struct SignSyncCommand: AsyncParsableCommand {
                 action: "sign sync", result: result, format: global.output,
                 colorMode: global.effectiveColorMode)
         } catch let error as ShipItError {
-            outputError(error: error, format: global.output, colorMode: global.effectiveColorMode)
+            outputError(action: "sign sync", error: error, format: global.output, colorMode: global.effectiveColorMode)
             throw ExitCode(error.exitCode)
         }
     }
@@ -137,7 +137,7 @@ struct SignImportCommand: AsyncParsableCommand {
                 action: "sign import", result: result, format: global.output,
                 colorMode: global.effectiveColorMode)
         } catch let error as ShipItError {
-            outputError(error: error, format: global.output, colorMode: global.effectiveColorMode)
+            outputError(action: "sign import", error: error, format: global.output, colorMode: global.effectiveColorMode)
             throw ExitCode(error.exitCode)
         }
     }
@@ -162,7 +162,7 @@ struct SignCleanupCommand: AsyncParsableCommand {
                 action: "sign cleanup", result: result, format: global.output,
                 colorMode: global.effectiveColorMode)
         } catch let error as ShipItError {
-            outputError(error: error, format: global.output, colorMode: global.effectiveColorMode)
+            outputError(action: "sign cleanup", error: error, format: global.output, colorMode: global.effectiveColorMode)
             throw ExitCode(error.exitCode)
         }
     }
