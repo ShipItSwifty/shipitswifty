@@ -154,8 +154,12 @@ public enum CoverageInputFormat: String, Codable, Sendable { case lcov, swift, j
 /// Reads file-based coverage without running tests. Overlapping files are merged by line identity.
 public struct PortableCoverageReader: Sendable {
     public init() {}
+    /// - Parameter runner: The tool that wrote an LCOV file, when the caller knows it. LCOV is written by both
+    ///   `flutter test` and Jest and does not say which, so without it the runner is `unknown`. SwiftPM and
+    ///   JaCoCo/Kover files each come from one tool, which is used instead.
     public func read(
-        _ path: String, format: CoverageInputFormat, sourceRoots: [String] = [], excludePreviews: Bool = false
+        _ path: String, format: CoverageInputFormat, sourceRoots: [String] = [], excludePreviews: Bool = false,
+        runner: TestRunner? = nil
     ) async throws -> CoverageAction.Result {
         if format == .jacoco || format == .kover {
             let targets = try await AndroidCoverageParser(logger: Logger(label: "shipit.coverage")).parse(reportPath: path)
@@ -250,12 +254,22 @@ public struct PortableCoverageReader: Sendable {
         let covered = files.reduce(0) { $0 + $1.coveredLines }
         let executable = files.reduce(0) { $0 + $1.executableLines }
         guard executable > 0 else { throw ShipItError.invalidConfiguration(reason: "No executable coverage lines found in \(path).") }
+        let lcovRunner = runner ?? .unknown
         let target = CoverageTarget(
-            name: format == .swift ? "package" : "flutter", lineCoverage: Double(covered) * 100 / Double(executable), coveredLines: covered,
-            executableLines: executable, files: files)
+            name: format == .swift ? "package" : Self.lcovTargetName(lcovRunner), lineCoverage: Double(covered) * 100 / Double(executable),
+            coveredLines: covered, executableLines: executable, files: files)
         // Neither a SwiftPM LLVM file nor LCOV records where the tests ran, so the platform is unknown.
-        return result(path: path, platform: .unknown, runner: format == .swift ? .swiftTest : .flutterTest, targets: [target])
+        return result(path: path, platform: .unknown, runner: format == .swift ? .swiftTest : lcovRunner, targets: [target])
     }
+    /// The single target an LCOV file is summarized as: named after the framework when the runner is known.
+    private static func lcovTargetName(_ runner: TestRunner) -> String {
+        switch runner {
+        case .flutterTest: "flutter"
+        case .jest: "jest"
+        default: "lcov"
+        }
+    }
+
     private func result(path: String, platform: TestPlatform, runner: TestRunner, targets: [CoverageTarget]) -> CoverageAction.Result {
         let covered = targets.reduce(0) { $0 + $1.coveredLines }
         let total = targets.reduce(0) { $0 + $1.executableLines }

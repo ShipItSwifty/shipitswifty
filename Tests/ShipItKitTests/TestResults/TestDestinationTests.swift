@@ -164,9 +164,16 @@ struct TestDestinationTests {
         defer { try? scratch.remove() }
         let lcov = scratch.url.appendingPathComponent("lcov.info")
         try "SF:lib/a.dart\nDA:1,1\nend_of_record\n".write(to: lcov, atomically: true, encoding: .utf8)
-        let flutter = try await PortableCoverageReader().read(lcov.path, format: .lcov)
+        let unlabeled = try await PortableCoverageReader().read(lcov.path, format: .lcov)
+        #expect(unlabeled.runner == .unknown, "Flutter and Jest both write LCOV, and the file does not say which")
+        #expect(unlabeled.targets.map(\.name) == ["lcov"])
+        let flutter = try await PortableCoverageReader().read(lcov.path, format: .lcov, runner: .flutterTest)
         #expect(flutter.runner == .flutterTest)
+        #expect(flutter.targets.map(\.name) == ["flutter"])
         #expect(flutter.platform == .unknown, "LCOV does not say where the tests ran")
+        let jest = try await PortableCoverageReader().read(lcov.path, format: .lcov, runner: .jest)
+        #expect(jest.runner == .jest)
+        #expect(jest.targets.map(\.name) == ["jest"])
 
         let jacoco = scratch.url.appendingPathComponent("jacoco.xml")
         try

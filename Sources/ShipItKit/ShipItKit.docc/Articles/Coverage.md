@@ -107,7 +107,7 @@ fi
 | Format | Source | Reported `runner` |
 |---|---|---|
 | `swift` | SwiftPM LLVM JSON | `swift-test` |
-| `lcov` | Flutter LCOV | `flutter-test` |
+| `lcov` | LCOV from `flutter test --coverage` or Jest | `--runner flutter-test` or `jest`; otherwise `unknown` |
 | `jacoco`, `kover` | JaCoCo-compatible XML (including Kover) | `gradle` |
 
 Results carry a typed `platform` (``TestPlatform``) and the `runner` whose format they are. A SwiftPM or LCOV

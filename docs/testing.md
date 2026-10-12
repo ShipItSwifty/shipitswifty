@@ -356,7 +356,7 @@ shipit test-results --input flutter-events.jsonl --input-format flutter
 shipit test-results --input swift-events.jsonl --input-format swift
 shipit test-results --input artifacts/ios/manifest.json --format markdown
 shipit coverage --input-format kover --report build/reports/kover/report.xml
-shipit coverage --input-format lcov --report coverage/lcov.info
+shipit coverage --input-format lcov --runner flutter-test --report coverage/lcov.info
 ```
 
 Repeated `--input`, `--coverage-input` (with `--coverage-format`), and `--evidence` allow results,
