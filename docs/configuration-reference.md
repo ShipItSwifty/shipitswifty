@@ -362,11 +362,11 @@ The `test` action is configured inline in a workflow step. It does **not** have 
 | `only_testing` | list | — | Restrict to specific targets or test cases. Each entry maps to `-only-testing`. |
 | `skip_testing` | list | — | Skip specific targets or test cases. Each entry maps to `-skip-testing`. |
 | `retry_on_failure` | bool | `false` | Pass `-retry-tests-on-failure` to retry each failing test once. |
-| `rerun_failed_tests` | object | — | Selectively rerun only the failed tests when the runner supports it. Supports `enabled` and `max_attempts` (default `2`, including the initial run). Set `1` to disable additional attempts; larger limits are honored, with early exit after recovery. Supported for Android unit tests (`kind: unit`; failed tests come from JUnit XML or the Gradle log and are re-run with `--tests`) for native iOS across plans/destinations (failed tests come from each xcresult and use `-only-testing` with configuration filters), and for Flutter machine-output runs. Root-scoped Android unit runs use `--continue` to finish independent modules and collect their reports; module-scoped runs read only the selected module. The step fails if any test fails again, including a new initialization failure; if every failure passes on rerun it succeeds and reports the tests as flaky. |
+| `rerun_failed_tests` | object | — | Selectively rerun only the failed tests when the runner supports it. Supports `enabled` and `max_attempts` (default `2`, including the initial run). Set `1` to disable additional attempts; larger limits are honored, with early exit after recovery. Supported for Android unit tests (`kind: unit`; failed tests come from JUnit XML or the Gradle log and are re-run with `--tests`) for native iOS across plans/destinations (failed tests come from each xcresult and use `-only-testing` with configuration filters), for Flutter machine-output runs, React Native (Jest) runs, and SwiftPM (`swift-test`) runs. Root-scoped Android unit runs use `--continue` to finish independent modules and collect their reports; module-scoped runs read only the selected module. The step fails if any test fails again, including a new initialization failure; if every failure passes on rerun it succeeds and reports the tests as flaky. |
 | `report_path` | string | — | Optional path to write the structured JSON `TestRunReport` for CI artifact upload. |
 | `infrastructure_retry` | object | — | Retry the entire test invocation for transient infrastructure failures. Presence enables retries; omit to disable. Recommended default: `{ max_attempts: 3, initial_delay_seconds: 2, max_delay_seconds: 30 }`. |
 
-`retry_on_failure`, `rerun_failed_tests`, and `infrastructure_retry` solve different problems. Use `retry_on_failure` for xcodebuild's built-in one-pass iOS retry behavior. Use `rerun_failed_tests` when you want ShipIt to collect the initial failures, rerun those specific tests once, and emit flaky/persistent failure information in `TestRunReport`. Use `infrastructure_retry` for whole-run failures such as simulator launch crashes, Android emulator disconnects, Flutter tool crashes, or JS worker failures.
+`retry_on_failure`, `rerun_failed_tests`, and `infrastructure_retry` solve different problems. Use `retry_on_failure` for xcodebuild's built-in one-pass iOS retry behavior. Use `rerun_failed_tests` when you want ShipIt to collect the initial failures, rerun those specific tests (up to `max_attempts` total attempts, stopping early on recovery), and emit flaky/persistent failure information in `TestRunReport`. Use `infrastructure_retry` for whole-run failures such as simulator launch crashes, Android emulator disconnects, Flutter tool crashes, or JS worker failures.
 
 Every test run writes a `TestRunReport` (schema version 2) that separates three things: the `runner` (the tool that ran the tests), the `buildSystem` (how the project is built) and `destinations` (where the tests ran: `platform`, `kind`, `name`, `scope`). Each test points at one destination by `destinationID` and carries `attempts`; a test that failed and then passed has `attempts > 1` and is counted as flaky. Each attempt keeps its logs and native artifacts under `build/test-runs/`, with a `command.json` recording the exact command and its duration; the report's `buildSeconds` and per-attempt `durationSeconds` / `overhead_seconds` show where the time went. See the Test Workflows and Test Results articles in the DocC documentation.
 
@@ -392,6 +392,8 @@ Use `test-results` to parse xcresult, JUnit (Android/KMP), Swift Testing events,
 | `failed_only` | bool | `false` | Only include failed and errored tests in the parsed output. |
 | `include_passed` | bool | `true` | Include passed tests in the parsed output. |
 | `report_output_path` | string | — | Optional path to write the structured JSON report to disk. |
+
+CLI flag names differ from the action keys: `--xcresult` → `xcresult_path`, `--report` (JUnit directory) → `report_path`, `--report-path` (JSON output file) → `report_output_path`, `--input` → `inputs`, `--evidence` → `evidence_paths`, `--coverage-input` → `coverage_inputs`. On `shipit test`, `--report-path` and the `report_path` key both mean the JSON output file.
 
 **Destination string format**
 
@@ -795,16 +797,26 @@ The KMP iOS path links the configured shared framework target via Gradle before 
 
 The `coverage` action reads native coverage artifacts — it does not generate them. Configure it inline in workflow steps or use as a standalone command.
 
+These are the workflow-step option keys (the `shipit schema` contract). The `shipit coverage` CLI flags
+use shorter spellings: `--xcresult`, `--report`, `--targets`, `--files`, `--include-target`, `--exclude-target`.
+The platform comes from the project (or `--platform` on the CLI), not from a step option.
+
 | Option | Type | Default | Description |
 |---|---|---|---|
-| `platform` | string | auto-detected | `ios` or `android` |
-| `xcresult` | string | auto-discovered | Explicit `.xcresult` bundle path (iOS) |
-| `report` | string | auto-discovered | Explicit JaCoCo XML report path (Android) |
+| `xcresult_path` | string | auto-discovered | Explicit `.xcresult` bundle path (iOS) |
+| `report_path` | string | auto-discovered | Explicit coverage report path: JaCoCo/Kover XML (Android) or an LCOV / SwiftPM LLVM JSON file |
+| `input_format` | string | auto-detected | Portable encoding: `swift`, `lcov`, `jacoco`, or `kover` |
+| `runner` | string | `unknown` | Tool that wrote an LCOV input (`flutter-test` or `jest`); LCOV does not say. Ignored for other formats |
+| `source_roots` | list | `[]` | Source directories to include (Swift/LCOV inputs) |
+| `exclude_previews` | bool | `false` | Exclude Swift `#Preview` regions (Swift/LCOV inputs) |
+| `minimum_coverage` | number | — | Required line coverage percentage (0...100); applies to every format and fails on empty coverage |
 | `first_party_only` | bool | `true` | Suppress test bundles, SPM deps, and known vendor prefixes |
-| `targets` | bool | `false` | Show per-target/module breakdown |
-| `files` | bool | `false` | Show per-file breakdown |
-| `include_target` | list | `[]` | Include only these targets (overrides first-party filter) |
-| `exclude_target` | list | `[]` | Exclude specific targets |
+| `summary` | bool | `false` | Print a single overall coverage line |
+| `show_targets` | bool | `false` | Show per-target/module breakdown |
+| `show_files` | bool | `false` | Show per-file breakdown |
+| `show_functions` | bool | `false` | Show per-function breakdown when available (iOS only) |
+| `include_targets` | list | `[]` | Include only these targets (overrides first-party filter) |
+| `exclude_targets` | list | `[]` | Exclude specific targets |
 | `sort` | string | `coverage` | `coverage` (lowest first) or `name` |
 | `limit` | int | — | Cap number of entries shown |
 | `format` | string | `text` | `text`, `json`, or `markdown` |

@@ -158,7 +158,7 @@ struct TestResultsCommand: AsyncParsableCommand {
         let summary = result.parsedRun.summary
         formatter.printSuccess("Test Results")
         formatter.print("Source: \(result.parsedRun.source)")
-        formatter.print("Passed: \(summary.passed), Failed: \(summary.failed), Skipped: \(summary.skipped), Errored: \(summary.errored)")
+        formatter.print(Self.summaryLine(summary))
 
         let failures = result.parsedRun.testCases.filter { $0.status == .failed || $0.status == .errored }
         if !failures.isEmpty {
@@ -180,16 +180,24 @@ struct TestResultsCommand: AsyncParsableCommand {
     }
 
     private func printMarkdown(result: TestResultsAction.Result) {
-        let summary = result.parsedRun.summary
-        print("## Test Results")
-        print("")
-        print("> Source: `\(result.parsedRun.source)`")
-        print("")
-        print("| Metric | Count |")
-        print("|---|---:|")
-        print("| Passed | \(summary.passed) |")
-        print("| Failed | \(summary.failed) |")
-        print("| Skipped | \(summary.skipped) |")
-        print("| Errored | \(summary.errored) |")
+        print(Self.markdown(source: result.parsedRun.source, summary: result.parsedRun.summary))
+    }
+
+    /// One-line human summary. Flaky tests (failed, then passed on rerun) are counted separately from
+    /// passes so a green run with recovered tests is still visible.
+    static func summaryLine(_ summary: TestSummary) -> String {
+        "Passed: \(summary.passed), Failed: \(summary.failed), Skipped: \(summary.skipped), "
+            + "Errored: \(summary.errored), Flaky: \(summary.flaky)"
+    }
+
+    /// Markdown summary table for PR comments and CI job summaries.
+    static func markdown(source: String, summary: TestSummary) -> String {
+        [
+            "## Test Results", "", "> Source: `\(source)`", "",
+            "| Metric | Count |", "|---|---:|",
+            "| Passed | \(summary.passed) |", "| Failed | \(summary.failed) |",
+            "| Skipped | \(summary.skipped) |", "| Errored | \(summary.errored) |",
+            "| Flaky | \(summary.flaky) |",
+        ].joined(separator: "\n")
     }
 }

@@ -461,7 +461,10 @@ public enum BuiltInSchemaCatalog {
                 notes: [
                     "Workflow names are dynamic keys.",
                     "Each workflow is an ordered list of action steps, or an object with workflow-level overrides and a `steps` array.",
-                    "Reserved step tokens: {{version}}, {{build_number}}, {{version_changed}}. Optional step `when:` gates execution on a truthy token.",
+                    "Reserved step tokens: {{version}}, {{build_number}}, {{version_changed}}, {{run_id}}, and the test-run tokens {{coverage_path}}, {{test_result_bundle}}, {{test_output_directory}}, {{test_report_path}}. Optional step `when:` gates execution on a truthy token.",
+                    "Step shape: `{ action, options?, when?, artifacts? }`. `artifacts` is a list of `{ name, paths, retention_days }` collected after the step succeeds or fails (`name`: letters, digits, `_` or `-`; `retention_days`: 1...90).",
+                    "`{{run_id}}` identifies the workflow run; use it to scope output and artifact paths so concurrent runs do not collide. Test evidence is staged under build/workflow-artifacts/<run-id>/ automatically, so declare `artifacts` only for extra files.",
+                    "`continue_on_failure: true` is a workflow-level override (object format only, not per step): later steps still run after a failure and the workflow still fails. Use it only for independent checks.",
                 ],
                 allowsAdditionalProperties: true,
                 additionalProperties: .any(
@@ -471,6 +474,7 @@ public enum BuiltInSchemaCatalog {
                     notes: [
                         "Legacy format: a plain array of step objects [{action, options?}, ...].",
                         "New format: an object with a required `steps` array plus optional overrides and continue_on_failure.",
+                        "Each step is `{ action, options?, when?, artifacts? }` (see the `workflows` notes for tokens and artifact rules).",
                         "Android overrides: `build_variant`, `flavor`.",
                         "iOS overrides: `app` (scheme, bundle_id, team_id, workspace, project), `build` (configuration, derived_data_path, xcargs), `archive` (export_method, output_path, include_symbols), `export` (archive_path, output_directory), and `code_signing`.",
                         "Overrides apply only while that workflow runs, so a staging workflow can coexist with production in one Shipfile without changing the top-level production defaults.",
@@ -765,7 +769,7 @@ public enum BuiltInSchemaCatalog {
             "step",
             description: "A single workflow step.",
             notes: [
-                "Reserved interpolation tokens may be used inside string option values and in `when`: `{{version}}` and `{{build_number}}` resolve from a prior `version` step (or the current versioning source); `{{version_changed}}` is `true`/`false` for whether the marketing version changed.",
+                "Reserved interpolation tokens may be used inside string option values and in `when`: `{{version}}` and `{{build_number}}` resolve from a prior `version` step (or the current versioning source); `{{version_changed}}` is `true`/`false` for whether the marketing version changed. `{{run_id}}` and the test-run tokens (`{{coverage_path}}`, `{{test_result_bundle}}`, `{{test_output_directory}}`, `{{test_report_path}}`) are also reserved.",
                 "These workflow tokens are distinct from composite `{{param.NAME}}` references and are resolved at run time for top-level workflow steps only.",
             ],
             properties: [
@@ -916,8 +920,9 @@ public enum BuiltInSchemaCatalog {
                     Use `DestinationDiscovery` or `xcodebuild -showdestinations` to enumerate valid \
                     values for your project before setting this field. \
                     When both destinations and the legacy destination field are set, destinations wins. \
-                    At least one destination is required; the action fails rather than guessing a \
-                    simulator name that may not exist on the current machine.
+                    When omitted or empty, the action auto-discovers a suitable iPhone simulator \
+                    (highest OS, Pro models preferred) and fails with an actionable message when none \
+                    is available; pin explicit destinations for reproducible CI runs.
                     """,
                 example: .array([
                     .string("platform=iOS Simulator,name=iPhone 16 Pro,OS=18.2")
