@@ -1,8 +1,12 @@
 #if os(macOS)
+import AndroidCLIKit
 import ArgumentParser
 import Foundation
+import SecurityKit
 import ShipItKit
 import SwiftyShell
+import XcodeBuildKit
+import XcrunKit
 
 /// Diagnose common setup issues with the ShipItSwifty environment.
 ///

@@ -2,6 +2,7 @@
 import Foundation
 import Logging
 import SwiftyShell
+import XcrunKit
 
 /// Parses iOS code coverage data from an `.xcresult` bundle using `xcrun xccov`.
 ///

@@ -16,7 +16,7 @@ ShipItSwifty automates the build → archive → distribute pipeline for iOS and
 
 - **`ShipItKit`** — a reusable Swift library where all domain logic lives
 - **`shipit`** — a thin CLI you run locally or in CI
-- **Standalone tool libraries** — typed wrappers for Xcode, Gradle, XcodeGen, and Google's preview AndroidCLI
+- **Typed tool wrappers** — Xcode, `simctl`, Gradle, `adb`, XcodeGen, AndroidCLI, Flutter, and React Native wrappers from the separate [`cli-wrappers`](https://github.com/ShipItSwifty/cli-wrappers) package
 
 ## Why open-source and local-first?
 

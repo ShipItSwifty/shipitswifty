@@ -1,5 +1,8 @@
+import FlutterKit
 import Foundation
+import GradleKit
 import Logging
+import ReactNativeKit
 import SwiftyShell
 
 /// Compiles the app.
@@ -223,7 +226,7 @@ public struct BuildAction: Action {
         let flavor = options.flavor
         logger.info("Building Flutter iOS app (flutter build ios\(flavor.map { " --flavor \($0)" } ?? ""))")
 
-        let flutter = FlutterCLI(context: context.shell)
+        let flutter = Flutter(context: context.shell)
             .buildIOS(flavor: flavor)
 
         let output = try await ShellRunHelpers.run(flutter) { exitCode, log in
@@ -243,7 +246,7 @@ public struct BuildAction: Action {
         let flavor = options.flavor
         logger.info("Building Flutter Android APK\(flavor.map { " (flavor: \($0))" } ?? "")")
 
-        let flutter = FlutterCLI(context: context.shell)
+        let flutter = Flutter(context: context.shell)
             .buildAPK(flavor: flavor)
 
         let output = try await ShellRunHelpers.run(flutter) { exitCode, log in
@@ -271,7 +274,7 @@ public struct BuildAction: Action {
         let configuration = options.configuration?.rawValue ?? context.config.buildConfiguration
         logger.info("Building React Native iOS (npx react-native build-ios --mode \(configuration))")
 
-        let rn = ReactNativeCLI(context: context.shell)
+        let rn = ReactNative(context: context.shell)
             .buildIOS(mode: configuration, scheme: scheme)
 
         do {
@@ -310,7 +313,7 @@ public struct BuildAction: Action {
         let variant = options.buildVariant ?? context.config.androidBuildVariant
         logger.info("Building React Native Android (npx react-native build-android --mode=\(variant))")
 
-        let rn = ReactNativeCLI(context: context.shell)
+        let rn = ReactNative(context: context.shell)
             .buildAndroid(mode: variant)
 
         do {

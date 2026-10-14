@@ -1,6 +1,8 @@
 #if os(macOS)
 import Foundation
 import SwiftyShell
+import XcodeBuildKit
+import XcrunKit
 
 /// Sequential native test orchestration. The products survive every execution attempt.
 struct NativeTestExecution: Sendable {

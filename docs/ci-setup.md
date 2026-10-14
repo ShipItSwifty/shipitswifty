@@ -19,7 +19,7 @@ The `Build & Test` workflow runs three jobs in parallel after lint passes:
 |---|---|---|---|
 | `build-and-test` | `macos-26` | Xcode 26.4 | Main build, unit tests, CLI tests, native integration sweep (broad integration remains non-blocking) |
 | `cross-platform-fixture-integration` | `macos-26` | Xcode 26.4 | Blocking Flutter + React Native + KMP fixture integration suites using in-repo tool shims |
-| `build-and-test-linux` | `ubuntu-24.04` | `swift:6.3.1-noble` | Skips `XcodeBuildKitTests`, `XcodeGenKitTests`, `IntegrationTests` |
+| `build-and-test-linux` | `ubuntu-24.04` | `swift:6.3.1-noble` | Skips `IntegrationTests` |
 
 ### SwiftyShell dependency
 

@@ -128,16 +128,10 @@ AndroidCLI workflow actions additionally enforce explicit opt-in through ``Resol
 
 ```
 Sources/
-  XcodeBuildKit/      Typed xcodebuild builder, xcode-select, destination discovery
-  GradleKit/          Typed Gradle, adb, emulator, and bundletool wrappers
-  AndroidCLIKit/      Typed wrapper for Google's preview AndroidCLI
-  XcodeGenKit/        Typed xcodegen builder
   ShipItKit/
     Actions/          One file per Action type
     AppStoreConnect/  Client, JWT, upload service, models
     GooglePlay/       Client, upload service, models, JWT
-    ReExports/        Re-exports XcodeBuildKit, GradleKit, AndroidCLIKit, and XcodeGenKit
-    Xcrun/            xcrun + simctl wrappers
     CodeSigning/      Keychain, certs, profiles, vault
     Config/           Shipfile model, ConfigResolver, Platform
     Introspection/    ProjectInspector, schema, AISession types/builder, validator
@@ -150,6 +144,8 @@ Sources/
     Formatters/       Human and JSON formatters
     ShipItCLI.swift   `@main` entry + GlobalOptions mixin
 ```
+
+Typed tool wrappers (`xcodebuild`, `xcrun`/`simctl`, Gradle, `adb`, `emulator`, `bundletool`, AndroidCLI, `xcodegen`, Flutter, React Native, `swift`, `security`, `plutil`, `frameit`) come from the separate [`cli-wrappers`](https://github.com/ShipItSwifty/cli-wrappers) package, one product per tool, imported explicitly where used.
 
 ## See also
 

@@ -1,4 +1,4 @@
-// swift-tools-version: 6.0
+// swift-tools-version: 6.2
 // ShipItSwifty Package Manifest
 
 import PackageDescription
@@ -6,20 +6,17 @@ import PackageDescription
 let package = Package(
     name: "ShipItSwifty",
     // macOS 15+ required for full functionality (Xcode toolchain, Security framework, etc.)
-    // Linux is also supported for GradleKit, ShipItKit core, and CLI targets.
-    // XcodeBuildKit and XcodeGenKit are macOS-only (wrap xcodebuild / xcodegen).
+    // Linux is also supported for ShipItKit core and CLI targets.
     platforms: [.macOS(.v15)],
     products: [
         .executable(name: "shipit", targets: ["ShipItCLI"]),
         .library(name: "ShipItKit", targets: ["ShipItKit"]),
-        .library(name: "XcodeBuildKit", targets: ["XcodeBuildKit"]),
-        .library(name: "GradleKit", targets: ["GradleKit"]),
-        .library(name: "AndroidCLIKit", targets: ["AndroidCLIKit"]),
-        .library(name: "XcodeGenKit", targets: ["XcodeGenKit"]),
     ],
     dependencies: [
         // Shell execution
         .package(url: "https://github.com/maniramezan/SwiftyShell.git", from: "0.7.0"),
+        // Typed tool wrappers (xcodebuild, xcrun, Gradle, adb, Flutter, …). Tracks main until 1.0.
+        .package(url: "https://github.com/ShipItSwifty/cli-wrappers.git", branch: "main"),
         // DocC generation command plugin
         .package(url: "https://github.com/swiftlang/swift-docc-plugin", from: "1.5.0"),
         // CLI argument parsing
@@ -43,42 +40,25 @@ let package = Package(
         .package(url: "https://github.com/maniramezan/SwiftTestCommons.git", from: "0.3.0"),
     ],
     targets: [
-        // MARK: - Reusable tool libraries
-
-        .target(
-            name: "XcodeBuildKit",
-            dependencies: [
-                .product(name: "SwiftyShell", package: "SwiftyShell")
-            ]
-        ),
-        .target(
-            name: "GradleKit",
-            dependencies: [
-                .product(name: "SwiftyShell", package: "SwiftyShell")
-            ]
-        ),
-        .target(
-            name: "AndroidCLIKit",
-            dependencies: [
-                .product(name: "SwiftyShell", package: "SwiftyShell")
-            ]
-        ),
-        .target(
-            name: "XcodeGenKit",
-            dependencies: [
-                .product(name: "SwiftyShell", package: "SwiftyShell")
-            ]
-        ),
-
-        // MARK: - ShipItKit (depends on tool libraries)
+        // MARK: - ShipItKit
 
         .target(
             name: "ShipItKit",
             dependencies: [
-                "XcodeBuildKit",
-                "GradleKit",
-                "AndroidCLIKit",
-                "XcodeGenKit",
+                .product(name: "AdbKit", package: "cli-wrappers"),
+                .product(name: "AndroidCLIKit", package: "cli-wrappers"),
+                .product(name: "BundletoolKit", package: "cli-wrappers"),
+                .product(name: "EmulatorKit", package: "cli-wrappers"),
+                .product(name: "FlutterKit", package: "cli-wrappers"),
+                .product(name: "FrameitKit", package: "cli-wrappers"),
+                .product(name: "GradleKit", package: "cli-wrappers"),
+                .product(name: "PlutilKit", package: "cli-wrappers"),
+                .product(name: "ReactNativeKit", package: "cli-wrappers"),
+                .product(name: "SecurityKit", package: "cli-wrappers"),
+                .product(name: "SwiftPMKit", package: "cli-wrappers"),
+                .product(name: "XcodeBuildKit", package: "cli-wrappers"),
+                .product(name: "XcodeGenKit", package: "cli-wrappers"),
+                .product(name: "XcrunKit", package: "cli-wrappers"),
                 .product(name: "SwiftyShell", package: "SwiftyShell"),
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
                 .product(name: "AppStoreConnectKit", package: "app-store-connect-mcp"),
@@ -103,6 +83,11 @@ let package = Package(
             name: "ShipItCLI",
             dependencies: [
                 "ShipItKit",
+                .product(name: "AndroidCLIKit", package: "cli-wrappers"),
+                .product(name: "ReactNativeKit", package: "cli-wrappers"),
+                .product(name: "SecurityKit", package: "cli-wrappers"),
+                .product(name: "XcodeBuildKit", package: "cli-wrappers"),
+                .product(name: "XcrunKit", package: "cli-wrappers"),
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
                 .product(name: "Logging", package: "swift-log"),
             ],
@@ -112,37 +97,11 @@ let package = Package(
         // MARK: - Tests
 
         .testTarget(
-            name: "XcodeBuildKitTests",
-            dependencies: [
-                "XcodeBuildKit",
-                .product(name: "SwiftyShell", package: "SwiftyShell"),
-            ]
-        ),
-        .testTarget(
-            name: "GradleKitTests",
-            dependencies: [
-                "GradleKit",
-                .product(name: "SwiftyShell", package: "SwiftyShell"),
-            ]
-        ),
-        .testTarget(
-            name: "AndroidCLIKitTests",
-            dependencies: [
-                "AndroidCLIKit",
-                .product(name: "SwiftyShell", package: "SwiftyShell"),
-            ]
-        ),
-        .testTarget(
-            name: "XcodeGenKitTests",
-            dependencies: [
-                "XcodeGenKit",
-                .product(name: "SwiftyShell", package: "SwiftyShell"),
-            ]
-        ),
-        .testTarget(
             name: "ShipItKitTests",
             dependencies: [
                 "ShipItKit",
+                .product(name: "SwiftPMKit", package: "cli-wrappers"),
+                .product(name: "XcodeBuildKit", package: "cli-wrappers"),
                 .product(name: "SwiftyShell", package: "SwiftyShell"),
                 .product(name: "AppStoreConnectKit", package: "app-store-connect-mcp"),
                 .product(name: "GoogleAuthKit", package: "google-play-store-mcp"),

@@ -31,7 +31,7 @@ swift test --filter ShipItKitTests.BuildActionTests  # one suite
 
 ### Testing on Linux (Docker)
 
-`GradleKit`, `ShipItKit` core, and `CLI` build and test on Linux. `XcodeBuildKit`, `XcodeGenKit`, and `IntegrationTests` are macOS-only and are automatically skipped. A `Dockerfile` (`swift:6.3.1-noble`) and `Makefile` are included so you can test the Linux-compatible subset without a native Swift toolchain:
+`ShipItKit` core and `CLI` build and test on Linux. `IntegrationTests` is macOS-only and is automatically skipped. A `Dockerfile` (`swift:6.3.1-noble`) and `Makefile` are included so you can test the Linux-compatible subset without a native Swift toolchain:
 
 ```bash
 # Build + test via direct volume mount (fastest for iteration — no docker build step)
@@ -49,7 +49,7 @@ make docker-test
 make help
 ```
 
-The skip list used by all Linux targets (`--skip IntegrationTests --skip XcodeBuildKitTests --skip XcodeGenKitTests`) matches what CI enforces in the `build-and-test-linux` job.
+The skip list used by all Linux targets (`--skip IntegrationTests`) matches what CI enforces in the `build-and-test-linux` job.
 
 ## Project conventions (light-touch)
 

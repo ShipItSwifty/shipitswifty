@@ -1,6 +1,10 @@
+import FlutterKit
 import Foundation
+import GradleKit
 import Logging
 import SwiftyShell
+import XcodeBuildKit
+import XcrunKit
 
 /// What category of test is being run.
 ///
@@ -579,7 +583,7 @@ public struct TestAction: Action {
                     return NSRegularExpression.escapedPattern(for: name)
                 }
             if number > 1 && names.isEmpty { break }
-            let command = FlutterCLI(context: context.shell).testMachine(
+            let command = Flutter(context: context.shell).testMachine(
                 coverage: options.enableCodeCoverage == true && number == 1,
                 name: names.isEmpty ? nil : "^(?:" + names.joined(separator: "|") + ")$")
             let output = try await InfrastructureRetryScheduler.executeIfConfigured(

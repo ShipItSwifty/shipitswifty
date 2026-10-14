@@ -130,10 +130,8 @@ dependencies: [
 **Products:**
 - `.executable("shipit", targets: ["ShipItCLI"])`
 - `.library("ShipItKit", targets: ["ShipItKit"])`
-- `.library("XcodeBuildKit", targets: ["XcodeBuildKit"])` — standalone xcodebuild wrapper
-- `.library("GradleKit", targets: ["GradleKit"])` — standalone Gradle/adb/bundletool wrapper
-- `.library("AndroidCLIKit", targets: ["AndroidCLIKit"])` — standalone typed wrapper for Google's preview AndroidCLI
-- `.library("XcodeGenKit", targets: ["XcodeGenKit"])` — standalone xcodegen wrapper
+
+Typed tool wrappers come from [`cli-wrappers`](https://github.com/ShipItSwifty/cli-wrappers) (one product per tool, tracked on `main` until 1.0) and are imported explicitly where used; ShipItKit re-exports none of them.
 
 ---
 

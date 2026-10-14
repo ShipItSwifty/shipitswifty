@@ -41,7 +41,7 @@ swift format lint --strict --configuration .swift-format <changed files>
 
 ## What Linux cannot verify
 
-- `XcodeBuildKit`, `XcodeGenKit`, `IntegrationTests`, and every `#if os(macOS)` block in ShipItKit
+- `IntegrationTests` and every `#if os(macOS)` block in ShipItKit
   (iOS build/test/archive paths, simctl, xcresult parsing, keychain) are not compiled.
 - To catch plain type errors in edited macOS-only code, you may temporarily replace
   `#if os(macOS)` with `#if true` in *that file only*, build the target, ignore errors about

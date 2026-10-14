@@ -1,4 +1,5 @@
 import Foundation
+import SwiftPMKit
 import SwiftyShell
 import TestCommons
 import Testing
@@ -141,7 +142,7 @@ struct ResultIntegrityTests {
         context.testEvidence = recorder
         struct Unreadable: Error {}
         _ = try await executeRecordedTest(
-            SwiftPMCLI(context: context.shell).formatLint(paths: ["Sources"]), context: context,
+            SwiftPM(context: context.shell).formatLint(paths: ["Sources"]), context: context,
             parse: { _ in throw Unreadable() })
         try await recorder.writeProvisionalReport(executionError: false)
         let report = try JSONDecoder().decode(
@@ -162,7 +163,7 @@ struct ResultIntegrityTests {
         let recorder = TestEvidenceRecorder(root: scratch.url.appendingPathComponent("evidence"))
         context.testEvidence = recorder
         _ = try await executeRecordedTest(
-            SwiftPMCLI(context: context.shell).formatLint(paths: ["Sources"]), context: context, parse: { _ in nil })
+            SwiftPM(context: context.shell).formatLint(paths: ["Sources"]), context: context, parse: { _ in nil })
         try await recorder.writeProvisionalReport(executionError: false)
         let report = try JSONDecoder().decode(
             TestRunReport.self, from: Data(contentsOf: scratch.url.appendingPathComponent("evidence/report.json")))
@@ -213,7 +214,7 @@ struct ResultIntegrityTests {
         let action = TestAction()
         let project = scratch.url.path
         _ = try await executeRecordedTest(
-            SwiftPMCLI(context: context.shell).formatLint(paths: []), context: context,
+            SwiftPM(context: context.shell).formatLint(paths: []), context: context,
             parse: { _ in try await action.parseJUnitReports(projectDir: project, task: "testDebugUnitTest") },
             staleResults: { junitReportDirectories(projectDir: project, task: "testDebugUnitTest") })
         #expect(junitReportDirectories(projectDir: project, task: "testDebugUnitTest").isEmpty)
