@@ -96,26 +96,43 @@ android:
 
 ## Minimal Shipfile — Flutter
 
+A Shipfile targets one platform. Use the top-level `platform:` key (or `--platform`) to select it; archive and build steps take no `platform` option. To cover both platforms from one directory, keep a second Shipfile (for example `Shipfile.android.yml`) and pass `--shipfile`.
+
 ```yaml
-# Shipfile.yml
+# Shipfile.yml — iOS
+platform: ios
+
 ios:
   build_system: flutter
+
+versioning:
+  source: pubspec
+
+workflows:
+  beta:
+    - action: test
+    - action: archive      # flutter build ipa produces the IPA directly
+    - action: testflight
+```
+
+```yaml
+# Shipfile.android.yml — Android
+platform: android
+
 android:
   build_system: flutter
 
-workflows:
-  beta-ios:
-    - action: test
-    - action: archive
-      options: { platform: ios }
-    - action: testflight
+versioning:
+  source: pubspec
 
-  beta-android:
+workflows:
+  beta:
     - action: test
-    - action: archive
-      options: { platform: android }
+    - action: archive      # flutter build appbundle
     - action: play-store
 ```
+
+Run the Android one with `shipit run beta --shipfile Shipfile.android.yml`. Run `shipit validate yml` after editing; it reports unknown step options.
 
 ## Minimal Shipfile — React Native (iOS)
 

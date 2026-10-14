@@ -72,4 +72,13 @@ struct TestResultsCommandTests {
             ])
         }
     }
+
+    @Test("Markdown and human summaries report flaky tests")
+    func summariesIncludeFlaky() {
+        let summary = TestSummary(passed: 10, failed: 0, skipped: 1, flaky: 3, errored: 0)
+        #expect(TestResultsCommand.summaryLine(summary).hasSuffix("Errored: 0, Flaky: 3"))
+        let markdown = TestResultsCommand.markdown(source: "report.json", summary: summary)
+        #expect(markdown.contains("| Flaky | 3 |"))
+        #expect(markdown.contains("| Passed | 10 |"))
+    }
 }
