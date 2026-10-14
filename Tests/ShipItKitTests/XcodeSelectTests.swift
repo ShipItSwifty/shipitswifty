@@ -1,5 +1,6 @@
 #if os(macOS)
 import Testing
+import XcodeBuildKit
 
 @testable import ShipItKit
 

@@ -4,7 +4,7 @@
 # without needing a local Swift toolchain — just Docker.
 #
 # macOS-only targets skipped on Linux:
-#   XcodeBuildKitTests, XcodeGenKitTests, IntegrationTests
+#   IntegrationTests
 
 SWIFT_IMAGE := swift:6.3.1-noble
 
@@ -14,7 +14,7 @@ DOCKER_RUN     := docker run --rm -v "$(PWD):/workspace" -w /workspace $(SWIFT_I
 DOCKER_RUN_IT  := docker run --rm -it -v "$(PWD):/workspace" -w /workspace $(SWIFT_IMAGE)
 
 # Linux-only test skip list (targets that require macOS tooling)
-LINUX_SKIP := --skip IntegrationTests --skip XcodeBuildKitTests --skip XcodeGenKitTests
+LINUX_SKIP := --skip IntegrationTests
 
 # ── Direct-mount targets (no docker build required) ──────────────────────────
 

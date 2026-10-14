@@ -1,7 +1,9 @@
 #if os(macOS)
 import Foundation
+import GradleKit
 import Logging
 import SwiftyShell
+import XcodeGenKit
 
 /// Generates an Xcode project from a project spec file (e.g. XcodeGen's `project.yml`).
 ///

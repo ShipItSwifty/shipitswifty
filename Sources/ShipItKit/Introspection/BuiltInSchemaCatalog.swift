@@ -1,4 +1,7 @@
+import FlutterKit
 import Foundation
+import GradleKit
+import XcodeBuildKit
 
 public enum BuiltInSchemaCatalog {
     public static func shipfileFields() -> [SchemaField] {

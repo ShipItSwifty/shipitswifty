@@ -1,6 +1,9 @@
+import FlutterKit
 import Foundation
+import GradleKit
 import Logging
 import SwiftyShell
+import XcodeBuildKit
 
 /// Runs static analysis and lint checks on the codebase.
 ///
@@ -154,7 +157,7 @@ public struct LintAction: Action {
     /// Runs `flutter analyze` — the Dart static analyzer.
     private func runFlutterAnalyze(options: Options, context: ActionContext) async throws -> Result {
         logger.info("Running Flutter static analysis (flutter analyze)")
-        let flutter = FlutterCLI(context: context.shell).analyze()
+        let flutter = Flutter(context: context.shell).analyze()
         let output: ShellOutput
         do {
             output = try await flutter.run()

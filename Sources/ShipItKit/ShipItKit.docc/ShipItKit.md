@@ -116,8 +116,6 @@ These constraints are enforced throughout the codebase:
 - <doc:KMPIntegration>
 - <doc:FlutterAndReactNative>
 - ``BuildSystem``
-- ``FlutterCLI``
-- ``ReactNativeCLI``
 - ``JSPackageManager``
 
 ### AI-assisted setup

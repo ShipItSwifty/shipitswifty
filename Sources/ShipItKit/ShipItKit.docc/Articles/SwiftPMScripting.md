@@ -4,33 +4,33 @@ Use ShipItSwifty as regular Swift packages when you want typed release scripts i
 
 ## Choosing a library
 
-| Library | Use when |
-|---|---|
-| `GradleKit` | You only need typed Gradle, adb, emulator, or bundletool commands. |
-| `AndroidCLIKit` | You need typed access to Google's preview AndroidCLI command families. |
-| `XcodeBuildKit` | You only need typed `xcodebuild` and destination discovery. |
-| ``ShipItKit`` | You want release-domain actions, workflows, config resolution, KMP build-system handling, versioning, or distribution clients. |
+| Library | Package | Use when |
+|---|---|---|
+| `GradleKit`, `AdbKit`, `EmulatorKit`, `BundletoolKit` | [`cli-wrappers`](https://github.com/ShipItSwifty/cli-wrappers) | You only need typed Gradle, adb, emulator, or bundletool commands. |
+| `AndroidCLIKit` | [`cli-wrappers`](https://github.com/ShipItSwifty/cli-wrappers) | You need typed access to Google's preview AndroidCLI command families. |
+| `XcodeBuildKit`, `XcrunKit` | [`cli-wrappers`](https://github.com/ShipItSwifty/cli-wrappers) | You only need typed `xcodebuild`, `simctl`, or `xcresulttool`. |
+| ``ShipItKit`` | `ShipItSwifty` | You want release-domain actions, workflows, config resolution, KMP build-system handling, versioning, or distribution clients. |
 
-`ShipItKit` re-exports the tool libraries, so scripts that import `ShipItKit` can also use `Gradle`, `GradleTask`, `AndroidCLI`, and `XcodeBuild` directly.
+`ShipItKit` does not re-export the wrappers: a script that uses `Gradle` or `XcodeBuild` imports `GradleKit` or `XcodeBuildKit` and depends on `cli-wrappers`.
 
 ## Gradle-only script
 
 ```swift
 // Package.swift
-// swift-tools-version: 6.0
+// swift-tools-version: 6.2
 import PackageDescription
 
 let package = Package(
     name: "ReleaseScripts",
     platforms: [.macOS(.v15)],
     dependencies: [
-        .package(url: "https://github.com/maniramezan/ShipItSwifty.git", from: "0.1.0")
+        .package(url: "https://github.com/ShipItSwifty/cli-wrappers.git", branch: "main")
     ],
     targets: [
         .executableTarget(
             name: "android-release",
             dependencies: [
-                .product(name: "GradleKit", package: "ShipItSwifty")
+                .product(name: "GradleKit", package: "cli-wrappers")
             ]
         )
     ]
@@ -57,7 +57,7 @@ AndroidCLIKit is independent of the Gradle build pipeline and can be used withou
 
 ```swift
 // Package.swift target dependency
-.product(name: "AndroidCLIKit", package: "ShipItSwifty")
+.product(name: "AndroidCLIKit", package: "cli-wrappers")
 ```
 
 ```swift
@@ -115,7 +115,8 @@ still available for unsupported or newly introduced `xcodebuild` arguments.
 
 ```swift
 // Package.swift target dependency
-.product(name: "ShipItKit", package: "ShipItSwifty")
+.package(url: "https://github.com/ShipItSwifty/shipitswifty.git", branch: "main")
+.product(name: "ShipItKit", package: "shipitswifty")
 ```
 
 ```swift

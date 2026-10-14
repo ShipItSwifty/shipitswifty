@@ -2,6 +2,7 @@
 import Foundation
 import Logging
 import SwiftyShell
+import XcodeBuildKit
 
 /// Exports an IPA from an `.xcarchive` using `xcodebuild -exportArchive`.
 ///

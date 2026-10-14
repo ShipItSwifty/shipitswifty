@@ -1,6 +1,9 @@
 import Foundation
 import Logging
+import PlutilKit
 import SwiftyShell
+import XcodeBuildKit
+import XcrunKit
 
 /// Reads and writes `CFBundleVersion` and `CFBundleShortVersionString`
 /// using `plutil` and `xcrun agvtool`.

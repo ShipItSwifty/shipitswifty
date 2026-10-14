@@ -8,30 +8,6 @@ import Testing
 
 @Suite("Shared test workflows")
 struct TestWorkflowTests {
-    @Test("SwiftPM commands retain argument boundaries and strict format options")
-    func swiftCommandArguments() {
-        let tool = SwiftPMCLI()
-        #expect(
-            tool.test(
-                package: "package path", scratch: "scratch path", events: "events.jsonl",
-                attachments: "attachments", coverage: true, skipBuild: true, filter: "Suite/test", skip: "Integration",
-                junit: "xctest.xml"
-            ).command().arguments == [
-                "test", "--package-path", "package path", "--parallel",
-                "--event-stream-output-path", "events.jsonl", "--xunit-output", "xctest.xml", "--scratch-path", "scratch path",
-                "--attachments-path", "attachments", "--enable-code-coverage", "--skip-build", "--filter", "Suite/test", "--skip",
-                "Integration",
-            ])
-        #expect(
-            tool.test(package: ".", events: "events.jsonl", workers: 1).command().arguments == [
-                "test", "--package-path", ".", "--parallel", "--num-workers", "1", "--event-stream-output-path", "events.jsonl",
-            ], "--parallel stays: without it SwiftPM writes no XCTest results")
-        #expect(
-            tool.formatLint(paths: ["Sources"], configuration: ".swift-format").command().arguments == [
-                "format", "lint", "--recursive", "--strict", "--configuration", ".swift-format", "Sources",
-            ])
-    }
-
     @Test("Formatting violations fail as a lint failure, not a build failure")
     func swiftFormatViolationIsLintFailure() async throws {
         let executor = MockExecutor { _, _ in .init(stdout: "", stderr: "Sources/A.swift:1:1: warning: [Indentation]", exitCode: 1) }

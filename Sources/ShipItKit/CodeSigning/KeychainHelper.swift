@@ -1,6 +1,7 @@
 #if os(macOS)
 import Foundation
 import Logging
+import SecurityKit
 import SwiftyShell
 
 /// Wraps macOS `security` CLI commands for keychain management.

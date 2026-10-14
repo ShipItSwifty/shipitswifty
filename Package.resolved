@@ -1,5 +1,5 @@
 {
-  "originHash" : "43e4fc38ea567b9731db0cabc3b3e6088b9a35f1e4bd1adf6673a68c90a5361c",
+  "originHash" : "ed21a89012bb39747af54e1dcdbe7501bc35eed57aa14dd049e7f1dc62df5922",
   "pins" : [
     {
       "identity" : "app-store-connect-mcp",
@@ -7,6 +7,15 @@
       "location" : "https://github.com/ShipItSwifty/app-store-connect-mcp.git",
       "state" : {
         "revision" : "912a98974bba73182ac63d9f4b5c26b1d45bd395"
+      }
+    },
+    {
+      "identity" : "cli-wrappers",
+      "kind" : "localSourceControl",
+      "location" : "https://github.com/ShipItSwifty/cli-wrappers.git",
+      "state" : {
+        "branch" : "main",
+        "revision" : "a9ef8c9958b3abc942a2addd0c6f299962973ed4"
       }
     },
     {
@@ -113,8 +122,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-log",
       "state" : {
-        "revision" : "9c6fb14227f55d8f711ce3847dc2f419fb0ecacb",
-        "version" : "1.15.1"
+        "revision" : "4038b6a4f74a1426f47eb1dd5b4bb5628a15d597",
+        "version" : "1.16.1"
       }
     },
     {

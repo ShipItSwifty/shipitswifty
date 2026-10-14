@@ -1,3 +1,6 @@
+import AdbKit
+import AndroidCLIKit
+import EmulatorKit
 import Foundation
 import Logging
 import SwiftyShell

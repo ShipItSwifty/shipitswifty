@@ -1,4 +1,5 @@
 import Foundation
+import SwiftPMKit
 import SwiftyShell
 
 /// Checks Swift formatting without rewriting source files.
@@ -28,7 +29,7 @@ public struct SwiftFormatAction: Action {
     public func run(with options: Options, context: ActionContext) async throws -> Result {
         let output: ShellOutput
         do {
-            output = try await SwiftPMCLI(context: context.shell).formatLint(
+            output = try await SwiftPM(context: context.shell).formatLint(
                 paths: options.paths ?? ["Sources", "Tests"], configuration: options.configuration
             ).run()
         } catch let ShellError.exitFailure(_, captured) { output = captured }

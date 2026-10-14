@@ -190,7 +190,7 @@ AndroidCLI is preview software. Keep `android.cli.enabled` off when it is unavai
 
 ### AndroidCLIKit
 
-Swift scripts can depend on `AndroidCLIKit` directly:
+Swift scripts can depend on `AndroidCLIKit` from [`cli-wrappers`](https://github.com/ShipItSwifty/cli-wrappers) directly:
 
 ```swift
 import AndroidCLIKit
