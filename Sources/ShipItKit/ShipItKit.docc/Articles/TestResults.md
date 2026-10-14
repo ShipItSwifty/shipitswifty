@@ -8,7 +8,7 @@ Every test run, and every saved result file, is read into the same normalized mo
 workflow decide whether to rerun a failure, lets `shipit test-results` inspect an artifact on a machine that
 never ran the tests, and lets a live run and an offline inspection agree on every test's identity.
 
-The core public types are ``ParsedTestRun``, ``ParsedTestCase``, ``ParsedTestSuite``, ``TestRunReport`` and
+The core public types are `ParsedTestRun`, `ParsedTestCase`, ``ParsedTestSuite``, ``TestRunReport`` and
 ``TestAttempt``. ``ResultInspection`` is the single reader for every format.
 
 ## Who ran it, where, and on what
@@ -17,9 +17,9 @@ A result separates three things that used to be squeezed into one label:
 
 | Field | Meaning | Values |
 |---|---|---|
-| `runner` (``TestRunner``) | The tool that executed the tests | `xcodebuild`, `gradle`, `swift-test`, `flutter-test`, `jest` |
-| `buildSystem` (``BuildSystem``) | The project's framework, when known | `native`, `kmp`, `flutter`, `react_native` |
-| `destinations` (``TestDestination``) | Where the tests ran | a ``TestPlatform`` (`ios`, `android`, `macos`, `linux`, `windows`, `jvm`, `js`), a ``TestDestinationKind`` (`simulator`, `emulator`, `device`, `host`), an optional device name, and the scope that ran (a Gradle task or an Xcode test plan) |
+| `runner` (`TestRunner`) | The tool that executed the tests | `xcodebuild`, `gradle`, `swift-test`, `flutter-test`, `jest` |
+| `buildSystem` (`AppFramework` (MobileCore)) | The project's framework, when known | `native`, `kmp`, `flutter`, `react_native` |
+| `destinations` (`TestDestination`) | Where the tests ran | a `TestPlatform` (`ios`, `android`, `macos`, `linux`, `windows`, `jvm`, `js`), a `TestDestinationKind` (`simulator`, `emulator`, `device`, `host`), an optional device name, and the scope that ran (a Gradle task or an Xcode test plan) |
 
 Each test refers to its destination by `destinationID`, so one Gradle run on a Kotlin Multiplatform project
 can span `ios`, `android` and `jvm` and every test still knows which. Destinations come from evidence: the
@@ -27,7 +27,7 @@ Gradle task name and the device the Android Gradle Plugin records, the devices a
 `xcodebuild -destination` and test plan, or the host for `swift test`, Flutter and Jest. A result that does not
 say where it ran (saved Flutter events, an LCOV file) has no destination rather than a guess.
 
-``TestPlatform`` and ``TestRunner`` are closed for the values ShipIt understands but keep any other value as
+`TestPlatform` and `TestRunner` are closed for the values ShipIt understands but keep any other value as
 `other`, so a result from a plugin or a newer ShipIt still decodes and groups correctly.
 
 ## What each test carries
@@ -123,23 +123,23 @@ sample projects with scripted outcomes. See <doc:TestWorkflows>.
 
 ### Models
 
-- ``ParsedTestRun``
-- ``TestSummary``
+- `ParsedTestRun`
+- `TestSummary`
 - ``ParsedTestSuite``
-- ``ParsedTestCase``
-- ``TestCaseStatus``
-- ``TestRerunSelector``
-- ``ParsingDiagnostic``
+- `ParsedTestCase`
+- `TestCaseStatus`
+- `TestRerunSelector`
+- `ParsingDiagnostic`
 - ``ParsingDiagnosticSeverity``
 - ``TestRunReport``
 - ``TestAttempt``
 
 ### Where tests ran
 
-- ``TestRunner``
-- ``TestPlatform``
-- ``TestDestination``
-- ``TestDestinationKind``
+- `TestRunner`
+- `TestPlatform`
+- `TestDestination`
+- `TestDestinationKind`
 - ``OpenStringEnum``
 
 ### Reading and exporting
@@ -163,7 +163,11 @@ sample projects with scripted outcomes. See <doc:TestWorkflows>.
 
 ### Native parsers
 
-- ``IOSXCResultTestParser``
-- ``AndroidJUnitTestParser``
-- ``JestJSONTestParser``
-- ``FlutterMachineOutputParser``
+The parsers and the per-run model (`ParsedTestRun`, `TestDestination`, `TestRerunSelector`) live in
+the `MobileTesting` product of [`mobile-kits`](https://github.com/ShipItSwifty/mobile-kits); ShipItKit owns the cross-attempt `TestRunReport`, flaky
+classification, evidence, and coverage built on them.
+
+- `IOSXCResultTestParser`
+- `AndroidJUnitTestParser`
+- `JestJSONTestParser`
+- `FlutterMachineOutputParser`

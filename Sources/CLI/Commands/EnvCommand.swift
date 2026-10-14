@@ -1,5 +1,6 @@
 import ArgumentParser
 import Foundation
+import MobileCore
 import ShipItKit
 
 /// Print resolved configuration and environment for debugging.

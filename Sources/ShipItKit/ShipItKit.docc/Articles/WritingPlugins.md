@@ -117,7 +117,7 @@ workflows:
 
 ``ActionDescriptor`` stores a type-erased `runJSON` closure that receives:
 
-- `options: JSONValue?` — the step's `options` dict from the Shipfile, or `nil`
+- `options: JSONValue?` — the step's `options` dict from the Shipfile, or `nil`. `JSONValue` comes from `MobileCore` in [`mobile-kits`](https://github.com/ShipItSwifty/mobile-kits); import it explicitly.
 - `context: ActionContext` — shell, logger, config, App Store Connect / Google Play clients
 
 It also carries two optional pieces of metadata used by ``ShipfileValidator`` during `validate yml`:
@@ -125,7 +125,7 @@ It also carries two optional pieces of metadata used by ``ShipfileValidator`` du
 - **`platforms: Set<Platform>?`** — when non-nil, the action is only expected to be used on those platforms (currently informational; future versions may warn on mismatched usage).
 - **`validationRules: [ActionValidationRule]`** — semantic rules evaluated for every workflow step that references this action. Each ``ActionValidationRule`` can be scoped to a ``Platform`` set and returns a ``ValidationIssue`` or `nil`.
 
-For typed `Options`, the auto-generated descriptor handles `JSONValue → Options` decoding via `Codable`. For free-form options, use ``JSONValue`` accessors (`stringValue`, `intValue`, `doubleValue`, `boolValue`, `arrayValue`, `objectValue`, `isNull`):
+For typed `Options`, the auto-generated descriptor handles `JSONValue → Options` decoding via `Codable`. For free-form options, use `JSONValue` accessors (`stringValue`, `intValue`, `doubleValue`, `boolValue`, `arrayValue`, `objectValue`, `isNull`):
 
 ```swift
 let scheme = options?.objectValue?["scheme"]?.stringValue ?? "MyApp"
@@ -197,4 +197,4 @@ import ShipItKit
 - ``ActionContext``
 - ``ShipItPlugin``
 - ``PluginRegistry``
-- ``JSONValue``
+- `JSONValue`

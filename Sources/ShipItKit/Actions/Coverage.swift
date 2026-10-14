@@ -1,5 +1,6 @@
 import Foundation
 import Logging
+import MobileTesting
 import SwiftyShell
 
 /// Reads and summarizes native coverage artifacts produced by a prior test run.

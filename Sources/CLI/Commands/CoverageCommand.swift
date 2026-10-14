@@ -1,5 +1,6 @@
 import ArgumentParser
 import Foundation
+import MobileTesting
 import ShipItKit
 
 /// Read and summarize native coverage artifacts produced by a prior test run.

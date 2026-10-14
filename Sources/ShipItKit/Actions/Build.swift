@@ -2,6 +2,7 @@ import FlutterKit
 import Foundation
 import GradleKit
 import Logging
+import MobileCore
 import ReactNativeKit
 import SwiftyShell
 
@@ -171,7 +172,7 @@ public struct BuildAction: Action {
     /// - Returns: Build result with artifact paths.
     /// - Throws: ``ShipItError/buildFailed(exitCode:log:)`` if the build exits non-zero.
     public func run(with options: Options, context: ActionContext) async throws -> Result {
-        let buildSystem: BuildSystem =
+        let buildSystem: AppFramework =
             context.platform == .ios
             ? context.config.iosBuildSystem
             : context.config.androidBuildSystem

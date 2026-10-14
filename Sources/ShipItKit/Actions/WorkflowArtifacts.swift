@@ -1,4 +1,6 @@
 import Foundation
+import MobileCore
+import MobileTesting
 
 /// Evidence exported after a workflow step, even when that step fails.
 public struct ArtifactDeclaration: Codable, Sendable {

@@ -1,4 +1,5 @@
 import Foundation
+import MobileCore
 
 /// Builds a structured `AISessionPayload` from a project inspection.
 ///
@@ -641,7 +642,7 @@ public struct AISessionBuilder: Sendable {
         goal: SuggestionGoal,
         readiness: AIReadiness,
         platform: Platform,
-        detectedBuildSystem: BuildSystem? = nil,
+        detectedBuildSystem: AppFramework? = nil,
         testPlans: [String] = [],
         customActions: [String: CustomActionConfig] = [:]
     ) -> String {

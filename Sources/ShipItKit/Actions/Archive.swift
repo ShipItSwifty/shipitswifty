@@ -2,6 +2,7 @@ import FlutterKit
 import Foundation
 import GradleKit
 import Logging
+import MobileCore
 import ReactNativeKit
 import SwiftyShell
 import XcodeBuildKit
@@ -167,7 +168,7 @@ public struct ArchiveAction: Action {
     }
 
     public func run(with options: Options, context: ActionContext) async throws -> Result {
-        let buildSystem: BuildSystem =
+        let buildSystem: AppFramework =
             context.platform == .ios
             ? context.config.iosBuildSystem
             : context.config.androidBuildSystem

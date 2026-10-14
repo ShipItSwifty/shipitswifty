@@ -1,4 +1,5 @@
 import Foundation
+import MobileCore
 import Synchronization
 import TestCommons
 import Testing

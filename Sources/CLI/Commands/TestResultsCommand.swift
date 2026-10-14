@@ -1,5 +1,7 @@
 import ArgumentParser
 import Foundation
+import MobileCore
+import MobileTesting
 import ShipItKit
 
 /// Read and normalize native test-result artifacts produced by a prior test run.
@@ -54,7 +56,7 @@ struct TestResultsCommand: AsyncParsableCommand {
     var reportPath: String?
 
     mutating func validate() throws {
-        if let buildSystem, BuildSystem(rawValue: buildSystem) == nil {
+        if let buildSystem, AppFramework(rawValue: buildSystem) == nil {
             throw ValidationError("Unknown build system: \(buildSystem). Use native, kmp, flutter or react_native.")
         }
         if let inputFormat, TestInputFormat(rawValue: inputFormat) == nil { throw ValidationError("Unknown input format: \(inputFormat)") }
@@ -98,7 +100,7 @@ struct TestResultsCommand: AsyncParsableCommand {
             let options = TestResultsAction.Options(
                 inputs: inputs.isEmpty ? nil : inputs, inputFormat: inputFormat.flatMap(TestInputFormat.init(rawValue:)),
                 runner: runner.map(TestRunner.init(rawValue:)),
-                buildSystem: buildSystem.flatMap(BuildSystem.init(rawValue:)),
+                buildSystem: buildSystem.flatMap(AppFramework.init(rawValue:)),
                 coverageInputs: coverageInputs, coverageFormat: coverageFormat.flatMap(CoverageInputFormat.init(rawValue:)),
                 evidencePaths: evidencePaths, exportDirectory: exportDirectory,
                 format: resolvedFormat,

@@ -1,5 +1,6 @@
 import Foundation
 import Logging
+import MobileCore
 
 /// Posts build results to Slack, Teams, Discord, or any custom webhook.
 ///

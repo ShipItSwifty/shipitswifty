@@ -1,4 +1,5 @@
 import Foundation
+import MobileTesting
 import ShipItKit
 import Testing
 

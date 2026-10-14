@@ -1,5 +1,6 @@
 #if os(macOS)
 import Foundation
+import MobileTesting
 import ShipItKit
 import Testing
 

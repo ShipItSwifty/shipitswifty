@@ -1,24 +1,24 @@
 #if os(macOS)
-import Darwin
 import Foundation
+import MobileCore
+import MobileDevices
 import SwiftyShell
 
-/// Coordinates ShipIt and amoo through amoo's existing atomic lease protocol.
+/// Claims a simulator in the device-claim directory ShipIt shares with amoo (MobileDevices'
+/// `DeviceClaimStore`), so the two never drive the same simulator at once.
+///
+/// ShipIt's policy on top of the store: refuse a simulator an uncooperative `xcodebuild test`
+/// already uses, hold the claim for a day, and never take over another tool's claim, even an
+/// expired one, because its companion may still be running.
 struct SimulatorLease: Sendable {
     let id: String
     let file: URL
-    private static func formatter() -> ISO8601DateFormatter {
-        let value = ISO8601DateFormatter()
-        value.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        return value
-    }
+    private let claim: DeviceClaim
+    private let store: DeviceClaimStore
+
     static func acquire(device: String, shell: ShellContext, directory: URL? = nil) async throws -> Self {
-        let root =
-            directory ?? shell.environment["AMOO_LEASE_DIR"].map { URL(fileURLWithPath: $0) }
-            ?? FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".amoo/leases")
-        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
-        let safe = String(device.map { $0.isLetter || $0.isNumber || $0 == "-" || $0 == "." ? $0 : "_" })
-        let file = root.appendingPathComponent(safe + ".json")
+        let store = DeviceClaimStore(
+            directory: directory ?? DeviceClaimStore.sharedDirectory(environment: shell.environment), ttl: 86_400)
         // Uncooperative runners do not use a lease. Refuse an explicit destination held by xcodebuild.
         let processes = try await Command("ps").args(["-axo", "pid=,args="]).run(in: shell)
         if let holder = processes.stdout.components(separatedBy: .newlines).first(where: {
@@ -26,35 +26,26 @@ struct SimulatorLease: Sendable {
         }) {
             throw ShipItError.invalidConfiguration(reason: "Simulator \(device) is held by \(holder.trimmingCharacters(in: .whitespaces))")
         }
-        let descriptor = open(file.path, O_WRONLY | O_CREAT | O_EXCL, 0o600)
-        guard descriptor >= 0 else {
-            let existing = (try? Data(contentsOf: file)).flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] }
-            let holder = existing?["owner"] as? String ?? "another session"
-            let pid = (existing?["holderPID"] as? NSNumber)?.stringValue ?? "unknown"
-            // Do not reap another tool's expired lease: its companion may still be running.
-            throw ShipItError.invalidConfiguration(reason: "Simulator \(device) is leased by \(holder), pid \(pid). Lease: \(file.path)")
+        if let existing = store.allIncludingExpired().first(where: { $0.deviceID == device }) {
+            throw ShipItError.invalidConfiguration(reason: refusal(existing, file: store.fileURL(deviceID: device)))
         }
-        defer { close(descriptor) }
-        let id = "lease-" + UUID().uuidString.lowercased()
-        let now = Date()
-        let data = try JSONSerialization.data(
-            withJSONObject: [
-                "id": id, "platform": "ios", "deviceID": device,
-                "holderPID": ProcessInfo.processInfo.processIdentifier, "bootedByLease": false,
-                "owner": "shipit pid \(ProcessInfo.processInfo.processIdentifier)",
-                "createdAt": formatter().string(from: now), "expiresAt": formatter().string(from: now.addingTimeInterval(86400)),
-            ], options: [.prettyPrinted, .sortedKeys])
-        do { try FileHandle(fileDescriptor: descriptor, closeOnDealloc: false).write(contentsOf: data) } catch {
-            try? FileManager.default.removeItem(at: file)
-            throw error
+        let pid = ProcessInfo.processInfo.processIdentifier
+        do {
+            let claim = try store.acquire(platform: .ios, deviceID: device, owner: "shipit pid \(pid)", holderPID: pid)
+            return Self(id: claim.id, file: store.fileURL(deviceID: device), claim: claim, store: store)
+        } catch MobileKitError.deviceClaimed(_, let holder) {
+            throw ShipItError.invalidConfiguration(
+                reason: "Simulator \(device) is leased by \(holder). Lease: \(store.fileURL(deviceID: device).path)")
         }
-        return .init(id: id, file: file)
     }
+
+    private static func refusal(_ claim: DeviceClaim, file: URL) -> String {
+        "Simulator \(claim.deviceID) is leased by \(claim.owner ?? "another session"), "
+            + "pid \(claim.holderPID.map(String.init) ?? "unknown"). Lease: \(file.path)"
+    }
+
     func release() {
-        guard let data = try? Data(contentsOf: file), let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-            object["id"] as? String == id
-        else { return }
-        try? FileManager.default.removeItem(at: file)
+        store.release(claim)
     }
 }
 #endif

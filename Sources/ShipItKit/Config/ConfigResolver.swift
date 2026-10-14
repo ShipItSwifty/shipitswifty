@@ -1,5 +1,7 @@
 import Foundation
 import Logging
+import MobileCore
+import MobileProject
 import SwiftyShell
 import XcodeBuildKit
 import Yams
@@ -129,8 +131,8 @@ public struct ConfigResolver: Sendable {
         // Inspect the directory that holds the loaded Shipfile when available so that
         // `--shipfile path/to/Shipfile.yml` (or `SHIPIT_SHIPFILE` pointing outside the cwd)
         // doesn't silently fall through to `.native` against the wrong tree.
-        let inspectedBuildSystem = BuildSystem.autoDetect(in: projectRoot)
-        let autoDetectedBuildSystem: BuildSystem? = inspectedBuildSystem
+        let inspectedBuildSystem = FrameworkDetector.detect(in: projectRoot)
+        let autoDetectedBuildSystem: AppFramework? = inspectedBuildSystem
         let iosBuildSystem = resolveBuildSystem(
             platform: .ios,
             shipfile: shipfile,
@@ -425,14 +427,14 @@ public struct ConfigResolver: Sendable {
     /// Priority: Shipfile `ios.build_system` / `android.build_system`
     /// > env var (`SHIPIT_IOS__BUILD_SYSTEM` / `SHIPIT_ANDROID__BUILD_SYSTEM`)
     /// > auto-detected value
-    /// > ``BuildSystem/native``.
+    /// > `AppFramework.native`.
     private func resolveBuildSystem(
         platform: Platform,
         shipfile: Shipfile?,
-        autoDetected: BuildSystem?
-    ) -> BuildSystem {
+        autoDetected: AppFramework?
+    ) -> AppFramework {
         let envValue: String?
-        let shipfileValue: BuildSystem?
+        let shipfileValue: AppFramework?
         switch platform {
         case .ios:
             envValue = environment.iosBuildSystem
@@ -446,7 +448,7 @@ public struct ConfigResolver: Sendable {
 
         if let raw = envValue?.trimmingCharacters(in: .whitespaces).lowercased(),
             !raw.isEmpty,
-            let resolved = BuildSystem(rawValue: raw)
+            let resolved = AppFramework(rawValue: raw)
         {
             return resolved
         }

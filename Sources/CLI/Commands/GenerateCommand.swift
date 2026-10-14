@@ -1,6 +1,7 @@
 import ArgumentParser
 import Foundation
 import Logging
+import MobileCore
 import ShipItKit
 
 #if canImport(Darwin)

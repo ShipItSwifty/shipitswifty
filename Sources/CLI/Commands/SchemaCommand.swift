@@ -1,4 +1,5 @@
 import ArgumentParser
+import MobileCore
 import ShipItKit
 
 struct SchemaCommand: AsyncParsableCommand {

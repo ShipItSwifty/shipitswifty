@@ -4,7 +4,7 @@ Ship Flutter and React Native apps to the App Store and Google Play from a singl
 
 ## Overview
 
-ShipItKit provides first-class runtime support for Flutter and React Native projects through the ``BuildSystem`` axis. Like ``BuildSystem/kmp``, setting `build_system: flutter` or `build_system: react_native` in your Shipfile activates framework-aware builds, tests, and lint runs — no custom scripts required.
+ShipItKit provides first-class runtime support for Flutter and React Native projects through the `AppFramework` (MobileCore) axis. Like `AppFramework.kmp``, setting `build_system: flutter` or `build_system: react_native` in your Shipfile activates framework-aware builds, tests, and lint runs — no custom scripts required.
 
 | Framework | iOS action | Android action |
 |---|---|---|
@@ -261,14 +261,13 @@ The `shipit doctor` command is platform-scoped. For iOS projects it checks the f
 
 ### Command wrappers
 
-- ``JSPackageManager``
 - ``JSScriptRunner``
 
 ### Build system
 
-- ``BuildSystem``
-- ``BuildSystem/flutter``
-- ``BuildSystem/reactNative``
+- `AppFramework` (MobileCore)
+- `AppFramework.flutter``
+- `AppFramework.reactNative``
 
 ### Related
 

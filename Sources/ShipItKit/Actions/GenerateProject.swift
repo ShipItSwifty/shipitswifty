@@ -195,7 +195,7 @@ extension ActionContext {
         )
     }
 
-    /// Links the KMP shared framework when targeting iOS with ``BuildSystem/kmp``.
+    /// Links the KMP shared framework when targeting iOS with `AppFramework.kmp`.
     ///
     /// - Parameters:
     ///   - buildConfiguration: Effective build configuration for the following `xcodebuild` step.

@@ -1,4 +1,5 @@
 import Foundation
+import MobileCore
 import Yams
 
 public struct ShipfileValidator: Sendable {

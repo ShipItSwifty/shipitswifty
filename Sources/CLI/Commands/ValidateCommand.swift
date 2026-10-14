@@ -1,4 +1,5 @@
 import ArgumentParser
+import MobileCore
 import ShipItKit
 
 /// Top-level `shipit validate` command — delegates to subcommands.

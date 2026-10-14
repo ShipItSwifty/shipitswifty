@@ -1,4 +1,5 @@
 import Foundation
+import MobileCore
 
 /// Factory and runtime for user-defined composite actions declared in
 /// `Shipfile.yml` under `custom_actions:`.
@@ -178,7 +179,7 @@ public enum CompositeAction {
     /// Substitutes `{{param.X}}` within a single string.
     ///
     /// If the whole trimmed string is exactly one `{{param.X}}` reference the
-    /// underlying typed ``JSONValue`` is returned to preserve `bool` / `int` /
+    /// underlying typed `JSONValue` is returned to preserve `bool` / `int` /
     /// `array` types. Otherwise occurrences are stringified inline.
     static func substituteString(
         _ input: String,

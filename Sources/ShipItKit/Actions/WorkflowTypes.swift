@@ -1,5 +1,6 @@
 import Foundation
 import Logging
+import MobileCore
 
 /// A single step within a workflow, referencing a registered action by name.
 ///

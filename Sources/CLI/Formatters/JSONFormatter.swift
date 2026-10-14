@@ -1,4 +1,5 @@
 import Foundation
+import MobileCore
 import ShipItKit
 
 /// Formats output as machine-readable JSON for CI systems.

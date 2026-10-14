@@ -1,4 +1,5 @@
 import Foundation
+import MobileTesting
 import SwiftPMKit
 import SwiftyShell
 import Synchronization
@@ -14,7 +15,7 @@ struct ReportReconciliationTests {
     private func run(_ cases: [ParsedTestCase]) -> ParsedTestRun {
         func count(_ status: TestCaseStatus) -> Int { cases.filter { $0.status == status }.count }
         return ParsedTestRun(
-            runner: .gradle, buildSystem: .native, source: "gradle",
+            runner: .gradle, framework: .native, source: "gradle",
             summary: .init(passed: count(.passed), failed: count(.failed), skipped: count(.skipped), errored: count(.errored)),
             testCases: cases)
     }

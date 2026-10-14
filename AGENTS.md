@@ -283,6 +283,8 @@ ShipItSwifty is a Swift 6 CLI toolkit for iOS and Android app release automation
 
 The tool wrappers (`XcodeBuildKit`, `XcrunKit`, `GradleKit`, `AdbKit`, `EmulatorKit`, `BundletoolKit`, `AndroidCLIKit`, `XcodeGenKit`, `FlutterKit`, `ReactNativeKit`, `SwiftPMKit`, `SecurityKit`, `PlutilKit`, `FrameitKit`, …) live in [`cli-wrappers`](https://github.com/ShipItSwifty/cli-wrappers), one product per tool, and ShipItKit imports each one explicitly where it is used — nothing is re-exported. Users who only need a wrapper depend on `cli-wrappers` directly. ShipItKit tracks its `main` branch until it reaches 1.0.
 
+Mechanisms shared with Amoo come from [`mobile-kits`](https://github.com/ShipItSwifty/mobile-kits): `MobileCore` (`AppFramework` — formerly `BuildSystem` — `JSONValue`), `MobileTesting` (native result parsers, `ParsedTestRun`, destinations), `MobileBuild` (`JavaScriptProject`), `MobileDevices` (the device-claim store behind `SimulatorLease`), and `MobileProject` (`FrameworkDetector`). Policies stay here: retries and flaky classification across attempts (`TestRunReport`), coverage, evidence, reporting, and store submission.
+
 App Store Connect support (the client, JWT auth, rate limiter, DTOs, IPA upload, and the Xcode Cloud `ci*` read API) lives in a **separate public package**, `github.com/ShipItSwifty/app-store-connect-mcp` (products `AppStoreConnectKit` + macOS-only `AppStoreConnectUploadKit`, plus an MCP server for CI-failure investigation). ShipItKit depends on it directly (`import AppStoreConnectKit`, no re-export) and maps its `ASCError` to `ShipItError` at the action boundary via `mappingASCErrors { }` (`Sources/ShipItKit/AppStoreConnect/ASCErrorBridge.swift`). Actions pass `context.ascCredentials` (`ASCCredentials`) + `context.shell` to the package's services instead of the whole `ActionContext`.
 
 Google Play support (the `androidpublisher` v3 client, DTOs, and the edit→upload→track→commit
@@ -402,7 +404,7 @@ Sources/
                       # SchemaTypes, SchemaValidator, ShipfileValidator,
                       # AISessionTypes, AISessionBuilder
     Plugin/           # ShipItPlugin protocol, ActionRegistry, PluginRegistry
-    Utilities/        # JSONValue, Logger, ShipItError, RetryPolicy, JSONReporter,
+    Utilities/        # Logger, ShipItError, RetryPolicy, JSONReporter, SimulatorLease,
                       # AndroidDeviceProvisioner (emulator/device orchestration)
     Versioning/       # VersionBumper, BuildNumberSource
     Notifications/    # Notifier

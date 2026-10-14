@@ -1,4 +1,5 @@
 import Foundation
+import MobileTesting
 import SwiftPMKit
 import SwiftyShell
 import TestCommons
@@ -19,7 +20,7 @@ struct ResultInspectionTests {
         let run = try await ResultInspection(shell: .init()).read(path.path, runner: .gradle, buildSystem: .kmp)
         let test = try #require(run.testCases.first)
         #expect(run.runner == .gradle)
-        #expect(run.buildSystem == .kmp)
+        #expect(run.framework == .kmp)
         #expect(run.summary.errored == 1)
         #expect(run.summary.failed == 0)
         #expect(test.durationSeconds == 1.25)
@@ -114,7 +115,7 @@ struct ResultInspectionTests {
         let scratch = try TemporaryDirectory()
         defer { try? scratch.remove() }
         let report = ParsedTestRun(
-            runner: .flutterTest, buildSystem: .flutter, source: "events.jsonl", summary: .init(passed: 1),
+            runner: .flutterTest, framework: .flutter, source: "events.jsonl", summary: .init(passed: 1),
             testCases: [.init(stableID: "case", name: "test", status: .passed)])
         let output = scratch.url.appendingPathComponent("export")
         _ = try await EvidenceExporter(shell: .init()).export(runs: [report], sources: [], to: output.path)
@@ -268,7 +269,7 @@ struct ResultIntegrityTests {
         }
         let live = try #require(
             await TestAction().parseJUnitReports(projectDir: scratch.url.path, task: "testDebugUnitTest", buildSystem: .kmp))
-        #expect(live.buildSystem == .kmp)
+        #expect(live.framework == .kmp)
         #expect(live.destinations.map(\.platform) == [.android], "a unit-test task is Android on the host JVM")
         let liveIDs = live.testCases.map(\.stableID)
         #expect(Set(liveIDs).count == 2, "the same test in two modules must stay distinct")

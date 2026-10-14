@@ -1,4 +1,5 @@
 import Foundation
+import MobileTesting
 import Testing
 
 @testable import ShipItKit
@@ -11,7 +12,7 @@ struct TestResultModelsTests {
         let phone = TestDestination(platform: .ios, kind: .simulator, name: "iPhone 16")
         let run = ParsedTestRun(
             runner: .xcodebuild,
-            buildSystem: .native,
+            framework: .native,
             source: "/tmp/Tests.xcresult",
             destinations: [phone],
             summary: TestSummary(passed: 8, failed: 1, skipped: 1),
@@ -50,7 +51,7 @@ struct TestResultModelsTests {
         let decoded = try JSONDecoder().decode(ParsedTestRun.self, from: data)
 
         #expect(decoded.runner == .xcodebuild)
-        #expect(decoded.buildSystem == .native)
+        #expect(decoded.framework == .native)
         #expect(decoded.destinations == [phone])
         #expect(decoded.platforms == [.ios])
         #expect(decoded.testCases.first?.destinationID == phone.id)

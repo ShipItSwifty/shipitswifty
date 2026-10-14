@@ -4,7 +4,7 @@ import Testing
 
 @testable import ShipItKit
 
-@Suite("ConfigResolver — BuildSystem resolution")
+@Suite("ConfigResolver — AppFramework resolution")
 struct ConfigResolverBuildSystemTests {
 
     @Test("Defaults to .native when no source sets a build system")

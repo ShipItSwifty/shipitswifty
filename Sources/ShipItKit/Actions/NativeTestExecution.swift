@@ -1,5 +1,6 @@
 #if os(macOS)
 import Foundation
+import MobileTesting
 import SwiftyShell
 import XcodeBuildKit
 import XcrunKit
@@ -329,7 +330,7 @@ struct NativeTestExecution: Sendable {
             }
         }
         return ParsedTestRun(
-            runner: .xcodebuild, buildSystem: context.config.iosBuildSystem, source: path, summary: .init(errored: 1),
+            runner: .xcodebuild, framework: context.config.iosBuildSystem, source: path, summary: .init(errored: 1),
             diagnostics: [.init(severity: .error, message: errorMessage)])
     }
 

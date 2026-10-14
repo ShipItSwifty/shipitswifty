@@ -1,4 +1,5 @@
 import Foundation
+import MobileTesting
 import SwiftPMKit
 import SwiftyShell
 
@@ -154,7 +155,7 @@ public struct SwiftTestAction: Action {
             selectedRuns += 1
             let swiftRun = try? SwiftEventParser().parse(path: events.path, destination: destination)
             let legacyRun = try? await AndroidJUnitTestParser().parse(
-                reportDirectory: directory.appendingPathComponent("xctest.xml").path, runner: .swiftTest, buildSystem: .native,
+                reportDirectory: directory.appendingPathComponent("xctest.xml").path, runner: .swiftTest, framework: .native,
                 destination: destination)
             let cases = (swiftRun?.testCases ?? []) + (legacyRun?.testCases ?? [])
             guard !cases.isEmpty else {
@@ -181,7 +182,7 @@ public struct SwiftTestAction: Action {
                     log: "Swift Testing results unavailable or empty. Logs: \(directory.path)\n" + output.stdout + output.stderr)
             }
             let parsed = ParsedTestRun(
-                runner: .swiftTest, buildSystem: .native, source: directory.path, destinations: [destination],
+                runner: .swiftTest, framework: .native, source: directory.path, destinations: [destination],
                 summary: .init(
                     passed: cases.filter { $0.status == .passed }.count,
                     failed: cases.filter { $0.status == .failed }.count, skipped: cases.filter { $0.status == .skipped }.count,

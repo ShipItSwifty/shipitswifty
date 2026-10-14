@@ -1,4 +1,5 @@
 import Foundation
+import MobileTesting
 import SwiftyShell
 import Synchronization
 import TestCommons
@@ -82,7 +83,7 @@ struct TestDestinationTests {
         }
         let run = try await ResultInspection(shell: .init()).read(scratch.url.path, format: .junit, runner: .gradle, buildSystem: .kmp)
         #expect(run.runner == .gradle)
-        #expect(run.buildSystem == .kmp)
+        #expect(run.framework == .kmp)
         #expect(Set(run.platforms) == [.ios, .jvm])
         #expect(run.testCases.count == 2, "the same test on two targets stays two tests")
         let ios = try #require(run.destinations.first { $0.platform == .ios })
@@ -119,12 +120,12 @@ struct TestDestinationTests {
         let jvm = TestDestination.gradle(task: "jvmTest")
         func run(_ runner: TestRunner, _ destination: TestDestination) -> ParsedTestRun {
             ParsedTestRun(
-                runner: runner, buildSystem: .native, source: "s", destinations: [destination], summary: .init(passed: 1),
+                runner: runner, framework: .native, source: "s", destinations: [destination], summary: .init(passed: 1),
                 testCases: [.init(stableID: "t", name: "t", status: .passed, destinationID: destination.id)])
         }
         let mixed = ParsedTestRun.merging([run(.xcodebuild, ios), run(.gradle, jvm)], source: "a, b")
         #expect(mixed.runner == .multiple)
-        #expect(mixed.buildSystem == .native)
+        #expect(mixed.framework == .native)
         #expect(mixed.destinations == [ios, jvm])
         #expect(mixed.testCases.map(\.stableID) == ["input-1:t", "input-2:t"])
         #expect(mixed.testCases.map(\.destinationID) == [ios.id, jvm.id])
@@ -143,7 +144,7 @@ struct TestDestinationTests {
     @Test("The JSON has typed runner and destinations and no run-level platform string")
     func jsonShape() throws {
         let run = ParsedTestRun(
-            runner: .gradle, buildSystem: .kmp, source: "s", destinations: [TestDestination.gradle(task: "jvmTest")],
+            runner: .gradle, framework: .kmp, source: "s", destinations: [TestDestination.gradle(task: "jvmTest")],
             summary: .init(passed: 1), testCases: [.init(stableID: "t", name: "t", status: .passed, destinationID: "jvm:host:jvmTest")])
         let object = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(run)) as? [String: Any])
         #expect(object["platform"] == nil)
