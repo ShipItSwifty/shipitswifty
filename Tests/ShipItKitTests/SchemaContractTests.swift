@@ -203,4 +203,21 @@ struct SchemaContractTests {
         #expect(names.contains("force"))
     }
     #endif
+
+    @Test("Workflows schema documents step artifacts, continue_on_failure and run tokens")
+    func workflowsSchemaDocumentsEvidenceKeys() throws {
+        let workflows = try #require(BuiltInSchemaCatalog.shipfileFields().first { $0.name == "workflows" })
+        let text = ([workflows.description] + workflows.notes).joined(separator: "\n")
+        for needle in ["artifacts", "retention_days", "continue_on_failure", "{{run_id}}", "{{test_report_path}}"] {
+            #expect(text.contains(needle), "workflows schema is missing \(needle)")
+        }
+        #expect(BuiltInSchemaCatalog.shipfileFields().contains { $0.name == "test_workflow" })
+    }
+
+    @Test("Test destinations schema describes auto-discovery, not a hard requirement")
+    func testDestinationsDescribeAutoDiscovery() throws {
+        let destinations = try #require(BuiltInSchemaCatalog.optionSchema(for: "test").first { $0.name == "destinations" })
+        #expect(destinations.description.contains("auto-discovers"))
+        #expect(!destinations.description.contains("At least one destination is required"))
+    }
 }

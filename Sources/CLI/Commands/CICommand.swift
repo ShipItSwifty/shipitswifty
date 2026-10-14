@@ -9,11 +9,11 @@ struct CICommand: AsyncParsableCommand {
 struct CIExportCommand: AsyncParsableCommand {
     static let configuration = CommandConfiguration(commandName: "export", abstract: "Export a runnable CI job with artifact publication")
     @OptionGroup var global: GlobalOptions
-    @Option(name: .long) var provider: String = "github-actions"
-    @Option(name: .long) var workflow: String
+    @Option(name: .long, help: "CI provider to export for") var provider: String = "github-actions"
+    @Option(name: .long, help: "Shipfile workflow the exported job runs with `shipit run`") var workflow: String
     @Option(name: .long, help: "Explicit provider runner label") var runner: String
     @Option(name: .customLong("setup-command"), help: "Toolchain/setup command, repeatable") var setupCommands: [String] = []
-    @Option(name: .long) var executable: String = "shipit"
+    @Option(name: .long, help: "shipit executable the job invokes") var executable: String = "shipit"
     @Option(name: .long, help: "Write YAML to a new file instead of stdout") var exportPath: String?
     func run() async throws {
         let config = try await resolveRequiredConfig(global: global, cliOptions: .init())
