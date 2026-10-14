@@ -24,6 +24,11 @@ enum CrossPlatformArtifactPaths {
         return "\(module)/build/outputs/bundle/\(variant)/\(filename)"
     }
 
+    /// Returns the conventional native Gradle APK path for a given module and variant.
+    static func nativeAPK(module: String = "app", variant: String = "release") -> String {
+        "\(module)/build/outputs/apk/\(variant)/\(module)-\(variant).apk"
+    }
+
     static func flutterAAB(flavor: String? = nil, variant: String = "release") -> String {
         let normalizedVariant = variant.lowercased()
         if let flavor, !flavor.isEmpty {

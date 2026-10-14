@@ -1,5 +1,6 @@
 #if os(macOS)
 import Foundation
+import MobileBuild
 import MobileTesting
 import SwiftyShell
 import XcodeBuildKit
@@ -43,23 +44,51 @@ struct NativeTestExecution: Sendable {
         if FileManager.default.fileExists(atPath: products) {
             throw ShipItError.invalidConfiguration(reason: "test_products_path already exists: \(products)")
         }
-        var base = context.streamingXcodeBuild().option(.scheme(scheme)).option(.configuration(options.configuration ?? "Debug"))
+        let container: XcodeContainer?
         if let workspace = context.config.appWorkspace {
-            base = base.workspace(workspace)
+            container = .workspace(workspace)
         } else if let project = context.config.appProject {
-            base = base.project(project)
+            container = .project(project)
+        } else {
+            container = nil
         }
-        for (key, value) in context.config.xcargs { base = base.buildSetting(key, value) }
-        if options.skipMacroValidation == true { base = base.option(.skipMacroValidation) }
-        if options.enableCodeCoverage == true { base = base.option(.enableCodeCoverage("YES")) }
+        var additionalOptions: [XcodeBuildOption] = []
+        if options.skipMacroValidation == true { additionalOptions.append(.skipMacroValidation) }
+        if options.enableCodeCoverage == true { additionalOptions.append(.enableCodeCoverage("YES")) }
+        let buildRequest = XcodeBuildRequest(
+            container: container,
+            scheme: scheme,
+            configuration: options.configuration ?? "Debug",
+            destination: .custom(destinations[0]),
+            buildSettings: context.config.xcargs,
+            additionalOptions: additionalOptions
+        )
+        let builder = XcodeBuilder(shell: context.shell, output: context.buildOutput)
+        let runner = XcodeTestRunner(shell: context.shell, output: context.buildOutput)
         // Known before anything runs, so a report written by an early failure still says where the tests were headed.
         var reportDestinations: [TestDestination] = destinations.flatMap { destination in
             plans.map { TestDestination.xcode(specifier: destination, plan: $0) }
         }
-        let (build, buildSeconds) = try await capture(
-            base.option(.destination(destinations[0])).option(.testProductsPath(products)).buildForTesting(),
-            directory: root.appendingPathComponent("build"))
-        context.logger.info("Built the tests once in \(Self.format(buildSeconds)); every plan and attempt reuses the products")
+        let buildDirectory = root.appendingPathComponent("build")
+        let buildStarted = Date()
+        let build: ShellOutput
+        let buildArguments: [String]
+        do {
+            let outcome = try await builder.buildForTesting(buildRequest, testProductsPath: products)
+            build = outcome.output
+            buildArguments = Array(
+                builder.command(for: buildRequest).option(.testProductsPath(products)).buildForTesting().command().arguments)
+            for note in outcome.diagnostics { context.logger.warning("\(note)") }
+        } catch let failure as BuildFailure {
+            build = failure.output
+            buildArguments = Array(failure.command.dropFirst())
+        } catch {
+            try? FileManager.default.createDirectory(at: buildDirectory, withIntermediateDirectories: true)
+            try? saveInterruptedTestOutput(error, directory: buildDirectory)
+            throw error
+        }
+        let buildSeconds = Date().timeIntervalSince(buildStarted)
+        recordLogs(build, arguments: buildArguments, started: buildStarted, seconds: buildSeconds, directory: buildDirectory)
         if build.exitCode != 0 {
             let failure = TestRunReport(
                 runner: .xcodebuild, buildSystem: context.config.iosBuildSystem, source: root.path,
@@ -131,24 +160,44 @@ struct NativeTestExecution: Sendable {
                         } else {
                             resultPath = directory.appendingPathComponent("results.xcresult").path
                         }
-                        var command = context.streamingXcodeBuild().option(.destination(destination)).option(.testProductsPath(products))
-                            .option(.resultBundlePath(resultPath)).testWithoutBuilding()
                         // On a failing test xcodebuild otherwise gathers a simulator sysdiagnose, which can hang for its
                         // full 600s timeout after the tests finished in under a second. ShipIt keeps its own device log,
                         // screenshot and result-bundle attachments for every attempt, so the sysdiagnose adds nothing.
-                        command = command.option(.collectTestDiagnostics("never"))
-                        if let plan { command = command.option(.testPlan(plan)) }
+                        var extraOptions: [XcodeBuildOption] = [.collectTestDiagnostics("never")]
                         let serial = options.serial == true || serialDestinations.contains(destination)
-                        if serial { command = command.option(.parallelTestingEnabled("NO")) }
-                        for test in selectors ?? options.onlyTesting ?? [] { command = command.option(.onlyTesting(test)) }
-                        for test in options.skipTesting ?? [] { command = command.option(.skipTesting(test)) }
-                        for config in configurations { command = command.option(.onlyTestConfiguration(config)) }
-                        if options.retryOnFailure == true { command = command.option(.retryTestsOnFailure) }
+                        if serial { extraOptions.append(.parallelTestingEnabled("NO")) }
+                        if options.retryOnFailure == true { extraOptions.append(.retryTestsOnFailure) }
+                        let selection = XcodeTestSelection(
+                            testPlan: plan, onlyTesting: selectors ?? options.onlyTesting ?? [], skipTesting: options.skipTesting ?? [],
+                            onlyTestConfigurations: configurations)
                         try await action.resetIOSAppInstallationIfNeeded(scheme: scheme, destination: destination, context: context)
                         let attemptStarted = Date()
-                        let (output, testSeconds) = try await capture(command, directory: directory)
+                        let output: ShellOutput
+                        let run: ParsedTestRun
+                        let testSeconds: TimeInterval
+                        let arguments: [String]
+                        do {
+                            let execution = try await runner.testWithoutBuilding(
+                                testProducts: products, destination: .custom(destination), selection: selection,
+                                resultBundlePath: resultPath, additionalOptions: extraOptions)
+                            (output, run, testSeconds, arguments) = (
+                                execution.output, execution.run, execution.durationSeconds, Array(execution.command.dropFirst())
+                            )
+                        } catch let failure as TestExecutionFailure {
+                            // Nothing usable came back (no result bundle, or one that cannot be read): an errored attempt.
+                            context.logger.warning("Attempt \(number) of plan \(plan ?? "default"): \(failure.reason)")
+                            (output, testSeconds, arguments) = (
+                                failure.output, Date().timeIntervalSince(attemptStarted), Array(failure.command.dropFirst())
+                            )
+                            run = ParsedTestRun(
+                                runner: .xcodebuild, framework: context.config.iosBuildSystem, source: resultPath,
+                                summary: .init(errored: 1), diagnostics: [.init(severity: .error, message: failure.reason)])
+                        } catch {
+                            try? saveInterruptedTestOutput(error, directory: directory)
+                            throw error
+                        }
+                        recordLogs(output, arguments: arguments, started: attemptStarted, seconds: testSeconds, directory: directory)
                         let log = output.stdout + output.stderr
-                        let run = try await readResults(resultPath)
                         // A UDID-only specifier names the device by an identifier that differs per machine; the result
                         // bundle knows its real name, so use that and keep IDs stable across machines.
                         if resolvedName == nil, run.destinations.count == 1, let name = run.destinations[0].name {
@@ -320,20 +369,6 @@ struct NativeTestExecution: Sendable {
             passCount: report.summary.passed, failCount: 0, skipCount: report.summary.skipped,
             resultBundlePath: resultPaths.first, report: report)
     }
-    private func readResults(_ path: String) async throws -> ParsedTestRun {
-        var errorMessage = "Structured test results unavailable"
-        for number in 1...3 {
-            do { return try await IOSXCResultTestParser(shell: context.shell).parse(xcresultPath: path) } catch {
-                if Task.isCancelled || error is CancellationError { throw error }
-                errorMessage = String(describing: error)
-                if number < 3 { try await Task.sleep(for: .milliseconds(250 * number)) }
-            }
-        }
-        return ParsedTestRun(
-            runner: .xcodebuild, framework: context.config.iosBuildSystem, source: path, summary: .init(errored: 1),
-            diagnostics: [.init(severity: .error, message: errorMessage)])
-    }
-
     private func planSettings(_ plan: String?) throws -> [String: [String: String]] {
         guard let plan else { return [:] }
         let root =
@@ -393,24 +428,16 @@ struct NativeTestExecution: Sendable {
     }
 
     /// Runs `command`, keeps its logs, and returns its output with how long it ran.
-    private func capture(_ command: XcodeBuild, directory: URL) async throws -> (ShellOutput, TimeInterval) {
-        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        let started = Date()
-        let output: ShellOutput
-        do { output = try await command.run() } catch let ShellError.exitFailure(_, captured) { output = captured } catch {
-            try? saveInterruptedTestOutput(error, directory: directory)
-            throw error
-        }
-        let seconds = Date().timeIntervalSince(started)
+    private func recordLogs(_ output: ShellOutput, arguments: [String], started: Date, seconds: TimeInterval, directory: URL) {
+        try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         saveEvidence("attempt logs", logger: context.logger) {
             try output.stdout.write(to: directory.appendingPathComponent("stdout.log"), atomically: true, encoding: .utf8)
             try output.stderr.write(to: directory.appendingPathComponent("stderr.log"), atomically: true, encoding: .utf8)
             try writeJSON(
                 CommandRecord(
-                    arguments: command.command().arguments, exitCode: [String(output.exitCode)], startedAt: started,
-                    durationSeconds: seconds), to: directory.appendingPathComponent("command.json"))
+                    arguments: arguments, exitCode: [String(output.exitCode)], startedAt: started, durationSeconds: seconds),
+                to: directory.appendingPathComponent("command.json"))
         }
-        return (output, seconds)
     }
 
     private static func format(_ seconds: TimeInterval) -> String {

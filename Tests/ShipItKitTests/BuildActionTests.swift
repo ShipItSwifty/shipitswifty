@@ -1,5 +1,6 @@
 import Foundation
 import SwiftyShell
+import TestCommons
 import Testing
 
 @testable import ShipItKit
@@ -222,8 +223,69 @@ struct BuildActionTests {
         let arguments = capturedCommand?.arguments ?? []
         #expect(!arguments.contains("-authenticationKeyPath"), "Manual signing should not pass ASC key flags")
     }
+
+    @Test("BuildAction reports the .app that xcodebuild's build settings name, not one scraped from the log")
+    func buildActionAppPathFromBuildSettings() async throws {
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let products = scratch.url.appendingPathComponent("Products").path
+        try FileManager.default.createDirectory(atPath: products + "/MockApp.app", withIntermediateDirectories: true)
+        let settings =
+            "[{\"action\":\"build\",\"target\":\"MockApp\",\"buildSettings\":{\"TARGET_BUILD_DIR\":\"\(products)\","
+            + "\"FULL_PRODUCT_NAME\":\"MockApp.app\",\"WRAPPER_EXTENSION\":\"app\"}}]"
+        let executor = MockExecutor { command, _ in
+            command.arguments.contains("-showBuildSettings")
+                ? ShellOutput(stdout: settings, stderr: "", exitCode: 0)
+                : ShellOutput(stdout: "/elsewhere/Decoy.app\n** BUILD SUCCEEDED **\n", stderr: "", exitCode: 0)
+        }
+        let context = ActionContext.mock(executor: executor)
+
+        let result = try await BuildAction().run(with: .init(scheme: "MockApp"), context: context)
+
+        #expect(result.appPath == products + "/MockApp.app")
+    }
 }
 #endif
+
+
+// MARK: - BuildAction Android artifacts
+
+@Suite("BuildAction Android artifacts")
+struct BuildActionAndroidArtifactTests {
+    private func run(in scratch: TemporaryDirectory, writing metadata: Bool) async throws -> BuildAction.Result {
+        let outputs = scratch.url.appendingPathComponent("app/build/outputs/apk/release")
+        let executor = MockExecutor { _, _ in
+            if metadata {
+                try FileManager.default.createDirectory(at: outputs, withIntermediateDirectories: true)
+                try Data(#"{"elements":[{"outputFile":"app-release.apk"}]}"#.utf8)
+                    .write(to: outputs.appendingPathComponent("output-metadata.json"))
+            }
+            return ShellOutput(stdout: "BUILD SUCCESSFUL in 2s\n", stderr: "", exitCode: 0)
+        }
+        let config = ResolvedConfig(
+            platform: .android, projectRoot: scratch.url.path, androidModule: "app", androidBuildVariant: "release",
+            gradleProjectDir: scratch.url.path)
+        let context = makeTestActionContext(executor: executor, config: config, platform: .android)
+        return try await BuildAction().run(with: .init(), context: context)
+    }
+
+    @Test("Reports the APK Gradle recorded in output-metadata.json")
+    func recordedAPK() async throws {
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let result = try await run(in: scratch, writing: true)
+        #expect(result.apkPath?.hasSuffix("app/build/outputs/apk/release/app-release.apk") == true)
+        #expect(result.apkPath?.hasPrefix("/") == true)
+    }
+
+    @Test("Falls back to the conventional path when Gradle skipped the task as up to date")
+    func upToDateFallsBack() async throws {
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let result = try await run(in: scratch, writing: false)
+        #expect(result.apkPath == "app/build/outputs/apk/release/app-release.apk")
+    }
+}
 
 // MARK: - BuildAction Options Tests
 

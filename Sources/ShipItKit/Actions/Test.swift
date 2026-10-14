@@ -2,7 +2,9 @@ import FlutterKit
 import Foundation
 import GradleKit
 import Logging
+import MobileBuild
 import MobileCore
+import MobileDevices
 import MobileTesting
 import SwiftyShell
 import XcodeBuildKit
@@ -959,7 +961,7 @@ public struct TestAction: Action {
             classifier: KMPInfrastructureClassifier(),
             label: task.name
         ) {
-            let gradle = context.gradle()
+            let gradle = context.gradleTestCommand(streaming: false)
                 .task(task)
 
             let output: ShellOutput
@@ -1357,41 +1359,34 @@ public struct TestAction: Action {
             )
             try self.removeStaleResultBundleIfNeeded(resultBundlePath)
 
-            var xcodeBuild = context.streamingXcodeBuild()
-                .option(.scheme(scheme))
-                .option(.configuration(configuration))
-                .option(.destination(destination))
-                .test()
-
+            let container: XcodeContainer?
             if let workspace = context.config.appWorkspace {
-                xcodeBuild = xcodeBuild.workspace(workspace)
+                container = .workspace(workspace)
             } else if let project = context.config.appProject {
-                xcodeBuild = xcodeBuild.project(project)
+                container = .project(project)
+            } else {
+                container = nil
             }
 
-            if options.enableCodeCoverage == true {
-                xcodeBuild = xcodeBuild.option(.enableCodeCoverage("YES"))
-            }
+            var additionalOptions: [XcodeBuildOption] = []
+            if options.enableCodeCoverage == true { additionalOptions.append(.enableCodeCoverage("YES")) }
+            if let testPlan = options.testPlan { additionalOptions.append(.testPlan(testPlan)) }
+            for target in overrideOnlyTesting ?? options.onlyTesting ?? [] { additionalOptions.append(.onlyTesting(target)) }
+            for target in options.skipTesting ?? [] { additionalOptions.append(.skipTesting(target)) }
+            if options.retryOnFailure == true { additionalOptions.append(.retryTestsOnFailure) }
 
-            if let resultPath = resultBundlePath {
-                xcodeBuild = xcodeBuild.option(.resultBundlePath(resultPath))
-            }
-
-            if let testPlan = options.testPlan {
-                xcodeBuild = xcodeBuild.option(.testPlan(testPlan))
-            }
-
-            for target in overrideOnlyTesting ?? options.onlyTesting ?? [] {
-                xcodeBuild = xcodeBuild.option(.onlyTesting(target))
-            }
-
-            for target in options.skipTesting ?? [] {
-                xcodeBuild = xcodeBuild.option(.skipTesting(target))
-            }
-
-            if options.retryOnFailure == true {
-                xcodeBuild = xcodeBuild.option(.retryTestsOnFailure)
-            }
+            let xcodeBuild = XcodeBuilder(shell: context.shell, output: context.buildOutput)
+                .command(
+                    for: XcodeBuildRequest(
+                        container: container,
+                        scheme: scheme,
+                        configuration: configuration,
+                        destination: .custom(destination),
+                        resultBundlePath: resultBundlePath,
+                        additionalOptions: additionalOptions)
+                )
+                .outputLimit(0)
+                .test()
 
             do {
                 let output = try await xcodeBuild.run()
@@ -1502,7 +1497,7 @@ public struct TestAction: Action {
             promptForEmulators: promptForAndroidEmulatorsHandler,
             isInteractiveTerminal: isInteractiveTerminalHandler
         )
-        var spawnedEmulators: [any SpawnedProcess] = []
+        var spawnedEmulators: [EmulatorInstance] = []
         if kind == .instrumented {
             spawnedEmulators = try await provisioner.prepare(devices: devices)
             try await provisioner.resetAppInstallations(packageName: context.config.androidPackageName)
@@ -1653,7 +1648,7 @@ public struct TestAction: Action {
     ) async throws -> TestExecutionSnapshot {
         // `--tests` is a task option: it must follow the task name, not precede it as a global flag.
         let filteredTask = kind == .unit ? scopedTask.filteringTests(testFilters ?? []) : scopedTask
-        var gradle = context.streamingGradle().task(filteredTask)
+        var gradle = context.gradleTestCommand(streaming: true).task(filteredTask)
         // Complete independent modules before collecting failures for a root-scoped rerun.
         if kind == .unit && !scopedTask.name.contains(":") { gradle = gradle.flag(.continueAfterFailure) }
 
@@ -1693,7 +1688,7 @@ public struct TestAction: Action {
         }
 
         let parsed = self.parseGradleCounts(from: output.stdout + "\n" + output.stderr)
-        // Output already streamed live via streamingGradle()'s .tee destination — no debug re-dump.
+        // Output already streamed live via the build output policy — no debug re-dump.
 
         do {
             if let run = try await parseJUnitReports(projectDir: context.config.gradleProjectDir, task: baseTask.name) {
