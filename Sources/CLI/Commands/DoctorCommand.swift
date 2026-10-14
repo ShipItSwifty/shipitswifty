@@ -2,6 +2,7 @@
 import AndroidCLIKit
 import ArgumentParser
 import Foundation
+import MobileCore
 import SecurityKit
 import ShipItKit
 import SwiftyShell
@@ -220,12 +221,12 @@ struct DoctorCommand: AsyncParsableCommand {
     }
 
     /// Returns toolchain checks gated on the resolved build system for each platform.
-    /// Empty when both platforms resolve to ``BuildSystem/native``.
+    /// Empty when both platforms resolve to `AppFramework.native`.
     static func buildSystemToolCheckCommands(
         shell: ShellContext,
         config: ResolvedConfig
     ) -> [ToolCheck] {
-        let active: Set<BuildSystem> = Set(
+        let active: Set<AppFramework> = Set(
             [(config.platform == .ios ? config.iosBuildSystem : config.androidBuildSystem)].filter { $0 != .native }
         )
         var checks: [ToolCheck] = []

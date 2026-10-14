@@ -2,6 +2,8 @@ import FlutterKit
 import Foundation
 import GradleKit
 import Logging
+import MobileCore
+import MobileTesting
 import SwiftyShell
 import XcodeBuildKit
 import XcrunKit
@@ -516,7 +518,7 @@ public struct TestAction: Action {
     }
 
     private func runRecorded(options: Options, context: ActionContext) async throws -> Result {
-        let buildSystem: BuildSystem =
+        let buildSystem: AppFramework =
             context.platform == .ios
             ? context.config.iosBuildSystem
             : context.config.androidBuildSystem
@@ -615,7 +617,7 @@ public struct TestAction: Action {
             } else {
                 let counts = parseFlutterCounts(from: output.stdout)
                 run = ParsedTestRun(
-                    runner: .flutterTest, buildSystem: .flutter, source: "stdout", destinations: [destination],
+                    runner: .flutterTest, framework: .flutter, source: "stdout", destinations: [destination],
                     summary: .init(passed: counts.pass, failed: counts.fail, skipped: counts.skip),
                     testCases: counts.failedTests.map {
                         .init(stableID: $0, name: $0, status: .failed, rerunSelector: .flutter(name: $0), destinationID: destination.id)
@@ -749,14 +751,14 @@ public struct TestAction: Action {
 
             let run: ParsedTestRun
             if usesJest, FileManager.default.fileExists(atPath: outputFile.path),
-                let parsed = try? await JestJSONTestParser(logger: logger).parse(jsonFilePath: outputFile.path, buildSystem: .reactNative),
+                let parsed = try? await JestJSONTestParser(logger: logger).parse(jsonFilePath: outputFile.path, framework: .reactNative),
                 parsed.hasResults
             {
                 run = parsed
             } else {
                 let counts = parseJSTestCounts(from: output.stdout + output.stderr)
                 run = ParsedTestRun(
-                    runner: .jest, buildSystem: .reactNative, source: "stdout", destinations: [destination],
+                    runner: .jest, framework: .reactNative, source: "stdout", destinations: [destination],
                     summary: .init(passed: counts.pass, failed: counts.fail, skipped: counts.skip),
                     testCases: counts.failedTests.map {
                         .init(
@@ -2078,7 +2080,7 @@ public struct TestAction: Action {
     /// Reads the Gradle JUnit XML for `task`. Identities are relative to `projectDir`, matching what
     /// `ResultInspection` produces offline for the same files, so live and saved runs agree on every test ID.
     func parseJUnitReports(
-        projectDir: String, task: String, buildSystem: BuildSystem? = nil, runner: TestRunner = .gradle
+        projectDir: String, task: String, buildSystem: AppFramework? = nil, runner: TestRunner = .gradle
     ) async throws -> ParsedTestRun? {
         let directories = junitReportDirectories(projectDir: projectDir, task: task)
         var suites: [ParsedTestSuite] = []
@@ -2092,7 +2094,7 @@ public struct TestAction: Action {
         var found = false
         for directory in directories where FileManager.default.fileExists(atPath: directory.path) {
             let run = try await AndroidJUnitTestParser(logger: logger).parse(
-                reportDirectory: directory.path, runner: runner, buildSystem: buildSystem, identityRoot: projectDir)
+                reportDirectory: directory.path, runner: runner, framework: buildSystem, identityRoot: projectDir)
             found = true
             passed += run.summary.passed
             failed += run.summary.failed
@@ -2105,7 +2107,7 @@ public struct TestAction: Action {
         }
         guard found else { return nil }
         return ParsedTestRun(
-            runner: runner, buildSystem: buildSystem, source: projectDir, destinations: destinations,
+            runner: runner, framework: buildSystem, source: projectDir, destinations: destinations,
             summary: TestSummary(passed: passed, failed: failed, skipped: skipped, errored: errored),
             suites: suites, testCases: cases, diagnostics: diagnostics)
     }
@@ -2126,10 +2128,10 @@ public struct TestAction: Action {
 
     /// An explicit empty run for a task Gradle reported as having nothing to run, so it is recorded as such
     /// rather than as missing results.
-    func noSourceRun(_ output: ShellOutput, buildSystem: BuildSystem?, task: String) -> ParsedTestRun? {
+    func noSourceRun(_ output: ShellOutput, buildSystem: AppFramework?, task: String) -> ParsedTestRun? {
         guard output.exitCode == 0, gradleTaskHadNothingToRun(output.stdout + "\n" + output.stderr, task: task) else { return nil }
         return ParsedTestRun(
-            runner: .gradle, buildSystem: buildSystem, source: "gradle", summary: .init(),
+            runner: .gradle, framework: buildSystem, source: "gradle", summary: .init(),
             diagnostics: [.init(severity: .info, message: "Gradle reported NO-SOURCE/SKIPPED: the test task had no tests to run")])
     }
 

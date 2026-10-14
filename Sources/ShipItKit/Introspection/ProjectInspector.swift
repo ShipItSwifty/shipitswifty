@@ -1,4 +1,6 @@
 import Foundation
+import MobileCore
+import MobileProject
 import SwiftyShell
 import XcodeBuildKit
 
@@ -25,7 +27,7 @@ public struct ProjectInspector: Sendable {
         let gradleFiles = discoverGradleFiles(fileManager: fileManager)
         let suggestedAndroidPackageName = suggestedAndroidPackageName(fileManager: fileManager)
         let detectedPlatform: Platform = !gradleFiles.isEmpty ? .android : (containers.isEmpty ? .ios : .ios)
-        let detectedBuildSystem = BuildSystem.autoDetect(in: rootPath, fileManager: fileManager)
+        let detectedBuildSystem = FrameworkDetector.detect(in: rootPath, fileManager: fileManager)
         let buildSystemFiles = discoverBuildSystemFiles(
             for: detectedBuildSystem, fileManager: fileManager)
         let swiftPackage = inspectSwiftPackage(fileManager: fileManager)
@@ -125,7 +127,7 @@ public struct ProjectInspector: Sendable {
     /// Returns the marker files that drove the detection of `buildSystem`.
     /// Empty when `buildSystem` is `nil` (i.e. the project is native).
     private func discoverBuildSystemFiles(
-        for buildSystem: BuildSystem?,
+        for buildSystem: AppFramework?,
         fileManager: FileManager
     ) -> [String] {
         guard let buildSystem else { return [] }

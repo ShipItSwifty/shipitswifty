@@ -2,6 +2,7 @@ import FlutterKit
 import Foundation
 import GradleKit
 import Logging
+import MobileCore
 import SwiftyShell
 import XcodeBuildKit
 
@@ -131,7 +132,7 @@ public struct LintAction: Action {
     /// - Returns: Lint result with issue counts and report path.
     /// - Throws: ``ShipItError/lintFailed(exitCode:log:)`` if lint exits non-zero and `failOnError` is true.
     public func run(with options: Options, context: ActionContext) async throws -> Result {
-        let buildSystem: BuildSystem =
+        let buildSystem: AppFramework =
             context.platform == .ios
             ? context.config.iosBuildSystem
             : context.config.androidBuildSystem

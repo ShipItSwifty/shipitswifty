@@ -1,9 +1,10 @@
 #if os(macOS)
 import AppStoreConnectKit
 import Foundation
+import MobileCore
 import SwiftyShell
-import Testing
 import TestCommons
+import Testing
 
 @testable import ShipItKit
 
@@ -196,7 +197,7 @@ struct UploadActionTests {
         session: URLSession,
         bundleID: String,
         submitForReview: Bool = false,
-        iosBuildSystem: BuildSystem = .native,
+        iosBuildSystem: AppFramework = .native,
         workingDirectory: String? = nil
     ) -> ActionContext {
         let base = ActionContext.mock(executor: executor)

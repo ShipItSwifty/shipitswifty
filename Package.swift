@@ -17,6 +17,8 @@ let package = Package(
         .package(url: "https://github.com/maniramezan/SwiftyShell.git", from: "0.7.0"),
         // Typed tool wrappers (xcodebuild, xcrun, Gradle, adb, Flutter, …). Tracks main until 1.0.
         .package(url: "https://github.com/ShipItSwifty/cli-wrappers.git", branch: "main"),
+        // Build, device, test, and inspection mechanisms shared with Amoo. Tracks main until 1.0.
+        .package(url: "https://github.com/ShipItSwifty/mobile-kits.git", branch: "main"),
         // DocC generation command plugin
         .package(url: "https://github.com/swiftlang/swift-docc-plugin", from: "1.5.0"),
         // CLI argument parsing
@@ -45,6 +47,11 @@ let package = Package(
         .target(
             name: "ShipItKit",
             dependencies: [
+                .product(name: "MobileCore", package: "mobile-kits"),
+                .product(name: "MobileBuild", package: "mobile-kits"),
+                .product(name: "MobileDevices", package: "mobile-kits"),
+                .product(name: "MobileProject", package: "mobile-kits"),
+                .product(name: "MobileTesting", package: "mobile-kits"),
                 .product(name: "AdbKit", package: "cli-wrappers"),
                 .product(name: "AndroidCLIKit", package: "cli-wrappers"),
                 .product(name: "BundletoolKit", package: "cli-wrappers"),
@@ -82,6 +89,8 @@ let package = Package(
         .executableTarget(
             name: "ShipItCLI",
             dependencies: [
+                .product(name: "MobileCore", package: "mobile-kits"),
+                .product(name: "MobileTesting", package: "mobile-kits"),
                 "ShipItKit",
                 .product(name: "AndroidCLIKit", package: "cli-wrappers"),
                 .product(name: "ReactNativeKit", package: "cli-wrappers"),
@@ -99,6 +108,8 @@ let package = Package(
         .testTarget(
             name: "ShipItKitTests",
             dependencies: [
+                .product(name: "MobileCore", package: "mobile-kits"),
+                .product(name: "MobileTesting", package: "mobile-kits"),
                 "ShipItKit",
                 .product(name: "SwiftPMKit", package: "cli-wrappers"),
                 .product(name: "XcodeBuildKit", package: "cli-wrappers"),
@@ -121,6 +132,7 @@ let package = Package(
         .testTarget(
             name: "IntegrationTests",
             dependencies: [
+                .product(name: "MobileCore", package: "mobile-kits"),
                 "ShipItKit",
                 .product(name: "Logging", package: "swift-log"),
             ],

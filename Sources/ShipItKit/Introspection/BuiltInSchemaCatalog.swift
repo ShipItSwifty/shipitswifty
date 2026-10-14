@@ -1,6 +1,7 @@
 import FlutterKit
 import Foundation
 import GradleKit
+import MobileCore
 import XcodeBuildKit
 
 public enum BuiltInSchemaCatalog {

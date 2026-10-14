@@ -1,4 +1,5 @@
 import Foundation
+import MobileCore
 
 // MARK: - Inference metadata
 

@@ -1,5 +1,6 @@
 import Foundation
 import Logging
+import MobileTesting
 import SwiftyShell
 
 /// What `command.json` holds for one command an attempt ran: the exact arguments, how it ended, and how long it took.
@@ -114,7 +115,7 @@ public actor TestEvidenceRecorder {
         let report: TestRunReport
         if let initial {
             report = TestRunReport(
-                runner: initial.runner, buildSystem: initial.buildSystem, source: root.path, destinations: initial.destinations,
+                runner: initial.runner, buildSystem: initial.framework, source: root.path, destinations: initial.destinations,
                 attempts: attempts,
                 initialFailedTests: initial.testCases.filter { $0.status == .failed || $0.status == .errored },
                 flakyTests: flaky, persistentFailedTests: remaining,

@@ -115,8 +115,7 @@ These constraints are enforced throughout the codebase:
 
 - <doc:KMPIntegration>
 - <doc:FlutterAndReactNative>
-- ``BuildSystem``
-- ``JSPackageManager``
+- `AppFramework` (MobileCore)
 
 ### AI-assisted setup
 
@@ -168,18 +167,18 @@ These constraints are enforced throughout the codebase:
 ### Test result parsing
 
 - ``ResultInspection``
-- ``TestRunner``
-- ``TestPlatform``
-- ``TestDestination``
-- ``TestDestinationKind``
+- `TestRunner`
+- `TestPlatform`
+- `TestDestination`
+- `TestDestinationKind`
 - ``EvidenceExporter``
-- ``ParsedTestRun``
-- ``TestSummary``
+- `ParsedTestRun`
+- `TestSummary`
 - ``ParsedTestSuite``
-- ``ParsedTestCase``
-- ``TestCaseStatus``
-- ``TestRerunSelector``
-- ``ParsingDiagnostic``
+- `ParsedTestCase`
+- `TestCaseStatus`
+- `TestRerunSelector`
+- `ParsingDiagnostic`
 - ``TestRunReport``
 - ``TestAttempt``
 - ``TestResultParser``
@@ -191,7 +190,7 @@ These constraints are enforced throughout the codebase:
 - <doc:ErrorHandling>
 - ``ShipItError``
 - ``RetryPolicy``
-- ``JSONValue``
+- `JSONValue`
 - ``JSONReporter``
 - ``Notifier``
 

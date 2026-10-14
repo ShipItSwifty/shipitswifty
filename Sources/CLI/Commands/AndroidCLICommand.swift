@@ -1,6 +1,7 @@
 import AndroidCLIKit
 import ArgumentParser
 import Foundation
+import MobileCore
 import ShipItKit
 
 /// Mirrors Google's AndroidCLI while retaining ShipIt's output and dry-run conventions.
