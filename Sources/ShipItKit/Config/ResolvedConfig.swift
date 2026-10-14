@@ -1,4 +1,5 @@
 import Foundation
+import MobileCore
 
 /// Flat struct containing all resolved configuration values after merging
 /// CLI flags, environment variables, Shipfile.yml, and built-in defaults.
@@ -211,13 +212,13 @@ public struct ResolvedConfig: Sendable {
     /// Resolved target platform.
     public let platform: Platform
 
-    /// Resolved iOS build system. ``BuildSystem/native`` for Swift-only Xcode projects;
+    /// Resolved iOS build system. `AppFramework.native` for Swift-only Xcode projects;
     /// `.flutter`, `.reactNative`, or `.kmp` when the iOS app is produced by a cross-platform tool.
-    public let iosBuildSystem: BuildSystem
+    public let iosBuildSystem: AppFramework
 
-    /// Resolved Android build system. ``BuildSystem/native`` for pure Gradle projects;
+    /// Resolved Android build system. `AppFramework.native` for pure Gradle projects;
     /// `.flutter`, `.reactNative`, or `.kmp` when the Android app is produced by a cross-platform tool.
-    public let androidBuildSystem: BuildSystem
+    public let androidBuildSystem: AppFramework
 
     /// Whether the current run is in CI mode.
     public let ci: Bool
@@ -354,8 +355,8 @@ public struct ResolvedConfig: Sendable {
         workflows: [String: WorkflowConfig] = [:],
         customActions: [String: CustomActionConfig] = [:],
         platform: Platform = .ios,
-        iosBuildSystem: BuildSystem = .native,
-        androidBuildSystem: BuildSystem = .native,
+        iosBuildSystem: AppFramework = .native,
+        androidBuildSystem: AppFramework = .native,
         ci: Bool = false,
         projectRoot: String = ".",
         kmpSharedModule: String = "shared",

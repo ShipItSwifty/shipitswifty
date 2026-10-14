@@ -1,5 +1,7 @@
 import Foundation
 import Logging
+import MobileCore
+import MobileTesting
 import SwiftyShell
 
 /// Reads and normalizes test-result artifacts produced by a prior test run.
@@ -30,7 +32,7 @@ public struct TestResultsAction: Action {
         public var inputs: [String]?
         public var inputFormat: TestInputFormat?
         public var runner: TestRunner?
-        public var buildSystem: BuildSystem?
+        public var buildSystem: AppFramework?
         public var coverageInputs: [String]?
         public var coverageFormat: CoverageInputFormat?
         public var evidencePaths: [String]?
@@ -47,7 +49,7 @@ public struct TestResultsAction: Action {
             inputs: [String]? = nil,
             inputFormat: TestInputFormat? = nil,
             runner: TestRunner? = nil,
-            buildSystem: BuildSystem? = nil,
+            buildSystem: AppFramework? = nil,
             coverageInputs: [String]? = nil,
             coverageFormat: CoverageInputFormat? = nil,
             evidencePaths: [String]? = nil,
@@ -147,7 +149,7 @@ public struct TestResultsAction: Action {
         let failedTests = filteredRun.testCases.filter { $0.status == .failed || $0.status == .errored }
         let report = TestRunReport(
             runner: filteredRun.runner,
-            buildSystem: filteredRun.buildSystem,
+            buildSystem: filteredRun.framework,
             source: filteredRun.source,
             destinations: filteredRun.destinations,
             attempts: [
@@ -190,7 +192,7 @@ public struct TestResultsAction: Action {
 
         return ParsedTestRun(
             runner: parsedRun.runner,
-            buildSystem: parsedRun.buildSystem,
+            framework: parsedRun.framework,
             source: parsedRun.source,
             destinations: parsedRun.destinations,
             summary: parsedRun.summary,

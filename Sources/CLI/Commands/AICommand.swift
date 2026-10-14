@@ -1,5 +1,6 @@
 import ArgumentParser
 import Foundation
+import MobileCore
 import ReactNativeKit
 import ShipItKit
 

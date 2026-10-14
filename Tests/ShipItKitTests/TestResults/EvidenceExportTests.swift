@@ -1,4 +1,5 @@
 import Foundation
+import MobileTesting
 import SwiftyShell
 import TestCommons
 import Testing
@@ -11,7 +12,7 @@ struct EvidenceExportTests {
 
     private func run() -> ParsedTestRun {
         ParsedTestRun(
-            runner: .flutterTest, buildSystem: .flutter, source: "events.jsonl", summary: .init(passed: 1),
+            runner: .flutterTest, framework: .flutter, source: "events.jsonl", summary: .init(passed: 1),
             testCases: [.init(stableID: "case", name: "test", status: .passed)])
     }
 

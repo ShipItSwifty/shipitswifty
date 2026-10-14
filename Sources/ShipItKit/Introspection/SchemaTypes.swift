@@ -1,4 +1,5 @@
 import Foundation
+import MobileCore
 
 #if canImport(ArgumentParser)
 import ArgumentParser
@@ -387,7 +388,7 @@ public struct ProjectInspection: Codable, Sendable, Hashable {
     public let gradleFiles: [String]
     /// Auto-detected cross-platform build system driving the project, or `nil` for native projects.
     /// When non-`nil`, the same value applies to both iOS and Android target pipelines.
-    public let detectedBuildSystem: BuildSystem?
+    public let detectedBuildSystem: AppFramework?
     /// Build-system marker files found under the root path (e.g. `pubspec.yaml`, `package.json`).
     /// Empty for native projects.
     public let buildSystemFiles: [String]
@@ -408,7 +409,7 @@ public struct ProjectInspection: Codable, Sendable, Hashable {
         suggestedAndroidPackageName: String? = nil,
         detectedPlatform: Platform = .ios,
         gradleFiles: [String] = [],
-        detectedBuildSystem: BuildSystem? = nil,
+        detectedBuildSystem: AppFramework? = nil,
         buildSystemFiles: [String] = [],
         swiftPackage: SwiftPackageSummary? = nil
     ) {

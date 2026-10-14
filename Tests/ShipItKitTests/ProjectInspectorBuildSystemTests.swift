@@ -5,7 +5,7 @@ import Testing
 
 @testable import ShipItKit
 
-@Suite("ProjectInspector — BuildSystem detection")
+@Suite("ProjectInspector — AppFramework detection")
 struct ProjectInspectorBuildSystemTests {
 
     @Test("Detects KMP via build.gradle.kts using kotlin(\"multiplatform\")")

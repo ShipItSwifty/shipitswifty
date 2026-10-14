@@ -1,4 +1,5 @@
 import Foundation
+import MobileCore
 
 /// Android-specific configuration for the `android:` Shipfile block.
 ///
@@ -17,10 +18,10 @@ public struct AndroidConfig: Codable, Sendable {
     /// Optional integration with Google's preview Android CLI.
     public var cli: AndroidCLIConfig?
 
-    /// Build system that produces the Android artifact. Defaults to ``BuildSystem/native``.
+    /// Build system that produces the Android artifact. Defaults to `AppFramework.native`.
     /// Set to `.flutter`, `.reactNative`, or `.kmp` when the same source tree drives the
     /// Android target via a cross-platform tool.
-    public var buildSystem: BuildSystem?
+    public var buildSystem: AppFramework?
 
     /// Gradle module name (e.g. `app`). Defaults to `"app"`.
     public var module: String?
@@ -93,7 +94,7 @@ public struct AndroidConfig: Codable, Sendable {
     /// Creates an `AndroidConfig`.
     public init(
         cli: AndroidCLIConfig? = nil,
-        buildSystem: BuildSystem? = nil,
+        buildSystem: AppFramework? = nil,
         module: String? = nil,
         scope: GradleTaskScope? = nil,
         testKind: TestKind? = nil,
@@ -173,10 +174,10 @@ public enum AndroidBuildType: String, Codable, Sendable, CaseIterable {
 ///   module: app
 /// ```
 public struct IOSConfig: Codable, Sendable {
-    /// Build system that produces the iOS artifact. Defaults to ``BuildSystem/native``.
+    /// Build system that produces the iOS artifact. Defaults to `AppFramework.native`.
     /// Set to `.flutter`, `.reactNative`, or `.kmp` when the iOS app is wrapped by a
     /// cross-platform tool.
-    public var buildSystem: BuildSystem?
+    public var buildSystem: AppFramework?
     /// KMP module containing shared iOS framework tasks. Defaults to `shared`.
     public var kmpSharedModule: String?
     /// KMP iOS framework target used for local builds. Defaults to `IosSimulatorArm64`.
@@ -205,7 +206,7 @@ public struct IOSConfig: Codable, Sendable {
 
     /// Creates an `IOSConfig`.
     public init(
-        buildSystem: BuildSystem? = nil,
+        buildSystem: AppFramework? = nil,
         kmpSharedModule: String? = nil,
         kmpBuildTarget: String? = nil,
         kmpArchiveTarget: String? = nil,

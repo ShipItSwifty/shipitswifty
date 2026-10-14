@@ -1,5 +1,5 @@
 {
-  "originHash" : "ed21a89012bb39747af54e1dcdbe7501bc35eed57aa14dd049e7f1dc62df5922",
+  "originHash" : "462b273b0177c840e4e36eace9c69f6e554f5743383a05e895dc3fa62f543068",
   "pins" : [
     {
       "identity" : "app-store-connect-mcp",
@@ -43,6 +43,15 @@
       "state" : {
         "revision" : "1b55c7529eff82cd9fa907e67a539404459a02e6",
         "version" : "5.7.1"
+      }
+    },
+    {
+      "identity" : "mobile-kits",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/ShipItSwifty/mobile-kits.git",
+      "state" : {
+        "branch" : "main",
+        "revision" : "83bfb60907f402b48ecc41468684ec63c46c145c"
       }
     },
     {
@@ -151,6 +160,15 @@
       "state" : {
         "revision" : "b3937ab85dd32f6e9435914599c1519074769c1a",
         "version" : "1.0.0"
+      }
+    },
+    {
+      "identity" : "swift-syntax",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/swiftlang/swift-syntax.git",
+      "state" : {
+        "revision" : "050f1a346fbbac0ca2cfb15a95274f7bd1cf0ccf",
+        "version" : "604.0.0"
       }
     },
     {

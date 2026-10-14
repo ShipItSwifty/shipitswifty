@@ -1,4 +1,5 @@
 import Foundation
+import MobileCore
 import Yams
 
 public enum SchemaValidator {

@@ -1,4 +1,5 @@
 import Foundation
+import MobileTesting
 import SwiftyShell
 import Synchronization
 import TestCommons
@@ -277,7 +278,7 @@ struct RealFlutterTests {
     func realFirstAttempt() async throws {
         let run = try await parse("first-attempt.jsonl")
         #expect(run.runner == .flutterTest)
-        #expect(run.buildSystem == .flutter)
+        #expect(run.framework == .flutter)
         #expect(run.testCases.count == 4, "the hidden `loading <file>` test is not a test")
         #expect(try status(run, "Scripted passes") == .passed)
         #expect(try status(run, "Scripted skipped on purpose") == .skipped, "`skipped: true` arrives with `result: success`")
@@ -342,7 +343,7 @@ struct RealJestTests {
 
     private func parse(_ name: String) async throws -> ParsedTestRun {
         try await JestJSONTestParser().parse(
-            jsonFilePath: Self.directory.appendingPathComponent(name).path, buildSystem: .reactNative, identityRoot: "/project")
+            jsonFilePath: Self.directory.appendingPathComponent(name).path, framework: .reactNative, identityRoot: "/project")
     }
 
     private func test(_ name: String, in run: ParsedTestRun) throws -> ParsedTestCase {
@@ -353,7 +354,7 @@ struct RealJestTests {
     func realFirstAttempt() async throws {
         let run = try await parse("first-attempt.json")
         #expect(run.runner == .jest)
-        #expect(run.buildSystem == .reactNative)
+        #expect(run.framework == .reactNative)
         #expect(run.destinations == [TestDestination(platform: .js, kind: .host)])
         #expect(run.testCases.count == 40)
         #expect(run.summary.failed == 2)
@@ -422,17 +423,5 @@ struct RealSwiftTestingTests {
         #expect(status("gamma()") == .failed)
         #expect(status("param(_:)") == .failed, "one failing argument fails the parameterized test")
         #expect(run.testCases.first { $0.name == "gamma()" }?.rerunSelector == .swiftTestFilter("LibTests.Outer/Inner/gamma()"))
-    }
-
-    @Test(
-        "A Swift Testing ID loses only its trailing source location",
-        arguments: [
-            ("M.S/t()/S.swift:3:4", "M.S/t()"),
-            ("M.Outer/Inner/Deeper/t()/S.swift:10:2", "M.Outer/Inner/Deeper/t()"),
-            ("M.free()/S.swift:1:1", "M.free()"),
-            ("M.S", "M.S"),
-        ])
-    func swiftTestingSelector(id: String, expected: String) {
-        #expect(SwiftEventParser.selector(forTestID: id) == expected)
     }
 }

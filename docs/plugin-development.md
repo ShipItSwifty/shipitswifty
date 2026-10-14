@@ -92,7 +92,9 @@ let output = try await Command("git", "status", "--porcelain").run(in: context.s
 context.logger.info("git status: \(output.stdout)")
 ```
 
-For `xcodebuild` and `gradle`, prefer the typed `XcodeBuild` / `Gradle` fluent wrappers from ShipItKit — they handle quoting, options, and build settings safely.
+For `xcodebuild` and `gradle`, prefer the typed `XcodeBuild` / `Gradle` fluent wrappers from [`cli-wrappers`](https://github.com/ShipItSwifty/cli-wrappers) (`XcodeBuildKit`, `GradleKit`) — they handle quoting, options, and build settings safely.
+
+`JSONValue`, which action options use, is defined in `MobileCore` from [`mobile-kits`](https://github.com/ShipItSwifty/mobile-kits). ShipItKit does not re-export it: a plugin depends on `mobile-kits` and adds `import MobileCore` alongside `import ShipItKit`.
 
 ## Example 1: `BuildTimingAction`
 

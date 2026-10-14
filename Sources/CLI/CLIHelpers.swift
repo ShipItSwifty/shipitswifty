@@ -3,6 +3,7 @@ import Foundation
 import GoogleAuthKit
 import GooglePlayKit
 import Logging
+import MobileCore
 import ShipItKit
 import SwiftyShell
 

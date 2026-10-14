@@ -198,7 +198,7 @@ Per-platform overrides merged on top of the shared config when the resolved plat
 
 | Key | Type | Default | Description |
 |---|---|---|---|
-| `build_system` | string | `native` | Build system that produces the artifact: `native`, `flutter`, `react_native`, or `kmp`. Auto-detected from project files when unset. See ``BuildSystem`` and <doc:KMPIntegration>. |
+| `build_system` | string | `native` | Build system that produces the artifact: `native`, `flutter`, `react_native`, or `kmp`. Auto-detected from project files when unset. See `AppFramework` (MobileCore) and <doc:KMPIntegration>. |
 | `scheme` / `workspace` / `project` (iOS) | string | — | Override `app.*` for iOS only. |
 | `kmp_shared_module` (iOS) | string | `shared` | Gradle module containing KMP framework/test tasks. |
 | `kmp_build_target` (iOS) | string | `IosSimulatorArm64` | KMP framework target used before local builds. |

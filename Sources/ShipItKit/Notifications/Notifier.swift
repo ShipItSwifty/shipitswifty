@@ -1,5 +1,6 @@
 import Foundation
 import Logging
+import MobileCore
 
 #if canImport(FoundationNetworking)
 import FoundationNetworking

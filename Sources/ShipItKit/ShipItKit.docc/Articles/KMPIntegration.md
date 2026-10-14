@@ -9,13 +9,13 @@ Kotlin Multiplatform (KMP) projects produce two artifacts from one source tree: 
 | Axis | Type | Set per | Meaning |
 |---|---|---|---|
 | ``Platform`` | `.ios` / `.android` | invocation (`--platform`) | which side of the distribution pipeline to run |
-| ``BuildSystem`` | `.native` / `.kmp` / `.flutter` / `.reactNative` | `ios.build_system:` / `android.build_system:` | how the native artifact is compiled before distribution |
+| `AppFramework` (MobileCore) | `.native` / `.kmp` / `.flutter` / `.reactNative` | `ios.build_system:` / `android.build_system:` | how the native artifact is compiled before distribution |
 
-A native iOS project is `Platform.ios` + `BuildSystem.native`. A KMP project is `Platform.ios` (or `.android`) + `BuildSystem.kmp`. ``BuildAction``, ``ArchiveAction``, and ``TestAction`` dispatch on ``BuildSystem`` because they compile or validate target artifacts. Later distribution actions (``SignAction``, ``ExportAction``, ``TestFlightAction``, ``PlayStoreAction``, ``UploadAction``) remain artifact-path driven.
+A native iOS project is `Platform.ios` + `BuildSystem.native`. A KMP project is `Platform.ios` (or `.android`) + `BuildSystem.kmp`. ``BuildAction``, ``ArchiveAction``, and ``TestAction`` dispatch on `AppFramework` (MobileCore) because they compile or validate target artifacts. Later distribution actions (``SignAction``, ``ExportAction``, ``TestFlightAction``, ``PlayStoreAction``, ``UploadAction``) remain artifact-path driven.
 
 ## How the iOS path works
 
-When the resolved iOS build system is ``BuildSystem/kmp``, the build and archive actions link the KMP framework before invoking `xcodebuild`:
+When the resolved iOS build system is `AppFramework.kmp``, the build and archive actions link the KMP framework before invoking `xcodebuild`:
 
 ```
 BuildAction   → gradlew :shared:linkReleaseFrameworkIosSimulatorArm64 → xcodebuild build
@@ -125,7 +125,7 @@ These fire only when needed; pure-native projects don't see them.
 
 ### Core types
 
-- ``BuildSystem``
+- `AppFramework` (MobileCore)
 - ``IOSConfig/buildSystem``
 - ``IOSConfig/kmpSharedModule``
 - ``IOSConfig/kmpBuildTarget``
@@ -138,7 +138,7 @@ These fire only when needed; pure-native projects don't see them.
 
 ### Auto-detection
 
-- ``BuildSystem/autoDetect(in:fileManager:)``
+- `FrameworkDetector.detect(in:)` (MobileProject)
 - ``ProjectInspection/detectedBuildSystem``
 - ``ProjectInspection/buildSystemFiles``
 

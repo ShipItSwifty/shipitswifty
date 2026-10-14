@@ -1,4 +1,5 @@
 import Foundation
+import MobileCore
 
 /// Resolves reserved workflow interpolation tokens inside step `options` and `when`
 /// values at run time.

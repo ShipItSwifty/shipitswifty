@@ -1,5 +1,6 @@
 import ArgumentParser
 import Foundation
+import MobileCore
 import ShipItKit
 
 /// Execute a named workflow from Shipfile.yml.

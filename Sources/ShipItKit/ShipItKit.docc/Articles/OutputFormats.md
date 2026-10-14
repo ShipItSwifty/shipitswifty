@@ -145,6 +145,6 @@ For arbitrary `Encodable` payloads (e.g. an ``AISessionPayload``), use ``JSONRep
 
 - ``ActionResultEnvelope``
 - ``JSONReporter``
-- ``JSONValue``
+- `JSONValue`
 - <doc:ErrorHandling>
 - <doc:CIIntegration>

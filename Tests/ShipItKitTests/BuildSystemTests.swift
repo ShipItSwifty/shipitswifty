@@ -1,26 +1,28 @@
 import Foundation
+import MobileCore
+import MobileProject
 import TestCommons
 import Testing
 
 @testable import ShipItKit
 
-@Suite("BuildSystem")
+@Suite("AppFramework")
 struct BuildSystemTests {
 
     // MARK: - Codable
 
     @Test("Raw values match the documented Shipfile keys")
     func rawValues() {
-        #expect(BuildSystem.native.rawValue == "native")
-        #expect(BuildSystem.flutter.rawValue == "flutter")
-        #expect(BuildSystem.reactNative.rawValue == "react_native")
-        #expect(BuildSystem.kmp.rawValue == "kmp")
+        #expect(AppFramework.native.rawValue == "native")
+        #expect(AppFramework.flutter.rawValue == "flutter")
+        #expect(AppFramework.reactNative.rawValue == "react_native")
+        #expect(AppFramework.kmp.rawValue == "kmp")
     }
 
     @Test("All cases round-trip through rawValue init")
     func roundTrip() {
-        for value in BuildSystem.allCases {
-            #expect(BuildSystem(rawValue: value.rawValue) == value)
+        for value in AppFramework.allCases {
+            #expect(AppFramework(rawValue: value.rawValue) == value)
         }
     }
 
@@ -43,7 +45,7 @@ struct BuildSystemTests {
             encoding: .utf8
         )
 
-        #expect(BuildSystem.autoDetect(in: dir.path) == .flutter)
+        #expect(FrameworkDetector.detect(in: dir.path) == .flutter)
     }
 
     @Test("autoDetect ignores pubspec.yaml without a flutter: key")
@@ -63,7 +65,7 @@ struct BuildSystemTests {
             encoding: .utf8
         )
 
-        #expect(BuildSystem.autoDetect(in: dir.path) == nil)
+        #expect(FrameworkDetector.detect(in: dir.path) == nil)
     }
 
     @Test("autoDetect returns .reactNative when package.json has react-native dep")
@@ -87,7 +89,7 @@ struct BuildSystemTests {
             encoding: .utf8
         )
 
-        #expect(BuildSystem.autoDetect(in: dir.path) == .reactNative)
+        #expect(FrameworkDetector.detect(in: dir.path) == .reactNative)
     }
 
     @Test("autoDetect returns .reactNative when react-native is in devDependencies")
@@ -109,7 +111,7 @@ struct BuildSystemTests {
             encoding: .utf8
         )
 
-        #expect(BuildSystem.autoDetect(in: dir.path) == .reactNative)
+        #expect(FrameworkDetector.detect(in: dir.path) == .reactNative)
     }
 
     @Test("autoDetect ignores package.json without react-native")
@@ -129,7 +131,7 @@ struct BuildSystemTests {
             encoding: .utf8
         )
 
-        #expect(BuildSystem.autoDetect(in: dir.path) == nil)
+        #expect(FrameworkDetector.detect(in: dir.path) == nil)
     }
 
     @Test("autoDetect returns .kmp when build.gradle.kts applies kotlin(\"multiplatform\")")
@@ -149,7 +151,7 @@ struct BuildSystemTests {
             encoding: .utf8
         )
 
-        #expect(BuildSystem.autoDetect(in: dir.path) == .kmp)
+        #expect(FrameworkDetector.detect(in: dir.path) == .kmp)
     }
 
     @Test("autoDetect returns .kmp via the jetbrains plugin id form")
@@ -168,7 +170,7 @@ struct BuildSystemTests {
             encoding: .utf8
         )
 
-        #expect(BuildSystem.autoDetect(in: dir.path) == .kmp)
+        #expect(FrameworkDetector.detect(in: dir.path) == .kmp)
     }
 
     @Test("autoDetect returns nil for a plain Android Gradle project")
@@ -188,7 +190,7 @@ struct BuildSystemTests {
             encoding: .utf8
         )
 
-        #expect(BuildSystem.autoDetect(in: dir.path) == nil)
+        #expect(FrameworkDetector.detect(in: dir.path) == nil)
     }
 
     @Test("autoDetect returns nil for an empty directory")
@@ -197,7 +199,7 @@ struct BuildSystemTests {
         defer { try? scratch.remove() }
         let dir = scratch.url
 
-        #expect(BuildSystem.autoDetect(in: dir.path) == nil)
+        #expect(FrameworkDetector.detect(in: dir.path) == nil)
     }
 
     @Test("autoDetect prefers Flutter over Gradle when both files are present")
@@ -226,7 +228,7 @@ struct BuildSystemTests {
             encoding: .utf8
         )
 
-        #expect(BuildSystem.autoDetect(in: dir.path) == .flutter)
+        #expect(FrameworkDetector.detect(in: dir.path) == .flutter)
     }
 
     @Test("autoDetect returns .kmp when the plugin ID is only in gradle/libs.versions.toml")
@@ -263,7 +265,7 @@ struct BuildSystemTests {
             encoding: .utf8
         )
 
-        #expect(BuildSystem.autoDetect(in: dir.path) == .kmp)
+        #expect(FrameworkDetector.detect(in: dir.path) == .kmp)
     }
 
     @Test("autoDetect returns .kmp when only a module-level build file applies the plugin")
@@ -292,7 +294,7 @@ struct BuildSystemTests {
             encoding: .utf8
         )
 
-        #expect(BuildSystem.autoDetect(in: dir.path) == .kmp)
+        #expect(FrameworkDetector.detect(in: dir.path) == .kmp)
     }
 
     @Test("autoDetect ignores a version catalog without the KMP plugin ID")
@@ -313,6 +315,6 @@ struct BuildSystemTests {
             encoding: .utf8
         )
 
-        #expect(BuildSystem.autoDetect(in: dir.path) == nil)
+        #expect(FrameworkDetector.detect(in: dir.path) == nil)
     }
 }

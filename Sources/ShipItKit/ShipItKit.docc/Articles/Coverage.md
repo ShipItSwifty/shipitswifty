@@ -110,7 +110,7 @@ fi
 | `lcov` | LCOV from `flutter test --coverage` or Jest | `--runner flutter-test` or `jest`; otherwise `unknown` |
 | `jacoco`, `kover` | JaCoCo-compatible XML (including Kover) | `gradle` |
 
-Results carry a typed `platform` (``TestPlatform``) and the `runner` whose format they are. A SwiftPM or LCOV
+Results carry a typed `platform` (`TestPlatform`) and the `runner` whose format they are. A SwiftPM or LCOV
 file does not say where the tests ran, so its platform is `unknown`. `--source-root` restricts what counts,
 `--exclude-previews` drops SwiftUI preview regions, and `--minimum-coverage` fails below a percentage. Zero
 executable lines fail a gate rather than passing it. Reports from different runs are never summed.

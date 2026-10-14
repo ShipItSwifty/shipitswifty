@@ -1,5 +1,7 @@
 import Foundation
 import Logging
+import MobileCore
+import MobileTesting
 import SwiftyShell
 
 /// Artifact encoding, independent of the platform that executed the tests.
@@ -25,28 +27,10 @@ public struct ResultInspection: Sendable {
     ///   - buildSystem: The project's build system, for runs read outside a Shipfile (`.kmp` for Kotlin
     ///     Multiplatform), since a bare result file does not say.
     public func read(
-        _ path: String, format: TestInputFormat? = nil, runner: TestRunner? = nil, buildSystem: BuildSystem? = nil
+        _ path: String, format: TestInputFormat? = nil, runner: TestRunner? = nil, buildSystem: AppFramework? = nil
     ) async throws -> ParsedTestRun {
         let kind = try format ?? detect(path)
-        let run: ParsedTestRun
         switch kind {
-        case .xcresult:
-            #if os(macOS)
-            run = try await IOSXCResultTestParser(shell: shell).parse(xcresultPath: path)
-            #else
-            throw ShipItError.invalidConfiguration(reason: "iOS test-result parsing requires macOS.")
-            #endif
-        case .junit:
-            run = try await AndroidJUnitTestParser().parse(
-                reportDirectory: path, runner: runner ?? .gradle, buildSystem: buildSystem,
-                identityRoot: gradleProjectRoot(containing: path))
-        case .flutter:
-            run = try await FlutterMachineOutputParser().parse(machineOutput: String(contentsOfFile: path, encoding: .utf8))
-        case .jest:
-            run = try await JestJSONTestParser().parse(
-                jsonFilePath: path, buildSystem: buildSystem, identityRoot: projectRoot(containing: path))
-        case .swift:
-            run = try SwiftEventParser().parse(path: path)
         case .manifest:
             let url = URL(fileURLWithPath: path)
             let root =
@@ -66,65 +50,27 @@ public struct ResultInspection: Sendable {
             if let run = try? JSONDecoder().decode(ParsedTestRun.self, from: Data(contentsOf: file)) { return run }
             let report = try JSONDecoder().decode(TestRunReport.self, from: Data(contentsOf: file))
             return ParsedTestRun(
-                runner: report.runner, buildSystem: report.buildSystem, source: path, destinations: report.destinations,
+                runner: report.runner, framework: report.buildSystem, source: path, destinations: report.destinations,
                 summary: report.summary, testCases: report.testCases ?? (report.persistentFailedTests + report.flakyTests))
-        }
-        // Parsed artifacts must report at least one outcome. An empty or unreadable run is an error here, not a
-        // successful zero-test run.
-        guard run.hasResults else {
-            throw ShipItError.invalidConfiguration(
-                reason: "No test results found in '\(path)'" + (run.diagnostics.first.map { ": \($0.message)" } ?? "."))
-        }
-        return ParsedTestRun(
-            runner: runner ?? run.runner, buildSystem: buildSystem ?? run.buildSystem, source: path, destinations: run.destinations,
-            summary: run.summary, suites: run.suites, testCases: run.testCases, diagnostics: run.diagnostics)
-    }
-
-    /// The nearest enclosing JavaScript project (a directory with `package.json`), used so offline Jest identities match
-    /// the ones a live run computes relative to the project root. `nil` outside any project.
-    func projectRoot(containing path: String) -> String? {
-        var directory = URL(fileURLWithPath: path).standardizedFileURL.deletingLastPathComponent()
-        while directory.path != "/" {
-            if FileManager.default.fileExists(atPath: directory.appendingPathComponent("package.json").path) { return directory.path }
-            directory.deleteLastPathComponent()
-        }
-        return nil
-    }
-
-    /// The nearest enclosing Gradle project (a directory with `settings.gradle[.kts]` or `gradlew`), used so
-    /// offline test identities match the ones a live run computes relative to the project directory.
-    /// `nil` when the artifact lives outside any project, such as a relocated export.
-    func gradleProjectRoot(containing path: String) -> String? {
-        var directory = URL(fileURLWithPath: path).standardizedFileURL
-        var isDirectory: ObjCBool = false
-        if !(FileManager.default.fileExists(atPath: directory.path, isDirectory: &isDirectory) && isDirectory.boolValue) {
-            directory.deleteLastPathComponent()
-        }
-        while directory.path != "/" {
-            for marker in ["settings.gradle.kts", "settings.gradle", "gradlew"]
-            where FileManager.default.fileExists(atPath: directory.appendingPathComponent(marker).path) {
-                return directory.path
+        case .xcresult, .junit, .flutter, .jest, .swift:
+            do {
+                return try await NativeResultReader(shell: shell).read(
+                    path, format: NativeResultFormat(rawValue: kind.rawValue), runner: runner, framework: buildSystem)
+            } catch MobileKitError.unsupportedHost {
+                throw ShipItError.invalidConfiguration(reason: "iOS test-result parsing requires macOS.")
+            } catch let error as MobileKitError {
+                // Keep ShipIt's error contract (exit codes, `test-results` messages) at this boundary.
+                throw ShipItError.invalidConfiguration(reason: error.localizedDescription)
             }
-            directory.deleteLastPathComponent()
         }
-        return nil
     }
 
+    /// ShipIt's own envelopes first (a directory or JSON with `report.json`, `results.json`, or a
+    /// manifest), then the native formats MobileTesting recognizes.
     public func detect(_ path: String) throws -> TestInputFormat {
         let url = URL(fileURLWithPath: path)
-        if url.pathExtension == "xcresult" { return .xcresult }
-        if url.pathExtension == "xml" { return .junit }
-        if url.pathExtension == "jsonl" || url.pathExtension == "ndjson" {
-            let text = try String(contentsOfFile: path, encoding: .utf8)
-            if text.components(separatedBy: .newlines).prefix(10).contains(where: {
-                $0.contains("\"payload\"") && $0.contains("\"version\"")
-            }) {
-                return .swift
-            }
-            return .flutter
-        }
         var directory: ObjCBool = false
-        if FileManager.default.fileExists(atPath: path, isDirectory: &directory), directory.boolValue {
+        if FileManager.default.fileExists(atPath: path, isDirectory: &directory), directory.boolValue, url.pathExtension != "xcresult" {
             if FileManager.default.fileExists(atPath: url.appendingPathComponent("manifest.json").path),
                 FileManager.default.fileExists(atPath: url.appendingPathComponent("results.json").path)
             {
@@ -132,16 +78,16 @@ public struct ResultInspection: Sendable {
             }
             if FileManager.default.fileExists(atPath: url.appendingPathComponent("report.json").path) { return .shipit }
             if FileManager.default.fileExists(atPath: url.appendingPathComponent("results.json").path) { return .shipit }
-            let xml = (FileManager.default.enumerator(at: url, includingPropertiesForKeys: nil)?.allObjects as? [URL] ?? []).contains {
-                $0.pathExtension == "xml"
-            }
-            if xml { return .junit }
         }
-        if let data = try? Data(contentsOf: url), let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+        if url.pathExtension == "json", let data = try? Data(contentsOf: url),
+            let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+        {
             if object["entries"] != nil || object["runs"] != nil, object["schemaVersion"] != nil { return .manifest }
             if object["testCases"] != nil, object["summary"] != nil { return .shipit }
-            if object["testResults"] != nil { return .jest }
             if object["attempts"] != nil, object["schemaVersion"] != nil { return .shipit }
+        }
+        if let native = try NativeResultReader.detect(path), let format = TestInputFormat(rawValue: native.rawValue) {
+            return format
         }
         throw ShipItError.invalidConfiguration(
             reason: "Ambiguous result input '\(path)'; specify input_format (xcresult, junit, flutter, jest, swift, shipit, manifest).")

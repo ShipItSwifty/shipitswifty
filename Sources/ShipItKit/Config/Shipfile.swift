@@ -1,4 +1,5 @@
 import Foundation
+import MobileCore
 
 /// The top-level structure of a `Shipfile.yml` configuration file.
 ///
