@@ -15,7 +15,7 @@
       "location" : "https://github.com/ShipItSwifty/cli-wrappers.git",
       "state" : {
         "branch" : "main",
-        "revision" : "40b8d9fd8f7cc0ac3624dd1c05ccf97b65228a3f"
+        "revision" : "aad3afa18dd8161f64837838aadcae0b5daf9754"
       }
     },
     {
@@ -51,7 +51,7 @@
       "location" : "https://github.com/ShipItSwifty/mobile-kits.git",
       "state" : {
         "branch" : "main",
-        "revision" : "ae46bfc1e054c95db66c5f24cb63862863a3ef68"
+        "revision" : "d9d8fa004d80f2c04e16d69c8ae3af1809f06884"
       }
     },
     {
