@@ -44,10 +44,10 @@ case "${SUBCOMMAND}" in
     run_in_container "swift --version && swift build --build-path .build-linux"
     ;;
   test)
-    run_in_container "swift --version && swift test --build-path .build-linux --skip IntegrationTests --skip XcodeBuildKitTests --skip XcodeGenKitTests"
+    run_in_container "swift --version && swift test --build-path .build-linux --skip IntegrationTests"
     ;;
   ci)
-    run_in_container "swift --version && swift build --build-path .build-linux && swift test --build-path .build-linux --skip IntegrationTests --skip XcodeBuildKitTests --skip XcodeGenKitTests"
+    run_in_container "swift --version && swift build --build-path .build-linux && swift test --build-path .build-linux --skip IntegrationTests"
     ;;
   shell)
     docker run --rm -it \

@@ -4,14 +4,13 @@ Add ShipItKit to your project and run your first release action.
 
 ## Overview
 
-ShipItSwifty consists of six products:
+ShipItSwifty consists of two products:
 
-- **`XcodeBuildKit`** — standalone typed wrappers for `xcodebuild`, `xcode-select`, and destination discovery
-- **`GradleKit`** — standalone typed wrappers for Gradle, `adb`, `bundletool`, and Android emulator tooling
-- **`AndroidCLIKit`** — standalone typed wrappers for Google's preview AndroidCLI
-- **`XcodeGenKit`** — standalone typed wrappers for `xcodegen`
-- **`ShipItKit`** — the reusable release automation library; it re-exports the standalone tool kits
+- **`ShipItKit`** — the reusable release automation library
 - **`shipit`** — a CLI that wraps `ShipItKit` for use from the terminal and CI
+
+The typed tool wrappers it builds on (`xcodebuild`, `simctl`, Gradle, `adb`, Flutter, React Native, and
+more) are a separate package, [`cli-wrappers`](https://github.com/ShipItSwifty/cli-wrappers), for scripts that only need one tool.
 
 This guide covers both paths.
 

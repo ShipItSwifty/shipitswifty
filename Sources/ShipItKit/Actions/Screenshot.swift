@@ -2,6 +2,7 @@
 import Foundation
 import Logging
 import SwiftyShell
+import XcodeBuildKit
 
 /// Captures localized screenshots on simulators by running UI tests.
 ///

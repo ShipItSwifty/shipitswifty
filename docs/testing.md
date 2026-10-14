@@ -202,7 +202,7 @@ swift test --filter CLITests
 
 ### Running on Linux (Docker)
 
-`GradleKit`, `ShipItKit` core, and `CLI` tests run on Linux. macOS-only targets (`XcodeBuildKitTests`, `XcodeGenKitTests`, `IntegrationTests`) are skipped automatically. Use the `Makefile` targets to run the Linux-compatible subset via Docker — no local Swift toolchain needed:
+`ShipItKit` core and `CLI` tests run on Linux. The macOS-only `IntegrationTests` target is skipped automatically. Use the `Makefile` targets to run the Linux-compatible subset via Docker — no local Swift toolchain needed:
 
 ```bash
 # Direct volume mount — fastest for iterative runs

@@ -2,6 +2,7 @@
 import Foundation
 import Logging
 import SwiftyShell
+import XcrunKit
 
 /// Parses iOS test results from an `.xcresult` bundle using `xcresulttool`.
 ///

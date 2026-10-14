@@ -1,4 +1,5 @@
 import Foundation
+import SwiftPMKit
 import SwiftyShell
 
 /// Runs SwiftPM tests with saved Swift Testing events, evidence, and selective reruns.
@@ -110,11 +111,11 @@ public struct SwiftTestAction: Action {
                 }
                 selector = "^(?:" + selectors.joined(separator: "|") + ")(?:/|$)"
             }
-            var command = SwiftPMCLI(context: context.shell).test(
-                package: options.packagePath ?? ".", scratch: options.scratchPath,
-                events: events.path, attachments: attachments.path, coverage: options.enableCodeCoverage ?? false,
+            var command = SwiftPM(context: context.shell).test(
+                packagePath: options.packagePath ?? ".", scratchPath: options.scratchPath,
+                eventStream: events.path, attachments: attachments.path, coverage: options.enableCodeCoverage ?? false,
                 skipBuild: selectedRuns > 0, filter: selector, skip: options.skip,
-                junit: directory.appendingPathComponent("xctest.xml").path, workers: options.parallelWorkers)
+                xunit: directory.appendingPathComponent("xctest.xml").path, workers: options.parallelWorkers)
             for (key, value) in options.environment ?? [:] { command = command.env(key, value) }
             let output: ShellOutput
             let started = Date()
@@ -198,8 +199,8 @@ public struct SwiftTestAction: Action {
                 initial = parsed
                 remaining = failures
                 if options.enableCodeCoverage == true {
-                    let located = try await SwiftPMCLI(context: context.shell).coveragePath(
-                        package: options.packagePath ?? ".", scratch: options.scratchPath
+                    let located = try await SwiftPM(context: context.shell).codeCoveragePath(
+                        packagePath: options.packagePath ?? ".", scratchPath: options.scratchPath
                     ).run()
                     let source = located.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
                     if !source.isEmpty {

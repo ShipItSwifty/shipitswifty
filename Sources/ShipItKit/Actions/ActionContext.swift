@@ -2,8 +2,10 @@ import AppStoreConnectKit
 import Foundation
 import GoogleAuthKit
 import GooglePlayKit
+import GradleKit
 import Logging
 import SwiftyShell
+import XcodeBuildKit
 
 /// Shared context passed to every action during execution.
 ///

@@ -18,7 +18,7 @@ action's `Options` type, so an action change is incomplete until every surface b
   the action (resolve environment in `ConfigResolver`).
 - Shell work goes through SwiftyShell via the tool wrappers (`context.gradle()`,
   `XcodeBuild(context:)`, `Adb(context:)`, …). If a flag or subcommand is missing, add it to the
-  wrapper first (see the `tool-wrapper` skill) instead of hand-building strings.
+  wrapper first, in [`cli-wrappers`](https://github.com/ShipItSwifty/cli-wrappers) (see its `tool-wrapper` skill), instead of hand-building strings.
 - ASC calls go through `AppStoreConnectClient`; wrap with `mappingASCErrors { }`. Google Play
   calls wrap with `mappingGoogleErrors { }`.
 - DocC comment on the action with a `## Usage` section.

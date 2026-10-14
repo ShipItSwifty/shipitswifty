@@ -5,7 +5,7 @@ workflows:
     - action: swift-format
       options:
         configuration: .swift-format
-        paths: [Sources, Tests/AndroidCLIKitTests, Tests/CLITests, Tests/GradleKitTests, Tests/ShipItKitTests, Tests/XcodeBuildKitTests, Tests/XcodeGenKitTests, Tests/IntegrationTests/Support]
+        paths: [Sources, Tests/CLITests, Tests/ShipItKitTests, Tests/IntegrationTests/Support]
         report_path: build/format.log
       artifacts:
         - name: format
@@ -26,7 +26,7 @@ workflows:
   ci-linux:
     - action: swift-test
       options:
-        skip: 'IntegrationTests|XcodeBuildKitTests|XcodeGenKitTests'
+        skip: 'IntegrationTests'
         enable_code_coverage: true
         output_directory: "build/ci/{{run_id}}/unit"
         rerun_failed_tests: { enabled: true, max_attempts: 2 }

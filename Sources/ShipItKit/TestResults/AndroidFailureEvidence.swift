@@ -1,3 +1,4 @@
+import AdbKit
 import Foundation
 
 /// Best-effort snapshots are bounded and never replace the runner's failure.

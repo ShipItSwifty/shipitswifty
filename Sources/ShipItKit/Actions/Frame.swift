@@ -1,5 +1,6 @@
 #if os(macOS)
 import Foundation
+import FrameitKit
 import Logging
 import SwiftyShell
 

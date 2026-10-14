@@ -1,5 +1,6 @@
 #if os(macOS)
 import Foundation
+import XcodeBuildKit
 
 /// Resolves App Store Connect API key credentials into `xcodebuild` authentication
 /// flags (`-authenticationKeyPath`, `-authenticationKeyID`, `-authenticationKeyIssuerID`).

@@ -1,5 +1,6 @@
 import Foundation
 import SwiftyShell
+import XcrunKit
 
 /// One portable evidence file or directory. Paths are relative to the export directory.
 public struct EvidenceEntry: Codable, Sendable, Hashable {

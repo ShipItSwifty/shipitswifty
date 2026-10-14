@@ -1,6 +1,7 @@
 import Foundation
 import Logging
 import SwiftyShell
+import XcrunKit
 
 /// Saves the coverage of the run that just finished as LLVM JSON at `target`.
 ///

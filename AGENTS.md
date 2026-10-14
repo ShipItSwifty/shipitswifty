@@ -48,7 +48,7 @@ Start here by task:
 - Action behavior: `Sources/ShipItKit/Actions/`
 - Schema and AI contract: `Sources/ShipItKit/Introspection/`
 - CLI surface: `Sources/CLI/Commands/`
-- Reusable tool wrappers (`xcodebuild`, `gradlew`, `adb`, `bundletool`, `emulator`, `android`, `xcodegen`): `Sources/XcodeBuildKit/`, `Sources/GradleKit/`, `Sources/AndroidCLIKit/`, `Sources/XcodeGenKit/` — see "Adding or extending a tool wrapper"
+- Typed tool wrappers (`xcodebuild`, `xcrun`/`simctl`, `gradlew`, `adb`, `bundletool`, `emulator`, `android`, `xcodegen`, `flutter`, `react-native`, `swift`, `security`, `plutil`): the external [`cli-wrappers`](https://github.com/ShipItSwifty/cli-wrappers) package, one product per tool — see "Adding or extending a tool wrapper"
 - Regressions and executable specs: `Tests/ShipItKitTests/`, `Tests/CLITests/`
 
 Hard invariants to keep in mind immediately:
@@ -86,7 +86,6 @@ when the task applies. Claude Code also discovers copies in `.claude/skills/`; k
 copies in sync with `agent-skills/` when editing a skill.
 
 - **[`add-action`](agent-skills/add-action/SKILL.md)** — adding or changing a ShipItKit `Action` (walks the full sync checklist: schema catalog, docs, AI session, tests).
-- **[`tool-wrapper`](agent-skills/tool-wrapper/SKILL.md)** — adding or extending a command in `GradleKit` / `XcodeBuildKit` / `AndroidCLIKit` / `XcodeGenKit`.
 - **[`verify-linux`](agent-skills/verify-linux/SKILL.md)** — building, formatting, and testing from a Linux session with Docker, and what that can and cannot verify.
 
 When working on this project, also invoke these skills as appropriate:
@@ -113,9 +112,6 @@ swift test --filter ShipItKitTests.BuildActionTests
 
 # Run specific test target
 swift test --filter CLITests
-swift test --filter XcodeBuildKitTests
-swift test --filter GradleKitTests
-swift test --filter XcodeGenKitTests
 
 # Linux / Docker (skips macOS-only targets automatically)
 make build-linux            # build via direct volume mount
@@ -282,14 +278,10 @@ Set one of these environment variables:
 
 ShipItSwifty is a Swift 6 CLI toolkit for iOS and Android app release automation. Its own products are:
 
-- **`XcodeBuildKit`** — standalone library; typed `xcodebuild` wrapper, options, destination discovery, `xcode-select`. Depends only on SwiftyShell.
-- **`GradleKit`** — standalone library; typed Gradle wrapper (tasks, flags, properties), plus `adb`, `bundletool`, and `emulator` wrappers. Depends only on SwiftyShell.
-- **`AndroidCLIKit`** — standalone typed wrapper for Google's preview AndroidCLI: project description, deployment, emulators, SDKs, UI inspection, Studio integration, docs, and skills. Depends only on SwiftyShell.
-- **`XcodeGenKit`** — standalone library; typed `xcodegen` wrapper and options. Depends only on SwiftyShell.
-- **`ShipItKit`** — reusable library; all domain logic lives here. Depends on the four tool libraries above plus the external `AppStoreConnectKit` / `AppStoreConnectUploadKit` (App Store Connect + Xcode Cloud client) and `GoogleAuthKit` / `GooglePlayKit` (Google service-account auth + Google Play Developer API).
+- **`ShipItKit`** — reusable library; all domain logic lives here. Depends on the typed tool wrappers in [`cli-wrappers`](https://github.com/ShipItSwifty/cli-wrappers) plus the external `AppStoreConnectKit` / `AppStoreConnectUploadKit` (App Store Connect + Xcode Cloud client) and `GoogleAuthKit` / `GooglePlayKit` (Google service-account auth + Google Play Developer API).
 - **`shipit`** (CLI) — thin argument-parsing layer over `ShipItKit`
 
-`XcodeBuildKit`, `GradleKit`, `AndroidCLIKit`, and `XcodeGenKit` are independently consumable via SwiftPM — users who only need tool wrappers can depend on them without pulling in ShipItKit or any of its heavier dependencies. `ShipItKit` re-exports all four via `@_exported import`, so existing consumers see no API change.
+The tool wrappers (`XcodeBuildKit`, `XcrunKit`, `GradleKit`, `AdbKit`, `EmulatorKit`, `BundletoolKit`, `AndroidCLIKit`, `XcodeGenKit`, `FlutterKit`, `ReactNativeKit`, `SwiftPMKit`, `SecurityKit`, `PlutilKit`, `FrameitKit`, …) live in [`cli-wrappers`](https://github.com/ShipItSwifty/cli-wrappers), one product per tool, and ShipItKit imports each one explicitly where it is used — nothing is re-exported. Users who only need a wrapper depend on `cli-wrappers` directly. ShipItKit tracks its `main` branch until it reaches 1.0.
 
 App Store Connect support (the client, JWT auth, rate limiter, DTOs, IPA upload, and the Xcode Cloud `ci*` read API) lives in a **separate public package**, `github.com/ShipItSwifty/app-store-connect-mcp` (products `AppStoreConnectKit` + macOS-only `AppStoreConnectUploadKit`, plus an MCP server for CI-failure investigation). ShipItKit depends on it directly (`import AppStoreConnectKit`, no re-export) and maps its `ASCError` to `ShipItError` at the action boundary via `mappingASCErrors { }` (`Sources/ShipItKit/AppStoreConnect/ASCErrorBridge.swift`). Actions pass `context.ascCredentials` (`ASCCredentials`) + `context.shell` to the package's services instead of the whole `ActionContext`.
 
@@ -396,10 +388,6 @@ When recommending changes to an agent:
 
 ```
 Sources/
-  XcodeBuildKit/      # Standalone: xcodebuild wrapper, options, xcode-select, destination discovery
-  GradleKit/          # Standalone: gradlew wrapper, tasks, flags, properties, adb, bundletool, emulator
-  AndroidCLIKit/      # Standalone: Google's AndroidCLI — one AndroidCLI+<Family>.swift per command family
-  XcodeGenKit/        # Standalone: xcodegen wrapper and options
   ShipItKit/
     Actions/          # One file per action (Build, Archive, TestFlight, …)
     AppStoreConnect/  # ASCError -> ShipItError bridge only; the client/JWT/upload
@@ -414,7 +402,6 @@ Sources/
                       # SchemaTypes, SchemaValidator, ShipfileValidator,
                       # AISessionTypes, AISessionBuilder
     Plugin/           # ShipItPlugin protocol, ActionRegistry, PluginRegistry
-    ReExports/        # @_exported import for XcodeBuildKit, GradleKit, AndroidCLIKit, XcodeGenKit
     Utilities/        # JSONValue, Logger, ShipItError, RetryPolicy, JSONReporter,
                       # AndroidDeviceProvisioner (emulator/device orchestration)
     Versioning/       # VersionBumper, BuildNumberSource
@@ -481,21 +468,19 @@ These are hard constraints — never violate them:
 
 ## Adding or extending a tool wrapper
 
-`XcodeBuildKit`, `GradleKit`, `AndroidCLIKit`, and `XcodeGenKit` are the shared, independently consumable components. When ShipItKit needs a flag, subcommand, or task name, add it to the wrapper first and call it from ShipItKit — do not hand-build the argument strings in an action.
+Tool wrappers live in [`cli-wrappers`](https://github.com/ShipItSwifty/cli-wrappers), not in this repository. When ShipItKit needs a flag, subcommand, or
+task name, add it to the wrapper there first (follow its `tool-wrapper` skill), then call it from
+ShipItKit — do not hand-build argument strings in an action. Point a local checkout at your
+`cli-wrappers` branch while developing:
 
-Conventions every wrapper follows:
+```bash
+swift package config set-mirror \
+  --original https://github.com/ShipItSwifty/cli-wrappers.git \
+  --mirror /path/to/local/cli-wrappers
+```
 
-1. Conform to SwiftyShell's `RunnableCommandFamily`; values are immutable and every builder returns a copy (use the private `copy(...)` helper; optional stored properties use a `String?? = .none` parameter so callers can reset them to `nil`).
-2. `command()` must be pure argument construction — no I/O beyond locating an executable — so tests can assert the exact argv without spawning processes.
-3. Depend only on SwiftyShell and Foundation. Never import ShipItKit, Yams, or the ASC / Google packages.
-4. Every public API gets a DocC comment naming the exact command line it produces (e.g. ``/// `adb shell getprop <property>` — …``) plus a `## Usage` block on the type. Mark commands that change a device or machine as **Mutating**.
-5. Keep argument placement faithful to the tool: Gradle task options such as `--tests` belong to the task (`GradleTask.filteringTests(_:)` / `appendingOptions(_:)`), not to global `GradleFlag`s, which are emitted before every task.
-6. Never force secrets onto the command line when the tool offers a file or environment source (e.g. `BundletoolPassword.file(_:)`); document the exposure when a `String` password API exists.
-7. Resolve executables from the `ShellContext` environment (e.g. `ANDROID_HOME`) before falling back to `PATH`, and keep an explicit `executablePath` override.
-8. Wrap a file in `#if os(macOS)` only when it genuinely needs Apple frameworks (OSLog, Security); Linux can then build and test it.
-9. Add a Swift Testing test asserting the full argv, plus any parser edge cases, in `Tests/<Library>Tests/`, and update the wrapper table in `docs/features.md` ("Standalone tool libraries").
-
-Split a wrapper by command family into `Type+Family.swift` extensions once a single file covers several unrelated families (see `Sources/AndroidCLIKit/`).
+Remove the mirror (`swift package config unset-mirror --original …`) once the wrapper change is on
+`cli-wrappers` `main`, then `swift package update cli-wrappers`.
 
 ## Modifying an existing action
 
@@ -522,7 +507,7 @@ Every non-trivial code change (new feature, changed behaviour, new/renamed comma
 | Changed Shipfile schema | `BuiltInSchemaCatalog`, `Shipfile.swift`, `docs/configuration-reference.md` |
 | Changed generated workflow guidance or test workflow options | `AISessionBuilder`, `ShipfileSuggester`, `GenerateCommand`, `docs/features.md`, `docs/configuration-reference.md`, tests |
 | New backwards-compat alias | Document in `AGENTS.md` Commands section with `# backwards-compat alias:` comment |
-| New or changed tool-wrapper API (`GradleKit`, `XcodeBuildKit`, `AndroidCLIKit`, `XcodeGenKit`) | Wrapper tests asserting the argv, DocC comment, `docs/features.md` wrapper table, and replace any ShipItKit call site that hand-builds the same arguments |
+| New or changed tool-wrapper API | Land it in `cli-wrappers` first, `swift package update cli-wrappers`, then replace any ShipItKit call site that hand-builds the same arguments |
 | New `shipit ai skills` playbook | `AISkillsCatalog.swift` (keep it short — link to the authoritative doc rather than duplicating it), `docs/features.md`, `AGENTS.md` Commands section |
 
 ## Common task reference

@@ -1,4 +1,5 @@
 import Foundation
+import SwiftPMKit
 import SwiftyShell
 import Synchronization
 import TestCommons
@@ -137,7 +138,7 @@ struct ReportReconciliationTests {
         // Unrecorded, the shell's non-zero exit surfaces exactly as it does for any other command.
         do {
             _ = try await executeRecordedTest(
-                SwiftPMCLI(context: context.shell).formatLint(paths: []), context: context, parse: { _ in nil })
+                SwiftPM(context: context.shell).formatLint(paths: []), context: context, parse: { _ in nil })
             Issue.record("the command's failing exit must propagate")
         } catch let ShellError.exitFailure(_, captured) {
             #expect(captured.stdout == "ran")
@@ -155,7 +156,7 @@ struct ReportReconciliationTests {
         var context = ActionContext.mock(executor: MockExecutor { _, _ in .init(stdout: "ran", stderr: "", exitCode: 3) })
         context.testEvidence = TestEvidenceRecorder(root: root)
         let output = try await executeRecordedTest(
-            SwiftPMCLI(context: context.shell).formatLint(paths: []), context: context, parse: { _ in nil })
+            SwiftPM(context: context.shell).formatLint(paths: []), context: context, parse: { _ in nil })
         #expect(output.exitCode == 3)
     }
 

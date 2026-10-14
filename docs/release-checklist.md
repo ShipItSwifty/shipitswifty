@@ -18,7 +18,6 @@ swift test --enable-code-coverage --skip IntegrationTests
 swift test --filter FlutterFixtureIntegrationTests
 swift test --filter ReactNativeFixtureIntegrationTests
 swift test --filter KMPFixtureIntegrationTests
-swift test --filter AndroidCLIKitTests
 .build/release/shipit --version
 ```
 

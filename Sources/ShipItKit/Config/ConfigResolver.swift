@@ -1,6 +1,7 @@
 import Foundation
 import Logging
 import SwiftyShell
+import XcodeBuildKit
 import Yams
 
 /// CLI-level options that can override Shipfile and environment settings.

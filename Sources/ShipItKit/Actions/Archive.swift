@@ -1,6 +1,10 @@
+import FlutterKit
 import Foundation
+import GradleKit
 import Logging
+import ReactNativeKit
 import SwiftyShell
+import XcodeBuildKit
 
 /// Archives the app for distribution.
 ///
@@ -206,7 +210,7 @@ public struct ArchiveAction: Action {
         case .ios:
             #if os(macOS)
             logger.info("Archiving Flutter iOS app (flutter build ipa\(flavor.map { " --flavor \($0)" } ?? ""))")
-            let flutter = FlutterCLI(context: context.shell).buildIPA(flavor: flavor)
+            let flutter = Flutter(context: context.shell).buildIPA(flavor: flavor)
             let output = try await ShellRunHelpers.run(flutter) { exitCode, log in
                 logger.error("Flutter iOS archive failed with exit code \(exitCode)")
                 return .archiveFailed(exitCode: exitCode, log: log)
@@ -219,7 +223,7 @@ public struct ArchiveAction: Action {
             #endif
         case .android:
             logger.info("Archiving Flutter Android app (flutter build appbundle\(flavor.map { " --flavor \($0)" } ?? ""))")
-            let flutter = FlutterCLI(context: context.shell).buildAppBundle(flavor: flavor)
+            let flutter = Flutter(context: context.shell).buildAppBundle(flavor: flavor)
             let output = try await ShellRunHelpers.run(flutter) { exitCode, log in
                 logger.error("Flutter Android archive failed with exit code \(exitCode)")
                 return .archiveFailed(exitCode: exitCode, log: log)
@@ -258,7 +262,7 @@ public struct ArchiveAction: Action {
         let task = GradleTask.bundle(variant: variant).name
         logger.info("Archiving React Native Android app (npx react-native build-android --mode=\(variant) --tasks \(task))")
 
-        let rn = ReactNativeCLI(context: context.shell).buildAndroid(mode: variant, task: task)
+        let rn = ReactNative(context: context.shell).buildAndroid(mode: variant, task: task)
 
         do {
             let output = try await rn.run()

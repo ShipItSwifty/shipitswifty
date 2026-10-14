@@ -1,10 +1,10 @@
 # ShipItSwifty — Linux development / test image
 #
 # Supported targets on Linux:
-#   GradleKit, ShipItKit (core), CLI, ShipItKitTests, GradleKitTests, CLITests
+#   ShipItKit (core), CLI, ShipItKitTests, CLITests
 #
 # macOS-only targets (skipped on Linux):
-#   XcodeBuildKit, XcodeGenKit, XcodeBuildKitTests, XcodeGenKitTests, IntegrationTests
+#   IntegrationTests
 
 FROM swift:6.3.1-noble
 
@@ -20,5 +20,5 @@ RUN swift package resolve
 COPY . .
 
 # Default: interactive shell so developers can run arbitrary commands.
-# To run tests directly:  docker run --rm <image> swift test --skip IntegrationTests --skip XcodeBuildKitTests --skip XcodeGenKitTests
+# To run tests directly:  docker run --rm <image> swift test --skip IntegrationTests
 CMD ["/bin/bash"]

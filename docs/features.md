@@ -309,35 +309,13 @@ See [`docs/kmp-quickstart.md`](kmp-quickstart.md) for a worked KMP example.
 
 ---
 
-## Standalone tool libraries
+## Tool wrappers
 
-`XcodeBuildKit`, `GradleKit`, `AndroidCLIKit`, and `XcodeGenKit` are independently consumable via SwiftPM — users who only need tool wrappers can depend on them without pulling in `ShipItKit`.
-
-### GradleKit tool wrappers
-
-| Wrapper | Capabilities |
-|---|---|
-| **Gradle** | Task execution (with module qualification and task-level options such as `--tests` via `GradleTask.filteringTests(_:)`), variant task names (`GradleTask.variantTask(prefix:flavor:variant:suffix:)`, `assemble/bundle/lint/unitTest/connectedAndroidTest(variant:)`, managed-device tasks), `-P` properties, JVM args, global flags (daemon, build/configuration cache, `--parallel`, `--max-workers`, `--continue`, `--rerun-tasks`, `--refresh-dependencies`, `-x <task>`, logging levels) |
-| **Adb** | Device targeting (`-s`), daemon lifecycle (`start-server`/`kill-server`), device discovery (`devices`), app install/uninstall (with `-t` / `-g`), system properties (`getprop`), activity manager (`am start`, `am force-stop`, deep links), package manager (`pm list`, `pm grant`, `pm revoke`, resolve launchable activity), capture (`screencap`, `screenrecord`), input events (`keyevent`), display config (`uimode night`), port forwarding (`forward tcp`), file transfer (`push`/`pull`), shell escape hatch, emulator control (`emu kill`, `emu geo fix`), logcat |
-| **Bundletool** | AAB validation, APK set build (`--mode=universal` etc., `--overwrite`, signing with `pass:` or `file:` password sources via `BundletoolSigning`), APK set install (optionally `--device-id`), device spec, size estimation |
-| **Emulator** | AVD listing and launch (headless, GPU mode, `-no-snapshot`, `-wipe-data`, `-read-only`, `-port`); resolves the SDK binary from `ANDROID_HOME` / `ANDROID_SDK_ROOT` before falling back to `PATH` |
-
-### AndroidCLIKit tool wrapper
-
-`AndroidCLI` provides immutable, documented typed builders for every AndroidCLI 1.0 family (one source file per family: project, deployment/UI, emulator, SDK, skills, Studio), executable/SDK overrides, a raw-argument escape hatch for preview-version drift, and lossy decoding for stable layout JSON fields. All execution goes through SwiftyShell.
-
-### XcodeBuildKit tool wrappers
-
-| Wrapper | Capabilities |
-|---|---|
-| **XcodeBuild** | Build, test, `build-for-testing` / `test-without-building`, archive, export, XCFramework creation — typed options and destination discovery |
-| **XcodeSelect** | Print/switch active Xcode |
-
-### XcodeGenKit tool wrappers
-
-| Wrapper | Capabilities |
-|---|---|
-| **XcodeGen** | Project generation from spec files |
+The typed command wrappers ShipIt runs (`xcodebuild`, `xcrun`/`simctl`/`xccov`/`xcresulttool`, Gradle,
+`adb`, `emulator`, `bundletool`, Google's `android` CLI, `xcodegen`, `flutter`, `react-native`, `swift`,
+`security`, `plutil`, `frameit`) live in [`ShipItSwifty/cli-wrappers`](https://github.com/ShipItSwifty/cli-wrappers), one SwiftPM product per
+tool. ShipItKit imports them explicitly and re-exports none of them; scripts that only need a wrapper
+depend on `cli-wrappers` directly. See <https://github.com/ShipItSwifty/cli-wrappers#readme> for the full list and capabilities.
 
 ---
 

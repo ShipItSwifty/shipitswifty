@@ -1,5 +1,6 @@
 import ArgumentParser
 import Foundation
+import ReactNativeKit
 import ShipItKit
 
 /// Parent command grouping ShipItSwifty's AI-agent-oriented surface.

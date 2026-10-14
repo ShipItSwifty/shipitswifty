@@ -1,5 +1,6 @@
 import Foundation
 import SwiftyShell
+import XcodeBuildKit
 
 public struct ProjectInspector: Sendable {
     private let rootPath: String

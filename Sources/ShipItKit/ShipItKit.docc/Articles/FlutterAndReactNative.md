@@ -261,8 +261,6 @@ The `shipit doctor` command is platform-scoped. For iOS projects it checks the f
 
 ### Command wrappers
 
-- ``FlutterCLI``
-- ``ReactNativeCLI``
 - ``JSPackageManager``
 - ``JSScriptRunner``
 
