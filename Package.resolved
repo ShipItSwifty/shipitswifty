@@ -1,5 +1,5 @@
 {
-  "originHash" : "462b273b0177c840e4e36eace9c69f6e554f5743383a05e895dc3fa62f543068",
+  "originHash" : "056c92258b98808dffb106a1e93d1d24be5eabbfa02583ad5bfe38a597707dd0",
   "pins" : [
     {
       "identity" : "app-store-connect-mcp",
@@ -185,8 +185,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/maniramezan/SwiftTestCommons.git",
       "state" : {
-        "revision" : "1a71da25cbcd6763ee334614d488a9d1bd10b04f",
-        "version" : "0.3.0"
+        "revision" : "a90013fe22a398ad70e09ca75f1e32b39a5f7d27",
+        "version" : "0.4.0"
       }
     },
     {
