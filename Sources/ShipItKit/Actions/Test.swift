@@ -2076,54 +2076,20 @@ public struct TestAction: Action {
         )
     }
 
-    /// Qualified tasks read only their module; root tasks collect every exact task directory.
-    /// Reads the Gradle JUnit XML for `task`. Identities are relative to `projectDir`, matching what
+    /// Reads the Gradle JUnit XML for `task` (MobileTesting's `GradleTestResults`): qualified tasks read
+    /// only their module; root tasks collect every exact task directory. Identities are relative to `projectDir`, matching what
     /// `ResultInspection` produces offline for the same files, so live and saved runs agree on every test ID.
     func parseJUnitReports(
         projectDir: String, task: String, buildSystem: AppFramework? = nil, runner: TestRunner = .gradle
     ) async throws -> ParsedTestRun? {
-        let directories = junitReportDirectories(projectDir: projectDir, task: task)
-        var suites: [ParsedTestSuite] = []
-        var cases: [ParsedTestCase] = []
-        var destinations: [TestDestination] = []
-        var diagnostics: [ParsingDiagnostic] = []
-        var passed = 0
-        var failed = 0
-        var skipped = 0
-        var errored = 0
-        var found = false
-        for directory in directories where FileManager.default.fileExists(atPath: directory.path) {
-            let run = try await AndroidJUnitTestParser(logger: logger).parse(
-                reportDirectory: directory.path, runner: runner, framework: buildSystem, identityRoot: projectDir)
-            found = true
-            passed += run.summary.passed
-            failed += run.summary.failed
-            errored += run.summary.errored
-            skipped += run.summary.skipped
-            suites += run.suites
-            cases += run.testCases
-            diagnostics += run.diagnostics
-            for destination in run.destinations where !destinations.contains(destination) { destinations.append(destination) }
-        }
-        guard found else { return nil }
-        return ParsedTestRun(
-            runner: runner, framework: buildSystem, source: projectDir, destinations: destinations,
-            summary: TestSummary(passed: passed, failed: failed, skipped: skipped, errored: errored),
-            suites: suites, testCases: cases, diagnostics: diagnostics)
+        try await GradleTestResults.read(projectDirectory: projectDir, task: task, framework: buildSystem, runner: runner)
     }
 
     /// `true` when Gradle reported `NO-SOURCE` or `SKIPPED` for exactly this test task: it had nothing to run,
     /// which is a legitimate empty run. Other tasks reporting `NO-SOURCE` (common for aidl, renderscript and
     /// the like) say nothing about whether the tests ran.
     func gradleTaskHadNothingToRun(_ log: String, task: String) -> Bool {
-        let parts = task.split(separator: ":").map(String.init)
-        guard let leaf = parts.last else { return false }
-        // A module-qualified task must match its own module; an unqualified one runs in every module.
-        let name =
-            parts.count > 1
-            ? ":" + parts.map(NSRegularExpression.escapedPattern(for:)).joined(separator: ":")
-            : "(?:\\S*:)?" + NSRegularExpression.escapedPattern(for: leaf)
-        return log.range(of: "(?m)^> Task " + name + " (?:NO-SOURCE|SKIPPED)\\s*$", options: .regularExpression) != nil
+        GradleTestResults.taskHadNothingToRun(log, task: task)
     }
 
     /// An explicit empty run for a task Gradle reported as having nothing to run, so it is recorded as such

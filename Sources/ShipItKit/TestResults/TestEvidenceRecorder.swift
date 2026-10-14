@@ -206,38 +206,7 @@ private func removeStaleResults(_ urls: [URL]) throws {
 /// A module-qualified task (`:app:testDebugUnitTest`) reads exactly that module. An unqualified task checks
 /// every module's `build` directory, without descending into build outputs or dependency trees.
 func junitReportDirectories(projectDir: String, task: String) -> [URL] {
-    let parts = task.split(separator: ":").map(String.init)
-    guard let taskName = parts.last else { return [] }
-    let root = URL(fileURLWithPath: projectDir).standardizedFileURL
-    let connected = taskName.hasPrefix("connected")
-    func results(inBuild build: URL) -> URL? {
-        let url =
-            connected
-            ? build.appendingPathComponent("outputs/androidTest-results/connected", isDirectory: true)
-            : build.appendingPathComponent("test-results/\(taskName)", isDirectory: true)
-        var isDirectory: ObjCBool = false
-        return FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory) && isDirectory.boolValue ? url : nil
-    }
-    if parts.count > 1 {
-        let module = root.appendingPathComponent(parts.dropLast().joined(separator: "/"), isDirectory: true)
-        return results(inBuild: module.appendingPathComponent("build", isDirectory: true)).map { [$0] } ?? []
-    }
-    var found: [URL] = []
-    let dependencyDirectories: Set<String> = ["node_modules", "Pods", "DerivedData", "vendor"]
-    guard
-        let walker = FileManager.default.enumerator(
-            at: root, includingPropertiesForKeys: [.isDirectoryKey], options: [.skipsHiddenFiles])
-    else { return [] }
-    while let url = walker.nextObject() as? URL {
-        guard (try? url.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true else { continue }
-        if url.lastPathComponent == "build" {
-            if let match = results(inBuild: url) { found.append(match) }
-            walker.skipDescendants()
-        } else if dependencyDirectories.contains(url.lastPathComponent) {
-            walker.skipDescendants()
-        }
-    }
-    return found.sorted { $0.path < $1.path }
+    GradleTestResults.reportDirectories(projectDirectory: projectDir, task: task)
 }
 
 /// Preserve partial logs before propagating cancellation or timeout.
