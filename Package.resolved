@@ -11,11 +11,11 @@
     },
     {
       "identity" : "cli-wrappers",
-      "kind" : "localSourceControl",
+      "kind" : "remoteSourceControl",
       "location" : "https://github.com/ShipItSwifty/cli-wrappers.git",
       "state" : {
         "branch" : "main",
-        "revision" : "a9ef8c9958b3abc942a2addd0c6f299962973ed4"
+        "revision" : "aad3afa18dd8161f64837838aadcae0b5daf9754"
       }
     },
     {
