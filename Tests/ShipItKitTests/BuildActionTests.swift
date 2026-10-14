@@ -247,7 +247,6 @@ struct BuildActionTests {
 }
 #endif
 
-
 // MARK: - BuildAction Android artifacts
 
 @Suite("BuildAction Android artifacts")
