@@ -56,6 +56,8 @@ public struct ResultInspection: Sendable {
             do {
                 return try await NativeResultReader(shell: shell).read(
                     path, format: NativeResultFormat(rawValue: kind.rawValue), runner: runner, framework: buildSystem)
+            } catch MobileKitError.unsupportedHost {
+                throw ShipItError.invalidConfiguration(reason: "iOS test-result parsing requires macOS.")
             } catch let error as MobileKitError {
                 // Keep ShipIt's error contract (exit codes, `test-results` messages) at this boundary.
                 throw ShipItError.invalidConfiguration(reason: error.localizedDescription)
