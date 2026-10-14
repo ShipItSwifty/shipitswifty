@@ -32,32 +32,6 @@ struct AndroidDeviceProvisionerTests {
 
     // MARK: - Parsing
 
-    @Test("parseDeviceSerials keeps only devices in the `device` state")
-    func parseDeviceSerials() {
-        let output = """
-            List of devices attached
-            emulator-5554\tdevice
-            R5CT2074MZ\tdevice
-            emulator-5556\toffline
-            0123456789\tunauthorized
-
-            """
-        #expect(AndroidDeviceProvisioner.parseDeviceSerials(output) == ["emulator-5554", "R5CT2074MZ"])
-        #expect(AndroidDeviceProvisioner.parseDeviceSerials(output, emulatorOnly: true) == ["emulator-5554"])
-    }
-
-    @Test("parseEmulatorSerial matches the AVD name exactly")
-    func parseEmulatorSerialExactMatch() {
-        let output = """
-            List of devices attached
-            emulator-5554          device product:sdk_gphone64_arm64 model:sdk_gphone64_arm64 avd:Pixel_7_Pro transport_id:1
-            emulator-5556          device product:sdk_gphone64_arm64 model:sdk_gphone64_arm64 avd:Pixel_7 transport_id:2
-            """
-        #expect(AndroidDeviceProvisioner.parseEmulatorSerial(output, avdName: "Pixel_7") == "emulator-5556")
-        #expect(AndroidDeviceProvisioner.parseEmulatorSerial(output, avdName: "Pixel_7_Pro") == "emulator-5554")
-        #expect(AndroidDeviceProvisioner.parseEmulatorSerial(output, avdName: "Pixel_8") == nil)
-    }
-
     @Test("parseAVDNames handles bare names, tabular output, headers, and emulator log noise")
     func parseAVDNames() {
         let native = """
@@ -155,34 +129,52 @@ struct AndroidDeviceProvisionerTests {
         }
     }
 
-    @Test("waitForBoot times out when no emulator reports boot completion")
-    func waitForBootTimesOut() async {
+    @Test("connectedDeviceSerials keeps only devices in the `device` state")
+    func connectedDeviceSerials() async throws {
         let (provisioner, _) = makeProvisioner { _, _ in
-            ShellOutput(stdout: "List of devices attached\n", stderr: "", exitCode: 0)
+            ShellOutput(
+                stdout: "List of devices attached\nemulator-5554\tdevice\nR5CT2074MZ\tdevice\nemulator-5556\toffline\n",
+                stderr: "", exitCode: 0)
         }
-        await #expect(throws: ShipItError.self) {
-            _ = try await provisioner.waitForBoot(avdName: "Pixel_7")
-        }
+        #expect(try await provisioner.connectedDeviceSerials() == ["emulator-5554", "R5CT2074MZ"])
+        #expect(try await provisioner.connectedDeviceSerials(emulatorOnly: true) == ["emulator-5554"])
     }
 
-    @Test("waitForBoot returns a newly attached emulator once sys.boot_completed is 1")
-    func waitForBootReturnsNewSerial() async throws {
-        let (provisioner, _) = makeProvisioner { command, _ in
+    private func namedEmulators(bootCompleted: String) -> (AndroidDeviceProvisioner, @Sendable () -> [String]) {
+        makeProvisioner { command, _ in
             let description = command.description
+            if description.contains("-list-avds") { return ShellOutput(stdout: "Pixel_7\n", stderr: "", exitCode: 0) }
+            if description.contains("emu avd name") { return ShellOutput(stdout: "Pixel_7\nOK\n", stderr: "", exitCode: 0) }
             if description.contains("getprop sys.boot_completed") {
-                return ShellOutput(stdout: "1\n", stderr: "", exitCode: 0)
+                return ShellOutput(stdout: bootCompleted, stderr: "", exitCode: 0)
             }
-            if description.contains("adb devices") {
-                return ShellOutput(
-                    stdout: "List of devices attached\nemulator-5554\tdevice\nemulator-5556\tdevice\n",
-                    stderr: "",
-                    exitCode: 0
-                )
+            if description.contains("adb") && description.contains("devices") {
+                // The emulator shows up only once it has been started.
+                return ShellOutput(stdout: "List of devices attached\n", stderr: "", exitCode: 0)
             }
             return ShellOutput(stdout: "", stderr: "", exitCode: 0)
         }
-        let serial = try await provisioner.waitForBoot(avdName: "Pixel_7", excluding: ["emulator-5554"])
-        #expect(serial == "emulator-5556")
+    }
+
+    @Test("named emulators boot attached, and a boot that never completes throws and leaves nothing running")
+    func namedEmulatorBootTimesOut() async {
+        let (provisioner, commands) = namedEmulators(bootCompleted: "")
+        await #expect(throws: ShipItError.self) {
+            _ = try await provisioner.prepare(
+                devices: TestDeviceConfig(strategy: .namedEmulators, emulators: ["Pixel_7"], promptLocally: false))
+        }
+        #expect(commands().contains { $0.contains("-avd Pixel_7") })
+        #expect(commands().contains { $0.contains("emu kill") }, "A failed boot stops the emulator it started")
+    }
+
+    @Test("named emulators return the started instance once sys.boot_completed is 1")
+    func namedEmulatorBoots() async throws {
+        let (provisioner, _) = namedEmulators(bootCompleted: "1\n")
+        let started = try await provisioner.prepare(
+            devices: TestDeviceConfig(strategy: .namedEmulators, emulators: ["Pixel_7"], promptLocally: false))
+        #expect(started.map(\.avd) == ["Pixel_7"])
+        #expect(started.first?.process != nil, "Attached, so the emulator ends with this process")
+        await provisioner.teardown(started)
     }
 
     @Test("resetAppInstallations uninstalls from every connected device and tolerates failures")
