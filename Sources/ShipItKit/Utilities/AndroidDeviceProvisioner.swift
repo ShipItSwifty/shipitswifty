@@ -22,9 +22,10 @@ import Glibc
 /// ## Usage
 /// ```swift
 /// let provisioner = AndroidDeviceProvisioner(context: context, logger: logger)
-/// let spawned = try await provisioner.prepare(devices: devicesConfig)
-/// defer { Task { await provisioner.teardown(spawned) } }  // or tear down explicitly
-/// try await provisioner.resetAppInstallations(packageName: "com.example.app")
+/// let run = try await provisioner.prepareRun(devices: devicesConfig)
+/// // Use run.serials for both the app reset and ANDROID_SERIAL; await teardown on every exit.
+/// try await provisioner.resetAppInstallations(packageName: "com.example.app", serials: run.serials ?? [])
+/// await provisioner.teardown(run)
 /// ```
 struct AndroidDeviceProvisioner: Sendable {
 
@@ -68,12 +69,19 @@ struct AndroidDeviceProvisioner: Sendable {
     /// - Returns: The emulators this call started. Pass them to ``teardown(_:)`` when the run
     ///   finishes; emulators that were already booted are reused and not returned.
     func prepare(devices: TestDeviceConfig) async throws -> [EmulatorInstance] {
+        try await prepareDevices(devices: devices).started
+    }
+
+    func prepareDevices(
+        devices: TestDeviceConfig, select: ((String) throws -> Bool)? = nil
+    ) async throws -> (started: [EmulatorInstance], serials: [String]) {
         switch devices.strategy {
         case .none:
-            return []
+            return ([], try await connectedDeviceSerials().filter { try select?($0) ?? true })
         case .connected:
-            if try await !connectedDeviceSerials().isEmpty {
-                return []
+            let connected = try await connectedDeviceSerials().filter { try select?($0) ?? true }
+            if !connected.isEmpty {
+                return ([], connected)
             }
 
             guard !context.configIsCI else {
@@ -92,17 +100,17 @@ struct AndroidDeviceProvisioner: Sendable {
             }
 
             logger.info("No connected Android devices found; falling back to a local emulator selection")
-            return try await prepare(
+            return try await prepareDevices(
                 devices: TestDeviceConfig(
                     strategy: .namedEmulators,
                     emulators: devices.emulators,
                     promptLocally: devices.promptLocally ?? true
-                )
+                ), select: select
             )
         case .managed:
             // Gradle Managed Devices handle their own lifecycle — nothing to orchestrate.
             // The task name itself targets the managed device.
-            return []
+            return ([], [])
         case .namedEmulators:
             let desiredEmulators = try resolveEmulators(
                 configured: devices.emulators,
@@ -112,10 +120,17 @@ struct AndroidDeviceProvisioner: Sendable {
             )
 
             var started: [EmulatorInstance] = []
+            var selected: [String] = []
             do {
                 for emulator in desiredEmulators {
                     if let existingSerial = try await emulators.runningSerial(avd: emulator) {
                         logger.info("Using already booted emulator '\(emulator)' (\(existingSerial))")
+                        guard try select?(existingSerial) ?? true else {
+                            throw ShipItError.invalidConfiguration(
+                                reason: "Android device \(existingSerial) is already claimed by another session.")
+                        }
+                        try await self.devices.waitForBoot(existingSerial, timeout: bootTimeout)
+                        selected.append(existingSerial)
                         continue
                     }
 
@@ -125,6 +140,11 @@ struct AndroidDeviceProvisioner: Sendable {
                     let instance = try await emulators.start(
                         avd: emulator, options: EmulatorBootOptions(headless: context.configIsCI, attached: true))
                     started.append(instance)
+                    guard try select?(instance.serial) ?? true else {
+                        throw ShipItError.invalidConfiguration(
+                            reason: "Android device \(instance.serial) is already claimed by another session.")
+                    }
+                    selected.append(instance.serial)
                     do {
                         try await emulators.waitUntilBooted(instance, timeout: bootTimeout)
                     } catch let error as MobileKitError {
@@ -138,7 +158,7 @@ struct AndroidDeviceProvisioner: Sendable {
                 throw error
             }
 
-            return started
+            return (started, selected)
         }
     }
 
@@ -149,12 +169,11 @@ struct AndroidDeviceProvisioner: Sendable {
         }
     }
 
-    /// Uninstalls `packageName` from every connected device so each run starts from a clean
-    /// install. Failures (e.g. the app is not installed) are logged and ignored.
-    func resetAppInstallations(packageName: String?) async throws {
+    /// Uninstalls `packageName` only on this run's claimed devices. Missing-app failures are ignored.
+    func resetAppInstallations(packageName: String?, serials: [String]) async throws {
         guard let packageName, !packageName.isEmpty else { return }
 
-        for serial in try await connectedDeviceSerials() {
+        for serial in serials {
             logger.info("Uninstalling existing Android app '\(packageName)' from '\(serial)' before test run")
             do {
                 _ = try await Adb(context: shell)

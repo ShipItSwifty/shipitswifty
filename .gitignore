@@ -3,6 +3,7 @@
 
 # Swift build artifacts
 .build/
+/Packages/
 .build-linux/
 *.o
 *.d

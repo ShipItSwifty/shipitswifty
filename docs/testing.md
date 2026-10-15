@@ -337,6 +337,12 @@ flaky. Instrumented Android and Kotlin Native tests retain results but do not cl
 assertion-rerun support. Saved Swift Testing streams require a Swift toolchain supporting
 `--event-stream-output-path` and `--attachments-path`.
 
+Android instrumented runs claim their selected devices in the same shared directory before
+resetting apps or running Gradle. Connected discovery skips claimed devices; named emulators
+refuse occupied devices. Resets, `ANDROID_SERIAL`, and failure evidence use only the claimed
+serials, and cleanup releases claims on success, failure, and cancellation. Gradle Managed
+Devices retain their own lifecycle and are excluded from host-device resets and capture.
+
 Simulator claims use amoo's `AMOO_LEASE_DIR` / `~/.amoo/leases` protocol. ShipIt refuses held
 devices and releases its own leases on completion/error/cancellation. It shuts down only
 simulators it booted and refuses to erase an already booted simulator. Shutdown is best effort
