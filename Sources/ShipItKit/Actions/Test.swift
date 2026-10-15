@@ -1497,11 +1497,13 @@ public struct TestAction: Action {
             promptForEmulators: promptForAndroidEmulatorsHandler,
             isInteractiveTerminal: isInteractiveTerminalHandler
         )
-        var spawnedEmulators: [EmulatorInstance] = []
-        if kind == .instrumented {
-            spawnedEmulators = try await provisioner.prepare(devices: devices)
-            try await provisioner.resetAppInstallations(packageName: context.config.androidPackageName)
-        }
+        let deviceRun = kind == .instrumented ? try await provisioner.prepareRun(devices: devices) : nil
+
+        let runContext: ActionContext = {
+            var selected = context
+            if kind == .instrumented { selected.androidTestSerials = deviceRun?.serials ?? [] }
+            return selected
+        }()
 
         logger.info("Running Android test task '\(scopedTask.name)'")
 
@@ -1510,6 +1512,9 @@ public struct TestAction: Action {
         let canRerunFailedTests = kind == .unit && rerunOptions.enabled && maxAttempts > 1
 
         do {
+            if let serials = deviceRun?.serials {
+                try await provisioner.resetAppInstallations(packageName: context.config.androidPackageName, serials: serials)
+            }
             // Gradle exits non-zero when any test fails. When reruns are enabled, that failure is
             // captured as a snapshot so its failed tests can be retried; infrastructure retries
             // still see the raw error first.
@@ -1523,8 +1528,9 @@ public struct TestAction: Action {
                         scopedTask: scopedTask,
                         baseTask: scopedTask,
                         kind: kind,
-                        context: context,
-                        testFilters: nil
+                        context: runContext,
+                        testFilters: nil,
+                        deviceSerials: deviceRun?.serials
                     )
                 } extractContext: { error in
                     if let shipItError = error as? ShipItError,
@@ -1535,7 +1541,7 @@ public struct TestAction: Action {
                     return nil
                 }
             } snapshot: { error in
-                await self.androidFailureSnapshot(from: error, context: context, task: scopedTask)
+                await self.androidFailureSnapshot(from: error, context: runContext, task: scopedTask)
             }
             var lastFailure = initialFailure
             var attempts = [
@@ -1563,11 +1569,11 @@ public struct TestAction: Action {
                             scopedTask: scopedTask,
                             baseTask: scopedTask,
                             kind: kind,
-                            context: context,
+                            context: runContext,
                             testFilters: rerunFilters
                         )
                     } snapshot: { error in
-                        await self.androidFailureSnapshot(from: error, context: context, task: scopedTask)
+                        await self.androidFailureSnapshot(from: error, context: runContext, task: scopedTask)
                     }
                     finalSnapshot = rerunSnapshot
                     attempts.append(
@@ -1624,7 +1630,7 @@ public struct TestAction: Action {
             try Self.rethrowPersistentFailure(
                 lastFailure ?? (finalFailCount > 0 ? initialFailure : nil), persistentFailureCount: finalFailCount)
 
-            await provisioner.teardown(spawnedEmulators)
+            if let deviceRun { await provisioner.teardown(deviceRun) }
             return Result(
                 passCount: finalPassCount,
                 failCount: finalFailCount,
@@ -1634,7 +1640,7 @@ public struct TestAction: Action {
                 report: report
             )
         } catch {
-            await provisioner.teardown(spawnedEmulators)
+            if let deviceRun { await provisioner.teardown(deviceRun) }
             throw error
         }
     }
@@ -1644,11 +1650,13 @@ public struct TestAction: Action {
         baseTask: GradleTask,
         kind: TestKind,
         context: ActionContext,
-        testFilters: [String]?
+        testFilters: [String]?,
+        deviceSerials: [String]? = nil
     ) async throws -> TestExecutionSnapshot {
         // `--tests` is a task option: it must follow the task name, not precede it as a global flag.
         let filteredTask = kind == .unit ? scopedTask.filteringTests(testFilters ?? []) : scopedTask
         var gradle = context.gradleTestCommand(streaming: true).task(filteredTask)
+        if let deviceSerials { gradle = gradle.env(["ANDROID_SERIAL": deviceSerials.joined(separator: ",")]) }
         // Complete independent modules before collecting failures for a root-scoped rerun.
         if kind == .unit && !scopedTask.name.contains(":") { gradle = gradle.flag(.continueAfterFailure) }
 

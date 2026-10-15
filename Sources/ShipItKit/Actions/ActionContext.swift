@@ -26,6 +26,8 @@ public struct ActionContext: Sendable {
     /// SwiftyShell context for executing shell commands.
     public var testEvidence: TestEvidenceRecorder? = nil
     public var evidenceRoot: String? = nil
+    /// Instrumented Android evidence is restricted to devices claimed by this run.
+    var androidTestSerials: [String]? = nil
     public let shell: ShellContext
 
     /// Structured logger scoped to the current operation.

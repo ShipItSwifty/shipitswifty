@@ -558,6 +558,7 @@ Detailed reference material lives in `docs/`:
 - `report.json` always describes the whole run; an unfinished run gets a provisional report from the reconciled attempts plus one extra `errored`. Exiting 0 without results fails (Flutter, KMP, Android) unless Gradle reported `NO-SOURCE`/`SKIPPED` for that exact task. Saving evidence is best effort and never replaces a test outcome.
 - Prefer explicit portable `test-results --input` for xcresult/JUnit/Swift/Flutter/Jest/ShipIt manifests. Export into a new directory; preserve original evidence and relative index links.
 - Coverage supports SwiftPM LLVM JSON, LCOV (Flutter or Jest; pass `runner`, since the file does not say which) and JaCoCo/Kover JVM XML. Native/JS coverage is unavailable through these formats. Swift/LCOV gates can filter source roots and previews; zero executable lines fail gates.
+- Android instrumented runs claim selected devices through `DeviceClaimStore`, hold session locks through teardown, and scope resets, Gradle `ANDROID_SERIAL`, and evidence to those serials. Connected discovery skips occupied devices; explicit named emulators refuse them. Managed devices keep Gradle lifecycle ownership.
 - Simulator claims share amoo's lease format. Never reap an external companion's lease or erase an already booted simulator; teardown only devices booted by the test run.
 - The repository's own `Shipfile.yml` supplies `format`, `ci-macos`, `ci-linux`, `fixtures` and `integration-advisory` workflows. Preserve their exclusions, advisory integration behavior and initial unit coverage for Codecov.
 

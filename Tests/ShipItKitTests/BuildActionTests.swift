@@ -277,12 +277,25 @@ struct BuildActionAndroidArtifactTests {
         #expect(result.apkPath?.hasPrefix("/") == true)
     }
 
-    @Test("Falls back to the conventional path when Gradle skipped the task as up to date")
-    func upToDateFallsBack() async throws {
+    @Test("An up-to-date build reports the cached custom APK name")
+    func cachedCustomAPK() async throws {
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let outputs = scratch.url.appending(path: "app/build/outputs/apk/release")
+        try FileManager.default.createDirectory(at: outputs, withIntermediateDirectories: true)
+        let metadata = outputs.appending(path: "output-metadata.json")
+        try Data(#"{"variantName":"release","elements":[{"outputFile":"custom-release.apk"}]}"#.utf8).write(to: metadata)
+        try FileManager.default.setAttributes([.modificationDate: Date.distantPast], ofItemAtPath: metadata.path)
+        let result = try await run(in: scratch, writing: false)
+        #expect(result.apkPath?.hasSuffix("/custom-release.apk") == true)
+    }
+
+    @Test("A build without output metadata does not invent an APK path")
+    func missingMetadata() async throws {
         let scratch = try TemporaryDirectory()
         defer { try? scratch.remove() }
         let result = try await run(in: scratch, writing: false)
-        #expect(result.apkPath == "app/build/outputs/apk/release/app-release.apk")
+        #expect(result.apkPath == nil)
     }
 }
 

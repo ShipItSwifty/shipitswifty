@@ -3,13 +3,10 @@ import Foundation
 
 /// Best-effort snapshots are bounded and never replace the runner's failure.
 func captureAndroidFailure(context: ActionContext, directory: URL) async {
+    // Host-only and managed-device tests own no adb devices to inspect.
+    guard let selectedDevices = context.androidTestSerials, !selectedDevices.isEmpty else { return }
     let adb = Adb(context: context.shell)
-    guard let listed = try? await adb.devices().timeout(.seconds(10)).run() else { return }
-    let devices = listed.stdout.components(separatedBy: .newlines).compactMap { line -> String? in
-        let parts = line.split(whereSeparator: { $0.isWhitespace })
-        return parts.count >= 2 && parts[1] == "device" ? String(parts[0]) : nil
-    }
-    for (index, serial) in devices.enumerated() {
+    for (index, serial) in selectedDevices.enumerated() {
         let root = directory.appendingPathComponent("device-\(index + 1)")
         try? FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         let selected = adb.serial(serial)

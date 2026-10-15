@@ -6,6 +6,7 @@ import MobileBuild
 import MobileCore
 import ReactNativeKit
 import SwiftyShell
+
 #if os(macOS)
 import XcodeBuildKit
 #endif
@@ -528,7 +529,7 @@ public struct BuildAction: Action {
         if let url = summary.buildScanURL { logger.info("Build scan: \(url)") }
 
         return Result(
-            apkPath: recordedAPK(from: outcome, module: module, variant: variant),
+            apkPath: recordedAPK(from: outcome, module: module),
             exitCode: Int(outcome.output.exitCode),
             warnings: outcome.warnings
         )
@@ -543,13 +544,11 @@ public struct BuildAction: Action {
     }
     #endif
 
-    /// The APK Gradle recorded for `module`, else the first it recorded, else the well-known
-    /// default path for a task Gradle skipped as up to date (which rewrites no output).
-    private func recordedAPK(from outcome: BuildOutcome, module: String, variant: String) -> String? {
+    /// The APK Gradle recorded for `module`, including a task's cached outputs.
+    private func recordedAPK(from outcome: BuildOutcome, module: String) -> String? {
         let apks = outcome.artifacts(.apk)
         let moduleDirectory = "/" + module.replacingOccurrences(of: ":", with: "/") + "/build/outputs/"
         return apks.first { $0.contains(moduleDirectory) } ?? apks.first
-            ?? CrossPlatformArtifactPaths.nativeAPK(module: module, variant: variant)
     }
 
     private func countWarnings(in output: String) -> Int {

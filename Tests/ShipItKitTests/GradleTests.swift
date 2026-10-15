@@ -1,5 +1,6 @@
 import Foundation
 import SwiftyShell
+import TestCommons
 import Testing
 
 @testable import ShipItKit
@@ -63,13 +64,14 @@ struct AndroidArchiveActionTests {
 
     @Test("ArchiveAction parses AAB from a realistic streamed Gradle tail")
     func androidArchiveParsesRealisticTail() async throws {
-        let tmpDir = FileManager.default.temporaryDirectory
-            .appendingPathComponent("shipit-archive-\(UUID().uuidString)", isDirectory: true)
+        let scratch = try TemporaryDirectory()
+        defer { try? scratch.remove() }
+        let tmpDir = scratch.url
         let aabDir = tmpDir.appendingPathComponent("app/build/outputs/bundle/release", isDirectory: true)
         try FileManager.default.createDirectory(at: aabDir, withIntermediateDirectories: true)
         let aabFile = aabDir.appendingPathComponent("app-release.aab")
         try Data("fake".utf8).write(to: aabFile)
-        defer { try? FileManager.default.removeItem(at: tmpDir) }
+        try FileManager.default.setAttributes([.modificationDate: Date.distantPast], ofItemAtPath: aabFile.path)
 
         let stdout = """
             > Task :app:bundleRelease
@@ -87,7 +89,8 @@ struct AndroidArchiveActionTests {
 
         let result = try await ArchiveAction().run(with: ArchiveAction.Options(), context: context)
 
-        #expect(result.aabPath == "app/build/outputs/bundle/release/app-release.aab")
+        let reported = try #require(result.aabPath)
+        #expect(URL(fileURLWithPath: reported).resolvingSymlinksInPath() == aabFile.resolvingSymlinksInPath())
     }
 
     @Test("ArchiveAction copies the AAB to outputPath when set")

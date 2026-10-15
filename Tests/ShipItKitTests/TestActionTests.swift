@@ -861,7 +861,10 @@ struct TestActionTests {
             androidModule: "app",
             androidBuildVariant: "prodDebug"
         )
-        let context = makeTestActionContext(executor: executor, config: config, platform: .android)
+        let claims = try TemporaryDirectory()
+        defer { try? claims.remove() }
+        let context = makeTestActionContext(
+            shell: ShellContext(executor: executor, environment: ["AMOO_LEASE_DIR": claims.url.path]), config: config, platform: .android)
 
         _ = try await TestAction().run(with: .init(legacyCombinedTest: true, kind: .unit), context: context)
 
@@ -880,7 +883,10 @@ struct TestActionTests {
             androidModule: "app",
             androidBuildVariant: "prodDebug"
         )
-        let context = makeTestActionContext(executor: executor, config: config, platform: .android)
+        let claims = try TemporaryDirectory()
+        defer { try? claims.remove() }
+        let context = makeTestActionContext(
+            shell: ShellContext(executor: executor, environment: ["AMOO_LEASE_DIR": claims.url.path]), config: config, platform: .android)
 
         // No explicit scope set — should default to root for connected instrumented tests
         _ = try await TestAction().run(
@@ -939,13 +945,16 @@ struct TestActionTests {
             androidModule: "app",
             androidBuildVariant: "prodDebug"
         )
-        let context = makeTestActionContext(executor: executor, config: config, platform: .android)
+        let claims = try TemporaryDirectory()
+        defer { try? claims.remove() }
+        let context = makeTestActionContext(
+            shell: ShellContext(executor: executor, environment: ["AMOO_LEASE_DIR": claims.url.path]), config: config, platform: .android)
 
         _ = try await TestAction().run(
             with: .init(
                 legacyCombinedTest: true,
                 kind: .instrumented,
-                devices: TestDeviceConfig(strategy: .connected, promptLocally: false)
+                devices: TestDeviceConfig(strategy: .connected, emulators: ["Medium_Phone_API_35"], promptLocally: false)
             ),
             context: context
         )
@@ -1000,7 +1009,7 @@ struct TestActionTests {
                 return ShellOutput(stdout: "1\n", stderr: "", exitCode: 0)
             }
 
-            if description.contains("adb -s emulator-5554 uninstall com.example.app") {
+            if description.contains("adb -s emulator-5556 uninstall com.example.app") {
                 return ShellOutput(stdout: "Success\n", stderr: "", exitCode: 0)
             }
 
@@ -1016,18 +1025,21 @@ struct TestActionTests {
             androidBuildVariant: "prodDebug",
             androidPackageName: "com.example.app"
         )
-        let context = makeTestActionContext(executor: executor, config: config, platform: .android)
+        let claims = try TemporaryDirectory()
+        defer { try? claims.remove() }
+        let context = makeTestActionContext(
+            shell: ShellContext(executor: executor, environment: ["AMOO_LEASE_DIR": claims.url.path]), config: config, platform: .android)
 
         _ = try await TestAction().run(
             with: .init(
                 legacyCombinedTest: true,
                 kind: .instrumented,
-                devices: TestDeviceConfig(strategy: .connected, promptLocally: false)
+                devices: TestDeviceConfig(strategy: .connected, emulators: ["Medium_Phone_API_35"], promptLocally: false)
             ),
             context: context
         )
 
-        #expect(commands().contains { $0.contains("adb -s emulator-5554 uninstall com.example.app") })
+        #expect(commands().contains { $0.contains("adb -s emulator-5556 uninstall com.example.app") })
         #expect(commands().contains { $0.contains("connectedProdDebugAndroidTest") && !$0.contains(":app:") })
     }
 
@@ -1068,7 +1080,10 @@ struct TestActionTests {
             androidModule: "app",
             androidBuildVariant: "prodDebug"
         )
-        let context = makeTestActionContext(executor: executor, config: config, platform: .android)
+        let claims = try TemporaryDirectory()
+        defer { try? claims.remove() }
+        let context = makeTestActionContext(
+            shell: ShellContext(executor: executor, environment: ["AMOO_LEASE_DIR": claims.url.path]), config: config, platform: .android)
         let selectedEmulators = Mutex<[String]>([])
         let action = TestAction(
             promptForAndroidEmulatorsHandler: { available in
@@ -1114,7 +1129,10 @@ struct TestActionTests {
             androidModule: "app",
             androidBuildVariant: "prodDebug"
         )
-        let context = makeTestActionContext(executor: executor, config: config, platform: .android)
+        let claims = try TemporaryDirectory()
+        defer { try? claims.remove() }
+        let context = makeTestActionContext(
+            shell: ShellContext(executor: executor, environment: ["AMOO_LEASE_DIR": claims.url.path]), config: config, platform: .android)
 
         do {
             _ = try await TestAction().run(
@@ -1159,7 +1177,10 @@ struct TestActionTests {
             androidModule: "app",
             androidBuildVariant: "prodDebug"
         )
-        let context = makeTestActionContext(executor: executor, config: config, platform: .android)
+        let claims = try TemporaryDirectory()
+        defer { try? claims.remove() }
+        let context = makeTestActionContext(
+            shell: ShellContext(executor: executor, environment: ["AMOO_LEASE_DIR": claims.url.path]), config: config, platform: .android)
 
         do {
             _ = try await TestAction().run(
@@ -1193,7 +1214,10 @@ struct TestActionTests {
             androidModule: "app",
             androidBuildVariant: "prodDebug"
         )
-        let context = makeTestActionContext(executor: executor, config: config, platform: .android)
+        let claims = try TemporaryDirectory()
+        defer { try? claims.remove() }
+        let context = makeTestActionContext(
+            shell: ShellContext(executor: executor, environment: ["AMOO_LEASE_DIR": claims.url.path]), config: config, platform: .android)
 
         // Explicit scope: module must be respected
         _ = try await TestAction().run(
@@ -1219,7 +1243,10 @@ struct TestActionTests {
             androidModule: "app",
             androidBuildVariant: "prodDebug"
         )
-        let context = makeTestActionContext(executor: executor, config: config, platform: .android)
+        let claims = try TemporaryDirectory()
+        defer { try? claims.remove() }
+        let context = makeTestActionContext(
+            shell: ShellContext(executor: executor, environment: ["AMOO_LEASE_DIR": claims.url.path]), config: config, platform: .android)
 
         _ = try await TestAction().run(
             with: .init(
@@ -1481,7 +1508,10 @@ struct TestActionTests {
             androidBuildVariant: "prodDebug",
             gradleProjectDir: tempDirectory.path
         )
-        let context = makeTestActionContext(executor: executor, config: config, platform: .android)
+        let claims = try TemporaryDirectory()
+        defer { try? claims.remove() }
+        let context = makeTestActionContext(
+            shell: ShellContext(executor: executor, environment: ["AMOO_LEASE_DIR": claims.url.path]), config: config, platform: .android)
 
         let result = try await TestAction().run(
             with: .init(legacyCombinedTest: true, kind: .unit),
@@ -1520,7 +1550,10 @@ struct TestActionTests {
             androidBuildVariant: "debug",
             gradleProjectDir: tempDirectory.path
         )
-        let context = makeTestActionContext(executor: executor, config: config, platform: .android)
+        let claims = try TemporaryDirectory()
+        defer { try? claims.remove() }
+        let context = makeTestActionContext(
+            shell: ShellContext(executor: executor, environment: ["AMOO_LEASE_DIR": claims.url.path]), config: config, platform: .android)
 
         let result = try await TestAction().run(
             with: .init(
