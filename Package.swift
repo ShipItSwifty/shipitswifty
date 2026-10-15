@@ -121,6 +121,7 @@ let package = Package(
             name: "CLITests",
             dependencies: [
                 "ShipItCLI",
+                .product(name: "MobileTesting", package: "mobile-kits"),
                 .product(name: "SwiftyShell", package: "SwiftyShell"),
             ]
         ),

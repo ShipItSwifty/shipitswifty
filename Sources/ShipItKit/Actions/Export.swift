@@ -1,6 +1,7 @@
 #if os(macOS)
 import Foundation
 import Logging
+import MobileBuild
 import SwiftyShell
 import XcodeBuildKit
 
@@ -100,16 +101,6 @@ public struct ExportAction: Action {
         let exportMethod = options.exportMethod ?? context.config.archiveExportMethod
         logger.info("Exporting archive '\(archivePath)' -> '\(outputDirectory)'")
 
-        // Generate export options plist
-        let plistPath = try await writeExportOptionsPlist(
-            exportMethod: exportMethod,
-            outputDirectory: outputDirectory,
-            context: context
-        )
-        defer {
-            try? FileManager.default.removeItem(atPath: plistPath)
-        }
-
         // Materialize ASC API key flags so `-allowProvisioningUpdates` can authenticate
         // to Apple in headless CI. Resolved only for automatic signing.
         let ascAuth =
@@ -118,82 +109,34 @@ public struct ExportAction: Action {
             : nil
         defer { ascAuth?.cleanup() }
 
-        var command = XcodeBuild(context: context.shell)
-            .exportArchive(
-                archivePath: archivePath,
-                exportPath: outputDirectory,
-                exportOptionsPlist: plistPath
-            )
+        let exportOptions = ExportOptions(
+            method: exportMethod,
+            teamID: context.config.teamID,
+            signingStyle: context.config.automaticCodeSigning ? "automatic" : "manual"
+        )
 
-        if context.config.automaticCodeSigning {
-            command = command.option(.allowProvisioningUpdates)
-            for option in ascAuth?.options ?? [] {
-                command = command.option(option)
-            }
+        let outcome = try await mappingBuildFailures(
+            { exitCode, log in
+                logger.error("Export failed with exit code \(exitCode)")
+                return .archiveFailed(exitCode: exitCode, log: log)
+            },
+            {
+                try await XcodeBuilder(shell: context.shell)
+                    .exportArchive(
+                        archivePath: archivePath,
+                        exportPath: outputDirectory,
+                        options: exportOptions,
+                        additionalOptions: context.config.automaticCodeSigning
+                            ? [.allowProvisioningUpdates] + (ascAuth?.options ?? [])
+                            : [])
+            })
+
+        guard let ipaPath = outcome.artifacts(.ipa).first else {
+            throw ShipItError.archiveFailed(exitCode: 1, log: "No IPA found in export directory: \(outputDirectory)")
         }
-
-        let output = try await command.run()
-
-        if output.exitCode != 0 {
-            logger.error("Export failed with exit code \(output.exitCode)")
-            throw ShipItError.archiveFailed(exitCode: Int(output.exitCode), log: output.stderr)
-        }
-
-        // Find the IPA in the output directory
-        let ipaPath = try findIPA(in: outputDirectory)
         logger.info("Export succeeded: \(ipaPath)")
 
         return Result(ipaPath: ipaPath, outputDirectory: outputDirectory)
-    }
-
-    // MARK: - Private Helpers
-
-    private func writeExportOptionsPlist(
-        exportMethod: String,
-        outputDirectory: String,
-        context: ActionContext
-    ) async throws -> String {
-        let tmpPath = NSTemporaryDirectory() + "ExportOptions_\(UUID().uuidString).plist"
-
-        var plistContent = """
-            <?xml version="1.0" encoding="UTF-8"?>
-            <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-            <plist version="1.0">
-            <dict>
-                <key>method</key>
-                <string>\(exportMethod)</string>
-            """
-
-        if let teamID = context.config.teamID {
-            plistContent += """
-
-                    <key>teamID</key>
-                    <string>\(teamID)</string>
-                """
-        }
-
-        plistContent += """
-
-                <key>signingStyle</key>
-                <string>\(context.config.automaticCodeSigning ? "automatic" : "manual")</string>
-
-            </dict>
-            </plist>
-            """
-
-        try plistContent.write(toFile: tmpPath, atomically: true, encoding: .utf8)
-        return tmpPath
-    }
-
-    private func findIPA(in directory: String) throws -> String {
-        let fileManager = FileManager.default
-        guard let contents = try? fileManager.contentsOfDirectory(atPath: directory) else {
-            throw ShipItError.archiveFailed(exitCode: 1, log: "Cannot list export directory: \(directory)")
-        }
-        guard let ipaFile = contents.first(where: { $0.hasSuffix(".ipa") }) else {
-            throw ShipItError.archiveFailed(exitCode: 1, log: "No IPA found in export directory: \(directory)")
-        }
-        return (directory as NSString).appendingPathComponent(ipaFile)
     }
 }
 #endif

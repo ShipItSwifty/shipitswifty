@@ -2,6 +2,7 @@
 import Foundation
 import GradleKit
 import Logging
+import MobileBuild
 import SwiftyShell
 import XcodeGenKit
 
@@ -213,18 +214,12 @@ extension ActionContext {
             target: target
         ).qualified(module: module ?? config.kmpSharedModule)
 
-        do {
-            _ = try await gradle()
-                .task(linkTask)
-                .run()
-        } catch let ShellError.exitFailure(_, output) {
-            throw ShipItError.buildFailed(
-                exitCode: Int(output.exitCode),
-                log: [output.stdout, output.stderr]
-                    .filter { !$0.isEmpty }
-                    .joined(separator: "\n")
-            )
-        }
+        // The Shipfile's `-P` properties are Android's; the iOS framework link does not take them.
+        var project = gradleProject()
+        project.properties = [:]
+        _ = try await mappingBuildFailures(
+            { exitCode, log in .buildFailed(exitCode: exitCode, log: log) },
+            { try await gradleBuilder(output: .init()).run([linkTask], in: project) })
     }
 }
 #endif

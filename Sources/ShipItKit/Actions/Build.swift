@@ -2,9 +2,13 @@ import FlutterKit
 import Foundation
 import GradleKit
 import Logging
+import MobileBuild
 import MobileCore
 import ReactNativeKit
 import SwiftyShell
+#if os(macOS)
+import XcodeBuildKit
+#endif
 
 /// Compiles the app.
 ///
@@ -351,76 +355,21 @@ public struct BuildAction: Action {
         options: Options,
         context: ActionContext
     ) async throws -> Result {
-        let module = reactNativeAndroidModule(context: context)
+        let module = context.reactNativeAndroidModule
         let variant = options.buildVariant ?? context.config.androidBuildVariant
         let task: GradleTask = variant.lowercased() == "debug" ? .assembleDebug : .assembleRelease
 
-        let output = try await runReactNativeGradleTask(
-            task: task.qualified(module: module),
-            gradleProperties: options.gradleProperties,
-            context: context,
-            failureMapper: { exitCode, log in
-                .buildFailed(exitCode: exitCode, log: log)
-            }
+        let outcome = try await context.runReactNativeGradleTask(
+            task.qualified(module: module),
+            extraProperties: options.gradleProperties,
+            failed: { exitCode, log in .buildFailed(exitCode: exitCode, log: log) }
         )
 
         return Result(
             apkPath: CrossPlatformArtifactPaths.reactNativeAPK(variant: variant),
-            exitCode: Int(output.exitCode),
-            warnings: countWarnings(in: output.stdout)
+            exitCode: Int(outcome.output.exitCode),
+            warnings: outcome.warnings
         )
-    }
-
-    private func runReactNativeGradleTask(
-        task: GradleTask,
-        gradleProperties: [String: String]?,
-        context: ActionContext,
-        failureMapper: (Int, String) -> ShipItError
-    ) async throws -> ShellOutput {
-        var gradle = Gradle(context: context.shell)
-            .projectDir(reactNativeGradleProjectDir(context: context))
-            .flag(.noDaemon)
-            .task(task)
-
-        if let gradlewPath = reactNativeGradlewPath(context: context) {
-            gradle = gradle.settingGradlewPath(gradlewPath)
-        }
-
-        for flag in context.config.androidGradleFlags where flag != "--no-daemon" {
-            gradle = gradle.flag(.custom(flag))
-        }
-
-        let allProps = context.config.androidGradleProperties.merging(gradleProperties ?? [:]) { _, new in new }
-        for (key, value) in allProps {
-            gradle = gradle.property(.custom(key: key, value: value))
-        }
-
-        do {
-            let output = try await gradle.run()
-            if output.exitCode != 0 {
-                throw failureMapper(Int(output.exitCode), ShellRunHelpers.combinedLog(output))
-            }
-            context.logShellOutput(output, label: "gradlew react-native fallback")
-            return output
-        } catch let ShellError.exitFailure(_, shellOutput) {
-            throw failureMapper(Int(shellOutput.exitCode), ShellRunHelpers.combinedLog(shellOutput))
-        }
-    }
-
-    private func reactNativeAndroidModule(context: ActionContext) -> String {
-        let module = context.config.androidModule
-        return module.isEmpty ? "app" : module
-    }
-
-    private func reactNativeGradleProjectDir(context: ActionContext) -> String {
-        context.config.gradleProjectDir == context.config.projectRoot ? "./android" : context.config.gradleProjectDir
-    }
-
-    private func reactNativeGradlewPath(context: ActionContext) -> String? {
-        if let gradlewPath = context.config.gradlewPath {
-            return gradlewPath
-        }
-        return "\(reactNativeGradleProjectDir(context: context))/gradlew"
     }
 
     private func shouldFallbackFromReactNativeBuildCommand(log: String) -> Bool {
@@ -486,61 +435,49 @@ public struct BuildAction: Action {
             : nil
         defer { ascAuth?.cleanup() }
 
-        var xcodeBuild = context.streamingXcodeBuild()
-            .option(.scheme(scheme))
-            .option(.configuration(configuration))
-
+        let container: XcodeContainer?
         if let workspace = options.workspace ?? context.config.appWorkspace {
-            xcodeBuild = xcodeBuild.workspace(workspace)
+            container = .workspace(workspace)
         } else if let project = options.project ?? context.config.appProject {
-            xcodeBuild = xcodeBuild.project(project)
+            container = .project(project)
+        } else {
+            container = nil
         }
 
-        if let derivedData = options.derivedDataPath ?? context.config.derivedDataPath {
-            xcodeBuild = xcodeBuild.option(.derivedDataPath(derivedData))
-        }
+        let request = XcodeBuildRequest(
+            container: container,
+            scheme: scheme,
+            configuration: configuration,
+            derivedDataPath: options.derivedDataPath ?? context.config.derivedDataPath,
+            buildSettings: context.config.xcargs.merging(options.xcargs ?? [:]) { _, new in new },
+            additionalOptions: context.config.automaticCodeSigning
+                ? [.allowProvisioningUpdates] + (ascAuth?.options ?? [])
+                : []
+        )
 
-        if context.config.automaticCodeSigning {
-            xcodeBuild = xcodeBuild.option(.allowProvisioningUpdates)
-            for option in ascAuth?.options ?? [] {
-                xcodeBuild = xcodeBuild.option(option)
-            }
-        }
-
-        let allXcargs = context.config.xcargs.merging(options.xcargs ?? [:]) { _, new in new }
-        for (key, value) in allXcargs {
-            xcodeBuild = xcodeBuild.buildSetting(key, value)
-        }
-
-        xcodeBuild = xcodeBuild.build(clean: options.clean == true)
-
-        let output: ShellOutput
-        do {
-            output = try await xcodeBuild.run()
-        } catch let ShellError.exitFailure(_, output) {
-            logger.error("Build failed with exit code \(output.exitCode)")
-            throw ShipItError.buildFailed(
-                exitCode: Int(output.exitCode),
-                log: [output.stdout, output.stderr]
-                    .filter { !$0.isEmpty }
-                    .joined(separator: "\n")
-            )
-        }
-
-        if output.exitCode != 0 {
-            logger.error("Build failed with exit code \(output.exitCode)")
-            throw ShipItError.buildFailed(exitCode: Int(output.exitCode), log: output.stderr)
-        }
+        let outcome = try await mappingBuildFailures(
+            { exitCode, log in
+                logger.error("Build failed with exit code \(exitCode)")
+                return .buildFailed(exitCode: exitCode, log: log)
+            },
+            {
+                try await XcodeBuilder(shell: context.shell, output: context.buildOutput)
+                    .build(request, clean: options.clean == true)
+            })
 
         logger.info("Build succeeded for scheme '\(scheme)'")
-        // Output already streamed live via streamingXcodeBuild()'s .tee destination — no debug re-dump.
-        logXcodeBuildSummary(from: output.stdout)
+        // Output already streamed live via the build output policy — no debug re-dump.
+        if let line = outcome.resultLine { logger.info("\(line)") }
+        if outcome.warnings > 0 || outcome.errors > 0 {
+            logger.info("\(outcome.warnings) warning(s), \(outcome.errors) error(s)")
+        }
+        for note in outcome.diagnostics { logger.warning("\(note)") }
 
         return Result(
-            appPath: parseAppPath(from: output.stdout),
-            dsymPath: parseDsymPath(from: output.stdout),
-            exitCode: Int(output.exitCode),
-            warnings: countWarnings(in: output.stdout)
+            appPath: preferred(outcome.artifacts(.app), named: "\(scheme).app"),
+            dsymPath: preferred(outcome.artifacts(.dsym), named: "\(scheme).app.dSYM"),
+            exitCode: Int(outcome.output.exitCode),
+            warnings: outcome.warnings
         )
     }
 
@@ -568,109 +505,51 @@ public struct BuildAction: Action {
 
         logger.info("Building Android module '\(module)' with task '\(scopedTask.name)'")
 
-        var gradle = context.streamingGradle()
-            .task(scopedTask)
-
-        if options.clean == true {
-            gradle = context.streamingGradle()
-                .task(.clean)
-                .task(scopedTask)
-        }
-
-        // Apply config-level Gradle properties after the optional clean rebuild so they are not dropped.
-        let allProps = context.config.androidGradleProperties.merging(options.gradleProperties ?? [:]) { _, new in new }
-        for (key, value) in allProps {
-            gradle = gradle.property(.custom(key: key, value: value))
-        }
-
-        let output: ShellOutput
-        do {
-            output = try await gradle.run()
-        } catch let ShellError.exitFailure(_, output) {
-            logger.error("Android build failed with exit code \(output.exitCode)")
-            throw ShipItError.buildFailed(
-                exitCode: Int(output.exitCode),
-                log: [output.stdout, output.stderr]
-                    .filter { !$0.isEmpty }
-                    .joined(separator: "\n")
-            )
-        }
-
-        if output.exitCode != 0 {
-            logger.error("Android build failed with exit code \(output.exitCode)")
-            throw ShipItError.buildFailed(exitCode: Int(output.exitCode), log: output.stderr)
-        }
+        let outcome = try await mappingBuildFailures(
+            { exitCode, log in
+                logger.error("Android build failed with exit code \(exitCode)")
+                return .buildFailed(exitCode: exitCode, log: log)
+            },
+            {
+                try await context.gradleBuilder().run(
+                    [scopedTask],
+                    in: context.gradleProject(extraProperties: options.gradleProperties),
+                    modules: scope == .module ? [module] : [],
+                    clean: options.clean == true)
+            })
 
         logger.info("Android build succeeded for module '\(module)'")
-        // Output already streamed live via streamingGradle()'s .tee destination — no debug re-dump.
+        // Output already streamed live via the build output policy — no debug re-dump.
 
         // Always surface the build summary at info level (not gated on --verbose).
-        let summary = GradleBuildSummary.parse(output.stdout)
+        let summary = GradleBuildSummary.parse(outcome.output.stdout)
         if let line = summary.buildResultLine { logger.info("\(line)") }
         if let line = summary.actionableTasksLine { logger.info("\(line)") }
         if let url = summary.buildScanURL { logger.info("Build scan: \(url)") }
 
-        let apkPath = parseApkPath(from: output.stdout, module: module, variant: variant)
         return Result(
-            apkPath: apkPath,
-            exitCode: Int(output.exitCode),
-            warnings: countWarnings(in: output.stdout)
+            apkPath: recordedAPK(from: outcome, module: module, variant: variant),
+            exitCode: Int(outcome.output.exitCode),
+            warnings: outcome.warnings
         )
     }
 
     // MARK: - Private Helpers
 
     #if os(macOS)
-    /// Logs the xcodebuild result marker and warning/error counts at info level. Never throws.
-    private func logXcodeBuildSummary(from stdout: String) {
-        let summary = XcodeBuildSummary.parse(stdout)
-        if let line = summary.resultLine { logger.info("\(line)") }
-        if summary.warningCount > 0 || summary.errorCount > 0 {
-            logger.info("\(summary.warningCount) warning(s), \(summary.errorCount) error(s)")
-        }
+    /// The artifact named `name`, else the first one.
+    private func preferred(_ paths: [String], named name: String) -> String? {
+        paths.first { ($0 as NSString).lastPathComponent == name } ?? paths.first
     }
-
-    private func parseAppPath(from output: String) -> String? {
-        let lines = output.components(separatedBy: "\n")
-        for line in lines {
-            if line.contains(".app") && !line.contains(".dSYM") {
-                let components = line.components(separatedBy: " ")
-                if let appComponent = components.first(where: { $0.hasSuffix(".app") }) {
-                    return appComponent
-                }
-            }
-        }
-        return nil
-    }
-
-    private func parseDsymPath(from output: String) -> String? {
-        let lines = output.components(separatedBy: "\n")
-        for line in lines {
-            if line.contains(".dSYM") {
-                let components = line.components(separatedBy: " ")
-                if let dsymComponent = components.first(where: { $0.hasSuffix(".dSYM") }) {
-                    return dsymComponent
-                }
-            }
-        }
-        return nil
-    }
-
     #endif
 
-    private func parseApkPath(from output: String, module: String, variant: String) -> String? {
-        // Gradle outputs: "app/build/outputs/apk/release/app-release.apk"
-        let lines = output.components(separatedBy: "\n")
-        for line in lines {
-            if line.contains(".apk") && line.contains(variant) {
-                let components = line.components(separatedBy: " ")
-                if let apkComponent = components.first(where: { $0.hasSuffix(".apk") }) {
-                    return apkComponent
-                }
-            }
-        }
-        // Fallback: well-known default path
-        return "\(module)/build/outputs/apk/\(variant)/\(module)-\(variant).apk"
+    /// The APK Gradle recorded for `module`, else the first it recorded, else the well-known
+    /// default path for a task Gradle skipped as up to date (which rewrites no output).
+    private func recordedAPK(from outcome: BuildOutcome, module: String, variant: String) -> String? {
+        let apks = outcome.artifacts(.apk)
+        let moduleDirectory = "/" + module.replacingOccurrences(of: ":", with: "/") + "/build/outputs/"
+        return apks.first { $0.contains(moduleDirectory) } ?? apks.first
+            ?? CrossPlatformArtifactPaths.nativeAPK(module: module, variant: variant)
     }
 
     private func countWarnings(in output: String) -> Int {

@@ -138,3 +138,11 @@ private func makeTestActionContext(
     )
     #endif
 }
+
+/// Mimics `xcodebuild` writing the `.xcresult` bundle named by `-resultBundlePath`.
+///
+/// The shared test runner checks the bundle exists before reading it, as a real run guarantees.
+func writeResultBundle(for arguments: [String]) {
+    guard let index = arguments.firstIndex(of: "-resultBundlePath"), index + 1 < arguments.count else { return }
+    try? FileManager.default.createDirectory(atPath: arguments[index + 1], withIntermediateDirectories: true)
+}

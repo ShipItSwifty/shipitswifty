@@ -132,6 +132,7 @@ struct RealFormatTests {
         let executor = MockExecutor { command, _ in
             let args = command.arguments
             if args.contains("test-without-building") {
+                writeResultBundle(for: args)
                 let number = attempts.withLock {
                     $0 += 1
                     return $0
