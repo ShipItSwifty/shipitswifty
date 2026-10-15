@@ -3,6 +3,8 @@ import AndroidCLIKit
 import EmulatorKit
 import Foundation
 import Logging
+import MobileCore
+import MobileDevices
 import SwiftyShell
 
 #if canImport(Darwin)
@@ -51,13 +53,21 @@ struct AndroidDeviceProvisioner: Sendable {
 
     private var shell: ShellContext { context.shell }
 
+    private var devices: AndroidDeviceManager {
+        AndroidDeviceManager(shell: shell) { [pollInterval] timeout in Poller(timeout: timeout, interval: pollInterval) }
+    }
+
+    private var emulators: AndroidEmulatorManager {
+        AndroidEmulatorManager(shell: shell, devices: devices)
+    }
+
     // MARK: - Lifecycle
 
     /// Ensures the devices described by `devices` are available, booting emulators as needed.
     ///
-    /// - Returns: The emulator processes this call spawned. Pass them to ``teardown(_:)`` when the
-    ///   run finishes; emulators that were already booted are reused and not returned.
-    func prepare(devices: TestDeviceConfig) async throws -> [any SpawnedProcess] {
+    /// - Returns: The emulators this call started. Pass them to ``teardown(_:)`` when the run
+    ///   finishes; emulators that were already booted are reused and not returned.
+    func prepare(devices: TestDeviceConfig) async throws -> [EmulatorInstance] {
         switch devices.strategy {
         case .none:
             return []
@@ -101,33 +111,41 @@ struct AndroidDeviceProvisioner: Sendable {
                 allowInteractiveSelection: !context.configIsCI
             )
 
-            var spawned: [any SpawnedProcess] = []
-            for emulator in desiredEmulators {
-                if let existingSerial = try await bootedEmulatorSerial(avdName: emulator) {
-                    logger.info("Using already booted emulator '\(emulator)' (\(existingSerial))")
-                    continue
+            var started: [EmulatorInstance] = []
+            do {
+                for emulator in desiredEmulators {
+                    if let existingSerial = try await emulators.runningSerial(avd: emulator) {
+                        logger.info("Using already booted emulator '\(emulator)' (\(existingSerial))")
+                        continue
+                    }
+
+                    logger.info("Booting emulator '\(emulator)'\(context.configIsCI ? " (headless)" : "")")
+                    // CI runners have no display: a windowed emulator exits immediately there.
+                    // Attached, so the emulator ends with this process even if teardown never runs.
+                    let instance = try await emulators.start(
+                        avd: emulator, options: EmulatorBootOptions(headless: context.configIsCI, attached: true))
+                    started.append(instance)
+                    do {
+                        try await emulators.waitUntilBooted(instance, timeout: bootTimeout)
+                    } catch let error as MobileKitError {
+                        throw ShipItError.invalidConfiguration(
+                            reason: "Android emulator '\(emulator)' did not boot: \(error.localizedDescription)")
+                    }
+                    logger.info("Emulator '\(emulator)' booted as \(instance.serial)")
                 }
-
-                let serialsBeforeBoot = try await connectedDeviceSerials(emulatorOnly: true)
-                logger.info("Booting emulator '\(emulator)'\(context.configIsCI ? " (headless)" : "")")
-                // CI runners have no display: a windowed emulator exits immediately there.
-                let process = try await Emulator(context: shell)
-                    .start(avd: emulator, headless: context.configIsCI)
-                    .spawn(teardown: .graceful)
-
-                spawned.append(process)
-                let serial = try await waitForBoot(avdName: emulator, excluding: Set(serialsBeforeBoot))
-                logger.info("Emulator '\(emulator)' booted as \(serial)")
+            } catch {
+                await teardown(started)
+                throw error
             }
 
-            return spawned
+            return started
         }
     }
 
-    /// Gracefully shuts down emulators spawned by ``prepare(devices:)``.
-    func teardown(_ emulators: [any SpawnedProcess]) async {
-        for emulator in emulators {
-            _ = await emulator.teardownAndWait()
+    /// Stops the emulators ``prepare(devices:)`` started.
+    func teardown(_ instances: [EmulatorInstance]) async {
+        for instance in instances {
+            await emulators.stop(instance)
         }
     }
 
@@ -199,26 +217,23 @@ struct AndroidDeviceProvisioner: Sendable {
 
     /// Lists local AVD names via AndroidCLI (when enabled) or `emulator -list-avds`.
     func availableEmulators() async throws -> [String] {
+        guard context.config.androidCLI.enabled == true else { return try await emulators.listAVDs() }
+        let executable = context.config.androidCLI.executablePath ?? "android"
+        let cli = AndroidCLI(
+            context: shell,
+            executablePath: executable,
+            sdkPath: context.config.androidCLI.sdkPath
+        )
         let output: ShellOutput
-        if context.config.androidCLI.enabled == true {
-            let executable = context.config.androidCLI.executablePath ?? "android"
-            let cli = AndroidCLI(
-                context: shell,
-                executablePath: executable,
-                sdkPath: context.config.androidCLI.sdkPath
+        do {
+            try await AndroidCLIVersionGate.ensureSupported(cli)
+            output = try await cli.emulatorList().run()
+        } catch let error as ShipItError {
+            throw error
+        } catch {
+            throw ShipItError.invalidConfiguration(
+                reason: "AndroidCLI command failed using '\(executable)': \(error.localizedDescription)"
             )
-            do {
-                try await AndroidCLIVersionGate.ensureSupported(cli)
-                output = try await cli.emulatorList().run()
-            } catch let error as ShipItError {
-                throw error
-            } catch {
-                throw ShipItError.invalidConfiguration(
-                    reason: "AndroidCLI command failed using '\(executable)': \(error.localizedDescription)"
-                )
-            }
-        } else {
-            output = try await Emulator(context: shell).list().run()
         }
         return Self.parseAVDNames(output.stdout)
     }
@@ -227,79 +242,12 @@ struct AndroidDeviceProvisioner: Sendable {
 
     /// Serials of attached devices in the `device` state (not `offline` / `unauthorized`).
     func connectedDeviceSerials(emulatorOnly: Bool = false) async throws -> [String] {
-        let output = try await Adb(context: shell).devices().run()
-        return Self.parseDeviceSerials(output.stdout, emulatorOnly: emulatorOnly)
-    }
-
-    /// The serial of a running emulator for `avdName`, if any.
-    func bootedEmulatorSerial(avdName: String) async throws -> String? {
-        let output = try await Adb(context: shell).devices(long: true).run()
-        return Self.parseEmulatorSerial(output.stdout, avdName: avdName)
-    }
-
-    /// Whether `sys.boot_completed` reports `1` for the device.
-    func isBooted(serial: String) async -> Bool {
-        let boot = try? await Adb(context: shell)
-            .serial(serial)
-            .getprop("sys.boot_completed")
-            .run()
-        return boot?.stdout.trimmingCharacters(in: .whitespacesAndNewlines) == "1"
-    }
-
-    /// Polls until the emulator for `avdName` (or any newly attached emulator not in
-    /// `knownSerials`) has finished booting, then returns its serial.
-    func waitForBoot(avdName: String, excluding knownSerials: Set<String> = []) async throws -> String {
-        let clock = ContinuousClock()
-        let deadline = clock.now.advanced(by: bootTimeout)
-
-        while clock.now < deadline {
-            if let serial = try await bootedEmulatorSerial(avdName: avdName), await isBooted(serial: serial) {
-                return serial
-            }
-
-            let newSerials = try await connectedDeviceSerials(emulatorOnly: true).filter { !knownSerials.contains($0) }
-            for serial in newSerials {
-                if await isBooted(serial: serial) { return serial }
-            }
-
-            try await Task.sleep(for: pollInterval)
-        }
-
-        throw ShipItError.invalidConfiguration(
-            reason: "Timed out waiting for Android emulator '\(avdName)' to boot."
-        )
+        try await devices.list()
+            .filter { $0.state == .device && (!emulatorOnly || $0.kind == .emulator) }
+            .map(\.serial)
     }
 
     // MARK: - Output parsing
-
-    /// Parses `adb devices` output into serials whose state is `device`.
-    static func parseDeviceSerials(_ output: String, emulatorOnly: Bool = false) -> [String] {
-        output.components(separatedBy: .newlines).compactMap { line in
-            let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !trimmed.isEmpty, !trimmed.hasPrefix("List of devices attached") else { return nil }
-            let columns = trimmed.components(separatedBy: .whitespaces).filter { !$0.isEmpty }
-            guard columns.count >= 2, columns[1] == "device" else { return nil }
-            let serial = columns[0]
-            guard !emulatorOnly || serial.hasPrefix("emulator-") else { return nil }
-            return serial
-        }
-    }
-
-    /// Parses `adb devices -l` output for the emulator serial running `avdName`.
-    ///
-    /// Matches the `avd:<name>` token exactly, so `Pixel_7` does not match `Pixel_7_Pro`.
-    static func parseEmulatorSerial(_ output: String, avdName: String) -> String? {
-        for line in output.components(separatedBy: .newlines) {
-            let columns = line.trimmingCharacters(in: .whitespacesAndNewlines)
-                .components(separatedBy: .whitespaces)
-                .filter { !$0.isEmpty }
-            guard let serial = columns.first, serial.hasPrefix("emulator-") else { continue }
-            if columns.contains("avd:\(avdName)") {
-                return serial
-            }
-        }
-        return nil
-    }
 
     /// Parses AVD names from `emulator -list-avds` (one bare name per line) or AndroidCLI's
     /// tabular `name  status` output, dropping an obvious header row and emulator log noise.

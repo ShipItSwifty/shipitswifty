@@ -139,6 +139,7 @@ struct TestWorkflowTests {
         let executor = MockExecutor { command, _ in
             let args = command.arguments
             if args.contains("test-without-building") {
+                writeResultBundle(for: args)
                 count.withLock { $0 += 1 }
                 return .init(stdout: "test failed", stderr: "", exitCode: 65)
             }
@@ -176,6 +177,7 @@ struct TestWorkflowTests {
             let args = command.arguments
             commands.withLock { $0.append(args) }
             if args.contains("test-without-building") {
+                writeResultBundle(for: args)
                 let count = testCount.withLock {
                     $0 += 1
                     return $0

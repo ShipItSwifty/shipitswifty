@@ -1,3 +1,4 @@
+import MobileTesting
 import Testing
 
 @testable import ShipItCLI
