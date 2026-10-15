@@ -496,7 +496,7 @@ public struct ArchiveAction: Action {
         // cache-effectiveness signal is visible in CI. Best-effort: missing lines are skipped.
         logBuildSummary(from: outcome.output.stdout)
 
-        var aabPath = recordedAAB(from: outcome, module: module, variant: variant)
+        var aabPath = recordedAAB(from: outcome, module: module)
         if let resolvedAabPath = aabPath {
             logger.info("Android AAB path: \(resolvedAabPath)")
 
@@ -551,12 +551,10 @@ public struct ArchiveAction: Action {
 
     // MARK: - Private Helpers
 
-    /// The bundle Gradle recorded for `module`, else the first it recorded, else the well-known
-    /// default path for a task Gradle skipped as up to date (which rewrites no output).
-    private func recordedAAB(from outcome: BuildOutcome, module: String, variant: String) -> String? {
+    /// The bundle Gradle recorded for `module`, including a task's cached outputs.
+    private func recordedAAB(from outcome: BuildOutcome, module: String) -> String? {
         let bundles = outcome.artifacts(.aab)
         let moduleDirectory = "/" + module.replacingOccurrences(of: ":", with: "/") + "/build/outputs/"
         return bundles.first { $0.contains(moduleDirectory) } ?? bundles.first
-            ?? CrossPlatformArtifactPaths.nativeAAB(module: module, variant: variant)
     }
 }

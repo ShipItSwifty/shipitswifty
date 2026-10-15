@@ -177,7 +177,7 @@ struct AndroidDeviceProvisionerTests {
         await provisioner.teardown(started)
     }
 
-    @Test("resetAppInstallations uninstalls from every connected device and tolerates failures")
+    @Test("resetAppInstallations uninstalls only from selected devices and tolerates failures")
     func resetAppInstallations() async throws {
         let (provisioner, commands) = makeProvisioner { command, _ in
             let description = command.description
@@ -189,7 +189,7 @@ struct AndroidDeviceProvisionerTests {
             }
             return ShellOutput(stdout: "Success", stderr: "", exitCode: 0)
         }
-        try await provisioner.resetAppInstallations(packageName: "com.example.app")
+        try await provisioner.resetAppInstallations(packageName: "com.example.app", serials: ["emulator-5554", "R5CT"])
         let uninstalls = commands().filter { $0.contains("uninstall com.example.app") }
         #expect(uninstalls.count == 2)
     }
@@ -197,7 +197,7 @@ struct AndroidDeviceProvisionerTests {
     @Test("resetAppInstallations is a no-op without a package name")
     func resetAppInstallationsWithoutPackage() async throws {
         let (provisioner, commands) = makeProvisioner()
-        try await provisioner.resetAppInstallations(packageName: nil)
+        try await provisioner.resetAppInstallations(packageName: nil, serials: [])
         #expect(commands().isEmpty)
     }
 }
