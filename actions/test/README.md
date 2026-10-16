@@ -203,7 +203,7 @@ shipit ci issues --report build/report.json --repository owner/name --only-ref m
 ## Known limits
 
 - Native iOS only. Other platforms keep using `shipit run <workflow>` and `shipit ci export`.
-- Annotations carry a file and line only when the runner reports them; today the Xcode result parser does not read the
-  location Xcode attaches to a failure, so failures annotate the run instead of a source line.
+- Annotations carry a file and line only when the runner reports them, and need the failure's checkout path to sit
+  inside the workspace (true when the build and test jobs use the same repository layout).
 - Test products are tarred for upload (a plain artifact upload drops file permissions and symlinks). Run the shards
   on the same Xcode version as the build job.
