@@ -1,0 +1,141 @@
+name: Test Action
+
+# Dogfoods actions/test against the in-repo iOS fixture (scripted outcomes, see Tests/IntegrationTests/IOSFixtureTests.swift):
+# one build job, then parallel test jobs that run the same products without rebuilding. macOS minutes are expensive, so
+# this runs only when the action or this workflow changes.
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'actions/test/**'
+      - '.github/workflows/test-action.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: test-action-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  FIXTURE: Tests/IntegrationTests/Fixtures/ios-sample
+
+jobs:
+  lint:
+    name: Lint action scripts
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout ShipItSwifty
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: ShellCheck
+        run: shellcheck actions/test/scripts/*.sh
+
+  build:
+    name: Build for testing
+    needs: lint
+    runs-on: macos-26
+    timeout-minutes: 60
+    steps:
+      - name: Checkout ShipItSwifty
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_26.4.app
+
+      - name: Build test products
+        uses: ./actions/test
+        with:
+          mode: build-for-testing
+          scheme: ios-sample
+          working-directory: ${{ env.FIXTURE }}
+
+  test:
+    name: Test (${{ matrix.shard }})
+    needs: build
+    runs-on: macos-26
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - shard: SmokeTests
+            expected-flaky: '0'
+          - shard: ScriptedTests
+            expected-flaky: '1'
+    steps:
+      - name: Checkout ShipItSwifty
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_26.4.app
+
+      - name: Script the fixture's outcomes
+        # xcodebuild forwards TEST_RUNNER_-prefixed variables to the tests; testFlaky fails once, then passes.
+        run: echo "TEST_RUNNER_SHIPIT_SAMPLE_FLAKY_DIR=${RUNNER_TEMP}/flaky" >> "$GITHUB_ENV"
+
+      - name: Run tests without building
+        id: shipit
+        uses: ./actions/test
+        with:
+          mode: test-without-building
+          scheme: ios-sample
+          working-directory: ${{ env.FIXTURE }}
+          only-testing: ios-sampleTests/${{ matrix.shard }}
+          artifact-suffix: ${{ matrix.shard }}
+
+      - name: Check outputs
+        env:
+          POLICY_PASSED: ${{ steps.shipit.outputs.policy-passed }}
+          FAILED: ${{ steps.shipit.outputs.failed }}
+          FLAKY: ${{ steps.shipit.outputs.flaky }}
+          EXPECTED_FLAKY: ${{ matrix.expected-flaky }}
+        run: |
+          test "$POLICY_PASSED" = "true"
+          test "$FAILED" = "0"
+          test "$FLAKY" = "$EXPECTED_FLAKY"
+
+  # A control that must fail: a test that fails in every attempt has to fail the job and be reported as such.
+  failing-control:
+    name: Consistent failure fails the job
+    needs: build
+    runs-on: macos-26
+    timeout-minutes: 60
+    env:
+      TEST_RUNNER_SHIPIT_SAMPLE_FAIL: '1'
+    steps:
+      - name: Checkout ShipItSwifty
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_26.4.app
+
+      - name: Run tests that must fail
+        id: shipit
+        continue-on-error: true
+        uses: ./actions/test
+        with:
+          mode: test-without-building
+          scheme: ios-sample
+          working-directory: ${{ env.FIXTURE }}
+          only-testing: ios-sampleTests/ScriptedTests
+          artifact-suffix: failing-control
+
+      - name: Check the failure was detected
+        env:
+          OUTCOME: ${{ steps.shipit.outcome }}
+          HAS_FAILURES: ${{ steps.shipit.outputs.has-consistent-failures }}
+          POLICY_PASSED: ${{ steps.shipit.outputs.policy-passed }}
+        run: |
+          test "$OUTCOME" = "failure"
+          test "$HAS_FAILURES" = "true"
+          test "$POLICY_PASSED" = "false"

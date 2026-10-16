@@ -299,6 +299,22 @@ jobs:
 
 Use macOS runners for Flutter iOS or React Native iOS distribution because both require Xcode and Apple signing tooling.
 
+## GitHub Action: build once, test on many simulators
+
+`actions/test` is a composite action over the CLI for native iOS projects. It builds once
+(`mode: build-for-testing`), runs shards from the uploaded test products without rebuilding
+(`mode: test-without-building`, with `only-testing` per shard), retries failing tests with ShipIt's
+policy, and reports back: job summary, pull-request annotations, and GitHub issues (one per
+consistently failing test, plus a rolling flaky issue). Flaky-but-eventually-passing passes unless
+`fail-on-flaky: 'true'`. Issues need `issues: write` on the job that files them, and nothing else
+needs more than `contents: read`.
+
+Pin it to a bare SemVer release tag (`ShipItSwifty/shipitswifty/actions/test@<version>`); it downloads
+the matching, checksum-verified `shipit` release. The inputs, outputs, issue lifecycle and a complete
+sharded workflow are in [`actions/test/README.md`](../actions/test/README.md). Everything the action
+does is a CLI command (`shipit test`, `shipit ci report`, `shipit ci issues`), so it can be run and
+tested locally.
+
 ## Exporting test workflows
 
 `shipit ci export` translates a named workflow and its artifact declarations into runnable

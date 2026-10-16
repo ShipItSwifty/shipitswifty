@@ -1,0 +1,244 @@
+name: ShipIt Test
+description: >-
+  Build, test without building, retry failed tests and report the result: job summary, pull-request annotations
+  and GitHub issues. A thin wrapper over the ShipIt CLI; all policy lives in the CLI.
+author: ShipItSwifty
+branding:
+  icon: check-circle
+  color: blue
+
+inputs:
+  mode:
+    description: >-
+      build-for-testing builds once and uploads the test products; test-without-building downloads them and runs
+      the tests; full builds and tests in one job; report only merges existing reports (see report-glob).
+    default: full
+  scheme:
+    description: Xcode scheme. Required except in report mode.
+    required: false
+  workspace:
+    description: Path to the .xcworkspace, if the scheme lives in one.
+    required: false
+  project:
+    description: Path to the .xcodeproj, if the scheme lives in one.
+    required: false
+  destination:
+    description: >-
+      xcodebuild destination, for example "platform=iOS Simulator,name=iPhone 16,OS=18.2". Pin it for reproducible
+      runs; when empty ShipIt picks a simulator.
+    required: false
+  configuration:
+    description: Build configuration.
+    default: Debug
+  test-plan:
+    description: Name of the .xctestplan to run.
+    required: false
+  only-testing:
+    description: Newline-separated -only-testing identifiers (a target, a class, or Target/Class/method). Use it to shard.
+    required: false
+  skip-testing:
+    description: Newline-separated -skip-testing identifiers.
+    required: false
+  max-attempts:
+    description: >-
+      Attempts for a failing test, counting the first run. 1 disables reruns. A test that fails and then passes is
+      flaky; one that fails every attempt is consistently failing.
+    default: '2'
+  infrastructure-retry-attempts:
+    description: >-
+      Attempts for a transient simulator or runner failure (the whole invocation), with backoff. 1 disables it.
+    default: '3'
+  fail-on-flaky:
+    description: Fail the job when a test passed only on a retry. By default a flaky test passes and is reported.
+    default: 'false'
+  test-products-artifact:
+    description: Name of the artifact that carries the test products between build-for-testing and test-without-building.
+    default: shipit-test-products
+  artifact-suffix:
+    description: >-
+      Makes this job's artifact names unique. Set it per matrix entry (for example "shard-${{ matrix.shard }}");
+      jobs in a matrix share github.job.
+    default: ${{ github.job }}
+  report-glob:
+    description: In report mode, a glob (relative to working-directory) for the report.json files to merge.
+    default: shipit-reports/**/report.json
+  file-issues:
+    description: >-
+      File and update GitHub issues: one per consistently failing test and one rolling issue for flaky tests. Needs
+      issues: write. Only acts on issues-ref.
+    default: 'false'
+  issues-ref:
+    description: Only file or close issues when running on this branch, so pull requests never do.
+    default: ${{ github.event.repository.default_branch }}
+  issue-labels:
+    description: Comma-separated extra labels for the issues ShipIt files.
+    default: ''
+  close-after-clean-runs:
+    description: Close an issue after this many consecutive runs in which the test passed with no retry. 0 never closes.
+    default: '3'
+  github-token:
+    description: Token for filing issues. Needs issues write; nothing else.
+    default: ${{ github.token }}
+  working-directory:
+    description: Directory to run in, relative to the workspace.
+    default: .
+  shipit-version:
+    description: >-
+      ShipIt release to use (bare SemVer, for example 0.8.0). Defaults to the version this action was pinned at; when
+      pinned to a branch or a commit, ShipIt is built from the action's own checkout.
+    default: ''
+  shipit-path:
+    description: Path to a ready shipit binary. Skips the download and the build.
+    default: ''
+  cache-swiftpm:
+    description: Cache SwiftPM's package cache between runs. DerivedData is never cached.
+    default: 'true'
+  retention-days:
+    description: Days to keep the test products and the evidence artifacts.
+    default: '14'
+
+outputs:
+  passed:
+    description: Number of tests that passed (flaky tests included, as they passed in the end).
+    value: ${{ steps.report.outputs.passed }}
+  failed:
+    description: Number of tests that failed in every attempt.
+    value: ${{ steps.report.outputs.failed }}
+  flaky:
+    description: Number of tests that failed first and passed on a retry.
+    value: ${{ steps.report.outputs.flaky }}
+  has-consistent-failures:
+    description: "'true' when at least one test failed in every attempt."
+    value: ${{ steps.report.outputs.has-consistent-failures }}
+  policy-passed:
+    description: "'true' when the run passes ShipIt's policy (see fail-on-flaky)."
+    value: ${{ steps.report.outputs.policy-passed }}
+  report-path:
+    description: Path to the merged result JSON written by `shipit ci report`.
+    value: ${{ steps.report.outputs.result-path }}
+  test-report-path:
+    description: Path to the TestRunReport JSON written by `shipit test`.
+    value: ${{ steps.run.outputs.report-path }}
+  test-products-artifact:
+    description: Name of the uploaded test-products artifact (build-for-testing mode).
+    value: ${{ inputs.test-products-artifact }}
+  evidence-artifact-url:
+    description: URL of the uploaded evidence artifact (logs, result bundles).
+    value: ${{ steps.evidence.outputs.artifact-url }}
+
+runs:
+  using: composite
+  steps:
+    - name: Check inputs
+      shell: bash
+      env:
+        INPUT_MODE: ${{ inputs.mode }}
+        INPUT_SCHEME: ${{ inputs.scheme }}
+        INPUT_MAX_ATTEMPTS: ${{ inputs.max-attempts }}
+        INPUT_INFRA_ATTEMPTS: ${{ inputs.infrastructure-retry-attempts }}
+        INPUT_CLOSE_AFTER: ${{ inputs.close-after-clean-runs }}
+      run: '"$GITHUB_ACTION_PATH/scripts/check-inputs.sh"'
+
+    - name: Cache SwiftPM packages
+      if: inputs.cache-swiftpm == 'true' && inputs.mode != 'report'
+      uses: actions/cache@v6
+      with:
+        path: ~/Library/Caches/org.swift.swiftpm
+        key: shipit-swiftpm-${{ runner.os }}-${{ hashFiles(format('{0}/**/Package.resolved', inputs.working-directory)) }}
+        restore-keys: shipit-swiftpm-${{ runner.os }}-
+
+    - name: Install ShipIt
+      id: install
+      shell: bash
+      env:
+        INPUT_SHIPIT_VERSION: ${{ inputs.shipit-version }}
+        INPUT_SHIPIT_PATH: ${{ inputs.shipit-path }}
+        ACTION_REF: ${{ github.action_ref }}
+      run: '"$GITHUB_ACTION_PATH/scripts/install-shipit.sh"'
+
+    - name: Download test products
+      if: inputs.mode == 'test-without-building'
+      uses: actions/download-artifact@v8
+      with:
+        name: ${{ inputs.test-products-artifact }}
+        path: ${{ runner.temp }}/shipit-products-download
+
+    - name: Run ShipIt
+      id: run
+      if: inputs.mode != 'report'
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        SHIPIT: ${{ steps.install.outputs.shipit }}
+        INPUT_MODE: ${{ inputs.mode }}
+        INPUT_SCHEME: ${{ inputs.scheme }}
+        INPUT_WORKSPACE: ${{ inputs.workspace }}
+        INPUT_PROJECT: ${{ inputs.project }}
+        INPUT_DESTINATION: ${{ inputs.destination }}
+        INPUT_CONFIGURATION: ${{ inputs.configuration }}
+        INPUT_TEST_PLAN: ${{ inputs.test-plan }}
+        INPUT_ONLY_TESTING: ${{ inputs.only-testing }}
+        INPUT_SKIP_TESTING: ${{ inputs.skip-testing }}
+        INPUT_MAX_ATTEMPTS: ${{ inputs.max-attempts }}
+        INPUT_INFRA_ATTEMPTS: ${{ inputs.infrastructure-retry-attempts }}
+      run: '"$GITHUB_ACTION_PATH/scripts/run.sh"'
+
+    - name: Upload test products
+      if: inputs.mode == 'build-for-testing' && steps.run.outputs.products-archive != ''
+      uses: actions/upload-artifact@v7
+      with:
+        name: ${{ inputs.test-products-artifact }}
+        path: ${{ steps.run.outputs.products-archive }}
+        retention-days: ${{ inputs.retention-days }}
+        if-no-files-found: error
+        overwrite: true
+
+    - name: Upload evidence
+      id: evidence
+      if: always() && inputs.mode != 'report'
+      uses: actions/upload-artifact@v7
+      with:
+        name: shipit-evidence-${{ inputs.artifact-suffix }}
+        path: ${{ inputs.working-directory }}/build/test-runs
+        retention-days: ${{ inputs.retention-days }}
+        if-no-files-found: ignore
+        overwrite: true
+
+    - name: Upload report for merging
+      if: always() && inputs.mode != 'report' && inputs.mode != 'build-for-testing' && steps.run.outputs.report-path != ''
+      uses: actions/upload-artifact@v7
+      with:
+        name: shipit-report-${{ inputs.artifact-suffix }}
+        path: ${{ steps.run.outputs.report-path }}
+        retention-days: ${{ inputs.retention-days }}
+        if-no-files-found: ignore
+        overwrite: true
+
+    - name: Report
+      id: report
+      if: always() && inputs.mode != 'build-for-testing'
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        SHIPIT: ${{ steps.install.outputs.shipit }}
+        INPUT_MODE: ${{ inputs.mode }}
+        INPUT_REPORT_GLOB: ${{ inputs.report-glob }}
+        INPUT_FAIL_ON_FLAKY: ${{ inputs.fail-on-flaky }}
+        INPUT_FILE_ISSUES: ${{ inputs.file-issues }}
+        INPUT_ISSUES_REF: ${{ inputs.issues-ref }}
+        INPUT_ISSUE_LABELS: ${{ inputs.issue-labels }}
+        INPUT_CLOSE_AFTER: ${{ inputs.close-after-clean-runs }}
+        RUN_REPORT_PATH: ${{ steps.run.outputs.report-path }}
+        RUN_EXIT_CODE: ${{ steps.run.outputs.exit-code }}
+        ARTIFACT_URL: ${{ steps.evidence.outputs.artifact-url }}
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+      run: '"$GITHUB_ACTION_PATH/scripts/report.sh"'
+
+    - name: Decide
+      if: always() && inputs.mode != 'build-for-testing'
+      shell: bash
+      env:
+        POLICY_PASSED: ${{ steps.report.outputs.policy-passed }}
+        RUN_EXIT_CODE: ${{ steps.run.outputs.exit-code }}
+        INPUT_MODE: ${{ inputs.mode }}
+      run: '"$GITHUB_ACTION_PATH/scripts/decide.sh"'
