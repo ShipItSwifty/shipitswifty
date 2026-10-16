@@ -910,6 +910,12 @@ public enum BuiltInSchemaCatalog {
                 items: .string("plan", description: "Plan name")),
             .string("test_products_path", description: "New .xctestproducts output path; default is unique per run."),
             .boolean(
+                "build_for_testing_only",
+                description: "Build once into test_products_path and stop, so other jobs can run the tests without rebuilding (native iOS)"),
+            .string(
+                "use_test_products",
+                description: "Existing .xctestproducts bundle to run with test-without-building, skipping the build (native iOS)"),
+            .boolean(
                 "legacy_combined_test", description: "Use legacy xcodebuild test instead of a shared build", defaultValue: .bool(false)),
             .boolean("serial", description: "Force serial Xcode test execution"),
             .boolean("skip_macro_validation", description: "Forward -skipMacroValidation while building tests"),

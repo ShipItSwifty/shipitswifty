@@ -355,6 +355,8 @@ The `test` action is configured inline in a workflow step. It does **not** have 
 | `test_plan` | string | — | Named `.xctestplan` to run. |
 | `test_plans` | list | — | Multiple compatible named plans sharing one build; exclusive with `test_plan`. |
 | `test_products_path` | string | unique run directory | New `.xctestproducts` output path for the shared build. |
+| `build_for_testing_only` | bool | false | Build once into `test_products_path` and stop without running tests, so separate jobs can run them with `use_test_products`. Native iOS only; exclusive with `use_test_products` and `legacy_combined_test`. |
+| `use_test_products` | string | — | Existing `.xctestproducts` bundle to run with `test-without-building`, skipping the build (the report has no `buildSeconds`). Native iOS only; the bundle must exist, and `test_products_path` must not also be set. |
 | `serial` | bool | false | Force `-parallel-testing-enabled NO`; clone errors also trigger one sticky fallback per destination. |
 | `skip_macro_validation` | bool | false | Pass `-skipMacroValidation` during the shared build. |
 | `erase_simulator` | bool | false | Erase the selected simulator before execution; refuses an already booted device. |

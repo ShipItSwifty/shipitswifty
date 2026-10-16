@@ -15,12 +15,16 @@ func configuredShipfilePath(from global: GlobalOptions) -> String {
 }
 
 /// Resolve configuration, requiring the configured Shipfile to exist first.
+///
+/// - Parameter allowMissingShipfile: Resolve from CLI flags, `SHIPIT_*` environment variables and auto-detection
+///   when there is no Shipfile. For commands whose explicit flags already say everything a Shipfile would.
 func resolveRequiredConfig(
     global: GlobalOptions,
-    cliOptions: CLIOptions = CLIOptions()
+    cliOptions: CLIOptions = CLIOptions(),
+    allowMissingShipfile: Bool = false
 ) async throws -> ResolvedConfig {
     let shipfilePath = configuredShipfilePath(from: global)
-    guard FileManager.default.fileExists(atPath: shipfilePath) else {
+    guard allowMissingShipfile || FileManager.default.fileExists(atPath: shipfilePath) else {
         throw ShipItError.invalidConfiguration(reason: "Shipfile not found at \(shipfilePath)")
     }
 

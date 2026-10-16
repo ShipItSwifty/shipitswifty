@@ -36,6 +36,10 @@ struct TestCommand: AsyncParsableCommand {
     var testPlans: [String] = []
     @Option(name: .long, help: "New .xctestproducts path")
     var testProductsPath: String?
+    @Flag(name: .long, help: "Build once into --test-products-path and stop, so other jobs can run the tests without rebuilding (native iOS)")
+    var buildForTestingOnly: Bool = false
+    @Option(name: .long, help: "Run an existing .xctestproducts bundle with test-without-building, skipping the build (native iOS)")
+    var useTestProducts: String?
     @Flag(name: .long, help: "Use the legacy combined xcodebuild test invocation")
     var legacyCombinedTest: Bool = false
     @Flag(name: .long, help: "Force serial Xcode test execution")
@@ -70,6 +74,11 @@ struct TestCommand: AsyncParsableCommand {
 
     @Option(name: .customLong("max-rerun-attempts"), help: "Maximum attempts including the initial run when rerunning failed tests")
     var maxRerunAttempts: Int?
+
+    @Option(
+        name: .customLong("infrastructure-retry-attempts"),
+        help: "Total attempts for transient simulator/runner failures, with backoff (2s initial, 30s cap); the initial run counts. Omit to disable")
+    var infrastructureRetryAttempts: Int?
 
     @Option(name: .customLong("report-path"), help: "Write the structured JSON test report to a file")
     var reportPath: String?
@@ -107,15 +116,17 @@ struct TestCommand: AsyncParsableCommand {
 
     func run() async throws {
         do {
+            // An explicit scheme says what a Shipfile would, so a repository without one can still be tested.
             let config = try await resolveRequiredConfig(
                 global: global,
-                cliOptions: CLIOptions(scheme: scheme, ci: global.ci, dryRun: global.dryRun, platform: global.platform)
+                cliOptions: CLIOptions(scheme: scheme, ci: global.ci, dryRun: global.dryRun, platform: global.platform),
+                allowMissingShipfile: scheme != nil && workflow == nil
             )
             let directOptions =
                 scheme != nil || destination != nil || configuration != nil || codeCoverage || resultBundlePath != nil
-                || !testPlans.isEmpty || testProductsPath != nil || legacyCombinedTest || serial || skipMacroValidation || eraseSimulator
+                || !testPlans.isEmpty || testProductsPath != nil || buildForTestingOnly || useTestProducts != nil || legacyCombinedTest || serial || skipMacroValidation || eraseSimulator
                 || testPlan != nil || !onlyTesting.isEmpty || !skipTesting.isEmpty || retryOnFailure || rerunFailedTests
-                || maxRerunAttempts != nil || reportPath != nil || kind != nil || scope != nil || module != nil || buildVariant != nil
+                || maxRerunAttempts != nil || infrastructureRetryAttempts != nil || reportPath != nil || kind != nil || scope != nil || module != nil || buildVariant != nil
                 || task != nil || deviceStrategy != nil || !emulators.isEmpty || deviceGroup != nil || promptLocally
             if workflow != nil && directOptions {
                 throw ShipItError.invalidConfiguration(reason: "--workflow cannot be mixed with direct test options")
@@ -152,6 +163,7 @@ struct TestCommand: AsyncParsableCommand {
                 resultBundlePath: resultBundlePath,
                 testPlan: testPlan,
                 testPlans: testPlans.isEmpty ? nil : testPlans, testProductsPath: testProductsPath,
+                buildForTestingOnly: buildForTestingOnly ? true : nil, useTestProducts: useTestProducts,
                 serial: serial ? true : nil,
                 skipMacroValidation: skipMacroValidation ? true : nil, eraseSimulator: eraseSimulator ? true : nil,
                 onlyTesting: onlyTesting.isEmpty ? nil : onlyTesting,
@@ -159,6 +171,9 @@ struct TestCommand: AsyncParsableCommand {
                 retryOnFailure: retryOnFailure ? true : nil,
                 rerunFailedTests: rerunFailedTests ? .init(enabled: true, maxAttempts: maxRerunAttempts ?? 2) : nil,
                 reportPath: reportPath,
+                infrastructureRetry: infrastructureRetryAttempts.map {
+                    .init(maxAttempts: $0, initialDelaySeconds: 2, maxDelaySeconds: 30)
+                },
                 kind: kind,
                 scope: scope,
                 module: module,
