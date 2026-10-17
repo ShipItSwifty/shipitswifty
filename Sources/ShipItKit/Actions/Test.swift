@@ -302,6 +302,12 @@ public struct TestAction: Action {
         public var testPlan: String?
         public var testPlans: [String]?
         public var testProductsPath: String?
+        /// Build once into `testProductsPath` and stop, so separate jobs can run the tests without rebuilding.
+        /// Native iOS only; exclusive with `useTestProducts` and `legacyCombinedTest`.
+        public var buildForTestingOnly: Bool?
+        /// An existing `.xctestproducts` bundle to run with `test-without-building`, skipping the build.
+        /// Native iOS only; exclusive with `buildForTestingOnly`, `testProductsPath` and `legacyCombinedTest`.
+        public var useTestProducts: String?
         public var legacyCombinedTest: Bool?
         public var serial: Bool?
         public var skipMacroValidation: Bool?
@@ -376,6 +382,8 @@ public struct TestAction: Action {
             testPlan: String? = nil,
             testPlans: [String]? = nil,
             testProductsPath: String? = nil,
+            buildForTestingOnly: Bool? = nil,
+            useTestProducts: String? = nil,
             serial: Bool? = nil,
             skipMacroValidation: Bool? = nil,
             eraseSimulator: Bool? = nil,
@@ -401,6 +409,8 @@ public struct TestAction: Action {
             self.testPlan = testPlan
             self.testPlans = testPlans
             self.testProductsPath = testProductsPath
+            self.buildForTestingOnly = buildForTestingOnly
+            self.useTestProducts = useTestProducts
             self.legacyCombinedTest = legacyCombinedTest
             self.serial = serial
             self.skipMacroValidation = skipMacroValidation
@@ -457,6 +467,9 @@ public struct TestAction: Action {
         public let report: TestRunReport?
         public let outputDirectory: String?
 
+        /// The `.xctestproducts` bundle the tests ran from, or that `buildForTestingOnly` wrote. (native iOS only)
+        public let testProductsPath: String?
+
         /// Whether all executed tests passed (no failures).
         public var succeeded: Bool { failCount == 0 }
 
@@ -469,8 +482,10 @@ public struct TestAction: Action {
             failedTests: [String] = [],
             resultBundlePath: String? = nil,
             report: TestRunReport? = nil,
-            outputDirectory: String? = nil
+            outputDirectory: String? = nil,
+            testProductsPath: String? = nil
         ) {
+            self.testProductsPath = testProductsPath
             self.passCount = passCount
             self.failCount = failCount
             self.skipCount = skipCount
@@ -498,7 +513,8 @@ public struct TestAction: Action {
                 passedTests: result.passedTests, failedTests: result.failedTests, resultBundlePath: result.resultBundlePath,
                 report: result.report,
                 outputDirectory: result.outputDirectory
-                    ?? (FileManager.default.fileExists(atPath: root.path) ? root.path : result.report?.source))
+                    ?? (FileManager.default.fileExists(atPath: root.path) ? root.path : result.report?.source),
+                testProductsPath: result.testProductsPath)
         } catch {
             if FileManager.default.fileExists(atPath: root.path) { logger.error("Test evidence: \(root.path)") }
             // The action did not finish, so no final report exists yet. Failing tests are an outcome in their
@@ -524,6 +540,7 @@ public struct TestAction: Action {
             context.platform == .ios
             ? context.config.iosBuildSystem
             : context.config.androidBuildSystem
+        try Self.validateProductReuse(options: options, platform: context.platform, buildSystem: buildSystem)
 
         switch (context.platform, buildSystem) {
         case (.ios, .native):
@@ -1042,6 +1059,29 @@ public struct TestAction: Action {
                 return .init(log: log)
             }
             return nil
+        }
+    }
+
+    /// `buildForTestingOnly` and `useTestProducts` split one native iOS run across jobs, so they cannot be combined with
+    /// each other, with the old single-invocation test, or with a platform that has no `.xctestproducts` bundle.
+    static func validateProductReuse(options: Options, platform: Platform, buildSystem: AppFramework) throws {
+        let buildOnly = options.buildForTestingOnly == true
+        let reusing = options.useTestProducts != nil
+        guard buildOnly || reusing else { return }
+        guard platform == .ios, buildSystem == .native else {
+            throw ShipItError.invalidConfiguration(
+                reason: "build_for_testing_only and use_test_products are supported for native iOS tests only")
+        }
+        guard !(buildOnly && reusing) else {
+            throw ShipItError.invalidConfiguration(reason: "Use build_for_testing_only or use_test_products, not both")
+        }
+        guard options.legacyCombinedTest != true else {
+            throw ShipItError.invalidConfiguration(
+                reason: "build_for_testing_only and use_test_products cannot be combined with legacy_combined_test")
+        }
+        guard !(reusing && options.testProductsPath != nil) else {
+            throw ShipItError.invalidConfiguration(
+                reason: "use_test_products names the existing bundle; test_products_path is where a new one is written")
         }
     }
 

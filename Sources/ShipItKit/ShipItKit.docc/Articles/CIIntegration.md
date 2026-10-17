@@ -110,6 +110,16 @@ writes a runnable job that executes the workflow and publishes its artifacts and
 so a failing run still uploads what you need to investigate it. Setup is explicit and nothing runs during export.
 Other providers implement ``CIProvider``. See <doc:TestWorkflows>.
 
+### Reporting test results to GitHub
+
+`shipit ci report --report build/report.json --summary-path "$GITHUB_STEP_SUMMARY" --annotations` turns a
+`shipit test --report-path` report into a job summary, pull-request annotations and a pass/fail verdict (exit `11`
+for a consistently failing test or a broken run; `--fail-on-flaky` also fails a test that passed only on a retry).
+`shipit ci issues` keeps one issue per consistently failing test and one rolling issue for flaky tests, found again
+by a fingerprint so reruns never file duplicates; issues hold test ids and links only. The repository's
+`actions/test` composite action wires both to a runner and adds build-once, test-on-many-simulators sharding with
+`shipit test --build-for-testing-only` and `--use-test-products`.
+
 ## GitLab CI
 
 ```yaml
