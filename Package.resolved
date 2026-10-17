@@ -1,5 +1,5 @@
 {
-  "originHash" : "f9637db7a502c61091a9cb227d3a10d0aede747b328e7ff7c7e69a7779327fd5",
+  "originHash" : "deeb01c7f2ade8aab31e20f8bec498e426531048c3d175d8c2a69da42093f14e",
   "pins" : [
     {
       "identity" : "app-store-connect-mcp",
@@ -51,7 +51,7 @@
       "location" : "https://github.com/ShipItSwifty/mobile-kits.git",
       "state" : {
         "branch" : "main",
-        "revision" : "471dc2ce91f0bcd43795dfba489e86877bb61013"
+        "revision" : "f96d64e327e435851a545a6d1a8d2750183458a4"
       }
     },
     {
