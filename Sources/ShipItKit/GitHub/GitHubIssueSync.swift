@@ -64,7 +64,8 @@ public struct GitHubIssueSync: Sendable {
     }
 
     public func sync(_ digest: TestRunDigest) async throws -> [IssueSyncAction] {
-        logger.info("Syncing test issues", metadata: ["failing": "\(digest.consistentFailures.count)", "flaky": "\(digest.flakyTests.count)"])
+        logger.info(
+            "Syncing test issues", metadata: ["failing": "\(digest.consistentFailures.count)", "flaky": "\(digest.flakyTests.count)"])
         var actions = try await syncFailures(digest)
         actions += try await syncFlakyRollup(digest)
         logger.info("Synced test issues", metadata: ["actions": "\(actions.filter { $0.kind != .unchanged }.count)"])
@@ -87,7 +88,9 @@ public struct GitHubIssueSync: Sendable {
             let title = "Test failing: \(test.id.prefix(200))"
             let body = failureBody(test, streak: 0)
             guard let existing = known[test.fingerprint]?.min(by: { $0.issue.number < $1.issue.number }) else {
-                actions.append(try await create(title: title, body: body, labels: labels(IssueSyncConfiguration.failureLabel), subject: test.fingerprint))
+                actions.append(
+                    try await create(
+                        title: title, body: body, labels: labels(IssueSyncConfiguration.failureLabel), subject: test.fingerprint))
                 continue
             }
             if existing.issue.state == .closed {
@@ -129,10 +132,12 @@ public struct GitHubIssueSync: Sendable {
         if let url = configuration.runURL { rows.append("| Last failed in | \(url) |") }
         if let url = configuration.artifactURL { rows.append("| Evidence | [artifacts](\(url)) |") }
         let marker = IssueMarker(kind: "test", fingerprint: test.fingerprint, streak: streak, runID: configuration.runID)
-        return ([marker.render(), "", "**Consistently failing test.** It failed in every attempt."] + [""] + rows + [
-            "", "Managed by ShipIt: the issue reopens if the test fails again and closes after \(configuration.closeAfterCleanRuns) consecutive passing runs. "
-                + "It holds test ids and links only; read logs and result bundles from the run's artifacts.",
-        ]).joined(separator: "\n")
+        return
+            ([marker.render(), "", "**Consistently failing test.** It failed in every attempt."] + [""] + rows + [
+                "",
+                "Managed by ShipIt: the issue reopens if the test fails again and closes after \(configuration.closeAfterCleanRuns) consecutive passing runs. "
+                    + "It holds test ids and links only; read logs and result bundles from the run's artifacts.",
+            ]).joined(separator: "\n")
     }
 
     private func rewriteStreak(_ entry: (marker: IssueMarker, issue: GitHubIssue), to streak: Int) -> String {
@@ -158,13 +163,17 @@ public struct GitHubIssueSync: Sendable {
             .filter { IssueMarker.parse($0.body, kind: "flaky-rollup") != nil }
             .min { $0.number < $1.number }
         var entries: [String: FlakyEntry] = [:]
-        if let rollup, let data = IssueMarker.payload(in: rollup.body), let decoded = try? JSONDecoder().decode([FlakyEntry].self, from: data) {
+        if let rollup, let data = IssueMarker.payload(in: rollup.body),
+            let decoded = try? JSONDecoder().decode([FlakyEntry].self, from: data)
+        {
             entries = Dictionary(decoded.map { ($0.fingerprint, $0) }, uniquingKeysWith: { first, _ in first })
         }
         let before = entries
         let rerun = { (entry: FlakyEntry) in configuration.runID != nil && entry.lastRunID == configuration.runID }
         for test in digest.flakyTests {
-            var entry = entries[test.fingerprint] ?? FlakyEntry(fingerprint: test.fingerprint, id: test.id, plan: test.plan, occurrences: 0, cleanRuns: 0)
+            var entry =
+                entries[test.fingerprint]
+                ?? FlakyEntry(fingerprint: test.fingerprint, id: test.id, plan: test.plan, occurrences: 0, cleanRuns: 0)
             if !rerun(entry) { entry.occurrences += 1 }
             entry.cleanRuns = 0
             entry.lastRunID = configuration.runID
@@ -201,12 +210,15 @@ public struct GitHubIssueSync: Sendable {
 
     private func rollupBody(_ entries: [FlakyEntry]) throws -> String {
         var lines = [
-            IssueMarker(kind: "flaky-rollup").render(), "", "**Flaky tests.** Each passed only after a retry. A test leaves this list after "
+            IssueMarker(kind: "flaky-rollup").render(), "",
+            "**Flaky tests.** Each passed only after a retry. A test leaves this list after "
                 + "\(configuration.closeAfterCleanRuns) consecutive runs that pass without a retry.",
             "", "| Test | Plan | Flaky runs |", "|---|---|---:|",
         ]
         for entry in entries.prefix(200) {
-            lines.append("| `\(entry.id.replacingOccurrences(of: "`", with: "'").replacingOccurrences(of: "|", with: "\\|"))` | \(entry.plan ?? "–") | \(entry.occurrences) |")
+            lines.append(
+                "| `\(entry.id.replacingOccurrences(of: "`", with: "'").replacingOccurrences(of: "|", with: "\\|"))` | \(entry.plan ?? "–") | \(entry.occurrences) |"
+            )
         }
         if let url = configuration.runURL { lines += ["", "Last updated by \(url)"] }
         lines += ["", IssueMarker.payloadComment(try JSONEncoder().encode(entries))]
@@ -278,7 +290,8 @@ struct IssueMarker: Equatable {
             text.range(of: "\(name)=[^\\s>]+", options: .regularExpression).map { String(text[$0]).dropFirst(name.count + 1).description }
         }
         if kind == "test", field("fingerprint") == nil { return nil }
-        return IssueMarker(kind: kind, fingerprint: field("fingerprint") ?? "", streak: field("streak").flatMap(Int.init) ?? 0, runID: field("run"))
+        return IssueMarker(
+            kind: kind, fingerprint: field("fingerprint") ?? "", streak: field("streak").flatMap(Int.init) ?? 0, runID: field("run"))
     }
 
     /// Base64, so test ids containing `--` cannot end the comment early.

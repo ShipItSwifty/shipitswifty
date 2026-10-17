@@ -88,7 +88,8 @@ struct GitHubReportingTests {
         let big = TestRunDigest(
             reports: [
                 makeReport(
-                    failing: (0..<14).map { xcodeCase("A/B/fail\($0)()") }, flaky: (0..<12).map { xcodeCase("A/B/flaky\($0)()", attempts: 2) })
+                    failing: (0..<14).map { xcodeCase("A/B/fail\($0)()") },
+                    flaky: (0..<12).map { xcodeCase("A/B/flaky\($0)()", attempts: 2) })
             ])
         let commands = GitHubAnnotations.commands(for: big, workspace: nil)
         #expect(commands.filter { $0.hasPrefix("::error") }.count == 10)

@@ -79,7 +79,9 @@ struct CIReportCommand: AsyncParsableCommand {
             if !passes {
                 throw ShipItError.testFailed(
                     exitCode: 1, failureCount: digest.consistentFailures.count + digest.runErrors + (failOnFlaky ? digest.flaky : 0),
-                    log: "Test policy failed: \(digest.consistentFailures.count) failing, \(digest.flaky) flaky, \(digest.runErrors) run error(s)")
+                    log:
+                        "Test policy failed: \(digest.consistentFailures.count) failing, \(digest.flaky) flaky, \(digest.runErrors) run error(s)"
+                )
             }
         } catch let error as ShipItError {
             outputError(action: "ci-report", error: error, format: global.output, colorMode: global.effectiveColorMode)

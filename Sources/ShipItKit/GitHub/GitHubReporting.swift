@@ -10,7 +10,10 @@ public enum GitHubSummary {
         lines += ["| Passed | Failed | Flaky | Errored | Skipped |", "|---:|---:|---:|---:|---:|"]
         lines.append("| \(digest.passed) | \(digest.failed) | \(digest.flaky) | \(digest.errored) | \(digest.skipped) |")
         if digest.runErrors > 0 {
-            lines += ["", "> **The run itself failed** (\(digest.runErrors) errored outcome(s) that are not a failing test, such as a build failure or a crashed runner)."]
+            lines += [
+                "",
+                "> **The run itself failed** (\(digest.runErrors) errored outcome(s) that are not a failing test, such as a build failure or a crashed runner).",
+            ]
         }
         if !digest.consistentFailures.isEmpty {
             lines += ["", "### Consistently failing", "", "| Test | Plan | Attempts | Location | Message |", "|---|---|---:|---|---|"]
@@ -32,7 +35,8 @@ public enum GitHubSummary {
             for attempt in digest.attempts.prefix(rowLimit) {
                 let seconds = attempt.durationSeconds.map { String(format: "%.1f", $0) } ?? "–"
                 lines.append(
-                    "| \(attempt.number) | \(cell(attempt.reason)) | \(attempt.passed) | \(attempt.failed) | \(attempt.errored) | \(seconds) |")
+                    "| \(attempt.number) | \(cell(attempt.reason)) | \(attempt.passed) | \(attempt.failed) | \(attempt.errored) | \(seconds) |"
+                )
             }
         }
         if let artifactURL { lines += ["", "Evidence (logs, result bundles): [artifacts](\(artifactURL))"] }
@@ -48,7 +52,9 @@ public enum GitHubSummary {
         return code(test.line.map { "\((file as NSString).lastPathComponent):\($0)" } ?? (file as NSString).lastPathComponent)
     }
 
-    static func code(_ text: String) -> String { "`" + text.replacingOccurrences(of: "`", with: "'").replacingOccurrences(of: "|", with: "\\|") + "`" }
+    static func code(_ text: String) -> String {
+        "`" + text.replacingOccurrences(of: "`", with: "'").replacingOccurrences(of: "|", with: "\\|") + "`"
+    }
 
     static func cell(_ text: String?) -> String {
         guard let text, !text.isEmpty else { return "–" }
@@ -68,23 +74,34 @@ public enum GitHubAnnotations {
         for test in digest.consistentFailures.prefix(limit) {
             commands.append(
                 command(
-                    "error", title: "Test failed after \(test.attempts) attempt(s): \(test.id)", message: test.message ?? "See the job summary.",
+                    "error", title: "Test failed after \(test.attempts) attempt(s): \(test.id)",
+                    message: test.message ?? "See the job summary.",
                     test: test, workspace: workspace))
         }
         if digest.consistentFailures.count > limit {
-            commands.append(command("notice", title: "More failing tests", message: "\(digest.consistentFailures.count - limit) more failing test(s); see the job summary."))
+            commands.append(
+                command(
+                    "notice", title: "More failing tests",
+                    message: "\(digest.consistentFailures.count - limit) more failing test(s); see the job summary."))
         }
         for test in digest.flakyTests.prefix(limit) {
             commands.append(
                 command(
-                    "warning", title: "Flaky test (passed on retry): \(test.id)", message: test.message ?? "Passed after \(test.attempts) attempts.",
+                    "warning", title: "Flaky test (passed on retry): \(test.id)",
+                    message: test.message ?? "Passed after \(test.attempts) attempts.",
                     test: test, workspace: workspace))
         }
         if digest.flakyTests.count > limit {
-            commands.append(command("notice", title: "More flaky tests", message: "\(digest.flakyTests.count - limit) more flaky test(s); see the job summary."))
+            commands.append(
+                command(
+                    "notice", title: "More flaky tests",
+                    message: "\(digest.flakyTests.count - limit) more flaky test(s); see the job summary."))
         }
         if digest.runErrors > 0 {
-            commands.append(command("error", title: "ShipIt test run failed", message: "The run errored without a failing test, such as a build failure or a crashed runner."))
+            commands.append(
+                command(
+                    "error", title: "ShipIt test run failed",
+                    message: "The run errored without a failing test, such as a build failure or a crashed runner."))
         }
         return commands
     }
@@ -106,7 +123,8 @@ public enum GitHubAnnotations {
     }
 
     static func escapeData(_ text: String) -> String {
-        text.replacingOccurrences(of: "%", with: "%25").replacingOccurrences(of: "\r", with: "%0D").replacingOccurrences(of: "\n", with: "%0A")
+        text.replacingOccurrences(of: "%", with: "%25").replacingOccurrences(of: "\r", with: "%0D").replacingOccurrences(
+            of: "\n", with: "%0A")
     }
 
     static func escapeProperty(_ text: String) -> String {

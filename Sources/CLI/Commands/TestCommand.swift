@@ -36,7 +36,8 @@ struct TestCommand: AsyncParsableCommand {
     var testPlans: [String] = []
     @Option(name: .long, help: "New .xctestproducts path")
     var testProductsPath: String?
-    @Flag(name: .long, help: "Build once into --test-products-path and stop, so other jobs can run the tests without rebuilding (native iOS)")
+    @Flag(
+        name: .long, help: "Build once into --test-products-path and stop, so other jobs can run the tests without rebuilding (native iOS)")
     var buildForTestingOnly: Bool = false
     @Option(name: .long, help: "Run an existing .xctestproducts bundle with test-without-building, skipping the build (native iOS)")
     var useTestProducts: String?
@@ -77,7 +78,9 @@ struct TestCommand: AsyncParsableCommand {
 
     @Option(
         name: .customLong("infrastructure-retry-attempts"),
-        help: "Total attempts for transient simulator/runner failures, with backoff (2s initial, 30s cap); the initial run counts. Omit to disable")
+        help:
+            "Total attempts for transient simulator/runner failures, with backoff (2s initial, 30s cap); the initial run counts. Omit to disable"
+    )
     var infrastructureRetryAttempts: Int?
 
     @Option(name: .customLong("report-path"), help: "Write the structured JSON test report to a file")
@@ -124,9 +127,11 @@ struct TestCommand: AsyncParsableCommand {
             )
             let directOptions =
                 scheme != nil || destination != nil || configuration != nil || codeCoverage || resultBundlePath != nil
-                || !testPlans.isEmpty || testProductsPath != nil || buildForTestingOnly || useTestProducts != nil || legacyCombinedTest || serial || skipMacroValidation || eraseSimulator
+                || !testPlans.isEmpty || testProductsPath != nil || buildForTestingOnly || useTestProducts != nil || legacyCombinedTest
+                || serial || skipMacroValidation || eraseSimulator
                 || testPlan != nil || !onlyTesting.isEmpty || !skipTesting.isEmpty || retryOnFailure || rerunFailedTests
-                || maxRerunAttempts != nil || infrastructureRetryAttempts != nil || reportPath != nil || kind != nil || scope != nil || module != nil || buildVariant != nil
+                || maxRerunAttempts != nil || infrastructureRetryAttempts != nil || reportPath != nil || kind != nil || scope != nil
+                || module != nil || buildVariant != nil
                 || task != nil || deviceStrategy != nil || !emulators.isEmpty || deviceGroup != nil || promptLocally
             if workflow != nil && directOptions {
                 throw ShipItError.invalidConfiguration(reason: "--workflow cannot be mixed with direct test options")

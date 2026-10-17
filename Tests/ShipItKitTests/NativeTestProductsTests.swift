@@ -120,7 +120,9 @@ struct NativeTestProductsTests {
 
     /// A native run whose first attempt fails one test and whose rerun passes it, on a simulator whose health the
     /// caller scripts. Returns the commands in the order they ran.
-    private func rerunCommands(simulatorResponsive: Bool, firstAttemptExit: Int32 = 65, infrastructureLog: String = "") async throws
+    private func rerunCommands(
+        simulatorResponsive: Bool, firstAttemptExit: Int32 = 65, infrastructureLog: String = ""
+    ) async throws
         -> [[String]]
     {
         let commands = Mutex([[String]]())
@@ -141,13 +143,15 @@ struct NativeTestProductsTests {
                     return $0
                 }
                 return number == 1
-                    ? .init(stdout: "", stderr: infrastructureLog, exitCode: firstAttemptExit) : .init(stdout: "ok", stderr: "", exitCode: 0)
+                    ? .init(stdout: "", stderr: infrastructureLog, exitCode: firstAttemptExit)
+                    : .init(stdout: "ok", stderr: "", exitCode: 0)
             }
             if args.contains("summary") { return .init(stdout: "{}", stderr: "", exitCode: 0) }
             if args.contains("tests") {
                 let result = attempt.withLock { $0 } == 1 ? "Failed" : "Passed"
                 return .init(
-                    stdout: "{\"testNodes\":[{\"nodeType\":\"Test Case\",\"nodeIdentifier\":\"AppTests/C/flaky()\",\"result\":\"\(result)\"}]}",
+                    stdout:
+                        "{\"testNodes\":[{\"nodeType\":\"Test Case\",\"nodeIdentifier\":\"AppTests/C/flaky()\",\"result\":\"\(result)\"}]}",
                     stderr: "", exitCode: 0)
             }
             return .init(stdout: "", stderr: "", exitCode: 0)
@@ -156,7 +160,8 @@ struct NativeTestProductsTests {
         let claims = try TemporaryDirectory()
         defer { try? claims.remove() }
         let context = makeTestActionContext(
-            shell: ShellContext(executor: executor, environment: ["AMOO_LEASE_DIR": claims.url.path]), config: ResolvedConfig(platform: .ios),
+            shell: ShellContext(executor: executor, environment: ["AMOO_LEASE_DIR": claims.url.path]),
+            config: ResolvedConfig(platform: .ios),
             platform: .ios)
         _ = try await TestAction().run(
             with: .init(

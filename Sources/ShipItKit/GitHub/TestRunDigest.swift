@@ -82,7 +82,9 @@ public struct TestRunDigest: Codable, Sendable {
                         failed: attempt.summary.failed, errored: attempt.summary.errored, durationSeconds: attempt.durationSeconds))
             }
             for test in report.persistentFailedTests {
-                let item = Self.digest(reconciled[test.stableID].flatMap { $0.attempts == nil ? nil : test.copy(attempts: .some($0.attempts)) } ?? test, report: report)
+                let item = Self.digest(
+                    reconciled[test.stableID].flatMap { $0.attempts == nil ? nil : test.copy(attempts: .some($0.attempts)) } ?? test,
+                    report: report)
                 if failures[item.fingerprint] == nil { failureOrder.append(item.fingerprint) }
                 failures[item.fingerprint] = failures[item.fingerprint].map { $0.attempts >= item.attempts ? $0 : item } ?? item
                 if test.status == .errored { failingErrors += 1 }
@@ -147,7 +149,9 @@ extension TestRunDigest {
                 let report = try JSONDecoder().decode(TestRunReport.self, from: data)
                 guard report.schemaVersion == TestRunReport.currentSchemaVersion else {
                     throw ShipItError.invalidConfiguration(
-                        reason: "Unsupported test report schema \(report.schemaVersion) in \(path); expected \(TestRunReport.currentSchemaVersion)")
+                        reason:
+                            "Unsupported test report schema \(report.schemaVersion) in \(path); expected \(TestRunReport.currentSchemaVersion)"
+                    )
                 }
                 return report
             } catch let error as ShipItError {
