@@ -331,6 +331,11 @@ COMMANDS:
     validate all       Run all applicable stages
   run <workflow>    Execute a named workflow from Shipfile.yml
   coverage      Read and summarize native code coverage artifacts (iOS: xcresult, Android: JaCoCo)
+  test-results  Inspect and export saved test results across supported runners
+  ci            Export CI jobs and report test results to CI
+    ci export     Export a runnable CI job with artifact publication
+    ci report     Job summary, annotations, and a pass/fail verdict from TestRunReport JSON
+    ci issues     File, update, reopen and close GitHub issues for failing and flaky tests
   env           Print resolved config, env vars, and processed files
   doctor        Diagnose common setup issues for the selected Shipfile
 

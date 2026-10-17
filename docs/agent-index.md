@@ -51,6 +51,8 @@ Use this when deciding what must change together.
 | Runtime config behavior | `ConfigResolver.swift`, `ResolvedConfig.swift`, `Environment.swift`, config tests |
 | Workflow/composite execution | `WorkflowTypes.swift`, `CompositeAction.swift`, workflow/composite tests |
 | A tool-wrapper API in `cli-wrappers` | ShipItKit call sites that build the same arguments by hand |
+| GitHub reporting (`Sources/ShipItKit/GitHub/`, `ci report`, `ci issues`) | `TestRunReport` consumers, `GitHubReportingTests` / `TestRunDigestTests` / `GitHubIssueSyncTests`, `actions/test/README.md`, `docs/ci-setup.md`, `docs/features.md`, `AISessionBuilder.swift` |
+| `actions/test/action.yml` or `actions/test/scripts/` | `actions/test/README.md` (inputs table, examples), `.github/workflows/test-action.yml` (dogfood), the CLI flags the scripts call, and the release asset names `install-shipit.sh` downloads (`release.yml`). Input and output descriptions are evaluated by GitHub, so never put `${{ }}` in them. |
 
 ## Recommended first-read paths
 
