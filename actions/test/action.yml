@@ -56,8 +56,8 @@ inputs:
     default: shipit-test-products
   artifact-suffix:
     description: >-
-      Makes this job's artifact names unique. Set it per matrix entry (for example "shard-${{ matrix.shard }}");
-      jobs in a matrix share github.job.
+      Makes this job's artifact names unique. Set it per matrix entry (for example "shard-" followed by the shard
+      number); jobs in a matrix share github.job.
     default: ${{ github.job }}
   report-glob:
     description: In report mode, a glob (relative to working-directory) for the report.json files to merge.
