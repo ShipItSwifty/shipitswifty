@@ -1,7 +1,10 @@
 version: 2
 updates:
   - package-ecosystem: github-actions
-    directory: /
+    # The composite action's own `uses:` pins live in actions/test/action.yml, outside .github/workflows.
+    directories:
+      - /
+      - /actions/test
     schedule:
       interval: weekly
       day: monday

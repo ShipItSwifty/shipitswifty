@@ -62,3 +62,16 @@ shasum -a 256 --check "shipit-<version>-checksums.txt"
 gh attestation verify "shipit-<version>-macos-universal.tar.gz" --repo shipitswifty/shipitswifty
 gh attestation verify "shipit-<version>-linux-static.tar.gz" --repo shipitswifty/shipitswifty
 ```
+
+- Verify the GitHub Action downloads this release. `actions/test` fetches
+  `shipit-<version>-macos-universal.tar.gz` / `shipit-<version>-linux-static.tar.gz` and
+  `shipit-<version>-checksums.txt` by those exact names (`actions/test/scripts/install-shipit.sh`), so a renamed asset
+  breaks every pinned user. Run the dogfood workflow's test jobs pinned to the new tag (a throwaway workflow in a
+  scratch repo is enough) and confirm the "Install ShipIt" step logs `Downloading ShipIt <version>`, not a source build:
+
+```yaml
+- uses: ShipItSwifty/shipitswifty/actions/test@<version>
+```
+
+- Replace the `@<version>` placeholder in `actions/test/README.md` examples with the released version if it still shows
+  a placeholder.
