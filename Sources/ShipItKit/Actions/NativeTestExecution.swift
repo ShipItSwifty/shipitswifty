@@ -1,6 +1,7 @@
 #if os(macOS)
 import Foundation
 import MobileBuild
+import MobileDevices
 import MobileTesting
 import SwiftyShell
 import XcodeBuildKit
@@ -40,8 +41,15 @@ struct NativeTestExecution: Sendable {
             fileURLWithPath: (context.evidenceRoot.map { $0 + "/test-runs/" } ?? "build/test-runs/") + "xcode-\(UUID().uuidString)"
         ).standardizedFileURL
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
-        let products = options.testProductsPath ?? root.appendingPathComponent("tests.xctestproducts").path
-        if FileManager.default.fileExists(atPath: products) {
+        let reusingProducts = options.useTestProducts != nil
+        let products = options.useTestProducts ?? options.testProductsPath ?? root.appendingPathComponent("tests.xctestproducts").path
+        if reusingProducts {
+            var isDirectory: ObjCBool = false
+            guard FileManager.default.fileExists(atPath: products, isDirectory: &isDirectory), isDirectory.boolValue else {
+                throw ShipItError.invalidConfiguration(reason: "use_test_products does not exist or is not a bundle: \(products)")
+            }
+            context.logger.info("Reusing test products", metadata: ["path": "\(products)"])
+        } else if FileManager.default.fileExists(atPath: products) {
             throw ShipItError.invalidConfiguration(reason: "test_products_path already exists: \(products)")
         }
         let container: XcodeContainer?
@@ -70,35 +78,45 @@ struct NativeTestExecution: Sendable {
             plans.map { TestDestination.xcode(specifier: destination, plan: $0) }
         }
         let buildDirectory = root.appendingPathComponent("build")
-        let buildStarted = Date()
-        let build: ShellOutput
-        let buildArguments: [String]
-        do {
-            let outcome = try await builder.buildForTesting(buildRequest, testProductsPath: products)
-            build = outcome.output
-            buildArguments = Array(
-                builder.command(for: buildRequest).option(.testProductsPath(products)).buildForTesting().command().arguments)
-            for note in outcome.diagnostics { context.logger.warning("\(note)") }
-        } catch let failure as BuildFailure {
-            build = failure.output
-            buildArguments = Array(failure.command.dropFirst())
-        } catch {
-            try? FileManager.default.createDirectory(at: buildDirectory, withIntermediateDirectories: true)
-            try? saveInterruptedTestOutput(error, directory: buildDirectory)
-            throw error
-        }
-        let buildSeconds = Date().timeIntervalSince(buildStarted)
-        recordLogs(build, arguments: buildArguments, started: buildStarted, seconds: buildSeconds, directory: buildDirectory)
-        if build.exitCode != 0 {
-            let failure = TestRunReport(
-                runner: .xcodebuild, buildSystem: context.config.iosBuildSystem, source: root.path,
-                destinations: reportDestinations, buildSeconds: buildSeconds,
-                attempts: [.init(attemptNumber: 1, reason: "build", summary: .init(errored: 1), failedTests: [], source: root.path)],
-                summary: .init(errored: 1))
-            saveEvidence("build failure report", logger: context.logger) {
-                try writeJSON(failure, to: URL(fileURLWithPath: options.reportPath ?? root.appendingPathComponent("report.json").path))
+        // Reused products were built elsewhere, so this run has no build time of its own to report.
+        var buildSeconds: TimeInterval?
+        if !reusingProducts {
+            let buildStarted = Date()
+            let build: ShellOutput
+            let buildArguments: [String]
+            context.logger.info("Building tests", metadata: ["scheme": "\(scheme)", "products": "\(products)"])
+            do {
+                let outcome = try await builder.buildForTesting(buildRequest, testProductsPath: products)
+                build = outcome.output
+                buildArguments = Array(
+                    builder.command(for: buildRequest).option(.testProductsPath(products)).buildForTesting().command().arguments)
+                for note in outcome.diagnostics { context.logger.warning("\(note)") }
+            } catch let failure as BuildFailure {
+                build = failure.output
+                buildArguments = Array(failure.command.dropFirst())
+            } catch {
+                try? FileManager.default.createDirectory(at: buildDirectory, withIntermediateDirectories: true)
+                try? saveInterruptedTestOutput(error, directory: buildDirectory)
+                throw error
             }
-            throw ShipItError.testFailed(exitCode: Int(build.exitCode), failureCount: 0, log: build.stdout + build.stderr)
+            let elapsed = Date().timeIntervalSince(buildStarted)
+            buildSeconds = elapsed
+            recordLogs(build, arguments: buildArguments, started: buildStarted, seconds: elapsed, directory: buildDirectory)
+            context.logger.info("Built tests", metadata: ["exit_code": "\(build.exitCode)", "seconds": "\(Self.format(elapsed))"])
+            if build.exitCode != 0 {
+                let failure = TestRunReport(
+                    runner: .xcodebuild, buildSystem: context.config.iosBuildSystem, source: root.path,
+                    destinations: reportDestinations, buildSeconds: elapsed,
+                    attempts: [.init(attemptNumber: 1, reason: "build", summary: .init(errored: 1), failedTests: [], source: root.path)],
+                    summary: .init(errored: 1))
+                saveEvidence("build failure report", logger: context.logger) {
+                    try writeJSON(failure, to: URL(fileURLWithPath: options.reportPath ?? root.appendingPathComponent("report.json").path))
+                }
+                throw ShipItError.testFailed(exitCode: Int(build.exitCode), failureCount: 0, log: build.stdout + build.stderr)
+            }
+        }
+        if options.buildForTestingOnly == true {
+            return .init(testProductsPath: products)
         }
         var serialDestinations = Set<String>()
         var attempts: [TestAttempt] = []
@@ -270,6 +288,7 @@ struct NativeTestExecution: Sendable {
                             reason = "infrastructure"
                             try await Task.sleep(for: InfrastructureRetryScheduler.applyJitter(to: retryDelay))
                             retryDelay = InfrastructureRetryScheduler.nextDelay(current: retryDelay, cap: policy.resolvedMaxDelay)
+                            await recoverSimulatorBeforeRetry(udid, ownedByRun: udid.map(owned.contains) ?? false, reason: reason)
                             continue
                         }
                         if first == nil {
@@ -304,6 +323,7 @@ struct NativeTestExecution: Sendable {
                                 rerunAttempts += 1
                                 number += 1
                                 reason = "failed_tests"
+                                await recoverSimulatorBeforeRetry(udid, ownedByRun: udid.map(owned.contains) ?? false, reason: reason)
                                 continue
                             }
                         }
@@ -367,7 +387,7 @@ struct NativeTestExecution: Sendable {
         }
         return .init(
             passCount: report.summary.passed, failCount: 0, skipCount: report.summary.skipped,
-            resultBundlePath: resultPaths.first, report: report)
+            resultBundlePath: resultPaths.first, report: report, testProductsPath: products)
     }
     private func planSettings(_ plan: String?) throws -> [String: [String: String]] {
         guard let plan else { return [:] }
@@ -444,6 +464,30 @@ struct NativeTestExecution: Sendable {
         seconds >= 60
             ? String(format: "%.0fm %02.0fs", (seconds / 60).rounded(.down), seconds.truncatingRemainder(dividingBy: 60))
             : String(format: "%.1fs", seconds)
+    }
+    /// Gets the simulator into a known-good state before another attempt, so a retry does not inherit a hung device.
+    ///
+    /// A simulator that stopped answering is restarted whoever booted it (it is unusable anyway). A responsive one is
+    /// restarted only after an infrastructure failure and only when this run booted it: restarting a simulator someone
+    /// else is using would take it from them. Recovery never erases.
+    private func recoverSimulatorBeforeRetry(_ udid: String?, ownedByRun: Bool, reason: String) async {
+        guard let udid else { return }
+        let manager = SimulatorManager(shell: context.shell)
+        let responsive = await manager.isResponsive(udid)
+        guard !responsive || (ownedByRun && reason == "infrastructure") else {
+            context.logger.debug("Simulator is healthy; not recovering before retry", metadata: ["udid": "\(udid)", "reason": "\(reason)"])
+            return
+        }
+        context.logger.warning(
+            "Recovering simulator before retry", metadata: ["udid": "\(udid)", "reason": "\(reason)", "responsive": "\(responsive)"])
+        do {
+            let report = try await manager.recover(udid)
+            context.logger.info(
+                "Simulator recovery finished",
+                metadata: ["udid": "\(udid)", "recovered": "\(report.recovered)", "steps": "\(report.steps.joined(separator: ","))"])
+        } catch {
+            context.logger.error("Simulator recovery failed; retrying anyway", metadata: ["udid": "\(udid)", "error": "\(error)"])
+        }
     }
     private func simulatorState(_ udid: String) async throws -> String? {
         let output = try await Simctl(context: context.shell).list(.devices, json: true).run()

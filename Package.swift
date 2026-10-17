@@ -123,6 +123,7 @@ let package = Package(
                 "ShipItCLI",
                 .product(name: "MobileTesting", package: "mobile-kits"),
                 .product(name: "SwiftyShell", package: "SwiftyShell"),
+                .product(name: "TestCommons", package: "SwiftTestCommons"),
             ]
         ),
         .testTarget(

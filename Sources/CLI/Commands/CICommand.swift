@@ -4,7 +4,8 @@ import ShipItKit
 
 struct CICommand: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
-        commandName: "ci", abstract: "Export native CI jobs from ShipIt workflows", subcommands: [CIExportCommand.self])
+        commandName: "ci", abstract: "Export CI jobs from ShipIt workflows, and report test results to CI",
+        subcommands: [CIExportCommand.self, CIReportCommand.self, CIIssuesCommand.self])
 }
 struct CIExportCommand: AsyncParsableCommand {
     static let configuration = CommandConfiguration(commandName: "export", abstract: "Export a runnable CI job with artifact publication")

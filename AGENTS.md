@@ -190,6 +190,15 @@ swift run shipit coverage --include-target MyFeatureKit       # include specific
 swift run shipit coverage --exclude-target GoogleSignIn       # exclude vendor targets
 swift run shipit coverage --sort name --limit 10              # alphabetical, capped
 
+# Build once, test on many jobs (native iOS)
+swift run shipit test --scheme MyApp --build-for-testing-only --test-products-path build/MyApp.xctestproducts
+swift run shipit test --scheme MyApp --use-test-products build/MyApp.xctestproducts --only-testing MyAppTests/CartTests --rerun-failed-tests --infrastructure-retry-attempts 3 --report-path build/report.json
+
+# CI reporting from a TestRunReport (job summary, annotations, verdict, GitHub issues)
+swift run shipit ci report --report build/report.json --summary-path "$GITHUB_STEP_SUMMARY" --annotations --result-path build/result.json
+swift run shipit ci report --report shard-1/report.json --report shard-2/report.json --fail-on-flaky
+GITHUB_TOKEN=... swift run shipit ci issues --report build/report.json --repository owner/name --only-ref main --dry-run
+
 # Test results — parse prior test artifacts into normalized reports
 swift run shipit test-results --xcresult ./build/MyApp-tests.xcresult
 swift run shipit test-results --platform android --report ./app/build/test-results/testDebugUnitTest
@@ -409,6 +418,7 @@ Sources/
     Utilities/        # Logger, ShipItError, RetryPolicy, JSONReporter, SimulatorLease,
                       # AndroidDeviceProvisioner (emulator/device orchestration)
     Versioning/       # VersionBumper, BuildNumberSource
+    GitHub/           # TestRunDigest, TestFingerprint, job summary + annotations, issue sync (policy for `ci report` / `ci issues`)
     Notifications/    # Notifier
     Xcrun/            # xcrun / simctl wrappers
   CLI/
@@ -551,7 +561,7 @@ Detailed reference material lives in `docs/`:
 - Native iOS defaults to build-for-testing once into `.xctestproducts`, then separate per-plan/destination result bundles. Use `test_plans` for compatible target sets; `legacy_combined_test` preserves older behavior.
 - Actual clone failures fall back serially once per destination, without rebuilding. Ordinary assertions never trigger this fallback.
 - Infrastructure and selective assertion retry budgets are separate. SwiftPM reruns skip building; recovered assertions pass and remain marked flaky.
-- Every attempt retains logs/native artifacts. Workflow/custom-action steps can declare `artifacts` (`name`, `paths`, `retention_days`); `ci export` generates GitHub always-upload steps. Other CI providers implement `CIProvider`.
+- Every attempt retains logs/native artifacts. Workflow/custom-action steps can declare `artifacts` (`name`, `paths`, `retention_days`); `ci export` generates GitHub always-upload steps. Other CI providers implement `CIProvider`. `ci report` and `ci issues` read `TestRunReport` JSON (`--report-path`) and own the GitHub-facing policy: summary, annotations, pass/fail verdict, and issue filing (`Sources/ShipItKit/GitHub/`). The `actions/test` composite action only wires them to a runner; keep policy in the CLI so it can be run and tested locally. A test's identity for issue dedupe is `TestFingerprint` (runner + plan + the runner's own selector), never `stableID`, whose `plan-N:destination-N:` prefix is positional.
 - `continue_on_failure` is opt-in for independent checks and preserves a failed workflow status. `{{run_id}}` scopes top-level output/artifact paths.
 - Results separate `runner` (the tool: `xcodebuild`, `gradle`, `swift-test`, `flutter-test`, `jest`), `buildSystem` (native/kmp/flutter/react_native) and `destinations` (where tests ran: `platform`, `kind`, `name`, `scope`; tests point at one by `destinationID`). Never put a framework such as `kmp` or `flutter` in a platform field. `TestPlatform`/`TestRunner` keep unknown values as `other`; `TestRunReport` is schema version 2.
 - Changes to result parsing, counting or reporting are verified against sample projects, not only mocks: add or extend a scripted outcome in `Tests/IntegrationTests/Fixtures/swiftpm-sample` or `jvm-retry-sample`, and capture real tool output under `Tests/ShipItKitTests/Fixtures/real/`. See "Verifying against real projects" in `docs/testing.md`.
