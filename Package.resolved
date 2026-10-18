@@ -1,5 +1,5 @@
 {
-  "originHash" : "deeb01c7f2ade8aab31e20f8bec498e426531048c3d175d8c2a69da42093f14e",
+  "originHash" : "4eaab36d8ff08d06d93688c70aae1e267d2cb442588f7b074645b88883b6eab1",
   "pins" : [
     {
       "identity" : "app-store-connect-mcp",
@@ -196,6 +196,15 @@
       "state" : {
         "revision" : "0d3a46717bdd0fdd71da20e44ea8b8dfc703cb68",
         "version" : "0.7.0"
+      }
+    },
+    {
+      "identity" : "swiftyterminal",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/maniramezan/SwiftyTerminal.git",
+      "state" : {
+        "branch" : "main",
+        "revision" : "00affa2b2835154ab65dba26b392eb9983410a85"
       }
     },
     {

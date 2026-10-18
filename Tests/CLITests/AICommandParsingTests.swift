@@ -32,21 +32,6 @@ struct AICommandParsingTests {
         #expect(command.skipDoctorPrompt)
     }
 
-    @Test("Generate prints inspection status when stderr is a TTY")
-    func generateInspectionStatusOutputMode() {
-        #expect(shouldPrintGenerateInspectionStatus(output: .human, isStderrTTY: true))
-        #expect(!shouldPrintGenerateInspectionStatus(output: .human, isStderrTTY: false))
-        #expect(shouldPrintGenerateInspectionStatus(output: .json, isStderrTTY: true))
-        #expect(!shouldPrintGenerateInspectionStatus(output: .json, isStderrTTY: false))
-    }
-
-    @Test("Generate prompt resolves defaults on empty answer")
-    func generatePromptResolvesDefaults() {
-        #expect(resolvedPromptValue(answer: "", defaultValue: "MyApp") == "MyApp")
-        #expect(resolvedPromptValue(answer: "CustomApp", defaultValue: "MyApp") == "CustomApp")
-        #expect(resolvedPromptValue(answer: "", defaultValue: nil) == "")
-    }
-
     @Test("Release bump-from-CI switches the version step to RELEASE_BUMP when enabled")
     func releaseBumpFromCISwitchesVersionStep() {
         let yaml = "    - action: version\n      options: { bump: patch }   # or: { bump: ${RELEASE_BUMP} }\n"
@@ -58,51 +43,6 @@ struct AICommandParsingTests {
         // Disabled is a no-op; absent scaffold line is untouched.
         #expect(releaseBumpFromCI(yaml: yaml, enabled: false) == yaml)
         #expect(releaseBumpFromCI(yaml: "no version step here", enabled: true) == "no version step here")
-    }
-
-    @Test("Generate platform focus defaults to both on empty answer")
-    func generatePlatformFocusDefaultsToBoth() {
-        #expect(
-            resolvedPlatformFocus(answer: "", defaultFocus: .both) == .both
-        )
-    }
-
-    @Test("Generate platform focus accepts ios android and both")
-    func generatePlatformFocusAcceptsExpectedValues() {
-        #expect(resolvedPlatformFocus(answer: "ios", defaultFocus: .both) == .ios)
-        #expect(resolvedPlatformFocus(answer: "android", defaultFocus: .both) == .android)
-        #expect(resolvedPlatformFocus(answer: "both", defaultFocus: .ios) == .both)
-    }
-
-    @Test("Generate platform focus falls back for invalid values")
-    func generatePlatformFocusFallsBackForInvalidValues() {
-        #expect(resolvedPlatformFocus(answer: "invalid", defaultFocus: .both) == .both)
-    }
-
-    @Test("Generate confirmation default echo matches chosen answer")
-    func generateConfirmationDefaultEcho() {
-        #expect(defaultConfirmationEcho(defaultAnswer: true) == "yes")
-        #expect(defaultConfirmationEcho(defaultAnswer: false) == "no")
-    }
-
-    @Test("Generate default prompt echo rewrites TTY prompt line")
-    func generateDefaultPromptEchoRewritesTTYLine() {
-        #expect(
-            defaultPromptEcho(promptLine: "Xcode scheme [MyApp]: ", value: "MyApp", isStdoutTTY: true)
-                == "\u{001B}[1A\u{001B}[2K\rXcode scheme [MyApp]: MyApp\n"
-        )
-        #expect(
-            defaultPromptEcho(promptLine: "Xcode scheme [MyApp]: ", value: "MyApp", isStdoutTTY: false)
-                == "MyApp\n"
-        )
-    }
-
-    @Test("Interactive selector summary echoes selected option")
-    func interactiveSelectorSummaryEchoesSelectedOption() {
-        #expect(
-            interactiveSelectedChoiceEcho(prompt: "Setup method", option: "Create a .env file")
-                == "Setup method: Create a .env file"
-        )
     }
 
     @Test("Generate env var collection skipped when non-interactive")
