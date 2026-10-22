@@ -3,12 +3,7 @@ import Foundation
 import Logging
 import MobileCore
 import ShipItKit
-
-#if canImport(Darwin)
-import Darwin
-#elseif canImport(Glibc)
-import Glibc
-#endif
+import SwiftyTerminal
 
 /// Generate a Shipfile.yml from project inspection and user confirmation.
 ///
@@ -596,23 +591,19 @@ struct GenerateCommand: AsyncParsableCommand {
 
             // Ask which track to upload to
             formatter.printHeader("Android Google Play Track")
-            formatter.print("Which Google Play track should this workflow upload to?")
-            formatter.print("  1) internal  — small internal testing group (recommended for beta)")
-            formatter.print("  2) alpha     — closed testing")
-            formatter.print("  3) beta      — open testing")
-            formatter.print("  4) production")
             let trackChoices = ["internal", "alpha", "beta", "production"]
-            let defaultTrack = goal == .release ? "production" : "internal"
-            let defaultIndex = trackChoices.firstIndex(of: defaultTrack)! + 1
-            let trackInput = ask(androidPrompt("Google Play track"), defaultValue: "\(defaultIndex)")
-            let selectedTrack: String
-            if let idx = Int(trackInput), (1...4).contains(idx) {
-                selectedTrack = trackChoices[idx - 1]
-            } else if trackChoices.contains(trackInput.lowercased()) {
-                selectedTrack = trackInput.lowercased()
-            } else {
-                selectedTrack = defaultTrack
-            }
+            let selectedTrack = trackChoices[
+                choose(
+                    androidPrompt("Which Google Play track should this workflow upload to?"),
+                    options: [
+                        "internal    small internal testing group (recommended for beta)",
+                        "alpha       closed testing",
+                        "beta        open testing",
+                        "production",
+                    ],
+                    defaultIndex: goal == .release ? 3 : 0
+                )
+            ]
 
             overrides[
                 "    # Add this when you are ready to upload to Google Play:\n    # - action: play-store\n    #   options: { track: internal }"
@@ -817,17 +808,7 @@ struct GenerateCommand: AsyncParsableCommand {
             formatter.print("Found alias: \(aliases[0])")
             return aliases[0]
         default:
-            formatter.print("Multiple aliases found:")
-            for (i, alias) in aliases.enumerated() {
-                formatter.print("  \(i + 1). \(alias)")
-            }
-            let input = ask(
-                androidPrompt("Enter alias number or type the alias directly"),
-                defaultValue: "1")
-            if let idx = Int(input), idx >= 1, idx <= aliases.count {
-                return aliases[idx - 1]
-            }
-            return input
+            return aliases[choose(androidPrompt("Multiple aliases found. Which one?"), options: aliases, defaultIndex: 0)]
         }
     }
 
@@ -1047,25 +1028,9 @@ struct GenerateCommand: AsyncParsableCommand {
         return collected
     }
 
-    /// Reads a line from stdin with terminal echo disabled (for passwords / keys).
-    /// Falls back to plain `readLine()` when not running on a TTY.
+    /// Reads a line without echoing it (passwords, keys); empty at end of input.
     private func askSecret(_ prompt: String) -> String {
-        print("\(prompt): ", terminator: "")
-        fflush(nil)
-
-        #if canImport(Darwin)
-        var old = termios()
-        tcgetattr(STDIN_FILENO, &old)
-        var noEcho = old
-        noEcho.c_lflag &= ~tcflag_t(ECHO)
-        tcsetattr(STDIN_FILENO, TCSANOW, &noEcho)
-        let value = readLine()?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        tcsetattr(STDIN_FILENO, TCSANOW, &old)
-        print("")  // newline after hidden input
-        return value
-        #else
-        return readLine()?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        #endif
+        prompter.askSecret(prompt) ?? ""
     }
 
     private func addOverride(_ overrides: inout [String: String], placeholder: String, value: String) {
@@ -1107,19 +1072,17 @@ struct GenerateCommand: AsyncParsableCommand {
     }
 
     private func choosePlatformFocus(defaultFocus: PlatformFocus) -> PlatformFocus {
-        resolvedPlatformFocus(
-            answer: ask(
-                "Which platform do you want to focus on first? (ios/android/both)", defaultValue: defaultFocus.rawValue
-            ),
-            defaultFocus: defaultFocus
+        let options: [PlatformFocus] = [.ios, .android, .both]
+        let index = choose(
+            "Which platform do you want to focus on first?",
+            options: options.map(\.rawValue),
+            defaultIndex: options.firstIndex(of: defaultFocus) ?? 2
         )
+        return options[index]
     }
 
     private func choosePlatform(defaultFocus: PlatformFocus, fallbackPlatform: Platform) -> PlatformFocus {
-        let answer = ask(
-            "Which platform do you want to focus on first? (ios/android/both)", defaultValue: defaultFocus.rawValue
-        )
-        let focus = resolvedPlatformFocus(answer: answer, defaultFocus: defaultFocus)
+        let focus = choosePlatformFocus(defaultFocus: defaultFocus)
         if focus == .both {
             formatterPrintBothFallbackWarning(for: fallbackPlatform)
             return fallbackPlatform == .ios ? .ios : .android
@@ -1142,141 +1105,24 @@ struct GenerateCommand: AsyncParsableCommand {
         "[Android] \(prompt)"
     }
 
+    /// Questions use the shared terminal prompts. End of input keeps each default, so piped
+    /// runs behave like pressing Enter.
+    private var prompter: Prompter {
+        Prompter(colorMode: global.effectiveColorMode)
+    }
+
     private func ask(_ prompt: String, defaultValue: String?) -> String {
-        let suffix = defaultValue.map { " [\($0)]" } ?? ""
-        let promptLine = "\(prompt)\(suffix): "
-        print(promptLine, terminator: "")
-        let answer = readLine()?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        let value = resolvedPromptValue(answer: answer, defaultValue: defaultValue)
-        if answer.isEmpty, let defaultValue {
-            print(
-                defaultPromptEcho(promptLine: promptLine, value: defaultValue, isStdoutTTY: isatty(STDOUT_FILENO) != 0),
-                terminator: ""
-            )
-        }
-        return value
+        prompter.ask(prompt, default: defaultValue) ?? defaultValue ?? ""
     }
 
     private func confirm(_ prompt: String, defaultAnswer: Bool) -> Bool {
-        let suffix = defaultAnswer ? "Y/n" : "y/N"
-        let promptLine = "\(prompt) [\(suffix)]: "
-        print(promptLine, terminator: "")
-        let answer = readLine()?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() ?? ""
-        if answer.isEmpty {
-            print(
-                defaultPromptEcho(
-                    promptLine: promptLine,
-                    value: defaultConfirmationEcho(defaultAnswer: defaultAnswer),
-                    isStdoutTTY: isatty(STDOUT_FILENO) != 0
-                ),
-                terminator: ""
-            )
-            return defaultAnswer
-        }
-        return ["y", "yes"].contains(answer)
+        prompter.confirm(prompt, default: defaultAnswer) ?? defaultAnswer
     }
 
-    /// Presents a numbered list of options and returns the 0-based index of the user's choice.
+    /// An arrow-key menu on a terminal, a numbered list otherwise; returns the 0-based index.
     private func choose(_ prompt: String, options: [String], defaultIndex: Int) -> Int {
-        guard isInteractiveTerminal else {
-            print("\n\(prompt)")
-            for (index, option) in options.enumerated() {
-                let marker = index == defaultIndex ? "*" : " "
-                print("  \(marker) \(index + 1). \(option)")
-            }
-            let answer = ask("Choice", defaultValue: "\(defaultIndex + 1)")
-            if let choice = Int(answer), choice >= 1, choice <= options.count {
-                return choice - 1
-            }
-            return defaultIndex
-        }
-
-        #if canImport(Darwin)
-        return interactiveChoose(prompt, options: options, defaultIndex: defaultIndex)
-        #else
-        print("\n\(prompt)")
-        for (index, option) in options.enumerated() {
-            let marker = index == defaultIndex ? "*" : " "
-            print("  \(marker) \(index + 1). \(option)")
-        }
-        let answer = ask("Choice", defaultValue: "\(defaultIndex + 1)")
-        if let choice = Int(answer), choice >= 1, choice <= options.count {
-            return choice - 1
-        }
-        return defaultIndex
-        #endif
+        prompter.choose(prompt, options: options, default: defaultIndex) ?? defaultIndex
     }
-
-    #if canImport(Darwin)
-    private func interactiveChoose(_ prompt: String, options: [String], defaultIndex: Int) -> Int {
-        var selectedIndex = min(max(defaultIndex, 0), max(options.count - 1, 0))
-        var old = termios()
-        tcgetattr(STDIN_FILENO, &old)
-        var raw = old
-        raw.c_lflag &= ~tcflag_t(ICANON | ECHO)
-        raw.c_cc.16 = 1
-        raw.c_cc.17 = 0
-        tcsetattr(STDIN_FILENO, TCSANOW, &raw)
-        defer {
-            tcsetattr(STDIN_FILENO, TCSANOW, &old)
-            print("")
-        }
-
-        renderInteractiveChoices(prompt: prompt, options: options, selectedIndex: selectedIndex)
-
-        while true {
-            var input = [UInt8](repeating: 0, count: 3)
-            let count = read(STDIN_FILENO, &input, input.count)
-            guard count > 0 else { continue }
-
-            switch input[0] {
-            case 13, 10:
-                clearInteractiveChoices(prompt: prompt, optionsCount: options.count)
-                renderSelectedChoice(prompt: prompt, option: options[selectedIndex])
-                return selectedIndex
-            case 65, 107:
-                selectedIndex = max(selectedIndex - 1, 0)
-            case 66, 106:
-                selectedIndex = min(selectedIndex + 1, options.count - 1)
-            case 27:
-                if count >= 3, input[1] == 91 {
-                    if input[2] == 65 {
-                        selectedIndex = max(selectedIndex - 1, 0)
-                    } else if input[2] == 66 {
-                        selectedIndex = min(selectedIndex + 1, options.count - 1)
-                    }
-                }
-            default:
-                if let digit = Int(String(UnicodeScalar(input[0]))), digit >= 1, digit <= options.count {
-                    selectedIndex = digit - 1
-                }
-            }
-
-            clearInteractiveChoices(prompt: prompt, optionsCount: options.count)
-            renderInteractiveChoices(prompt: prompt, options: options, selectedIndex: selectedIndex)
-        }
-    }
-
-    private func renderInteractiveChoices(prompt: String, options: [String], selectedIndex: Int) {
-        print("\n\(prompt)")
-        for (index, option) in options.enumerated() {
-            let prefix = index == selectedIndex ? ">" : " "
-            print("  \(prefix) \(index + 1). \(option)")
-        }
-        print("  Use arrow keys, j/k, or 1-\(options.count). Press Enter to confirm.")
-    }
-
-    private func clearInteractiveChoices(prompt: String, optionsCount: Int) {
-        let totalLines = optionsCount + 3
-        for _ in 0..<totalLines {
-            print("\u{001B}[1A\u{001B}[2K\r", terminator: "")
-        }
-    }
-
-    private func renderSelectedChoice(prompt: String, option: String) {
-        print(interactiveSelectedChoiceEcho(prompt: prompt, option: option))
-    }
-    #endif
 
     /// Writes a `.env` file in the project directory containing signing env vars.
     /// Also ensures `.env` is in `.gitignore`.
@@ -1494,32 +1340,14 @@ struct GenerateCommand: AsyncParsableCommand {
     }
 
     private func inspectProject() async throws -> ProjectInspection {
-        guard
-            shouldPrintGenerateInspectionStatus(
-                output: global.output,
-                isStderrTTY: isatty(STDERR_FILENO) != 0
-            )
-        else {
-            return try await ProjectInspector(rootPath: path).inspect()
-        }
-
-        let spinner = TerminalSpinner(message: "Inspecting project and inferring defaults")
-        async let animation: Void = spinner.run()
-
-        do {
-            let inspection = try await ProjectInspector(rootPath: path).inspect()
-            await spinner.finish()
-            await animation
-            return inspection
-        } catch {
-            await spinner.finish()
-            await animation
-            throw error
+        try await withSpinner("Inspecting project and inferring defaults", colorMode: global.effectiveColorMode) {
+            try await ProjectInspector(rootPath: path).inspect()
         }
     }
 
     private var isInteractiveTerminal: Bool {
-        isatty(STDIN_FILENO) != 0 && isatty(STDOUT_FILENO) != 0
+        let environment = TerminalEnvironment.current()
+        return environment.isInputTerminal && environment.isOutputTerminal
     }
 }
 
@@ -1531,59 +1359,4 @@ func releaseBumpFromCI(yaml: String, enabled: Bool) -> String {
     return yaml.replacingOccurrences(
         of: "bump: patch }   # or: { bump: ${RELEASE_BUMP} }",
         with: "bump: ${RELEASE_BUMP} }   # major|minor|patch|build, set at CI dispatch")
-}
-
-func resolvedPlatformFocus(
-    answer: String,
-    defaultFocus: GenerateCommand.PlatformFocus
-) -> GenerateCommand.PlatformFocus {
-    GenerateCommand.PlatformFocus(rawValue: answer.trimmingCharacters(in: .whitespacesAndNewlines).lowercased())
-        ?? defaultFocus
-}
-
-func interactiveSelectedChoiceEcho(prompt: String, option: String) -> String {
-    "\(prompt): \(option)"
-}
-
-func shouldPrintGenerateInspectionStatus(output: OutputFormat, isStderrTTY: Bool) -> Bool {
-    isStderrTTY
-}
-
-func resolvedPromptValue(answer: String, defaultValue: String?) -> String {
-    answer.isEmpty ? (defaultValue ?? "") : answer
-}
-
-func defaultConfirmationEcho(defaultAnswer: Bool) -> String {
-    defaultAnswer ? "yes" : "no"
-}
-
-func defaultPromptEcho(promptLine: String, value: String, isStdoutTTY: Bool) -> String {
-    if isStdoutTTY {
-        return "\u{001B}[1A\u{001B}[2K\r\(promptLine)\(value)\n"
-    }
-    return "\(value)\n"
-}
-
-private actor TerminalSpinner {
-    private let frames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
-    private let message: String
-    private var isRunning = true
-
-    init(message: String) {
-        self.message = message
-    }
-
-    func run() async {
-        var index = 0
-        while isRunning {
-            FileHandle.standardError.write(Data("\r\(frames[index % frames.count]) \(message)".utf8))
-            index += 1
-            try? await Task.sleep(for: .milliseconds(100))
-        }
-    }
-
-    func finish() {
-        isRunning = false
-        FileHandle.standardError.write(Data("\r\u{001B}[2K".utf8))
-    }
 }

@@ -2,6 +2,7 @@ import ArgumentParser
 import Foundation
 import Logging
 import ShipItKit
+import SwiftyTerminal
 
 /// The main CLI entry point for ShipItSwifty.
 ///
@@ -150,7 +151,7 @@ struct GlobalOptions: ParsableArguments {
     var output: OutputFormat = .human
 
     @Option(name: .long, help: "Color output: auto | always | never")
-    var color: ConsoleColorMode = .auto
+    var color: ColorMode = .auto
 
     @Flag(name: .customLong("no-color"), help: "Disable color in human output")
     var noColor: Bool = false
@@ -167,7 +168,7 @@ struct GlobalOptions: ParsableArguments {
     @Option(name: .long, help: "Target platform: ios | android (auto-detected if omitted)")
     var platform: Platform?
 
-    var effectiveColorMode: ConsoleColorMode {
+    var effectiveColorMode: ColorMode {
         noColor ? .never : color
     }
 }

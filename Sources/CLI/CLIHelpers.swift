@@ -6,6 +6,7 @@ import Logging
 import MobileCore
 import ShipItKit
 import SwiftyShell
+import SwiftyTerminal
 
 // MARK: - Shared CLI Helpers
 
@@ -164,7 +165,7 @@ func buildFallbackActionContext(
 
 /// Output a successful action result in the specified format.
 func outputResult<T: Codable & Sendable>(
-    action: String, result: T, format: OutputFormat, colorMode: ConsoleColorMode = .auto
+    action: String, result: T, format: OutputFormat, colorMode: ColorMode = .auto
 ) {
     switch format {
     case .human:
@@ -201,7 +202,7 @@ func outputDryRun(
 
 /// Output an error in the specified format. `action` names the command in the JSON envelope, matching what the
 /// command reports on success.
-func outputError(action: String, error: ShipItError, format: OutputFormat, colorMode: ConsoleColorMode = .auto) {
+func outputError(action: String, error: ShipItError, format: OutputFormat, colorMode: ColorMode = .auto) {
     let suggestions = errorSuggestions(for: error)
 
     switch format {

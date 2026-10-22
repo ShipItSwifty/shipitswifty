@@ -15,6 +15,8 @@ let package = Package(
     dependencies: [
         // Shell execution
         .package(url: "https://github.com/maniramezan/SwiftyShell.git", from: "0.7.0"),
+        // Prompts, progress, styling and formatted output shared with Amoo. Tracks main until 0.1.0.
+        .package(url: "https://github.com/maniramezan/SwiftyTerminal.git", branch: "main"),
         // Typed tool wrappers (xcodebuild, xcrun, Gradle, adb, Flutter, …). Tracks main until 1.0.
         .package(url: "https://github.com/ShipItSwifty/cli-wrappers.git", branch: "main"),
         // Build, device, test, and inspection mechanisms shared with Amoo. Tracks main until 1.0.
@@ -94,6 +96,7 @@ let package = Package(
                 .product(name: "XcrunKit", package: "cli-wrappers"),
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
                 .product(name: "Logging", package: "swift-log"),
+                .product(name: "SwiftyTerminal", package: "SwiftyTerminal"),
             ],
             path: "Sources/CLI"
         ),
