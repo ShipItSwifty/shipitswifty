@@ -1,35 +1,28 @@
 version: 2
+multi-ecosystem-groups:
+  dependencies:
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 1
+    commit-message:
+      prefix: deps
 updates:
   - package-ecosystem: github-actions
-    # The composite action's own `uses:` pins live in actions/test/action.yml, outside .github/workflows.
     directories:
       - /
       - /actions/test
-    schedule:
-      interval: weekly
-      day: monday
-    groups:
-      github-actions:
-        patterns:
-          - "*"
-    commit-message:
-      prefix: "ci"
     labels:
       - dependencies
       - github-actions
-
+    patterns:
+      - '*'
+    multi-ecosystem-group: dependencies
   - package-ecosystem: swift
     directory: /
-    schedule:
-      interval: weekly
-      day: monday
-    open-pull-requests-limit: 5
-    groups:
-      swift-deps:
-        patterns:
-          - "*"
-    commit-message:
-      prefix: "deps"
     labels:
       - dependencies
       - swift
+    patterns:
+      - '*'
+    multi-ecosystem-group: dependencies
