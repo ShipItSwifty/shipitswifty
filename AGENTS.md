@@ -54,6 +54,7 @@ Start here by task:
 Hard invariants to keep in mind immediately:
 
 - All shell execution must go through `SwiftyShell`.
+- Terminal UX in the CLI (colors, prompts and menus, spinners, progress, formatted output) comes from [`SwiftyTerminal`](https://github.com/maniramezan/SwiftyTerminal), shared with Amoo; `HumanFormatter` and `GenerateCommand`'s prompts are thin adapters over it. Add new terminal UX there, not in `Sources/CLI`. It tracks `main` until `0.1.0`.
 - All App Store Connect calls must go through `AppStoreConnectClient`.
 - All public types must be `Sendable`.
 - All async work must use structured concurrency.
