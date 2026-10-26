@@ -1,5 +1,5 @@
 {
-  "originHash" : "4eaab36d8ff08d06d93688c70aae1e267d2cb442588f7b074645b88883b6eab1",
+  "originHash" : "43fb33112e18a21a5780a87fb77e14511a501b35f30345a27f91c9f67441177b",
   "pins" : [
     {
       "identity" : "app-store-connect-mcp",
@@ -131,8 +131,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-log",
       "state" : {
-        "revision" : "4038b6a4f74a1426f47eb1dd5b4bb5628a15d597",
-        "version" : "1.16.1"
+        "revision" : "c9c6bb9d275ec0d95c3ad16391f3f045dc623104",
+        "version" : "1.16.2"
       }
     },
     {
@@ -185,8 +185,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/maniramezan/SwiftTestCommons.git",
       "state" : {
-        "revision" : "a90013fe22a398ad70e09ca75f1e32b39a5f7d27",
-        "version" : "0.4.0"
+        "revision" : "3420590635e3c3bf869116679177051406d3b3a8",
+        "version" : "0.4.2"
       }
     },
     {
