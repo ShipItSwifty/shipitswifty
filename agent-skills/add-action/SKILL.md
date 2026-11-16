@@ -41,7 +41,8 @@ action's `Options` type, so an action change is incomplete until every surface b
 | Generated workflows | `ShipfileSuggester` and `GenerateCommand` if `shipit generate` should emit it |
 | `docs/features.md` | Feature table row(s) |
 | `docs/configuration-reference.md` | Option table if it is Shipfile-configurable |
-| `AGENTS.md` | Commands section for new/renamed CLI surface; agent workflow guidance |
+| Website CLI reference (`ShipItSwifty/website`, `reference/cli-commands.mdx`) | New or renamed CLI surface |
+| `docs/agent-index.md` | "Recommending Shipfile changes" if agents should suggest it differently |
 | `docs/architecture.md` | Exit-code table if you add or change a `ShipItError` case (also `CLIHelpers.errorSuggestions`) |
 
 ## 4. Test

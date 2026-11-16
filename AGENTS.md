@@ -1,320 +1,97 @@
 # ShipItSwifty — Agent Guidance
 
-This file is the single source of truth for AI agents working in this repository (Claude Code, OpenAI Codex, etc.).
+The single source of truth for AI agents working in this repository (Claude Code, OpenAI Codex, …).
+It holds the rules. Maps, recommendations and contracts live in the docs it links; read those only
+when the task touches them.
+
+ShipItSwifty is a Swift 6 CLI and library for iOS and Android release automation. `ShipItKit` holds
+the domain logic; `shipit` is the thin CLI over it.
 
 ## Response modes
 
-Use the lightest mode that fits the user's request.
+Use the lightest mode that fits.
 
-- **Quick scan** — default for broad prompts like "what can improve here?" Read a small fixed set of files first, then answer with the highest-leverage findings. Prefer this unless the user asks for a deep review.
-- **Deep audit** — use when the user explicitly asks for a deep review, architecture audit, or repo-wide analysis. Cross-check code, tests, schema, docs, and agent-facing surfaces as needed.
-- **Implementation** — default for change requests. Gather only enough context to make safe edits, then implement and verify.
+- **Quick scan** (default for broad prompts like "what can improve here?"): read the first-read files
+  below plus the most relevant implementation files, then answer with the highest-leverage findings.
+- **Deep audit**: only when asked for a deep review or repo-wide analysis. Ask one short scope question
+  before escalating a broad question into one. Cross-check code, tests, schema, docs and agent surfaces.
+- **Implementation** (default for change requests): read the target code path, its immediate
+  dependencies and the tests to update, then implement and verify. Don't pause for a full audit unless
+  the change clearly touches several contracts.
 
-Scope control rules:
+First read on a cold start: `Package.swift`, `Sources/ShipItKit/Config/ConfigResolver.swift`,
+`ResolvedConfig.swift`, `Sources/ShipItKit/Actions/`, `Sources/ShipItKit/Introspection/`,
+`Tests/ShipItKitTests/`. Treat `ConfigResolver` + `ResolvedConfig` as the runtime source of truth.
+For where to start on a given task and what changes together, see [`docs/agent-index.md`](docs/agent-index.md).
 
-- For broad repo-level questions, default to **Quick scan**.
-- Before escalating a broad question into a **Deep audit**, ask one short scope question.
-- In **Quick scan**, start with the fast-start files below and avoid repo-wide cross-checking unless a likely contract/drift issue appears.
-- In **Deep audit**, it is appropriate to inspect docs, tests, schema, and agent-prompt surfaces for drift.
-- In **Implementation**, do not pause for a full audit unless the requested change clearly touches multiple contracts.
+## Hard rules
 
-Search budget guidance:
+1. **All shell execution goes through SwiftyShell**, never `Foundation.Process`.
+2. **Tool arguments come from [`cli-wrappers`](https://github.com/ShipItSwifty/cli-wrappers)**. Never hand-build
+   `xcodebuild` / `gradlew` / `adb` / … argument strings in ShipItKit; add the flag to the wrapper first (below).
+3. **Terminal UX comes from [`SwiftyTerminal`](https://github.com/maniramezan/SwiftyTerminal)** (colors, prompts,
+   menus, spinners, progress, formatted output), shared with Amoo. `HumanFormatter` and `GenerateCommand`'s prompts
+   are thin adapters. Add new terminal UX there, not in `Sources/CLI`. It tracks `main` until `0.1.0`.
+4. **All App Store Connect calls go through `AppStoreConnectClient`** (the external `AppStoreConnectKit`), never raw HTTP.
+5. **All public types are `Sendable`**: Swift 6 strict concurrency throughout.
+6. **All async work uses structured concurrency** (`async let`, `TaskGroup`); never detached tasks.
+7. **Actions derive behavior only from `Options` and `ActionContext`**: no hidden global mutable state, no
+   `ProcessInfo` reads inside an action (resolve environment in `ConfigResolver`).
+8. **Never use "lane"** for anything of ShipIt's own; it is fastlane's term. Say workflow (a named sequence of steps)
+   and action (the unit one step runs). "Lane" is allowed only when describing fastlane itself.
+9. **Swift Testing** (`@Test`, `#expect`, `#require`) for all new tests.
+10. Apple's `swift format` (config `.swift-format`) is the only formatter. Short, obvious early exits may stay on one
+    line (`guard let self else { return }`); complex conditions, error construction and real work get multiline bodies.
 
-- **Quick scan:** inspect the fast-start files plus only the most relevant implementation files.
-- **Deep audit:** broaden only after the first-pass files indicate where the risk lives.
-- **Implementation:** read the target code path, its immediate dependencies, and the tests you need to update.
-
-## Agent fast start
-
-Use this section to get oriented before reading the rest of the repository guidance.
-
-- ShipItSwifty is a Swift 6 CLI and library for iOS and Android release automation.
-- `ShipItKit` holds the domain logic; `shipit` is the thin CLI entrypoint.
-- The highest-value repo contracts are config resolution, action option schemas, and AI-session output.
-
-Read first on a cold start:
-
-- `Package.swift`
-- `AGENTS.md`
-- `Sources/ShipItKit/Config/ConfigResolver.swift`
-- `Sources/ShipItKit/Config/ResolvedConfig.swift`
-- `Sources/ShipItKit/Actions/`
-- `Sources/ShipItKit/Introspection/`
-- `Tests/ShipItKitTests/`
-
-Start here by task:
-
-- Config resolution: `Sources/ShipItKit/Config/`
-- Action behavior: `Sources/ShipItKit/Actions/`
-- Schema and AI contract: `Sources/ShipItKit/Introspection/`
-- CLI surface: `Sources/CLI/Commands/`
-- Typed tool wrappers (`xcodebuild`, `xcrun`/`simctl`, `gradlew`, `adb`, `bundletool`, `emulator`, `android`, `xcodegen`, `flutter`, `react-native`, `swift`, `security`, `plutil`): the external [`cli-wrappers`](https://github.com/ShipItSwifty/cli-wrappers) package, one product per tool — see "Adding or extending a tool wrapper"
-- Regressions and executable specs: `Tests/ShipItKitTests/`, `Tests/CLITests/`
-
-Hard invariants to keep in mind immediately:
-
-- All shell execution must go through `SwiftyShell`.
-- Terminal UX in the CLI (colors, prompts and menus, spinners, progress, formatted output) comes from [`SwiftyTerminal`](https://github.com/maniramezan/SwiftyTerminal), shared with Amoo; `HumanFormatter` and `GenerateCommand`'s prompts are thin adapters over it. Add new terminal UX there, not in `Sources/CLI`. It tracks `main` until `0.1.0`.
-- All App Store Connect calls must go through `AppStoreConnectClient`.
-- All public types must be `Sendable`.
-- All async work must use structured concurrency.
-- Actions must derive behavior only from `Options` and `ActionContext`.
-
-Fast verification commands:
+## Commands
 
 ```bash
 swift build
 swift test --filter ShipItKitTests
 swift test --filter CLITests
 swift test --enable-code-coverage
+swift test --filter ShipItKitTests.BuildActionTests        # one suite
+
+# This repo's own checks, as Shipfile workflows
+swift run shipit run format
+swift run shipit test --workflow ci-macos                  # or ci-linux
+
+# Linux / Docker (skips macOS-only targets); see `make help`
+make build-linux
+make test-linux
+
+# Try the CLI
+swift run shipit --help
+swift run shipit ai session --goal beta
+swift run shipit run beta --dry-run --output json
 ```
 
-Do not over-read on first pass:
+Requires network access to the remote package dependencies on first build. The full command surface is in
+[`docs/features.md`](docs/features.md) and `shipit <command> --help`.
 
-- For open-ended reviews, do not start by reading all docs.
-- Treat `ConfigResolver` + `ResolvedConfig` as the runtime source of truth.
-- Treat `BuiltInSchemaCatalog` and `AISessionBuilder` as contract surfaces worth checking only when the change touches them.
+Backwards-compat aliases (keep them working and listed here):
+
+```bash
+shipit precheck   # backwards-compat alias: shipit validate metadata
+```
 
 ## Skills
 
-> **Not to be confused with:** `shipit ai skills` (see Commands below) is a *different* concept
-> — a small, built-in catalog of task playbooks (`react-native-setup`, `firebase-distribution`,
-> etc.) that ships in the `shipit` binary for a coding agent driving an *end user's* project.
-> This section is about repository skills used by agents developing ShipItSwifty itself.
+Repository skills live in `agent-skills/`; `.claude/skills/` holds stubs that point there, so edit only
+`agent-skills/`. Read the matching `SKILL.md` when the task applies:
 
-Repository-local skills live in `agent-skills/` for every agent. Read the matching `SKILL.md`
-when the task applies. Claude Code also discovers copies in `.claude/skills/`; keep those
-copies in sync with `agent-skills/` when editing a skill.
+- **[`add-action`](agent-skills/add-action/SKILL.md)**: adding or changing an action's `Options` / `Result`. Walks the full sync checklist.
+- **[`verify-linux`](agent-skills/verify-linux/SKILL.md)**: building, formatting and testing from Linux with Docker, and what that cannot verify.
 
-- **[`add-action`](agent-skills/add-action/SKILL.md)** — adding or changing a ShipItKit `Action` (walks the full sync checklist: schema catalog, docs, AI session, tests).
-- **[`verify-linux`](agent-skills/verify-linux/SKILL.md)** — building, formatting, and testing from a Linux session with Docker, and what that can and cannot verify.
+Also use, when they apply: `swift-concurrency` (writing async/actor/`Sendable` code),
+`swift-concurrency-pro` (reviewing it), `swift-testing-pro` / `swift-testing-expert` (tests),
+`spm-build-analysis` (slow builds, resolution, dependency graph), `xcode-project-analyzer` /
+`xcode-build-fixer` (xcodebuild behavior, exit 64/74).
 
-When working on this project, also invoke these skills as appropriate:
-
-- **`swift-concurrency`** — use whenever touching `async/await`, `actor`, `Sendable`, `Task`, or debugging data-race/concurrency warnings. This project is Swift 6 strict-concurrency throughout.
-- **`swift-concurrency-pro`** — use when *reviewing* existing concurrency code for correctness, reentrancy safety, structured vs unstructured task choices, or cancellation handling. Complements `swift-concurrency` for review-oriented work.
-- **`swift-testing-pro`** — use when writing, reviewing, or improving tests. All tests in this project use Swift Testing (`@Test`, `#expect`, `#require`). Use for async test patterns, parameterized tests, and test quality review.
-- **`swift-testing-expert`** — use for deeper Swift Testing questions: traits, tags, parallel execution safety, test plans, or migrating any remaining XCTest patterns.
-- **`spm-build-analysis`** — use when investigating slow builds, package resolution issues, dependency graph shape, or build plugin overhead in the SPM manifest.
-- **`xcode-project-analyzer`** — use when auditing xcodebuild invocation behavior, build settings, scheme configuration, or diagnosing why `xcodebuild` exits unexpectedly (e.g. exit 64/74).
-- **`xcode-build-fixer`** — use when applying approved build optimization changes after analysis by `xcode-project-analyzer`.
-
-## Commands
-
-```bash
-# Build
-swift build
-
-# Run all tests with coverage
-swift test --enable-code-coverage
-
-# Run a single test (by filter)
-swift test --filter ShipItKitTests.BuildActionTests
-
-# Run specific test target
-swift test --filter CLITests
-
-# Linux / Docker (skips macOS-only targets automatically)
-make build-linux            # build via direct volume mount
-make test-linux             # run Linux-compatible tests via direct volume mount
-make test-linux-coverage    # same + --enable-code-coverage
-make shell-linux            # interactive shell inside container
-make docker-build           # build local image (caches SPM deps as a layer)
-make docker-test            # run tests inside local image
-make docker-shell           # interactive shell inside local image
-make help                   # list all Makefile targets
-
-# Swift package (library) tests
-swift run shipit swift-test --code-coverage --rerun-failed-tests
-swift run shipit swift-test --parallel-workers 1   # XCTest cases one at a time (suites sharing state)
-swift run shipit swift-format --configuration .swift-format
-
-# Run CLI
-swift run shipit --help
-swift run shipit build --scheme MyApp
-swift run shipit sign sync --type appstore
-swift run shipit run beta --ci --output json
-
-# Android build / test / archive
-swift run shipit build --platform android
-swift run shipit test --platform android
-swift run shipit test --rerun-failed-tests --max-rerun-attempts 2 --report-path ./artifacts/test-report.json
-swift run shipit archive --platform android
-swift run shipit lint --platform android
-swift run shipit play-store --platform android
-swift run shipit android-cli info
-swift run shipit android-cli emulator list
-swift run shipit android-cli skills list --long
-swift run shipit android-cli layout --pretty
-
-# Validate subcommand family
-swift run shipit validate                          # default: validate yml
-swift run shipit validate yml                      # Shipfile structure and workflow semantics
-swift run shipit validate metadata                 # App Store metadata / precheck rules
-swift run shipit validate archive --archive-path ./build/MyApp.xcarchive
-swift run shipit validate archive --ipa ./build/export/MyApp.ipa
-swift run shipit validate bundle --aab ./build/app-release.aab      # Android AAB validation
-swift run shipit validate bundle --apk ./build/app-release.apk      # Android APK validation
-swift run shipit validate all                      # yml + metadata + archive in sequence
-swift run shipit precheck                          # backwards-compat alias: validate metadata
-
-# AI-first entrypoint (canonical machine-oriented command)
-swift run shipit ai session --goal beta
-swift run shipit ai session --goal release --path /path/to/project
-swift run shipit ai session --goal beta --platform android   # Android-specific agent prompt
-swift run shipit ai prompt --goal beta               # just the recommended system prompt
-swift run shipit ai instructions                     # ShipItSwifty's own operating guidance for agents
-swift run shipit ai skills list                      # curated, built-in agent playbooks (no installation)
-swift run shipit ai skills show react-native-setup   # print one playbook
-
-# Guided Shipfile generation
-swift run shipit generate --goal beta
-swift run shipit generate --goal beta --non-interactive
-
-# Goal-scoped schema slice
-swift run shipit schema --workflow beta --output json
-
-# Structured dry-run (returns JSON step list)
-swift run shipit run beta --dry-run --output json
-
-# Coverage — read and summarize native coverage artifacts
-swift run shipit coverage                                      # auto-discover, first-party default
-swift run shipit coverage --first-party-only --targets        # per-target summary
-swift run shipit coverage --files                             # per-file breakdown
-swift run shipit coverage --format json                       # machine-readable output
-swift run shipit coverage --format markdown                   # PR comment / CI summary
-swift run shipit coverage --summary                           # single overall line
-swift run shipit coverage --xcresult ./build/MyApp-tests.xcresult  # iOS explicit path
-swift run shipit coverage --platform android                  # Android (JaCoCo XML)
-swift run shipit coverage --platform android --report ./app/build/reports/jacoco/test/jacocoTestReport.xml
-swift run shipit coverage --include-target MyFeatureKit       # include specific target
-swift run shipit coverage --exclude-target GoogleSignIn       # exclude vendor targets
-swift run shipit coverage --sort name --limit 10              # alphabetical, capped
-
-# Build once, test on many jobs (native iOS)
-swift run shipit test --scheme MyApp --build-for-testing-only --test-products-path build/MyApp.xctestproducts
-swift run shipit test --scheme MyApp --use-test-products build/MyApp.xctestproducts --only-testing MyAppTests/CartTests --rerun-failed-tests --infrastructure-retry-attempts 3 --report-path build/report.json
-
-# CI reporting from a TestRunReport (job summary, annotations, verdict, GitHub issues)
-swift run shipit ci report --report build/report.json --summary-path "$GITHUB_STEP_SUMMARY" --annotations --result-path build/result.json
-swift run shipit ci report --report shard-1/report.json --report shard-2/report.json --fail-on-flaky
-GITHUB_TOKEN=... swift run shipit ci issues --report build/report.json --repository owner/name --only-ref main --dry-run
-
-# Test results — parse prior test artifacts into normalized reports
-swift run shipit test-results --xcresult ./build/MyApp-tests.xcresult
-swift run shipit test-results --platform android --report ./app/build/test-results/testDebugUnitTest
-swift run shipit test-results --failed-only --format markdown
-swift run shipit test-results --report-path ./artifacts/test-results.json
-```
-
-> **Prerequisite:** Requires access to the remote `SwiftyShell` Swift package dependency during `swift build` and `swift test`.
-
-## Custom actions (composite workflow steps)
-
-`Shipfile.yml` supports a `custom_actions:` block where users define reusable, parameterized step sequences. A custom action is invoked from a workflow the same way as a built-in:
-
-```yaml
-custom_actions:
-  build_and_sign:
-    description: "Test, archive, and export with a chosen export method."
-    parameters:
-      method:
-        type: string
-        required: true
-    steps:
-      - action: test
-      - action: archive
-      - action: export
-        options:
-          method: "{{param.method}}"
-
-workflows:
-  beta:
-    - action: build_and_sign
-      options: { method: app-store }
-    - action: testflight
-  adhoc:
-    - action: build_and_sign
-      options: { method: ad-hoc }
-```
-
-**Parameter substitution:** Inside a step's `options:` block, string values may reference declared parameters with `{{param.NAME}}`. This delimiter is deliberately chosen to avoid collisions with:
-
-- Shipfile's own `${ENV_VAR}` expansion (different delimiter; env expansion runs *before* composite substitution, so you can mix them: `"{{param.track}}-${DEPLOY_ENV}"`).
-- GitHub Actions `${{ env.X }}` / `${{ secrets.X }}`.
-- CircleCI `<< parameters.X >>`.
-- Xcode Cloud / shell `$VAR` / `${VAR}`.
-
-**Rules enforced by `shipit validate yml`:**
-- Custom action names must not collide with built-in action names.
-- Each step's `action:` must resolve to a built-in or another composite.
-- Every `{{param.NAME}}` reference must match a declared parameter.
-- Required parameters (no `default:`) must be supplied at the call site.
-- Composite-to-composite references must be acyclic.
-
-**Agent guidance:** `shipit ai session` enumerates the user's declared custom actions in the generated `agentPrompt` so agents prefer reusing an existing composite over duplicating its step sequence in a new workflow.
-
-Workflow auto-generation also inspects `custom_actions` recursively, so a composite that expands to `build`, `test`, or `archive` still triggers `project_generation.auto_generate` when needed.
-
-**Reserved workflow tokens (distinct from `{{param.NAME}}`):** top-level workflow steps may reference `{{version}}` / `{{build_number}}` (resolved from a prior `version` step or the current versioning source) and `{{version_changed}}` (`true`/`false`) inside their `options` and `when` values, resolved at run time by `Workflow.run`. Steps also support `when: "<truthy-token>"` to skip conditionally (status `skipped`). Prefer tagging the released version inside the workflow (`git` `tag_name: "v{{version}}"`, gated by `when: "{{version_changed}}"`) over capturing the version with external shell/jq glue. The implementation lives in `Sources/ShipItKit/Actions/WorkflowTokens.swift`; scope is top-level steps only (not `custom_actions` substeps).
-
-See `docs/configuration-reference.md` for the full schema and examples.
-
-## App Store Connect credentials (for ASC-backed features)
-
-Set these environment variables:
-- `ASC_KEY_ID`
-- `ASC_ISSUER_ID`
-- `ASC_PRIVATE_KEY` (raw PEM) or `ASC_PRIVATE_KEY_PATH` (file path)
-
-## iOS manual signing credentials
-
-For `code_signing.type: manual`, ShipIt can install a `.p12` certificate and provisioning profile before archive/export.
-
-Local paths are preferred when present; base64 values are used as CI fallback.
-
-Set these environment variables as needed:
-- `SHIPIT_CODE_SIGNING__P12_PATH` or `P12_BASE64`
-- `P12_PASSWORD`
-- `SHIPIT_CODE_SIGNING__PROVISIONING_PROFILE_PATH` or `PROVISIONING_PROFILE_BASE64`
-
-## Google Play credentials (for Android-backed features)
-
-Set one of these environment variables:
-- `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` (raw JSON content)
-- `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_PATH` (file path)
+`shipit ai skills` is a different thing: built-in playbooks shipped in the binary for agents working on an
+*end user's* project (`AISkillsCatalog.swift`).
 
 ## Architecture
-
-ShipItSwifty is a Swift 6 CLI toolkit for iOS and Android app release automation. Its own products are:
-
-- **`ShipItKit`** — reusable library; all domain logic lives here. Depends on the typed tool wrappers in [`cli-wrappers`](https://github.com/ShipItSwifty/cli-wrappers) plus the external `AppStoreConnectKit` / `AppStoreConnectUploadKit` (App Store Connect + Xcode Cloud client) and `GoogleAuthKit` / `GooglePlayKit` (Google service-account auth + Google Play Developer API).
-- **`shipit`** (CLI) — thin argument-parsing layer over `ShipItKit`
-
-The tool wrappers (`XcodeBuildKit`, `XcrunKit`, `GradleKit`, `AdbKit`, `EmulatorKit`, `BundletoolKit`, `AndroidCLIKit`, `XcodeGenKit`, `FlutterKit`, `ReactNativeKit`, `SwiftPMKit`, `SecurityKit`, `PlutilKit`, `FrameitKit`, …) live in [`cli-wrappers`](https://github.com/ShipItSwifty/cli-wrappers), one product per tool, and ShipItKit imports each one explicitly where it is used — nothing is re-exported. Users who only need a wrapper depend on `cli-wrappers` directly. ShipItKit tracks its `main` branch until it reaches 1.0.
-
-Mechanisms shared with Amoo come from [`mobile-kits`](https://github.com/ShipItSwifty/mobile-kits): `MobileCore` (`AppFramework` — formerly `BuildSystem` — `JSONValue`), `MobileTesting` (native result parsers, `ParsedTestRun`, destinations), `MobileBuild` (`JavaScriptProject`), `MobileDevices` (the device-claim store behind `SimulatorLease`), and `MobileProject` (`FrameworkDetector`). Policies stay here: retries and flaky classification across attempts (`TestRunReport`), coverage, evidence, reporting, and store submission.
-
-Build, archive, export, and native-test commands are assembled by `mobile-kits`, not here: `BuildBridge.swift` adapts `XcodeBuilder`, `GradleBuilder`, and `XcodeTestRunner` (output policy, Gradle project from config, `BuildFailure` → `ShipItError`). Artifact paths come from what the tools report (`-showBuildSettings`, `output-metadata.json`), with the conventional path only as the fallback for a Gradle task skipped as up to date. `AndroidDeviceProvisioner` boots emulators through `AndroidEmulatorManager` (attached to the shipit process). Retries, flaky classification, evidence, and reports stay in `Test.swift` / `NativeTestExecution.swift`.
-
-App Store Connect support (the client, JWT auth, rate limiter, DTOs, IPA upload, and the Xcode Cloud `ci*` read API) lives in a **separate public package**, `github.com/ShipItSwifty/app-store-connect-mcp` (products `AppStoreConnectKit` + macOS-only `AppStoreConnectUploadKit`, plus an MCP server for CI-failure investigation). ShipItKit depends on it directly (`import AppStoreConnectKit`, no re-export) and maps its `ASCError` to `ShipItError` at the action boundary via `mappingASCErrors { }` (`Sources/ShipItKit/AppStoreConnect/ASCErrorBridge.swift`). Actions pass `context.ascCredentials` (`ASCCredentials`) + `context.shell` to the package's services instead of the whole `ActionContext`.
-
-Google Play support (the `androidpublisher` v3 client, DTOs, and the edit→upload→track→commit
-release workflow) and Google service-account auth (RS256 JWT → OAuth2, and GitHub Actions
-Workload Identity Federation) likewise live in a **separate public package**,
-`github.com/ShipItSwifty/google-play-store-mcp` (products `GoogleAuthKit` + `GooglePlayKit`, plus
-an MCP server exposing Play release state to agents). ShipItKit depends on it directly
-(`import GooglePlayKit` / `import GoogleAuthKit`, no re-export) and maps its `GoogleAPIError` to
-`ShipItError` via `mappingGoogleErrors { }`
-(`Sources/ShipItKit/GooglePlay/GooglePlayErrorBridge.swift`).
-
-`FirebaseAppDistributionClient` stays in this repo but now builds on `GoogleAuthKit`'s
-`GoogleServiceAccountJWTGenerator` (renamed from `GooglePlayJWTGenerator`, since it is
-scope-agnostic and Firebase requests `.cloudPlatform`), as does the Workload Identity Federation
-path. Note that `applications.dataSafety` is write-only in the Play API — there is no way to read
-back a published Data safety declaration or distinguish it from a draft.
-
-### Core execution model
 
 ```
 Shipfile.yml / CLI flags / env vars
@@ -330,163 +107,84 @@ Shipfile.yml / CLI flags / env vars
   Action.run(with:context:)  →  ActionResultEnvelope (JSON-serializable)
 ```
 
-### Key abstractions
+Config priority: CLI flags > `Shipfile.yml` > `SHIPIT_*` env vars > `.env` (next to the Shipfile) > defaults.
+The Shipfile supports `${ENV_VAR}` expansion.
 
-| Type | Role |
-|---|---|
-| `Action` | Protocol — one unit of work (`build`, `archive`, `testflight`, …). Defines typed `Options` and `Result`. |
-| `ActionDescriptor` | Type-erased wrapper produced by `Action.descriptor(for:)`. Registered in `ActionRegistry`. |
-| `ActionRegistry` | `actor` — serializes concurrent registration and lookup by name. |
-| `Workflow` / `WorkflowStep` | A named sequence of steps; defined in Shipfile YAML or via `@WorkflowBuilder` DSL. |
-| `ActionContext` | Passed to every `Action.run(...)`. Carries `ShellContext` (SwiftyShell), `Logger`, `ResolvedConfig`, `AppStoreConnectClient`. Provides `ensureProjectGenerated()` for auto-generation. |
-| `ConfigResolver` | Merges CLI flags → Shipfile.yml → env vars (`SHIPIT_*`) → built-in defaults. |
-| `AppStoreConnectClient` | JWT-authenticated HTTP client for the ASC REST API. |
-| `GenerateProjectAction` | Generates `.xcodeproj` from a spec file (XcodeGen, Tuist). Auto-invoked by `Workflow.run()` before Xcode-dependent steps. |
-| `BuildSystem` | Enum (`native`, `flutter`, `react_native`, `kmp`) orthogonal to `Platform`. Set per platform via `ios.build_system` / `android.build_system`. Drives `BuildAction` / `ArchiveAction` / `TestAction` dispatch; later distribution actions are artifact-path driven and unchanged. |
-| `ProjectSpecVersionSource` | Reads/writes version values directly in YAML spec files for `project_spec` versioning source. |
-| `XcconfigVersionSource` | Reads/writes named keys (`marketing_key` / `build_key`) directly in an `.xcconfig` file (`spec_path`) for `versioning.source: xcconfig`. Preserves `$(VAR)` indirection referenced from the `.xcodeproj`. |
-| `KMPVersionSource` | Reads/writes `versionName` / `versionCode` in `gradle.properties` for `versioning.source: kmp`. |
-| `GradleVersionSource` | Reads/writes `versionName` / `versionCode` directly in `build.gradle.kts` or `build.gradle` for `versioning.source: gradle`. Default versioning source for Android projects. |
-| `PubspecVersionSource` | Reads/writes the `version: X.Y.Z+B` key in `pubspec.yaml` for `versioning.source: pubspec`. Default versioning source for Flutter projects (`flutter build` stamps the native projects from pubspec). |
-| `DestinationDiscovery` | Discovers available xcodebuild destinations. Used by `TestAction` for automatic simulator selection. |
+ShipItKit builds on external packages and imports each module explicitly; nothing is re-exported. Those
+tracking `main` do so until 1.0.
 
-### Config resolution priority
+| Package | Provides | Boundary in this repo |
+|---|---|---|
+| [`cli-wrappers`](https://github.com/ShipItSwifty/cli-wrappers) | One typed wrapper per tool (`XcodeBuildKit`, `XcrunKit`, `GradleKit`, `AdbKit`, `EmulatorKit`, `BundletoolKit`, `AndroidCLIKit`, `FlutterKit`, `ReactNativeKit`, `SwiftPMKit`, `SecurityKit`, `PlutilKit`, `XcodeGenKit`, `FrameitKit`) | Call sites import the product they use |
+| [`mobile-kits`](https://github.com/ShipItSwifty/mobile-kits) | Mechanisms shared with Amoo: `MobileCore` (`AppFramework`, `JSONValue`), `MobileBuild` (`XcodeBuilder`, `GradleBuilder`, `XcodeTestRunner`, `JavaScriptProject`), `MobileTesting` (result parsers), `MobileDevices` (device claims), `MobileProject` (`FrameworkDetector`) | `BuildBridge.swift` adapts builders and maps `BuildFailure` → `ShipItError`. Retries, flaky classification, evidence, reports and coverage stay here (`Test.swift`, `NativeTestExecution.swift`) |
+| [`app-store-connect-mcp`](https://github.com/ShipItSwifty/app-store-connect-mcp) | `AppStoreConnectKit` (client, JWT, rate limiter, DTOs, Xcode Cloud read API), macOS-only `AppStoreConnectUploadKit` | `mappingASCErrors { }` in `AppStoreConnect/ASCErrorBridge.swift`. Actions pass `context.ascCredentials` + `context.shell`, not the whole context |
+| [`google-play-store-mcp`](https://github.com/ShipItSwifty/google-play-store-mcp) | `GoogleAuthKit` (service-account JWT, Workload Identity Federation), `GooglePlayKit` (Play API, edit → upload → track → commit) | `mappingGoogleErrors { }` in `GooglePlay/GooglePlayErrorBridge.swift`. `FirebaseAppDistributionClient` stays here on top of `GoogleAuthKit` |
+| [`SwiftyShell`](https://github.com/maniramezan/SwiftyShell), [`SwiftyTerminal`](https://github.com/maniramezan/SwiftyTerminal) | Process execution and mocking; terminal UX | Rules 1 and 3 |
 
-CLI flags > `Shipfile.yml` > `SHIPIT_*` env vars > `.env` file (auto-loaded from Shipfile directory) > built-in defaults. Shipfile supports `${ENV_VAR}` expansion.
+Artifact paths come from what the tools report (`-showBuildSettings`, `output-metadata.json`); a
+conventional path is only the fallback for a Gradle task skipped as up to date. The Play API's
+`applications.dataSafety` is write-only: a published Data safety declaration can't be read back.
 
-### Cross-platform build systems
+`Platform` (`.ios` / `.android`) and `AppFramework` (`.native` / `.flutter` / `.reactNative` / `.kmp`) are
+independent axes: the platform picks the distribution pipeline, the framework picks how the artifact is compiled.
+Detection, defaults and what to recommend to users are in
+[`docs/agent-index.md` → Recommending Shipfile changes](docs/agent-index.md#recommending-shipfile-changes).
 
-`Platform` (`.ios` / `.android`) and `BuildSystem` (`.native` / `.flutter` / `.reactNative` / `.kmp`) are independent axes. `Platform` selects which distribution pipeline runs; `BuildSystem` selects how the native artifact is compiled before that pipeline.
-
-- Set per platform: `ios.build_system:` / `android.build_system:` (or `SHIPIT_IOS__BUILD_SYSTEM` / `SHIPIT_ANDROID__BUILD_SYSTEM`).
-- Auto-detection rules (`BuildSystem.autoDetect(in:)`): `pubspec.yaml` with `flutter:` → `.flutter`; `package.json` with `react-native` dep → `.reactNative`; the KMP plugin (`kotlin("multiplatform")` / `org.jetbrains.kotlin.multiplatform`) in the root or a first-level module `build.gradle(.kts)`, or the plugin ID in `gradle/libs.versions.toml` (version-catalog projects) → `.kmp`; otherwise `nil` (resolves to `.native`).
-- `BuildAction`, `ArchiveAction`, and `TestAction` switch on `BuildSystem`. Later actions (`sign`, `export`, `testflight`, `play-store`, `upload`, `dsym`, `frame`, `screenshot`) keep their platform checks and operate on artifact paths.
-- KMP iOS builds run `gradlew :<shared-module>:link…Framework…` automatically before `xcodebuild build`; archives use the archive target before `xcodebuild archive`.
-- KMP defaults: `ios.kmp_shared_module: shared`, `ios.kmp_build_target: IosSimulatorArm64`, `ios.kmp_archive_target: IosArm64`, `ios.kmp_test_task: iosSimulatorArm64Test`.
-- `versioning.source: kmp` reads/writes `versionName` + `versionCode` in `gradle.properties` via `KMPVersionSource`.
-- `versioning.source: gradle` reads/writes `versionName` + `versionCode` directly in `build.gradle.kts` or `build.gradle` via `GradleVersionSource`. This is the default versioning source for Android projects.
-- `versioning.source: xcconfig` reads/writes named keys directly in an `.xcconfig` file via `XcconfigVersionSource`. Set `versioning.spec_path` to the file and `versioning.marketing_key` / `versioning.build_key` to the variable names. Pure file I/O (Linux-compatible).
-- `versioning.source: pubspec` reads/writes the `version: X.Y.Z+B` key in `pubspec.yaml` via `PubspecVersionSource` (marketing version before `+`, build number after). This is the default versioning source when the resolved build system is Flutter. Pure file I/O (Linux-compatible).
-- `flutter` / `react_native` are fully implemented: `BuildAction`, `ArchiveAction`, `TestAction`, and `LintAction` all dispatch on `build_system` and invoke the appropriate Flutter/RN CLI. `ValidateBundle` and `PlayStoreAction` auto-discover conventional artifact paths for native Gradle, Flutter, and React Native projects. Flutter iOS archive produces IPA directly (no export step); RN iOS uses `xcodebuild archive` + export.
-
-When recommending changes to an agent:
-- Prefer setting `build_system` under the platform block over inventing a new top-level CLI flag.
-- Prefer setting KMP module/target overrides under `ios:` over hardcoding Gradle task names in workflows.
-- For KMP, set `build_system: kmp` on **both** `ios:` and `android:`.
-- Suggest `versioning.source: kmp` when the user mentions `gradle.properties` versions or KMP-style version sharing.
-- Suggest `versioning.source: pubspec` (or leave as default) for Flutter projects. Do **not** suggest `xcodeproj` or `gradle` there: `flutter build` re-stamps the native projects from `pubspec.yaml`, so direct native writes are overwritten on the next build.
-- Suggest `versioning.source: gradle` (or leave as default) when the user has a standard Android project with version info in `build.gradle.kts` / `build.gradle`.
-- Suggest `versioning.source: xcconfig` when the user keeps `MARKETING_VERSION` / build number in an `.xcconfig` file — especially custom-named keys (e.g. `JOT_MARKETING_VERSION` / `JOT_BUILD_NUMBER`) referenced via `$(...)` from the `.xcodeproj`, or an Xcode Cloud setup gated on a version file. Do **not** suggest `xcodeproj` for that layout: it stamps literal values into the pbxproj and breaks the `$(...)` indirection.
-- `rerun_failed_tests.max_attempts` counts the initial run (default `2`); `1` disables extra attempts. Native iOS and Android JVM runs honor larger limits and stop after recovery.
-- When adding or changing test workflow behavior, update both `AISessionBuilder` agent guidance and the guided `generate` questionnaire/templates so agents and humans see the same choices.
-- Generated test steps enable `infrastructure_retry: { max_attempts: 3, initial_delay_seconds: 2, max_delay_seconds: 30 }` by default. Preserve it unless the user explicitly opts out or supplies a different retry policy.
-- When an iOS `.xctestplan` is detected, preserve its plan name in `test_plan`; if multiple plans exist, ask the user to choose rather than inventing or silently selecting one.
-- For Android `kind: instrumented` test steps, **always** use `scope: root`. ShipIt now defaults to root scope when `kind: instrumented` and no explicit scope is set, but specifying it explicitly avoids confusion. With `scope: module` (the unit-test default), only the specified module's connected tests run — in a multi-module project the `app` module typically has zero androidTest sources, so the run finishes with 0 tests (or crashes if the test APK lacks `androidTestImplementation` for the runner). `scope: root` runs the root-level `connected*AndroidTest` task, which cascades across every module. Also ensure `app/build.gradle.kts` (or equivalent) has `androidTestImplementation(libs.junit.ext)` so the test APK can instantiate `AndroidJUnitRunner` even when the app module has no test sources.
-- For Android instrumented tests that should boot an emulator locally, prefer explicit `devices:` config with `strategy: named_emulators` and one or more AVD names. Reserve `strategy: connected` for workflows that intentionally depend on a device already being attached.
-- AndroidCLI is additive and opt-in under `android.cli.enabled: true`; it does not replace Gradle for build/archive/test/lint or ADB for unsupported device input/reset behavior. Use `shipit android-cli` for direct commands and `android-*` workflow actions. Mutating workflow operations require `allow_mutation: true`; mutating `shipit android-cli` invocations (`create`, `install`, `update`, `run`, `init`, `emulator create/start/stop/remove`, `sdk install/update/remove`, `skills add/remove`) require `--allow-mutation`. `shipit android-cli` reads `android.cli.executable_path` / `android.cli.sdk_path` from Shipfile.yml (when present, defaulting to `./Shipfile.yml` or `--shipfile`) unless `--android-path` / `--sdk` are passed explicitly.
-- Never install Android skills automatically. Recommend `android-cli`, `testing-setup`, `play-policy-insights`, `r8-analyzer`, `android-profiler`, `android-intent-security`, `agp-9-upgrade`, or `play-billing-library-version-upgrade` only when relevant project evidence exists.
-- When the user has multiple workflows targeting different Android build variants (e.g. `qa` → `stagingRelease`, `release` → `prodRelease`), use per-workflow `build_variant` / `flavor` overrides instead of duplicating `--aab` paths on each step. Example:
-  ```yaml
-  workflows:
-    release:
-      build_variant: prodRelease
-      steps:
-        - action: archive
-        - action: play-store
-          options: { track: production }
-  ```
-- When the user wants pre-store tester distribution, recommend a `firebase-app-distribution` workflow step with an explicit `app_id`, signed `artifact_path`, and at least one `groups` alias or `testers` email. IPA is supported for iOS; APK and AAB are supported for Android. Never infer `app_id` from `GoogleService-Info.plist` or `google-services.json` because stale files can target the wrong Firebase project.
-- Prefer keyless Workload Identity Federation in GitHub Actions when available: pair `workload_identity_provider` with `service_account_email` (or set `GOOGLE_WORKLOAD_IDENTITY_PROVIDER` + `GOOGLE_SERVICE_ACCOUNT_EMAIL`), add `permissions: { id-token: write }`, and grant the repository identity `roles/iam.workloadIdentityUser` on the service account. Otherwise use `service_account_path`, `FIREBASE_SERVICE_ACCOUNT_JSON`, or `GOOGLE_APPLICATION_CREDENTIALS`; never place inline credential JSON in Shipfile.yml.
-
-### Source layout
-
-```
-Sources/
-  ShipItKit/
-    Actions/          # One file per action (Build, Archive, TestFlight, …)
-    AppStoreConnect/  # ASCError -> ShipItError bridge only; the client/JWT/upload
-                      # service/models live in the external AppStoreConnectKit
-                      # package (github.com/ShipItSwifty/app-store-connect-mcp)
-    GooglePlay/       # GoogleAPIError -> ShipItError bridge only; the Play client,
-                      # DTOs, upload service, Google auth and the WIF client live in
-                      # the external google-play-store-mcp package
-    CodeSigning/      # Keychain, cert/profile management, cert vault
-    Config/           # Shipfile model, ConfigResolver, ResolvedConfig, Environment
-    Introspection/    # ProjectInspector, ShipfileSuggester, BuiltInSchemaCatalog,
-                      # SchemaTypes, SchemaValidator, ShipfileValidator,
-                      # AISessionTypes, AISessionBuilder
-    Plugin/           # ShipItPlugin protocol, ActionRegistry, PluginRegistry
-    Utilities/        # Logger, ShipItError, RetryPolicy, JSONReporter, SimulatorLease,
-                      # AndroidDeviceProvisioner (emulator/device orchestration)
-    Versioning/       # VersionBumper, BuildNumberSource
-    GitHub/           # TestRunDigest, TestFingerprint, job summary + annotations, issue sync (policy for `ci report` / `ci issues`)
-    Notifications/    # Notifier
-    Xcrun/            # xcrun / simctl wrappers
-  CLI/
-    Commands/         # One file per shipit subcommand
-    Formatters/       # HumanFormatter, JSONFormatter
-    ShipItCLI.swift   # @main entry point + GlobalOptions mixin
-```
-
-### CLI global options
-
+Layout: `Sources/ShipItKit/{Actions, Config, Introspection, Plugin, Utilities, Versioning, GitHub,
+CodeSigning, Firebase, AppStoreConnect, GooglePlay, Notifications}`, `Sources/CLI/{Commands, Formatters}`.
+One `Action` per file in `Actions/`, one command per file in `Commands/`, models in `Models/` next to their module.
 Every subcommand inherits `GlobalOptions`: `--shipfile`, `--output (human|json)`, `--verbose`, `--ci`, `--dry-run`.
+
+Plugins are statically linked Swift packages conforming to `ShipItPlugin`, registered at CLI bootstrap.
+
+## Shipfile features agents get wrong
+
+- **Custom actions** (`custom_actions:`) are reusable, parameterized step sequences invoked like built-ins.
+  Inside step `options`, `{{param.NAME}}` substitutes a declared parameter. Env expansion (`${VAR}`) runs first.
+  `shipit validate yml` enforces: no collision with built-in names, every step resolves, every reference is declared,
+  required parameters are supplied, and composites are acyclic. `ai session` lists the user's custom actions so agents
+  reuse them, and project auto-generation looks through them recursively. Full schema:
+  [`docs/configuration-reference.md`](docs/configuration-reference.md#custom_actions).
+- **Workflow tokens** (distinct from `{{param.NAME}}`): top-level steps may use `{{version}}`, `{{build_number}}` and
+  `{{version_changed}}` in `options` and `when`, resolved at run time (`Actions/WorkflowTokens.swift`); `when:` skips a
+  step (status `skipped`). Prefer tagging inside the workflow (`git` with `tag_name: "v{{version}}"`, gated by
+  `when: "{{version_changed}}"`) over shell/jq glue. Top-level steps only, not custom-action substeps.
+
+Credentials: App Store Connect uses `ASC_KEY_ID`, `ASC_ISSUER_ID` and `ASC_PRIVATE_KEY` or `ASC_PRIVATE_KEY_PATH`.
+Manual iOS signing uses `SHIPIT_CODE_SIGNING__P12_PATH` / `P12_BASE64`, `P12_PASSWORD` and
+`SHIPIT_CODE_SIGNING__PROVISIONING_PROFILE_PATH` / `PROVISIONING_PROFILE_BASE64` (local paths win). Google Play uses
+`GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` or `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_PATH`. See [`docs/security.md`](docs/security.md)
+and [`docs/credential-lookup.md`](docs/credential-lookup.md).
 
 ## Testing patterns
 
-- **Realistic exit codes:** Test runners exit non-zero when a test fails (`gradlew` 1, `xcodebuild` 65). Mock that, not exit 0 with failure text — the latter hides bugs where a failure throws before later logic (e.g. reruns) runs.
-- **Linux first:** Keep Android, config, and parser tests outside `#if os(macOS)` so both CI jobs run them.
-- **Shell mocking:** Inject a `MockExecutor` from SwiftyShell. Use `ActionContext.mock(executor:)` — it wires a `MockExecutor` into a fully-formed `ActionContext` without spawning real processes.
-- **HTTP mocking:** Use `makeClient(responses:)` + `StubbedURLSession` from `Tests/ShipItKitTests/TestSupport.swift` to queue canned HTTP responses for ASC API tests. Keep the returned stub alive and `defer { stub.invalidate() }` until the test finishes.
-- **Scratch directories:** Use `TemporaryDirectory` from [SwiftTestCommons](https://github.com/maniramezan/SwiftTestCommons) (`let scratch = try TemporaryDirectory(); defer { try? scratch.remove() }`). Create it in the test that owns the files and pass it to helpers; a helper that removes its directory before returning leaves callers with a dangling path. TestCommons is linked into test targets only.
-- All tests use Swift Testing (`@Test`) where possible per project conventions.
+- **Shell:** inject a SwiftyShell `MockExecutor` via `ActionContext.mock(executor:)`; assert the exact commands issued.
+- **Realistic exit codes:** a failing `gradlew` exits 1 and `xcodebuild` 65. Never mock exit 0 with failure text; it
+  hides bugs where a failure throws before later logic (such as reruns) runs.
+- **HTTP:** `makeClient(responses:)` + `StubbedURLSession` from `Tests/ShipItKitTests/TestSupport.swift`. Keep the stub
+  alive with `defer { stub.invalidate() }`.
+- **Scratch directories:** `TemporaryDirectory` from SwiftTestCommons, created in the test that owns the files
+  (`defer { try? scratch.remove() }`) and passed to helpers.
+- **Linux first:** keep Android, config and parser tests outside `#if os(macOS)` so both CI jobs run them.
+- **Real tools:** changes to result parsing, counting or reporting are verified against sample projects, not only
+  mocks. See "Verifying against real projects" in [`docs/testing.md`](docs/testing.md).
 
-## Plugin system
+Before changing test execution, results, evidence, device claims or CI reporting, read
+[`docs/testing.md` → Test workflow contracts](docs/testing.md#test-workflow-contracts).
 
-Plugins are statically linked Swift packages. Conform to `ShipItPlugin` (provides `name`, `description`, `actions: [ActionDescriptor]`), then register at CLI bootstrap. Runtime dylib loading is out of scope for v1.
+## Making changes
 
-## Terminology
+### Adding or changing an action
 
-- **Workflow** — a named sequence of steps in `Shipfile.yml` (`workflows:`, `shipit run <name>`, `test_workflow`). **Action** — the unit of work one step runs.
-- Never use "lane" for anything of ShipIt's own: it is fastlane's term and we deliberately do not follow it. Use it only when describing fastlane itself (migration guides, Fastfile detection, the `migrate-from-fastlane` skill). This applies to type and file names, test suites, CLI help, schema and agent text, docs and commit messages.
+Use the [`add-action`](agent-skills/add-action/SKILL.md) skill. In short: one file in `Sources/ShipItKit/Actions/`
+conforming to `Action`, with `Options` and `Result` both `Codable & Sendable` and a DocC `## Usage` section; register it in
+`builtInActionDescriptors()` (`Sources/CLI/Commands/RunCommand.swift`) with its `optionSchema` and `validationRules`, or
+workflows and `shipit validate yml` can't see it; add it to `Shipfile.swift`; then sync the surfaces below.
 
-## Architecture rules
+### Adding or extending a tool wrapper
 
-These are hard constraints — never violate them:
-
-1. **All shell execution MUST go through SwiftyShell** — never use `Foundation.Process` directly
-2. **All App Store Connect API calls MUST go through `AppStoreConnectClient`** — no raw HTTP requests
-3. **All public types MUST be `Sendable`** — Swift 6 strict concurrency throughout
-4. **All async work MUST use structured concurrency** — `async let`, `TaskGroup`; never detached tasks
-5. **Actions MUST derive behavior solely from `Options` and `ActionContext`** — no hidden global mutable state
-
-## File organization
-
-- One `Action` per file in `Sources/ShipItKit/Actions/`
-- One `Command` per file in `Sources/CLI/Commands/`
-- Models in `Models/` subdirectories, colocated with their module
-
-## Adding a new action
-
-1. Create `Sources/ShipItKit/Actions/NewAction.swift` conforming to `Action`
-2. Add `Options: Codable & Sendable` with all configurable parameters
-3. Add `Result: Codable & Sendable` for typed output
-4. Write DocC doc comment with `## Usage` section
-5. Create `Sources/CLI/Commands/NewActionCommand.swift`, and register the action in `builtInActionDescriptors()` (`Sources/CLI/Commands/RunCommand.swift`) with its `optionSchema` and any `validationRules` — otherwise workflows and `shipit validate yml` cannot see it
-6. Add to Shipfile schema in `Sources/ShipItKit/Config/Shipfile.swift`
-7. Write tests in `Tests/ShipItKitTests/NewActionTests.swift`
-8. **Update `Sources/ShipItKit/Introspection/BuiltInSchemaCatalog.swift`** — add or update the `actionSchemas()` entry and its `*Options()` helper to reflect all new/changed `Options` fields
-9. **Update `docs/features.md`** — add or update the relevant feature table row(s) to reflect the new capability
-10. **Update `AGENTS.md`** — if the action changes or adds CLI commands, update the Commands section; if it changes agent workflows, update the relevant sections
-11. **Update `Sources/ShipItKit/Introspection/AISessionBuilder.swift`** — if the action affects what agents should do (e.g. a new validation or workflow step agents need to know about), update `buildAgentPrompt`, `buildNextAction`, or `buildNextQuestion` accordingly
-12. **Run `swift build` and `swift test --filter ShipItKitTests`** to confirm no regressions
-
-## Adding or extending a tool wrapper
-
-Tool wrappers live in [`cli-wrappers`](https://github.com/ShipItSwifty/cli-wrappers), not in this repository. When ShipItKit needs a flag, subcommand, or
-task name, add it to the wrapper there first (follow its `tool-wrapper` skill), then call it from
-ShipItKit — do not hand-build argument strings in an action. Point a local checkout at your
-`cli-wrappers` branch while developing:
+Add the flag, subcommand or task to [`cli-wrappers`](https://github.com/ShipItSwifty/cli-wrappers) first (its
+`tool-wrapper` skill), then call it from ShipItKit. While developing, point at a local checkout:
 
 ```bash
 swift package config set-mirror \
@@ -494,87 +192,45 @@ swift package config set-mirror \
   --mirror /path/to/local/cli-wrappers
 ```
 
-Remove the mirror (`swift package config unset-mirror --original …`) once the wrapper change is on
-`cli-wrappers` `main`, then `swift package update cli-wrappers`.
+Remove the mirror (`swift package config unset-mirror --original …`) once the change is on `cli-wrappers` `main`, then
+`swift package update cli-wrappers`.
 
-## Modifying an existing action
+### Change checklist
 
-Whenever you add, remove, or rename an `Options` or `Result` field on any existing action, you **must** also update all of the following in the same change:
+`shipit schema` and `shipit ai session` are not derived from `Options` types, so a change is incomplete until every
+surface agrees.
 
-- `Sources/ShipItKit/Introspection/BuiltInSchemaCatalog.swift` — the action's `*Options()` helper
-- `docs/features.md` — the relevant feature table row(s)
-- `Tests/ShipItKitTests/<ActionName>Tests.swift` — add tests for the new/changed behaviour
-- `AGENTS.md` — update Commands section and any agent workflow guidance that references the changed action
-- `Sources/ShipItKit/Introspection/AISessionBuilder.swift` — update any hardcoded command strings or agent prompt content that references the changed action
-
-Failure to keep these in sync will cause `shipit schema` and `shipit ai session` to return stale information to agents and CI.
-
-## Mandatory change checklist
-
-Every non-trivial code change (new feature, changed behaviour, new/renamed command) **must** include all applicable items from this checklist before it is considered complete:
-
-| Change type | Required updates |
+| Change | Also update, in the same change |
 |---|---|
-| New CLI command or subcommand | `AGENTS.md` Commands section, `docs/features.md`, `AISessionBuilder` agentPrompt if agents need to know |
-| New or modified `Action` | `BuiltInSchemaCatalog`, `docs/features.md`, tests, `AGENTS.md` if command surface changes, `AISessionBuilder` if agent workflow changes |
-| Changed exit code or error type | `ShipItError`, `CLIHelpers.errorSuggestions`, `docs/architecture.md` exit code table |
-| Changed `ai session` JSON contract | `AISessionTypes.swift` version bump, `AISessionBuilder`, `docs/architecture.md`, `AGENTS.md` |
-| Changed Shipfile schema | `BuiltInSchemaCatalog`, `Shipfile.swift`, `docs/configuration-reference.md` |
-| Changed generated workflow guidance or test workflow options | `AISessionBuilder`, `ShipfileSuggester`, `GenerateCommand`, `docs/features.md`, `docs/configuration-reference.md`, tests |
-| New backwards-compat alias | Document in `AGENTS.md` Commands section with `# backwards-compat alias:` comment |
-| New or changed tool-wrapper API | Land it in `cli-wrappers` first, `swift package update cli-wrappers`, then replace any ShipItKit call site that hand-builds the same arguments |
-| New `shipit ai skills` playbook | `AISkillsCatalog.swift` (keep it short — link to the authoritative doc rather than duplicating it), `docs/features.md`, `AGENTS.md` Commands section |
+| New or changed action `Options` / `Result` | `BuiltInSchemaCatalog` `*Options()` helper, `docs/features.md`, tests, `AISessionBuilder` if agent workflow changes |
+| New CLI command or flag | `docs/features.md`, the website CLI reference, `AISessionBuilder` if agents need it |
+| Shipfile schema | `Shipfile.swift`, `BuiltInSchemaCatalog`, `docs/configuration-reference.md` |
+| Exit code or error type | `ShipItError`, `CLIHelpers.errorSuggestions`, `docs/architecture.md` exit-code table |
+| `ai session` JSON contract | `AISessionTypes.swift` version bump, `AISessionBuilder`, `docs/architecture.md` |
+| Generated workflow guidance or test options | `AISessionBuilder`, `ShipfileSuggester`, `GenerateCommand`, `docs/features.md`, `docs/configuration-reference.md`, `docs/agent-index.md`, tests |
+| Backwards-compat alias | The alias list in this file's Commands section |
+| Tool-wrapper API | Land it in `cli-wrappers`, update the package, replace any ShipItKit call site that builds the same arguments |
+| New `shipit ai skills` playbook | `AISkillsCatalog.swift` (short; link the authoritative doc), `docs/features.md` |
+| Anything user-visible | The website (`ShipItSwifty/website`): guides and reference pages that describe it |
 
-## Common task reference
+Finish with `swift build` and `swift test --filter ShipItKitTests` (plus `CLITests` for CLI changes).
+
+### Common tasks
 
 | Task | How |
 |---|---|
-| Run xcodebuild | `XcodeBuild(context:).workspace("App.xcworkspace").option(.scheme("X")).build().run()` |
-| Run git operations | `Git(context:).workingDirectory(path).status().run()` |
-| Call ASC API | `context.appStoreConnect.get("/v1/apps")` |
-| Upload asset | `context.appStoreConnect.uploadAsset(at:reservation:)` |
-| Run a Gradle variant task with a test filter | `context.gradle().task(GradleTask.unitTest(variant: "debug").qualified(module: "app").filteringTests(["com.example.FooTest"])).run()` |
-| Build a variant task name | `GradleTask.variantTask(prefix: "bundle", flavor: flavor, variant: variant)` — never `String.capitalized` (it lower-cases camelCase variants) |
-| Boot / find Android devices for a run | `AndroidDeviceProvisioner(context:logger:).prepare(devices:)`, then `teardown(_:)` |
-| Build once, test on many simulators | `XcodeBuild(...).buildForTesting()` then `.option(.xctestrun(path)).testWithoutBuilding()` per destination |
+| Build, archive, export, native test | `BuildBridge.swift` over `mobile-kits`' `XcodeBuilder` / `GradleBuilder` / `XcodeTestRunner` |
+| Gradle variant task with a test filter | `context.gradle().task(GradleTask.unitTest(variant: "debug").qualified(module: "app").filteringTests(["com.example.FooTest"])).run()` |
+| Variant task name | `GradleTask.variantTask(prefix: "bundle", flavor: flavor, variant: variant)`; never `String.capitalized`, which lower-cases camelCase variants |
+| Boot / find Android devices | `AndroidDeviceProvisioner(context:logger:).prepare(devices:)`, then `teardown(_:)` |
 | Read Info.plist | `Plutil(context: context.shell).extractRaw(key, expectedType: .string, from: plistPath).run()` |
-| Generate JWT | `context.appStoreConnect.jwtGenerator.cachedOrNewToken()` |
+| Call App Store Connect | `context.appStoreConnect`, or a package service given `context.ascCredentials`, inside `mappingASCErrors { }` |
 
 ## Reference docs
 
-Detailed reference material lives in `docs/`:
-
-- [`docs/architecture.md`](docs/architecture.md) — layer diagram, core type definitions, CLI commands, ASC client
-- [`docs/agent-index.md`](docs/agent-index.md) — compact repo navigation map for agents: authoritative sources, start points by task, and change impact map
-- [`docs/features.md`](docs/features.md) — feature catalog, roadmap, tool comparison
-- [`docs/configuration-reference.md`](docs/configuration-reference.md) — Shipfile.yml keys, env vars, resolution order
-- [`docs/testing.md`](docs/testing.md) — testing strategy, examples, coverage goals
-- [`docs/security.md`](docs/security.md) — secrets management, threat mitigations
-- [`docs/plugin-development.md`](docs/plugin-development.md) — plugin authoring guide
-- [`docs/ci-setup.md`](docs/ci-setup.md) — GitHub Actions, GitLab CI, Bitrise
-- [`docs/walkthrough.md`](docs/walkthrough.md) — step-by-step getting started
-- [`docs/react-native-quickstart.md`](docs/react-native-quickstart.md) — React Native / Expo Shipfile placement, workflow naming, and Gradle memory caps
-
-### Shared test workflow contracts
-
-- `test_workflow` selects the default named workflow for `shipit test`; `--workflow` selects explicitly.
-- Use `swift-test` for packages and `swift-format` for lint. Package `environment` supports snapshot controls. A package that imports UIKit (unguarded) cannot run under `swift test`; `ProjectInspector` detects it and the suggester emits a `test` step with the scheme Xcode generates for the package directory (package name, or `<name>-Package` with several products).
-- Native iOS defaults to build-for-testing once into `.xctestproducts`, then separate per-plan/destination result bundles. Use `test_plans` for compatible target sets; `legacy_combined_test` preserves older behavior.
-- Actual clone failures fall back serially once per destination, without rebuilding. Ordinary assertions never trigger this fallback.
-- Infrastructure and selective assertion retry budgets are separate. SwiftPM reruns skip building; recovered assertions pass and remain marked flaky.
-- Every attempt retains logs/native artifacts. Workflow/custom-action steps can declare `artifacts` (`name`, `paths`, `retention_days`); `ci export` generates GitHub always-upload steps. Other CI providers implement `CIProvider`. `ci report` and `ci issues` read `TestRunReport` JSON (`--report-path`) and own the GitHub-facing policy: summary, annotations, pass/fail verdict, and issue filing (`Sources/ShipItKit/GitHub/`). The `actions/test` composite action only wires them to a runner; keep policy in the CLI so it can be run and tested locally. A test's identity for issue dedupe is `TestFingerprint` (runner + plan + the runner's own selector), never `stableID`, whose `plan-N:destination-N:` prefix is positional.
-- `continue_on_failure` is opt-in for independent checks and preserves a failed workflow status. `{{run_id}}` scopes top-level output/artifact paths.
-- Results separate `runner` (the tool: `xcodebuild`, `gradle`, `swift-test`, `flutter-test`, `jest`), `buildSystem` (native/kmp/flutter/react_native) and `destinations` (where tests ran: `platform`, `kind`, `name`, `scope`; tests point at one by `destinationID`). Never put a framework such as `kmp` or `flutter` in a platform field. `TestPlatform`/`TestRunner` keep unknown values as `other`; `TestRunReport` is schema version 2.
-- Changes to result parsing, counting or reporting are verified against sample projects, not only mocks: add or extend a scripted outcome in `Tests/IntegrationTests/Fixtures/swiftpm-sample` or `jvm-retry-sample`, and capture real tool output under `Tests/ShipItKitTests/Fixtures/real/`. See "Verifying against real projects" in `docs/testing.md`.
-- `report.json` always describes the whole run; an unfinished run gets a provisional report from the reconciled attempts plus one extra `errored`. Exiting 0 without results fails (Flutter, KMP, Android) unless Gradle reported `NO-SOURCE`/`SKIPPED` for that exact task. Saving evidence is best effort and never replaces a test outcome.
-- Prefer explicit portable `test-results --input` for xcresult/JUnit/Swift/Flutter/Jest/ShipIt manifests. Export into a new directory; preserve original evidence and relative index links.
-- Coverage supports SwiftPM LLVM JSON, LCOV (Flutter or Jest; pass `runner`, since the file does not say which) and JaCoCo/Kover JVM XML. Native/JS coverage is unavailable through these formats. Swift/LCOV gates can filter source roots and previews; zero executable lines fail gates.
-- Android instrumented runs claim selected devices through `DeviceClaimStore`, hold session locks through teardown, and scope resets, Gradle `ANDROID_SERIAL`, and evidence to those serials. Connected discovery skips occupied devices; explicit named emulators refuse them. Managed devices keep Gradle lifecycle ownership.
-- Simulator claims share amoo's lease format. Never reap an external companion's lease or erase an already booted simulator; teardown only devices booted by the test run.
-- The repository's own `Shipfile.yml` supplies `format`, `ci-macos`, `ci-linux`, `fixtures` and `integration-advisory` workflows. Preserve their exclusions, advisory integration behavior and initial unit coverage for Codecov.
-
-## Conditional body readability
-
-Short, obvious early exits may stay on one line (for example, `guard let self else { return }`).
-Use multiline bodies for complex conditions, error construction, or meaningful work.
-This is a review guideline; Apple’s official `swift format` remains the only formatting tool.
+- [`docs/agent-index.md`](docs/agent-index.md): sources of truth, where to start by task, change impact map, what to recommend to users
+- [`docs/architecture.md`](docs/architecture.md): layers, core types, CLI commands, exit codes
+- [`docs/configuration-reference.md`](docs/configuration-reference.md): every Shipfile key and env var
+- [`docs/features.md`](docs/features.md): feature and command catalog
+- [`docs/testing.md`](docs/testing.md): testing strategy, test workflow contracts, real-project verification
+- [`docs/security.md`](docs/security.md), [`docs/ci-setup.md`](docs/ci-setup.md), [`docs/plugin-development.md`](docs/plugin-development.md), [`docs/walkthrough.md`](docs/walkthrough.md), [`docs/react-native-quickstart.md`](docs/react-native-quickstart.md)
