@@ -368,3 +368,91 @@ attachments and logs. Coverage adds SwiftPM LLVM JSON, LCOV (Flutter or Jest, la
 Artifacts belong to any workflow/custom-action step. GitHub Actions export publishes declared
 artifacts and failure evidence with `always()`. Other providers implement the public `CIProvider`
 protocol. See [testing](testing.md#test-workflows-and-portable-evidence) for options and limits.
+
+## Command cheat sheet
+
+Common invocations. Run `shipit <command> --help` for every flag. From a source checkout, prefix with `swift run`.
+
+```bash
+# Swift package (library) tests
+shipit swift-test --code-coverage --rerun-failed-tests
+shipit swift-test --parallel-workers 1   # XCTest cases one at a time (suites sharing state)
+shipit swift-format --configuration .swift-format
+
+# Run CLI
+shipit --help
+shipit build --scheme MyApp
+shipit sign sync --type appstore
+shipit run beta --ci --output json
+
+# Android build / test / archive
+shipit build --platform android
+shipit test --platform android
+shipit test --rerun-failed-tests --max-rerun-attempts 2 --report-path ./artifacts/test-report.json
+shipit archive --platform android
+shipit lint --platform android
+shipit play-store --platform android
+shipit android-cli info
+shipit android-cli emulator list
+shipit android-cli skills list --long
+shipit android-cli layout --pretty
+
+# Validate subcommand family
+shipit validate                          # default: validate yml
+shipit validate yml                      # Shipfile structure and workflow semantics
+shipit validate metadata                 # App Store metadata / precheck rules
+shipit validate archive --archive-path ./build/MyApp.xcarchive
+shipit validate archive --ipa ./build/export/MyApp.ipa
+shipit validate bundle --aab ./build/app-release.aab      # Android AAB validation
+shipit validate bundle --apk ./build/app-release.apk      # Android APK validation
+shipit validate all                      # yml + metadata + archive in sequence
+shipit precheck                          # backwards-compat alias: validate metadata
+
+# AI-first entrypoint (canonical machine-oriented command)
+shipit ai session --goal beta
+shipit ai session --goal release --path /path/to/project
+shipit ai session --goal beta --platform android   # Android-specific agent prompt
+shipit ai prompt --goal beta               # just the recommended system prompt
+shipit ai instructions                     # ShipItSwifty's own operating guidance for agents
+shipit ai skills list                      # curated, built-in agent playbooks (no installation)
+shipit ai skills show react-native-setup   # print one playbook
+
+# Guided Shipfile generation
+shipit generate --goal beta
+shipit generate --goal beta --non-interactive
+
+# Goal-scoped schema slice
+shipit schema --workflow beta --output json
+
+# Structured dry-run (returns JSON step list)
+shipit run beta --dry-run --output json
+
+# Coverage — read and summarize native coverage artifacts
+shipit coverage                                      # auto-discover, first-party default
+shipit coverage --first-party-only --targets        # per-target summary
+shipit coverage --files                             # per-file breakdown
+shipit coverage --format json                       # machine-readable output
+shipit coverage --format markdown                   # PR comment / CI summary
+shipit coverage --summary                           # single overall line
+shipit coverage --xcresult ./build/MyApp-tests.xcresult  # iOS explicit path
+shipit coverage --platform android                  # Android (JaCoCo XML)
+shipit coverage --platform android --report ./app/build/reports/jacoco/test/jacocoTestReport.xml
+shipit coverage --include-target MyFeatureKit       # include specific target
+shipit coverage --exclude-target GoogleSignIn       # exclude vendor targets
+shipit coverage --sort name --limit 10              # alphabetical, capped
+
+# Build once, test on many jobs (native iOS)
+shipit test --scheme MyApp --build-for-testing-only --test-products-path build/MyApp.xctestproducts
+shipit test --scheme MyApp --use-test-products build/MyApp.xctestproducts --only-testing MyAppTests/CartTests --rerun-failed-tests --infrastructure-retry-attempts 3 --report-path build/report.json
+
+# CI reporting from a TestRunReport (job summary, annotations, verdict, GitHub issues)
+shipit ci report --report build/report.json --summary-path "$GITHUB_STEP_SUMMARY" --annotations --result-path build/result.json
+shipit ci report --report shard-1/report.json --report shard-2/report.json --fail-on-flaky
+GITHUB_TOKEN=... shipit ci issues --report build/report.json --repository owner/name --only-ref main --dry-run
+
+# Test results — parse prior test artifacts into normalized reports
+shipit test-results --xcresult ./build/MyApp-tests.xcresult
+shipit test-results --platform android --report ./app/build/test-results/testDebugUnitTest
+shipit test-results --failed-only --format markdown
+shipit test-results --report-path ./artifacts/test-results.json
+```

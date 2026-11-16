@@ -77,9 +77,9 @@ Shipfile.yml / CLI flags / env vars / .env file
   Action.run(with:context:)  →  ActionResultEnvelope (JSON-serializable)
 ```
 
-### Platform × BuildSystem
+### Platform × AppFramework
 
-`Platform` (`.ios` / `.android`) and `BuildSystem` (`.native` / `.flutter` / `.reactNative` / `.kmp`) are deliberately **orthogonal axes** in `ResolvedConfig`:
+`Platform` (`.ios` / `.android`) and `AppFramework` (`.native` / `.flutter` / `.reactNative` / `.kmp`) are deliberately **orthogonal axes** in `ResolvedConfig`:
 
 ```
                        iOS pipeline                     Android pipeline
@@ -100,8 +100,8 @@ Shipfile.yml / CLI flags / env vars / .env file
                        └────────────────────────────────────────────┘
 ```
 
-- `BuildSystem` controls **how the native artifact is compiled** — it is set per platform via `ios.build_system:` / `android.build_system:` (default `.native`).
-- `BuildAction`, `ArchiveAction`, and `TestAction` dispatch on `BuildSystem`; later distribution actions read artifact paths and stay unchanged.
+- `AppFramework` (from `MobileCore`, formerly `BuildSystem`) controls **how the native artifact is compiled** — it is set per platform via `ios.build_system:` / `android.build_system:` (default `.native`).
+- `BuildAction`, `ArchiveAction`, and `TestAction` dispatch on `AppFramework`; later distribution actions read artifact paths and stay unchanged.
 - For KMP iOS, build/archive actions run the Gradle framework-link task before `xcodebuild`, using simulator targets for local builds and device targets for archives.
 
 See `docs/configuration-reference.md#build-systems` for the user-facing reference and `docs/kmp-quickstart.md` for a worked KMP example.
@@ -727,7 +727,7 @@ ShipItSwifty does not ship with a built-in server. If a hosted service becomes n
 ## Test evidence and CI providers
 
 `ResultInspection` dispatches artifact formats independently from release `Platform` and
-`BuildSystem`. Normalized test cases retain typed rerun selectors and optional dimensions.
+`AppFramework`. Normalized test cases retain typed rerun selectors and optional dimensions.
 `TestEvidenceRecorder` serializes attempt allocation/writes; native Xcode orchestration retains
 shared build products and performs sequential plan/destination execution. `EvidenceExporter`
 creates portable manifests with relative evidence links and optional extraction diagnostics.

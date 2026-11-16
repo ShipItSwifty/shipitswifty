@@ -230,6 +230,21 @@ swift test --filter "TestActionTests/reactNativeClassifierMatchesWorkerFailure"
 swift test --filter "TestActionTests/schedulerBackoffAndJitter"
 ```
 
+### How classification works
+
+`InfrastructureRetryScheduler` wraps a whole test invocation and asks the platform's
+`InfrastructureFailureClassifier` (`IOS`, `IOSArchive`, `Android`, `Flutter`, `ReactNative`,
+`KMP`, `SwiftPM`) whether a failure's log is transient. Each classifier lists retryable
+patterns (simulator launch failures, CoreSimulator database locks, emulator disconnects,
+Gradle daemon loss, Flutter tool crashes, Jest worker OOM) and non-retryable ones (compile
+errors, missing signing, dependency resolution, assertion failures). Non-retryable patterns
+win. The KMP classifier delegates to the iOS and Android ones.
+
+Delays grow exponentially with ±25% jitter, capped at `max_delay_seconds`:
+`delay_n = min(initial × 2^(n-1) × random(0.75, 1.25), max_delay)`. Defaults: 3 attempts,
+2 s initial delay, 60 s cap. Retries are opt-in: the `infrastructure_retry` block enables
+them. Scope is per destination on iOS, per Gradle task on Android, and per invocation elsewhere.
+
 ### Testing with infrastructure retry enabled
 
 ```swift
@@ -435,6 +450,46 @@ Original artifacts preserve additional runner metrics beyond the normalized line
 Test steps expose `{{test_output_directory}}`, `{{test_report_path}}`, and
 `{{test_result_bundle}}` when produced. SwiftPM steps also expose `{{coverage_path}}`.
 Use these paths in later steps or artifact declarations instead of guessing output names.
+
+## Test workflow contracts
+
+Rules every change to test execution, results or reporting must keep:
+
+- `test_workflow` selects the default named workflow for `shipit test`; `--workflow` selects explicitly.
+- Packages use `swift-test` for tests and `swift-format` for lint. A package that imports UIKit without a
+  guard cannot run under `swift test`; `ProjectInspector` detects it and the suggester emits a `test` step with
+  the scheme Xcode generates (the package name, or `<name>-Package` with several products).
+- Native iOS builds for testing once into `.xctestproducts`, then writes separate per-plan/destination result
+  bundles. `test_plans` groups compatible target sets; `legacy_combined_test` keeps the old single invocation.
+- A simulator clone failure falls back serially once per destination without rebuilding. Ordinary assertion
+  failures never trigger that fallback.
+- Infrastructure and selective-rerun budgets are separate. SwiftPM reruns skip building. Recovered tests pass and
+  stay marked flaky.
+- Every attempt keeps its logs and native artifacts. Steps may declare `artifacts` (`name`, `paths`,
+  `retention_days`); `ci export` turns them into always-upload steps. `{{run_id}}` scopes top-level output paths.
+- `ci report` and `ci issues` own the GitHub-facing policy (summary, annotations, verdict, issues) in
+  `Sources/ShipItKit/GitHub/`; the `actions/test` action only wires them to a runner. A test's identity for issue
+  dedupe is `TestFingerprint` (runner + plan + the runner's own selector), never `stableID`, whose
+  `plan-N:destination-N:` prefix is positional.
+- `continue_on_failure` is opt-in for independent checks and still leaves the workflow failed.
+- Results keep `runner` (`xcodebuild`, `gradle`, `swift-test`, `flutter-test`, `jest`), `buildSystem`
+  (native/kmp/flutter/react_native) and `destinations` (`platform`, `kind`, `name`, `scope`) apart; tests point at
+  one by `destinationID`. Never put a framework in a platform field. Unknown values decode as `other`.
+  `TestRunReport` is schema version 2.
+- `report.json` always describes the whole run; an unfinished run gets a provisional report from the reconciled
+  attempts plus one `errored`. Exiting 0 with no results fails (Flutter, KMP, Android) unless Gradle reported
+  `NO-SOURCE` / `SKIPPED` for that exact task. Saving evidence is best effort and never replaces an outcome.
+- Prefer explicit `test-results --input` for saved artifacts. Export into a new directory, preserving original
+  evidence and relative index links.
+- Coverage reads SwiftPM LLVM JSON, LCOV (pass `runner`, since the file doesn't say which) and JaCoCo/Kover XML.
+  Gates can filter source roots and previews; zero executable lines fail a gate.
+- Android instrumented runs claim devices through `DeviceClaimStore`, hold the claim through teardown, and scope
+  resets, `ANDROID_SERIAL` and evidence to those serials. Connected discovery skips occupied devices; explicit
+  named emulators refuse them. Managed devices keep Gradle lifecycle ownership.
+- Simulator claims share Amoo's lease format. Never reap another tool's lease or erase an already booted simulator;
+  tear down only devices the run booted.
+- This repo's `Shipfile.yml` defines `format`, `ci-macos`, `ci-linux`, `fixtures` and `integration-advisory`.
+  Keep their exclusions, the advisory integration policy, and the separate initial coverage upload for Codecov.
 
 ## Verifying against real projects
 

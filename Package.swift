@@ -69,7 +69,6 @@ let package = Package(
                 .product(name: "XcodeGenKit", package: "cli-wrappers"),
                 .product(name: "XcrunKit", package: "cli-wrappers"),
                 .product(name: "SwiftyShell", package: "SwiftyShell"),
-                .product(name: "ArgumentParser", package: "swift-argument-parser"),
                 .product(name: "AppStoreConnectKit", package: "app-store-connect-mcp"),
                 .product(name: "AppStoreConnectUploadKit", package: "app-store-connect-mcp"),
                 .product(name: "GoogleAuthKit", package: "google-play-store-mcp"),

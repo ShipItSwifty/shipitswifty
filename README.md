@@ -42,7 +42,7 @@ brew tap shipitswifty/tap
 brew install shipit
 ```
 
-Until then, build from source:
+Or build from source:
 
 ```bash
 git clone https://github.com/shipitswifty/shipitswifty

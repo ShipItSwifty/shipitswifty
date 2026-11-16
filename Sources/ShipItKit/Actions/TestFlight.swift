@@ -175,7 +175,7 @@ public struct TestFlightAction: Action {
 
     private func waitForProcessing(buildID: String, context: ActionContext) async throws -> Bool {
         let maxAttempts = 60
-        let delaySeconds: UInt64 = 30
+        let delaySeconds = 30
 
         for attempt in 1...maxAttempts {
             logger.debug("Checking build processing status (attempt \(attempt)/\(maxAttempts))")
@@ -193,13 +193,13 @@ public struct TestFlightAction: Action {
                     throw ShipItError.uploadFailed(asset: buildID, reason: "Build processing failed: INVALID state")
                 case "PROCESSING":
                     logger.debug("Build still processing... waiting \(delaySeconds)s")
-                    try await Task.sleep(nanoseconds: delaySeconds * 1_000_000_000)
+                    try await Task.sleep(for: .seconds(delaySeconds))
                 default:
                     logger.debug("Build state: \(state)")
-                    try await Task.sleep(nanoseconds: delaySeconds * 1_000_000_000)
+                    try await Task.sleep(for: .seconds(delaySeconds))
                 }
             } else {
-                try await Task.sleep(nanoseconds: delaySeconds * 1_000_000_000)
+                try await Task.sleep(for: .seconds(delaySeconds))
             }
         }
 

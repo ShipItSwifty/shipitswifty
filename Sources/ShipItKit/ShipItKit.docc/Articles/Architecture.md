@@ -72,7 +72,7 @@ See <doc:ConfigurationReference> for every key.
 
 For tests, ``ActionContext/mock(executor:versioningSource:platform:)`` wires up a `MockExecutor` so no real processes spawn. See <doc:TestingWithMocks>.
 
-#### Platform × BuildSystem orthogonality
+#### Platform × AppFramework orthogonality
 
 ``Platform`` and `AppFramework` (MobileCore) are independent axes. ``Platform`` selects the distribution pipeline (iOS vs Android); `AppFramework` (MobileCore) selects how the native artifact is compiled (`native`, `kmp`, `flutter` 🚧, `react_native` 🚧). ``BuildAction``, ``ArchiveAction``, and ``TestAction`` dispatch on `AppFramework` (MobileCore) because they invoke compile/test tools. Later actions (``SignAction``, ``ExportAction``, ``TestFlightAction``, ``PlayStoreAction``, ``UploadAction``, ``DsymAction``, and ``FrameAction``) consume artifact paths and stay unchanged across build systems. See <doc:KMPIntegration>.
 
