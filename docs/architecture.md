@@ -111,19 +111,34 @@ See `docs/configuration-reference.md#build-systems` for the user-facing referenc
 ## Package dependencies
 
 ```swift
-// swift-tools-version: 6.0
+// swift-tools-version: 6.2
 // platforms: [.macOS(.v15)]
 // swiftLanguageModes: [.v6]
 
 dependencies: [
-    .package(url: "https://github.com/maniramezan/SwiftyShell.git", from: "0.5.0"), // shell execution
+    // Shell execution
+    .package(url: "https://github.com/maniramezan/SwiftyShell.git", from: "0.7.0"),
+    // Prompts, menus, spinners and formatted output (tracks main until 0.1.0)
+    .package(url: "https://github.com/maniramezan/SwiftyTerminal.git", branch: "main"),
+    // Typed tool wrappers (tracks main until 1.0)
+    .package(url: "https://github.com/ShipItSwifty/cli-wrappers.git", branch: "main"),
+    // Build, device, test and inspection mechanisms shared with Amoo (tracks main until 1.0)
+    .package(url: "https://github.com/ShipItSwifty/mobile-kits.git", branch: "main"),
+    // DocC
+    .package(url: "https://github.com/swiftlang/swift-docc-plugin", from: "1.5.0"),
     .package(url: "https://github.com/apple/swift-argument-parser", from: "1.7.1"),
-    .package(url: "https://github.com/ShipItSwifty/app-store-connect-mcp.git", from: "0.1.6"), // App Store Connect + Xcode Cloud client (ES256 JWT lives here)
-    .package(url: "https://github.com/ShipItSwifty/google-play-store-mcp.git", from: "0.1.3"), // Google service-account auth + Google Play Developer API
-    .package(url: "https://github.com/jpsim/Yams", from: "6.2.1"),          // YAML config
-    .package(url: "https://github.com/apple/swift-crypto", from: "4.4.0"),  // code signing
-    .package(url: "https://github.com/apple/swift-log", from: "1.12.0"),    // logging
-    .package(url: "https://github.com/swiftlang/swift-docc-plugin", from: "1.5.0"), // DocC
+    // App Store Connect + Xcode Cloud client (ES256 JWT lives here)
+    .package(url: "https://github.com/ShipItSwifty/app-store-connect-mcp.git", from: "0.3.0"),
+    // Google service-account auth + Google Play Developer API
+    .package(url: "https://github.com/ShipItSwifty/google-play-store-mcp.git", from: "0.2.1"),
+    // YAML config
+    .package(url: "https://github.com/jpsim/Yams", from: "6.2.1"),
+    // Code signing
+    .package(url: "https://github.com/apple/swift-crypto", from: "5.1.1"),
+    // Logging
+    .package(url: "https://github.com/apple/swift-log", from: "1.12.0"),
+    // Shared test helpers (test targets only)
+    .package(url: "https://github.com/maniramezan/SwiftTestCommons.git", from: "0.3.0"),
 ]
 ```
 
