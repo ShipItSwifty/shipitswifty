@@ -1,10 +1,6 @@
 import Foundation
 import MobileCore
 
-#if canImport(ArgumentParser)
-import ArgumentParser
-#endif
-
 public enum SchemaValueKind: String, Codable, Sendable, Hashable {
     case any
     case string
@@ -437,10 +433,6 @@ public enum SuggestionGoal: String, Codable, Sendable, CaseIterable {
     case beta
     case release
 }
-
-#if canImport(ArgumentParser)
-extension SuggestionGoal: ExpressibleByArgument {}
-#endif
 
 public struct SuggestedShipfile: Codable, Sendable, Hashable {
     public struct MissingValue: Codable, Sendable, Hashable {
