@@ -57,6 +57,7 @@ A few things that keep the codebase consistent — not hard rules, but good defa
 
 - **Swift 6 strict concurrency.** All public types are `Sendable`, all async work is structured. The compiler enforces most of this for you.
 - **Shell execution goes through SwiftyShell**, not `Foundation.Process`.
+- **Terminal UX comes from [SwiftyTerminal](https://github.com/maniramezan/SwiftyTerminal)** (colors, prompts, menus, spinners, progress), shared with Amoo. Add new terminal UX there rather than in `Sources/CLI`.
 - **App Store Connect calls go through `AppStoreConnectClient`**, not raw `URLSession`.
 - **One `Action` per file** in `Sources/ShipItKit/Actions/`; one `Command` per file in `Sources/CLI/Commands/`.
 - **Tests use Swift Testing** (`@Test`, `#expect`, `#require`) where possible.

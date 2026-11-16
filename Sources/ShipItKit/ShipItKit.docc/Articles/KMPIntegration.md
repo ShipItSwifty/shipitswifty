@@ -11,7 +11,7 @@ Kotlin Multiplatform (KMP) projects produce two artifacts from one source tree: 
 | ``Platform`` | `.ios` / `.android` | invocation (`--platform`) | which side of the distribution pipeline to run |
 | `AppFramework` (MobileCore) | `.native` / `.kmp` / `.flutter` / `.reactNative` | `ios.build_system:` / `android.build_system:` | how the native artifact is compiled before distribution |
 
-A native iOS project is `Platform.ios` + `BuildSystem.native`. A KMP project is `Platform.ios` (or `.android`) + `BuildSystem.kmp`. ``BuildAction``, ``ArchiveAction``, and ``TestAction`` dispatch on `AppFramework` (MobileCore) because they compile or validate target artifacts. Later distribution actions (``SignAction``, ``ExportAction``, ``TestFlightAction``, ``PlayStoreAction``, ``UploadAction``) remain artifact-path driven.
+A native iOS project is `Platform.ios` + `AppFramework.native`. A KMP project is `Platform.ios` (or `.android`) + `AppFramework.kmp`. ``BuildAction``, ``ArchiveAction``, and ``TestAction`` dispatch on `AppFramework` (MobileCore) because they compile or validate target artifacts. Later distribution actions (``SignAction``, ``ExportAction``, ``TestFlightAction``, ``PlayStoreAction``, ``UploadAction``) remain artifact-path driven.
 
 ## How the iOS path works
 
@@ -28,7 +28,7 @@ The Gradle link task is incremental — re-running it on an unchanged shared mod
 
 ## How the Android path works
 
-The KMP Android target is a regular Android Gradle module. ``BuildAction`` and ``ArchiveAction`` dispatch to the same code that drives `BuildSystem.native` Android builds: `gradlew :<module>:assembleRelease` for APKs, `gradlew :<module>:bundleRelease` for AABs.
+The KMP Android target is a regular Android Gradle module. ``BuildAction`` and ``ArchiveAction`` dispatch to the same code that drives `AppFramework.native` Android builds: `gradlew :<module>:assembleRelease` for APKs, `gradlew :<module>:bundleRelease` for AABs.
 
 ## Versioning
 
@@ -108,7 +108,7 @@ When `build_system` is omitted, ``ConfigResolver`` activates KMP, Flutter, or Re
 
 For Flutter and React Native usage, see <doc:FlutterAndReactNative>.
 
-The same `BuildSystem` value applies to both iOS and Android in a single project — you cannot have an iOS KMP wrapper alongside a native Android Gradle module from the same Shipfile; that's two projects.
+The same `AppFramework` value applies to both iOS and Android in a single project — you cannot have an iOS KMP wrapper alongside a native Android Gradle module from the same Shipfile; that's two projects.
 
 ## CI requirements
 

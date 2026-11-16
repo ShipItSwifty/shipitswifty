@@ -227,7 +227,7 @@ public enum AISkillsCatalog {
                `shipit validate yml` enforces both.
             4. Invoke it from a workflow exactly like a built-in: `- action: <custom_name>`.
 
-            Full detail: AGENTS.md "Custom actions (composite workflow steps)"
+            Full detail: docs/configuration-reference.md "custom_actions"
             """
     )
 }

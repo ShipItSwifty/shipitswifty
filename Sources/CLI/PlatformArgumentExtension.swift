@@ -7,3 +7,6 @@ import ShipItKit
 ///
 /// Enables `--platform ios` and `--platform android` on all CLI commands.
 extension Platform: ExpressibleByArgument {}
+
+/// Makes `SuggestionGoal` usable as `--goal` and `--workflow` values.
+extension SuggestionGoal: ExpressibleByArgument {}
