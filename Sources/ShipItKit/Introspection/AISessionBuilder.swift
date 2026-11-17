@@ -724,7 +724,7 @@ public struct AISessionBuilder: Sendable {
                     "`android:` Shipfile blocks so ShipIt uses the correct CLI for each platform.",
                     "Build, test, lint, archive, and distribution actions all dispatch on `build_system` automatically.",
                     "For Flutter, versioning defaults to `versioning.source: pubspec` — pubspec.yaml's `version: X.Y.Z+B` is the",
-                    "single source of truth (`flutter build` stamps the native projects from it). Do NOT use `xcodeproj` or",
+                    "single source of truth (`flutter build` stamps the native projects from it). Don't use `xcodeproj` or",
                     "`gradle` versioning sources on a Flutter project; the next `flutter build` overwrites those values.",
                     "Flutter iOS archive produces an IPA directly (no separate export step needed).",
                     "React Native iOS archive uses `xcodebuild archive` + export, same as native.",
@@ -751,7 +751,7 @@ public struct AISessionBuilder: Sendable {
                     "",
                     "The default Android beta workflow is: lint → test → archive (bundleRelease) → validate bundle → play-store.",
                     "When the workflow includes Android instrumented tests, prefer explicit `devices` config so ShipIt can boot the intended AVD locally (`strategy: named_emulators`) or use Gradle Managed Devices in CI. On local interactive runs, ShipIt can fall back to prompting for another available AVD when the configured one is unavailable.",
-                    "The `track` option is REQUIRED on the play-store step (e.g. options: { track: internal }). Valid tracks: internal, alpha, beta, production.",
+                    "The `track` option is required on the play-store step (e.g. options: { track: internal }). Valid tracks: internal, alpha, beta, production.",
                     "validate_bundle auto-discovers the conventional AAB path for native Gradle, Flutter, and React Native projects when no explicit path is provided.",
                     "Google Play credentials (GOOGLE_PLAY_SERVICE_ACCOUNT_JSON) are required for Play Store upload.",
                     "Android signing requires SHIPIT_ANDROID__KEYSTORE_PATH, SHIPIT_ANDROID__KEYSTORE_PASSWORD, SHIPIT_ANDROID__KEY_ALIAS, SHIPIT_ANDROID__KEY_PASSWORD.",
@@ -761,12 +761,9 @@ public struct AISessionBuilder: Sendable {
                 lines += [
                     "",
                     "The Android release workflow targets the production track on Google Play (options: { track: production }).",
-                    "The `track` option is REQUIRED on every play-store step. Valid tracks: internal, alpha, beta, production.",
+                    "The `track` option is required on every play-store step. Valid tracks: internal, alpha, beta, production.",
                     "Staged rollout is supported via android.rollout_fraction (0.0–1.0) in Shipfile.yml.",
                     "",
-                    "Tag the released version inside the workflow — do NOT compute it with external shell/jq glue.",
-                    "After the `version` step, later steps can reference `{{version}}` and `{{build_number}}` in their options (e.g. git tag_name: \"v{{version}}\").",
-                    "Gate the `git` tag step with `when: \"{{version_changed}}\"` so build-only bumps don't re-tag the same version.",
                     "Use `bump: ${RELEASE_BUMP}` on the version step to drive the bump component (major|minor|patch|build) from CI.",
                 ]
             }
@@ -819,7 +816,7 @@ public struct AISessionBuilder: Sendable {
                     "    versioning.source: xcconfig      (rewrites only the named keys in the .xcconfig, preserving $(VAR) indirection)",
                     "    versioning.spec_path: Config/Version.xcconfig",
                     "    versioning.marketing_key / build_key: the .xcconfig variable names (e.g. JOT_MARKETING_VERSION / JOT_BUILD_NUMBER)",
-                    "    Do NOT use versioning.source: xcodeproj here — it stamps literal values into the pbxproj and breaks the $(VAR) indirection.",
+                    "    Don't use versioning.source: xcodeproj here — it stamps literal values into the pbxproj and breaks the $(VAR) indirection.",
                     "",
                     "Project generation (XcodeGen / Tuist / other spec-driven tools):",
                     "  When project_generation.tool is set in Shipfile.yml, ShipItSwifty auto-generates the .xcodeproj",
@@ -833,8 +830,8 @@ public struct AISessionBuilder: Sendable {
                     "  (highest OS version, preferring Pro models). This eliminates manual simulator configuration",
                     "  for most projects.",
                     "",
-                    "The default beta workflow is LOCAL-ONLY: version → archive → export.",
-                    "App Store Connect credentials are NOT required for local-only beta.",
+                    "The default beta workflow is local-only: version → archive → export.",
+                    "App Store Connect credentials are not required for local-only beta.",
                     "Only ask about ASC credentials (ASC_KEY_ID, ASC_ISSUER_ID, ASC_PRIVATE_KEY_PATH) after",
                     "the user confirms they want to upload to TestFlight.",
                 ]
@@ -847,10 +844,6 @@ public struct AISessionBuilder: Sendable {
                     "",
                     "  For XcodeGen / spec-driven projects, use versioning.source: project_spec",
                     "  or the `target: source_of_truth` option on the version step to write to the spec file.",
-                    "",
-                    "Tag the released version inside the workflow — do NOT compute it with external shell/jq glue.",
-                    "After the `version` step, later steps can reference `{{version}}` and `{{build_number}}` in their options (e.g. git tag_name: \"v{{version}}\").",
-                    "Gate the `git` tag step with `when: \"{{version_changed}}\"` so build-only bumps don't re-tag the same version.",
                 ]
             }
         }
@@ -983,6 +976,7 @@ public struct AISessionBuilder: Sendable {
             "  prior `version` step (or the current versioning source); `{{version_changed}}` is `true`/`false`.",
             "  Use these to tag the released version inside the workflow (git tag_name: \"v{{version}}\",",
             "  when: \"{{version_changed}}\") instead of capturing the version with external shell/jq glue.",
+            "  Gating on `{{version_changed}}` keeps build-only bumps from re-tagging the same version.",
         ]
         if !customActions.isEmpty {
             lines.append("  Defined in this project:")
